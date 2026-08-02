@@ -271,6 +271,10 @@
             <select id="routeType"><option value="">— เลือก —</option><option>ขาขึ้น</option><option>ขาล่อง</option></select></div>
         </div>
         <div class="grid3">
+          <div class="field"><label for="branch">สาขา</label><select id="branch"></select></div>
+          <div class="field"><label for="plate">เลขทะเบียนรถ</label><input id="plate" type="text" placeholder="เช่น 70-1234 เชียงใหม่"></div>
+        </div>
+        <div class="grid3">
           <div class="field"><label for="origin">เส้นทาง · ต้นทาง</label><select id="origin"></select></div>
           <div class="field"><label for="dest">ปลายทาง</label><select id="dest"></select></div>
           <div class="field"><label for="distance">ระยะทาง <span style="color:var(--ink-faint);font-weight:400">· เติมอัตโนมัติ/แก้เองได้</span></label>
@@ -417,7 +421,7 @@
         <div class="scroll">
           <table class="rec-table">
             <thead><tr>
-              <th>เลขที่ใบรายการ</th><th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
+              <th>เลขที่ใบรายการ</th><th>สาขา</th><th>ทะเบียนรถ</th><th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
               <th class="num">รายได้</th><th class="num">ต้นทุนรวม</th><th class="num">สูญเปล่า</th><th class="num">กำไร/ขาดทุน</th><th>สถานะ</th><th>แก้ไข</th>
             </tr></thead>
             <tbody id="recBody"></tbody>
@@ -494,6 +498,9 @@ const BASE_PRICES = [
   ["2026-05-01",41.33],["2026-05-08",40.48],["2026-05-13",41.28],["2026-05-14",41.98],
   ["2026-05-19",42.73],["2026-05-26",41.73],["2026-05-30",41.23],["2026-06-04",42.03]
 ];
+// สาขา (เรียงตามตัวอักษรไทย)
+const BRANCHES = ["เชียงราย","เชียงใหม่","ตลาดไท","ท่าลี่","ฝาง","พะเยา","พุทธมณฑลสาย 2","พุทธมณฑลสาย 5",
+  "แพร่","มหาชัย","แม่สาย","ร่มเกล้า","ราชบุรี","ลำปาง","เวียงป่าเป้า","สี่แยกมหานาค"];
 const RATES = [
   ["รถเทรเลอร์",0.34602],["รถ 10 ล้อตู้เย็น",0.27027],["รถ 12 ล้อตู้เย็น",0.27027],
   ["รถ 10 ล้อตู้แห้ง",0.25],["รถ 10 ล้อสั้น",0.25],["รถ 10 ล้อยาว",0.25],
@@ -578,6 +585,7 @@ function getDateStr(){ const d=parseInt(ddI.value,10),m=+mmS.value,y=+yyS.value;
   if(!d||d<1||d>31||!m||!y) return ""; return `${y}-${pad(m)}-${pad(d)}`; }
 
 const veh=$("vehicle"), org=$("origin"), dst=$("dest");
+$("branch").innerHTML='<option value="">— เลือกสาขา —</option>'+BRANCHES.map(b=>`<option>${b}</option>`).join("");
 veh.innerHTML='<option value="">— เลือกชนิดรถ —</option>'+RATES.map((r,i)=>`<option value="${i}">${r[0]}</option>`).join("");
 const ORIGINS=Object.keys(ROUTES).sort((a,b)=>a.localeCompare(b,"th"));
 org.innerHTML='<option value="">— เลือกต้นทาง —</option>'+ORIGINS.map(o=>`<option>${o}</option>`).join("");
@@ -708,7 +716,7 @@ function setBusy(busy,text){
 
 function recordToRow(r){
   const p=recPayInfo(r), bs=recBills(r);
-  return [ r.id, thDateSafe(r.date), r.docNo||"", r.routeType||"", r.origin||"", r.dest||"", r2(r.dist),
+  return [ r.id, thDateSafe(r.date), r.docNo||"", r.branch||"", r.plate||"", r.routeType||"", r.origin||"", r.dest||"", r2(r.dist),
     r.fleetType||"", r.vehicle||"", r2(r.price), r2(r.liters), r2(r.gas), r2(r.fuelTravel), r.fuelSrc||"",
     r2(r.fuelPickup), r2(r.drv), r2(r.spare), r2(r.snd),
     r2(r.feeTarp), r2(r.feePolice), r2(r.feeCont), r2(r.feePort), r2(r.feeDoc), r2(r.feeToll),
@@ -774,9 +782,9 @@ function msg(el,text,color){ const e=$(el); e.textContent=text; e.style.color=co
   setTimeout(()=>{ if(e.textContent===text) e.textContent=""; },6000); }
 
 function resetDefaults(){
-  ["dd","docNo","distance","gas","fuelTravel","fuelPickup","fuelOff","drv","spare","snd","laborOff",
+  ["dd","docNo","plate","distance","gas","fuelTravel","fuelPickup","fuelOff","drv","spare","snd","laborOff",
    "feeTarp","feePolice","feeCont","feePort","feeDoc","feeToll","revenue"].forEach(id=>$(id).value="");
-  mmS.value=""; yyS.value=""; $("routeType").value=""; $("fleetType").value="";
+  mmS.value=""; yyS.value=""; $("routeType").value=""; $("branch").value=""; $("fleetType").value="";
   org.value=""; fillDests(); dst.value=""; veh.value=""; updateRepNote();
   fuelManualOn.checked=false; fuelTravelI.disabled=true; fuelTravelI.placeholder="อัตโนมัติ";
   lastCalc=null; $("detailBox").style.display="none";
@@ -797,7 +805,8 @@ function buildRecord(){
   const revenue=num("revenue");
   const vi=parseInt(veh.value,10);
   return {
-    date:getDateStr(), docNo:$("docNo").value.trim(), routeType:$("routeType").value,
+    date:getDateStr(), docNo:$("docNo").value.trim(), branch:$("branch").value, plate:$("plate").value.trim(),
+    routeType:$("routeType").value,
     fleetType:$("fleetType").value, vehicle:(!isNaN(vi)&&RATES[vi])?RATES[vi][0]:"",
     origin:org.value, dest:dst.value, dist:num("distance"),
     ...lastCalc, revenue, profit:revenue-lastCalc.normal-lastCalc.waste,
@@ -821,7 +830,8 @@ function loadRecordToForm(idx){
   const r=RECORDS[idx];
   if(r.date){ const [y,m,d]=r.date.split("-"); ddI.value=+d; mmS.value=+m; yyS.value=+y; }
   else { ddI.value=""; mmS.value=""; yyS.value=""; }
-  $("docNo").value=r.docNo||""; $("routeType").value=r.routeType||""; $("fleetType").value=r.fleetType||"";
+  $("docNo").value=r.docNo||""; $("branch").value=r.branch||""; $("plate").value=r.plate||"";
+  $("routeType").value=r.routeType||""; $("fleetType").value=r.fleetType||"";
   const vi=RATES.findIndex(x=>x[0]===r.vehicle); veh.value=vi>=0?vi:"";
   org.value=r.origin||""; fillDests(); dst.value=r.dest||"";
   $("distance").value=r.dist||"";
@@ -845,14 +855,17 @@ function renderRecords(){
   let shown=0;
   RECORDS.forEach((r,i)=>{
     const route=(r.origin&&r.dest)?`${r.origin}→${r.dest}`:"–";
-    if(q && !((r.docNo||"").toLowerCase().includes(q) || route.toLowerCase().includes(q))) return;
+    if(q && !((r.docNo||"").toLowerCase().includes(q) || route.toLowerCase().includes(q)
+      || (r.branch||"").toLowerCase().includes(q) || (r.plate||"").toLowerCase().includes(q))) return;
     shown++;
     const tr=document.createElement("tr");
     if(i===editingIndex) tr.classList.add("editing");
     const badge=r.fleetType?`<span class="badge ${r.fleetType==="รถบริษัท"?"b1":"b2"}">${r.fleetType}</span>`:"–";
     const dot=`<span class="sdot on" title="อยู่ในสเปรดชีตแล้ว"></span>`;
     tr.innerHTML=
-      `<td class="doc">${dot}${r.docNo||"–"}</td><td>${thDateSafe(r.date)}</td>`+
+      `<td class="doc">${dot}${r.docNo||"–"}</td>`+
+      `<td>${esc(r.branch||"–")}</td><td>${esc(r.plate||"–")}</td>`+
+      `<td>${thDateSafe(r.date)}</td>`+
       `<td>${route}${r.routeType?` <span style="color:var(--ink-faint);font-size:11px">(${r.routeType})</span>`:""}</td>`+
       `<td>${badge}</td><td>${r.vehicle||"–"}</td>`+
       `<td class="num">${fmt(r.revenue,0)}</td>`+
@@ -976,7 +989,7 @@ function buildDetailRow(r,recIdx){
   const tr=document.createElement("tr");
   tr.className="detail-row";
   const td=document.createElement("td");
-  td.colSpan=11;
+  td.colSpan=13;
   const bs=recBills(r);
   if(!bs.length){
     td.innerHTML=`<div class="detail-title">รายละเอียดลูกหนี้ (ใบ ${esc(r.docNo||"–")})</div>`+
