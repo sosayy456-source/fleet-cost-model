@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>โมเดลต้นทุน · บันทึกลง Google Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F3F4F6; --card:#FFFFFF; --border:#E7E9ED; --border-strong:#DADDE2;
+    --ink:#232833; --ink-soft:#6B7280; --ink-faint:#9AA1AC;
+    --orange:#F5821F; --orange-dark:#DC6E11; --orange-soft:#FFF2E6; --orange-line:#F6D3B0;
+    --navy:#1E2A46; --navy-2:#28365A; --navy-line:#33436C;
+    --green:#1FA971; --green-soft:#E4F5EC; --green-line:#BEE7D2;
+    --red:#E24B4B; --blue:#3672C4; --blue-soft:#E7EEF9; --blue-line:#CFDDF3;
+    --gold:#F6C042;
+    --shadow:0 1px 2px rgba(20,22,28,.04), 0 4px 16px rgba(20,22,28,.05);
+    --sidew:224px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans Thai',system-ui,sans-serif;background:var(--bg);color:var(--ink);
+    -webkit-font-smoothing:antialiased;line-height:1.55;min-height:100vh}
+
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidew);z-index:30;background:var(--navy);
+    display:flex;flex-direction:column;padding:20px 0}
+  .brand{padding:0 20px 18px;border-bottom:1px solid var(--navy-line);margin-bottom:14px}
+  .brand .row{display:flex;align-items:center;gap:9px}
+  .brand .nm{color:#fff;font-size:18px;font-weight:800;letter-spacing:-.2px}
+  .brand .demo{background:var(--gold);color:#4A3608;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+  .brand .sub{color:#9AA6C4;font-size:12.5px;margin-top:3px}
+  .nav{display:flex;flex-direction:column;gap:2px;padding:0 10px}
+  .navitem{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:9px;cursor:pointer;
+    color:#C4CCE0;font-size:14.5px;font-weight:600;border:none;background:transparent;width:100%;text-align:left;transition:.15s}
+  .navitem:hover{background:rgba(255,255,255,.06);color:#fff}
+  .navitem.active{background:var(--navy-2);color:#fff}
+  .navitem svg{width:19px;height:19px;flex:none} .navitem .plus{color:var(--orange)}
+
+  .app{margin-left:var(--sidew);padding:26px 30px 60px;max-width:1240px}
+  .page-h{margin-bottom:18px}
+  .page-h h1{font-size:23px;font-weight:800;letter-spacing:-.3px}
+  .page-h p{color:var(--ink-soft);font-size:13.5px;margin-top:3px}
+  .view{display:none} .view.active{display:block}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:var(--shadow);margin-bottom:18px}
+  .card-h{display:flex;align-items:center;gap:9px;margin-bottom:18px}
+  .card-h .step{width:26px;height:26px;border-radius:8px;background:var(--orange);color:#fff;
+    font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}
+  .card-h h2{font-size:16.5px;font-weight:700}
+  .card-h .hint{margin-left:auto;font-size:12px;color:var(--ink-faint);font-weight:500}
+
+  h3.grp{font-size:13.5px;font-weight:700;color:var(--orange-dark);margin:16px 0 10px;display:flex;align-items:center;gap:7px}
+  h3.grp.waste{color:#B0641F}
+  h3.grp .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+  label{display:block;font-size:13px;font-weight:500;color:var(--ink-soft);margin:0 0 6px}
+  .field{margin-bottom:15px}
+  select,input{width:100%;font-family:inherit;font-size:14.5px;color:var(--ink);background:#fff;
+    border:1px solid var(--border-strong);border-radius:9px;padding:10px 13px;outline:none;transition:.15s}
+  select{appearance:none;cursor:pointer;padding-right:36px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239AA1AC' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center}
+  select:focus,input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(245,130,31,.14)}
+  input:disabled{background:#F4F5F7;color:var(--ink-faint);cursor:not-allowed}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}}
+  .input-suffix{position:relative}
+  .input-suffix .unit{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--ink-faint);font-size:12.5px;pointer-events:none}
+  .input-suffix input{padding-right:48px}
+  .dmy{display:grid;grid-template-columns:.7fr 1.1fr 1fr;gap:9px}
+
+  .route-line{display:flex;align-items:center;gap:10px;background:var(--orange-soft);border:1px solid var(--orange-line);
+    border-radius:10px;padding:10px 14px;margin-bottom:15px;font-size:14px;font-weight:600;color:var(--orange-dark)}
+  .route-line .pin{width:8px;height:8px;border-radius:50%;flex:none}
+  .route-line .pin.from{background:var(--green)} .route-line .pin.to{background:var(--orange)}
+  .route-line span[id]{flex:1}
+
+  .price-note{font-size:12.5px;color:var(--orange-dark);background:var(--orange-soft);border:1px solid var(--orange-line);
+    border-radius:8px;padding:7px 11px;line-height:1.5;margin-top:8px}
+  .price-note b{font-weight:700}
+  .chk{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink);margin:0 0 8px}
+  .chk input{width:17px;height:17px;flex:none;accent-color:var(--orange);cursor:pointer;padding:0}
+
+  .btn{font-family:inherit;font-weight:700;border:none;border-radius:10px;cursor:pointer;transition:.15s}
+  .btn-calc{width:100%;font-size:15px;color:#fff;background:var(--navy);padding:12px;box-shadow:0 2px 8px rgba(30,42,70,.25)}
+  .btn-calc:hover{background:var(--navy-2)}
+  .btn-save{font-size:15px;color:#fff;background:var(--orange);padding:12px 22px;box-shadow:0 2px 8px rgba(245,130,31,.3)}
+  .btn-save:hover{background:var(--orange-dark)}
+  .btn-green{font-size:13.5px;color:#fff;background:var(--green);padding:9px 16px;box-shadow:0 2px 6px rgba(31,169,113,.28)}
+  .btn-green:hover{background:#18915F}
+  .btn-ghost{font-size:13px;font-weight:600;color:var(--ink-soft);background:#fff;border:1px solid var(--border-strong);border-radius:9px;padding:9px 14px;cursor:pointer}
+  .btn-ghost:hover{background:#F6F7F9}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .save-row{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+
+  .edit-banner{display:none;align-items:center;gap:10px;background:var(--blue-soft);border:1px solid var(--blue-line);
+    color:var(--blue);font-size:13.5px;font-weight:600;padding:10px 14px;border-radius:10px;margin-bottom:16px}
+  .edit-banner .x{margin-left:auto;cursor:pointer;color:var(--blue);text-decoration:underline;font-weight:600}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px}
+  @media(max-width:860px){.kpis{grid-template-columns:1fr 1fr}}
+  @media(max-width:480px){.kpis{grid-template-columns:1fr}}
+  .kpi{border-radius:12px;padding:15px 17px;border:1px solid var(--border)}
+  .kpi.rev{background:var(--blue-soft);border-color:var(--blue-line)}
+  .kpi.normal{background:#F6F7F9}
+  .kpi.waste{background:#FBEFE2;border-color:#F1D8BE}
+  .kpi.profit{background:var(--green-soft);border-color:var(--green-line)}
+  .kpi.profit.loss{background:#FCE9E9;border-color:#F3CACA}
+  .kpi .lab{font-size:12px;color:var(--ink-soft);margin-bottom:5px;font-weight:500}
+  .kpi .big{font-size:23px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+  .kpi .big small{font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-left:3px}
+  .kpi.rev .big{color:var(--blue)} .kpi.normal .big{color:var(--ink)}
+  .kpi.waste .big{color:#B0641F} .kpi.profit .big{color:var(--green)} .kpi.profit.loss .big{color:var(--red)}
+
+  .result{background:#FAFBFC;border:1px solid var(--border);border-radius:12px;padding:15px 18px;margin-top:16px}
+  .result-row{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;font-size:13.5px}
+  .result-row+.result-row{border-top:1px dashed var(--border)}
+  .result-row .k{color:var(--ink-soft)} .result-row .v{font-weight:600;font-variant-numeric:tabular-nums}
+
+  .rec-bar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  .searchbox{position:relative;flex:1;max-width:420px;min-width:200px}
+  .searchbox input{padding-left:36px;background:#fff}
+  .searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--ink-faint)}
+  .rec-card{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  .rec-table thead th{background:var(--navy);color:#fff;font-weight:600;font-size:12px;padding:12px 12px;text-align:left;white-space:nowrap}
+  .rec-table td{padding:12px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
+  .rec-table tbody tr:last-child td{border-bottom:none}
+  .rec-table tbody tr:hover td{background:#FBFAF8}
+  .rec-table tbody tr.editing td{background:var(--blue-soft)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .doc{font-weight:700}
+  .sdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#CBD2DB;margin-right:7px;vertical-align:middle}
+  .sdot.on{background:var(--green)}
+  .badge{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 11px;border-radius:20px}
+  .badge.b1{background:var(--blue-soft);color:var(--blue)}
+  .badge.b2{background:var(--green-soft);color:var(--green)}
+  .badge.paid{background:var(--green-soft);color:var(--green)}
+  .badge.unpaid{background:#FCE9E9;color:var(--red)}
+  .badge.partial{background:#FFF3E0;color:#B0641F}
+  .badge.none{background:#F1F2F4;color:var(--ink-faint)}
+  .badge.clk{cursor:pointer;user-select:none;border:1px solid transparent}
+  .badge.clk:hover{filter:brightness(.97);border-color:currentColor}
+  .badge.clk::after{content:" ▾";font-size:9px;opacity:.7}
+  tr.detail-row>td{background:#FAFBFC;padding:14px 16px;white-space:normal}
+  .detail-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px}
+  .subtable{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .subtable thead th{background:var(--navy);color:#fff;font-weight:600;font-size:11.5px;padding:9px 11px;text-align:left;white-space:nowrap}
+  .subtable td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}
+  .subtable tbody tr:last-child td{border-bottom:none}
+  .chip-ok{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--green-soft);color:var(--green)}
+  .chip-wait{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px;background:#FCE9E9;color:var(--red)}
+  .btn-undo{font-family:inherit;font-size:11.5px;font-weight:600;color:var(--red);background:#FCE9E9;border:1px solid #F3CACA;
+    border-radius:20px;padding:3px 11px;cursor:pointer;margin-left:6px}
+  .btn-undo:hover{background:#F8D7D7}
+  .btn-mini{font-family:inherit;font-size:11.5px;font-weight:700;color:#fff;background:var(--green);border:none;border-radius:8px;padding:5px 12px;cursor:pointer}
+  .btn-mini:hover{background:#18915F}
+  .nav-count{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:20px;padding:1px 7px;margin-left:2px}
+  .nav-count:empty{display:none}
+  /* bill rows */
+  .bill-row{display:grid;grid-template-columns:1fr 1.1fr 1.1fr .7fr .9fr 1.1fr 26px;gap:8px;align-items:center;margin-bottom:8px}
+  @media(max-width:820px){.bill-row{grid-template-columns:1fr 1fr;}}
+  .bill-row input,.bill-row select{padding:9px 11px;font-size:13.5px}
+  .bill-x{color:var(--red);cursor:pointer;font-weight:700;font-size:16px;padding:0 4px;text-align:center}
+  .bill-x:hover{color:#B62E2E}
+  .bill-head{display:grid;grid-template-columns:1fr 1.1fr 1.1fr .7fr .9fr 1.1fr 26px;gap:8px;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
+  @media(max-width:820px){.bill-head{display:none}}
+  .btn-pay{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12.5px;font-weight:600;color:#fff;background:var(--green);border:none;border-radius:8px;padding:6px 13px;cursor:pointer}
+  .btn-pay:hover{background:#18915F}
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(20,22,28,.45);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+  .modal{background:#fff;border-radius:16px;padding:22px;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .modal-h{font-size:17px;font-weight:800;margin-bottom:8px}
+  .modal-info{font-size:13px;color:var(--ink-soft);background:var(--surface,#FAFBFC);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:6px}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+  .profit-pos{color:var(--green);font-weight:700} .profit-neg{color:var(--red);font-weight:700}
+  .act{display:inline-flex;gap:6px;align-items:center}
+  .btn-edit{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12.5px;font-weight:600;color:#fff;
+    background:var(--orange);border:none;border-radius:8px;padding:6px 12px;cursor:pointer;transition:.15s}
+  .btn-edit:hover{background:var(--orange-dark)} .btn-edit svg{width:13px;height:13px}
+  .btn-del{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-strong);background:#fff;color:var(--red);
+    cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+  .btn-del:hover{background:#FCE9E9;border-color:#F3CACA} .btn-del svg{width:14px;height:14px}
+  .scroll{overflow-x:auto}
+  .rec-empty{color:var(--ink-faint);font-size:13.5px;padding:26px;text-align:center}
+  .msg{font-size:12.5px;min-height:18px;font-weight:600}
+
+  /* Google Sheet config */
+  .gs-config{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);margin-bottom:16px}
+  .gs-config summary{cursor:pointer;list-style:none;padding:14px 18px;font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:9px}
+  .gs-config summary::-webkit-details-marker{display:none}
+  .gs-config summary .chev{margin-left:auto;transition:.2s;color:var(--ink-faint)}
+  .gs-config[open] summary .chev{transform:rotate(180deg)}
+  .gs-inner{padding:0 18px 18px}
+  .gs-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .gs-row input{flex:1;min-width:220px}
+  .gs-status{font-size:12.5px;font-weight:600;margin-top:10px;min-height:16px}
+  .gs-steps{font-size:12px;color:var(--ink-soft);margin-top:14px;line-height:1.8;background:#FAFBFC;border:1px solid var(--border);border-radius:8px;padding:13px 15px}
+  .gs-steps b{color:var(--ink)} .gs-steps code{background:#EEF0F3;padding:1px 6px;border-radius:4px;font-size:11.5px}
+  .badge-conn{font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap}
+  .badge-conn.on{background:var(--green-soft);color:var(--green)} .badge-conn.off{background:#F1F2F4;color:var(--ink-faint)}
+
+  details.prices summary{cursor:pointer;list-style:none;font-weight:700;font-size:15px;display:flex;align-items:center;gap:9px}
+  details.prices summary::-webkit-details-marker{display:none}
+  details.prices summary .chev{margin-left:auto;transition:.2s;color:var(--ink-faint)}
+  details.prices[open] summary .chev{transform:rotate(180deg)}
+  .price-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#FAFBFC;
+    border:1px solid var(--border-strong);border-radius:10px;padding:10px;margin:14px 0 10px}
+  .price-add input,.price-add select{padding:8px 10px;font-size:13px}
+  .price-add #npDd{width:58px;flex:none}.price-add #npMm{width:88px;flex:none}.price-add #npYy{width:78px;flex:none}
+  .price-add .np-price{flex:1;min-width:96px}
+  .btn-add{font-family:inherit;font-size:13px;font-weight:600;color:#fff;background:var(--orange);border:none;border-radius:8px;padding:9px 14px;cursor:pointer}
+  .btn-add:hover{background:var(--orange-dark)}
+  tr.userrow td:first-child::after{content:" •";color:var(--orange)}
+  .del-x{color:var(--red);cursor:pointer;font-weight:700;padding:2px 6px;font-size:13px}
+  .foot{margin-top:22px;color:var(--ink-faint);font-size:11.5px;line-height:1.7}
+  @media(max-width:680px){:root{--sidew:0px}.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;align-items:center}.brand{border:none;margin:0;padding:0 12px 0 4px}.nav{flex-direction:row;flex:1}.app{padding:18px 16px 50px}}
+</style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="row"><span class="nm">โมเดลต้นทุน</span><span class="demo">เดโม</span></div>
+      <div class="sub">ต้นทุนต่อเที่ยววิ่ง</div>
+    </div>
+    <nav class="nav">
+      <button class="navitem active" data-view="form">
+        <svg class="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        บันทึกข้อมูล
+      </button>
+      <button class="navitem" data-view="records">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        รายการทั้งหมด
+      </button>
+      <button class="navitem" data-view="debtors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        รายการลูกหนี้ <span id="debtCount" class="nav-count"></span>
+      </button>
+    </nav>
+  </aside>
+
+  <main class="app">
+    <!-- ============ VIEW: บันทึกข้อมูล ============ -->
+    <section class="view active" id="view-form">
+      <div class="page-h"><h1>บันทึกข้อมูล</h1><p>กรอกข้อมูล → คำนวณ → บันทึก (บันทึกในเครื่อง + ส่งขึ้น Google Sheet ถ้าเชื่อมต่อแล้ว)</p></div>
+
+      <div class="card" id="sec-trip">
+        <div class="card-h"><span class="step">1</span><h2>ข้อมูลการเดินทาง</h2></div>
+        <div class="grid3">
+          <div class="field"><label>วันที่ · วัน / เดือน / ปี (พ.ศ.)</label>
+            <div class="dmy"><input id="dd" type="number" min="1" max="31" placeholder="วัน"><select id="mm"></select><select id="yy"></select></div></div>
+          <div class="field"><label for="docNo">เลขที่ใบรายการ</label><input id="docNo" type="text" placeholder="เช่น INV-2569-001"></div>
+          <div class="field"><label for="routeType">ประเภทเส้นทาง</label>
+            <select id="routeType"><option value="">— เลือก —</option><option>ขาขึ้น</option><option>ขาล่อง</option></select></div>
+        </div>
+        <div class="grid3">
+          <div class="field"><label for="origin">เส้นทาง · ต้นทาง</label><select id="origin"></select></div>
+          <div class="field"><label for="dest">ปลายทาง</label><select id="dest"></select></div>
+          <div class="field"><label for="distance">ระยะทาง <span style="color:var(--ink-faint);font-weight:400">· เติมอัตโนมัติ/แก้เองได้</span></label>
+            <div class="input-suffix"><input id="distance" type="number" min="0" step="1" placeholder="0"><span class="unit">กม.</span></div></div>
+        </div>
+        <div class="route-line"><span class="pin from"></span><span id="routeText">–</span><span class="pin to"></span></div>
+        <div class="grid2">
+          <div class="field" style="margin-bottom:0"><label for="fleetType">ประเภทรถ</label>
+            <select id="fleetType"><option value="">— เลือก —</option><option>รถบริษัท</option><option>รถร่วม</option></select></div>
+          <div class="field" style="margin-bottom:0"><label for="vehicle">ชนิดรถ</label><select id="vehicle"></select></div>
+        </div>
+      </div>
+
+      <div class="card" id="sec-cost">
+        <div class="card-h"><span class="step">2</span><h2>ค่าใช้จ่าย</h2><span class="hint">ทุกช่องเลือกกรอกหรือเว้นว่างได้ (ว่าง = 0)</span></div>
+        <div class="grid3">
+          <div class="field"><label for="gas">1) ค่าแก๊ส</label>
+            <div class="input-suffix"><input id="gas" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        </div>
+        <h3 class="grp"><span class="dot"></span>2) ค่าน้ำมัน — ต้นทุนปกติ</h3>
+        <div class="grid2">
+          <div class="field">
+            <label class="chk"><input id="fuelManualOn" type="checkbox"><span>กำหนดค่าน้ำมันเดินทางเอง (ไม่ติ๊ก = คำนวณอัตโนมัติตามโมเดลเดิม)</span></label>
+            <div class="input-suffix"><input id="fuelTravel" type="number" min="0" step="1" placeholder="อัตโนมัติ" disabled><span class="unit">บาท</span></div>
+            <div class="price-note" id="fuelNote">น้ำมันเดินทาง (อัตโนมัติ): –</div>
+          </div>
+          <div class="field"><label for="fuelPickup">ค่าน้ำมันไปเก็บสินค้า</label>
+            <div class="input-suffix"><input id="fuelPickup" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        </div>
+        <h3 class="grp waste"><span class="dot"></span>ค่าน้ำมัน — ต้นทุนสูญเปล่า</h3>
+        <div class="grid2">
+          <div class="field"><label for="fuelOff">น้ำมันวิ่งรถนอกเส้นทาง</label>
+            <div class="input-suffix"><input id="fuelOff" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        </div>
+        <h3 class="grp"><span class="dot"></span>3) ค่าแรงพนักงาน — ต้นทุนปกติ</h3>
+        <div class="grid3">
+          <div class="field"><label for="drv">พนักงานขับ</label><div class="input-suffix"><input id="drv" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="spare">พนักงานสำรอง</label><div class="input-suffix"><input id="spare" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="snd">SND</label><div class="input-suffix"><input id="snd" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        </div>
+        <h3 class="grp waste"><span class="dot"></span>ค่าแรง — ต้นทุนสูญเปล่า</h3>
+        <div class="grid2">
+          <div class="field"><label for="laborOff">ค่าแรงวิ่งรถนอกเส้นทาง</label><div class="input-suffix"><input id="laborOff" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        </div>
+        <h3 class="grp"><span class="dot"></span>4) ค่าธรรมเนียม <span style="font-weight:400;color:var(--ink-faint)">(นับเป็นต้นทุนปกติ)</span></h3>
+        <div class="grid3">
+          <div class="field"><label for="feeTarp">ค่าเปิดปิดผ้าใบ</label><div class="input-suffix"><input id="feeTarp" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="feePolice">ค่าด่านตำรวจ</label><div class="input-suffix"><input id="feePolice" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="feeCont">ค่าธรรมเนียมคืนตู้</label><div class="input-suffix"><input id="feeCont" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="feePort">ค่าเข้าท่าเรือ</label><div class="input-suffix"><input id="feePort" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="feeDoc">ค่าส่งเอกสาร</label><div class="input-suffix"><input id="feeDoc" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="feeToll">ค่าทางด่วน</label><div class="input-suffix"><input id="feeToll" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        </div>
+
+        <h3 class="grp"><span class="dot"></span>5) ค่าซ่อมแซม <span style="font-weight:400;color:var(--ink-faint)">(นับเป็นต้นทุนปกติ · อิงประเภทรถ + ชนิดรถ จากข้อ 1 · ไม่มีข้อมูลในตาราง = 0)</span></h3>
+        <div class="price-note" id="repNote" style="margin-top:0">อิงชนิดรถจากข้อ 1 — เลือก ประเภทรถ + ชนิดรถ + ระยะทาง ก่อน</div>
+
+        <button id="calcBtn" class="btn btn-calc" type="button">🧮 คำนวณ — รวมค่าใช้จ่าย (แยกปกติ / สูญเปล่า)</button>
+      </div>
+
+      <div class="card" id="sec-summary">
+        <div class="card-h"><span class="step">3</span><h2>สรุปผล</h2></div>
+        <div class="edit-banner" id="editBanner">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          <span id="editBannerText">กำลังแก้ไขรายการ</span><span class="x" id="cancelEdit">ยกเลิกการแก้ไข</span>
+        </div>
+        <div class="grid3">
+          <div class="field"><label for="revenue">รายได้</label><div class="input-suffix"><input id="revenue" type="number" min="0" step="100" placeholder="0"><span class="unit">บาท</span></div></div>
+        </div>
+        <div class="kpis">
+          <div class="kpi rev"><div class="lab">รายได้</div><div class="big"><span id="kRev">–</span><small>บาท</small></div></div>
+          <div class="kpi normal"><div class="lab">ต้นทุนเดินทางรวม (ปกติ)</div><div class="big"><span id="kNormal">–</span><small>บาท</small></div></div>
+          <div class="kpi waste"><div class="lab">ต้นทุนสูญเปล่า</div><div class="big"><span id="kWaste">–</span><small>บาท</small></div></div>
+          <div class="kpi profit" id="kProfitCard"><div class="lab">กำไร / ขาดทุน</div><div class="big"><span id="kProfit">–</span><small>บาท</small></div></div>
+        </div>
+        <div class="result" id="detailBox" style="display:none">
+          <div class="result-row"><span class="k">ค่าแก๊ส</span><span class="v" id="dGas">–</span></div>
+          <div class="result-row"><span class="k">น้ำมันเดินทาง <span id="dFuelSrc"></span></span><span class="v" id="dFuelTravel">–</span></div>
+          <div class="result-row"><span class="k">น้ำมันไปเก็บสินค้า</span><span class="v" id="dFuelPickup">–</span></div>
+          <div class="result-row"><span class="k">ค่าแรง (ขับ+สำรอง+SND)</span><span class="v" id="dLabor">–</span></div>
+          <div class="result-row"><span class="k">ค่าธรรมเนียมรวม</span><span class="v" id="dFees">–</span></div>
+          <div class="result-row"><span class="k">ค่าซ่อมตามระยะเวลา (คงที่)</span><span class="v" id="dRepFix">–</span></div>
+          <div class="result-row"><span class="k">ค่าซ่อมตามระยะทาง (ตาม กม.)</span><span class="v" id="dRepVar">–</span></div>
+          <div class="result-row"><span class="k" style="color:#B0641F">สูญเปล่า: น้ำมันนอกเส้นทาง</span><span class="v" id="dFuelOff">–</span></div>
+          <div class="result-row"><span class="k" style="color:#B0641F">สูญเปล่า: ค่าแรงนอกเส้นทาง</span><span class="v" id="dLaborOff">–</span></div>
+        </div>
+        <div id="debtorBox">
+          <h3 class="grp"><span class="dot"></span>รายการลูกหนี้ / บิล</h3>
+          <div class="price-note" style="margin-top:0;margin-bottom:12px">
+            เว้น “เลขที่บิล” ว่าง = ใช้เลขที่ใบรายการ (ส่วนที่ 1) อัตโนมัติ ·
+            ประเภท <b>สดต้นทาง</b> = ถือว่าชำระแล้ว · <b>เชื่อต้นทาง / เชื่อปลายทาง / สดปลายทาง</b> = ยังไม่ได้ชำระ
+          </div>
+          <div class="bill-head">
+            <span>เลขที่บิล</span><span>ผู้ส่ง</span><span>ผู้รับ</span><span>จำนวน</span><span>ราคารวม</span><span>ประเภทการชำระ</span><span></span>
+          </div>
+          <div id="billRows"></div>
+          <button id="addBill" class="btn-add" type="button">+ เพิ่มรายการลูกหนี้</button>
+          <div class="price-note" id="payStatusNote" style="margin-top:12px">สถานะการชำระ: –</div>
+        </div>
+        <div class="save-row">
+          <button id="saveBtn" class="btn btn-save" type="button">💾 บันทึกข้อมูล</button>
+          <div class="msg" id="saveMsg" style="color:var(--green)"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <details class="prices">
+          <summary>⛽ ตารางราคาน้ำมัน (ใช้คำนวณน้ำมันเดินทางอัตโนมัติ) · กดเพื่อดู/อัปเดต
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+          <div class="price-add">
+            <input id="npDd" type="number" min="1" max="31" placeholder="วัน"><select id="npMm"></select><select id="npYy"></select>
+            <div class="input-suffix np-price"><input id="npPrice" type="number" min="0" step="0.01" placeholder="ราคา"><span class="unit">บ./ล.</span></div>
+            <button id="npAdd" class="btn-add" type="button">+ อัปเดตราคา</button>
+          </div>
+          <div class="msg" id="npMsg"></div>
+          <div class="scroll" style="max-height:260px;overflow-y:auto">
+            <table><thead><tr><th>วันที่มีผล</th><th class="num">ราคา (บาท/ลิตร)</th><th></th></tr></thead><tbody id="priceBody"></tbody></table>
+          </div>
+          <p style="font-size:11.5px;color:var(--ink-faint);margin-top:8px"><span id="npReset" style="color:var(--orange-dark);cursor:pointer;text-decoration:underline">ล้างราคาที่เพิ่มเอง</span></p>
+        </details>
+      </div>
+    </section>
+
+    <!-- ============ VIEW: รายการทั้งหมด ============ -->
+    <section class="view" id="view-records">
+      <div class="page-h"><h1>รายการทั้งหมด</h1><p>รายการที่บันทึกไว้ · บันทึกลง Google Sheet ของคุณ (จุดเขียว = ซิงก์แล้ว)</p></div>
+
+      <details class="gs-config" id="gsConfig">
+        <summary>⚙ ตั้งค่าการเชื่อม Google Sheet <span id="connBadge" class="badge-conn off">ยังไม่เชื่อม</span>
+          <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+        <div class="gs-inner">
+          <label for="gsUrl">Web app URL (ลงท้าย /exec)</label>
+          <div class="gs-row">
+            <input id="gsUrl" type="text" placeholder="https://script.google.com/macros/s/....../exec">
+            <button id="gsSave" class="btn-add" type="button">บันทึกลิงก์</button>
+            <button id="gsTest" class="btn-ghost" type="button">ทดสอบการเชื่อมต่อ</button>
+          </div>
+          <div class="gs-status" id="gsStatus"></div>
+          <div class="gs-steps">
+            <b>วิธีตั้งค่า (ทำครั้งเดียว):</b><br>
+            1. เปิด Google Sheet → เมนู <b>ส่วนขยาย (Extensions)</b> → <b>Apps Script</b><br>
+            2. ลบโค้ดเดิม วางโค้ดจากไฟล์ <code>AppsScript-โค้ด.gs</code> แล้วกดบันทึก<br>
+            3. กด <b>Deploy → New deployment</b> → เลือก <b>Web app</b> · Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → <b>Deploy</b> แล้วอนุญาตสิทธิ์<br>
+            4. คัดลอก <b>Web app URL</b> (ลงท้าย <code>/exec</code>) มาวางช่องด้านบน → บันทึกลิงก์ → ทดสอบ
+            <br><br>
+            <b style="color:var(--red)">เคย Deploy ไว้แล้วแต่ข้อมูลไม่ขึ้นชีต?</b> = โค้ดในชีตเป็นเวอร์ชันเก่า<br>
+            วางโค้ดใหม่ทับ → บันทึก → <b>Deploy → Manage deployments</b> → กดดินสอ <b>✏</b> ที่ deployment เดิม →
+            ช่อง <b>Version</b> เลือก <b>New version</b> → <b>Deploy</b> · URL เดิมใช้ต่อได้ไม่ต้องเปลี่ยน<br>
+            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v3</code> จึงจะบันทึกได้)<br>
+            <br>ระบบจะสร้าง 2 ชีต: <code>บันทึกเดินรถ</code> (1 แถว = 1 ใบรายการ) และ <code>รายการลูกหนี้</code> (1 แถว = ลูกหนี้ 1 ราย)
+          </div>
+        </div>
+      </details>
+
+      <div class="rec-bar">
+        <div class="searchbox">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="searchBox" type="text" placeholder="ค้นหาเลขที่ใบรายการ / เส้นทาง...">
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button id="btnSync" class="btn btn-green" type="button">⬆ ซิงก์ขึ้น Google Sheet</button>
+          <button id="btnClearRec" class="btn-ghost" type="button">ล้างทั้งหมด</button>
+        </div>
+      </div>
+      <div class="rec-card">
+        <div class="scroll">
+          <table class="rec-table">
+            <thead><tr>
+              <th>เลขที่ใบรายการ</th><th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
+              <th class="num">รายได้</th><th class="num">ต้นทุนรวม</th><th class="num">สูญเปล่า</th><th class="num">กำไร/ขาดทุน</th><th>สถานะ</th><th>แก้ไข</th>
+            </tr></thead>
+            <tbody id="recBody"></tbody>
+          </table>
+        </div>
+        <div id="recEmpty" class="rec-empty">ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ</div>
+      </div>
+      <div class="msg" id="recMsg" style="color:var(--green);margin-top:10px"></div>
+    </section>
+
+    <!-- ============ VIEW: รายการลูกหนี้ ============ -->
+    <section class="view" id="view-debtors">
+      <div class="page-h"><h1>รายการลูกหนี้</h1><p>แยกเป็นรายบิล (ลูกหนี้แต่ละราย) · กดปุ่ม “ชำระ” เมื่อลูกหนี้มาจ่าย · ต้องจ่ายครบทุกรายในใบรายการเดียวกัน สถานะในหน้า “รายการทั้งหมด” จึงเปลี่ยนเป็น ชำระแล้ว</p></div>
+
+      <div class="rec-card" style="margin-bottom:18px">
+        <div style="padding:14px 16px 6px;font-weight:700;font-size:15px">🔴 ค้างชำระ (<span id="debtActiveCount">0</span>)</div>
+        <div class="scroll">
+          <table class="rec-table">
+            <thead><tr>
+              <th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>วันที่</th><th>เส้นทาง</th>
+              <th class="num">ยอดบิล</th><th class="num">รายได้</th><th>ประเภทการชำระ</th><th class="num">ค้างชำระ (วัน)</th><th>ชำระ</th>
+            </tr></thead>
+            <tbody id="debtBody"></tbody>
+          </table>
+        </div>
+        <div id="debtEmpty" class="rec-empty">ไม่มีรายการค้างชำระ 🎉</div>
+      </div>
+
+      <div class="rec-card">
+        <div style="padding:14px 16px 6px;font-weight:700;font-size:15px">🟢 ประวัติการชำระ (<span id="paidCount">0</span>)</div>
+        <div class="scroll">
+          <table class="rec-table">
+            <thead><tr>
+              <th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>วันที่บิล</th><th>วันที่ชำระ</th><th>เส้นทาง</th>
+              <th class="num">ยอดบิล</th><th class="num">รายได้</th><th>ประเภทการชำระ</th><th class="num">ใช้เวลา (วัน)</th>
+            </tr></thead>
+            <tbody id="paidBody"></tbody>
+          </table>
+        </div>
+        <div id="paidEmpty" class="rec-empty">ยังไม่มีประวัติการชำระ</div>
+      </div>
+      <div class="msg" id="debtMsg" style="color:var(--green);margin-top:10px"></div>
+    </section>
+
+    <p class="foot">ต่อยอดจากโมเดลเดิม · บันทึกลง Google Sheet ผ่าน Apps Script Web App · ข้อมูลสำรองในเครื่อง (localStorage) · ธีมส้ม</p>
+  </main>
+
+  <!-- Modal กรอกวันที่ชำระ -->
+  <div id="payModal" class="modal-bg" style="display:none">
+    <div class="modal">
+      <div class="modal-h">บันทึกการชำระเงิน</div>
+      <div id="payModalInfo" class="modal-info"></div>
+      <label style="margin-top:6px">วันที่ชำระ · วัน / เดือน / ปี (พ.ศ.)</label>
+      <div class="dmy"><input id="payDd" type="number" min="1" max="31" placeholder="วัน"><select id="payMm"></select><select id="payYy"></select></div>
+      <div class="msg" id="payModalMsg" style="color:var(--red)"></div>
+      <div class="modal-actions">
+        <button id="payCancel" class="btn-ghost" type="button">ยกเลิก</button>
+        <button id="payConfirm" class="btn btn-save" type="button">✔ ยืนยันชำระแล้ว</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ================= ข้อมูลจากโมเดลเดิม =================
+const BASE_PRICES = [
+  ["2024-01-01",30.47],["2024-04-06",30.97],["2024-04-20",31.47],["2024-05-10",31.97],
+  ["2024-05-31",33.47],["2025-03-28",32.97],["2025-04-04",32.47],["2025-10-04",31.97],
+  ["2025-10-21",31.47],["2025-12-24",30.97],["2026-01-09",30.47],["2026-03-18",30.97],
+  ["2026-03-21",31.67],["2026-03-24",33.47],["2026-03-26",39.47],["2026-03-31",41.27],
+  ["2026-04-02",44.77],["2026-04-03",48.27],["2026-04-05",51.07],["2026-04-09",48.93],
+  ["2026-04-11",44.93],["2026-04-17",43.43],["2026-04-21",42.23],["2026-04-24",40.73],
+  ["2026-05-01",41.33],["2026-05-08",40.48],["2026-05-13",41.28],["2026-05-14",41.98],
+  ["2026-05-19",42.73],["2026-05-26",41.73],["2026-05-30",41.23],["2026-06-04",42.03]
+];
+const RATES = [
+  ["รถเทรเลอร์",0.34602],["รถ 10 ล้อตู้เย็น",0.27027],["รถ 12 ล้อตู้เย็น",0.27027],
+  ["รถ 10 ล้อตู้แห้ง",0.25],["รถ 10 ล้อสั้น",0.25],["รถ 10 ล้อยาว",0.25],
+  ["รถ 12 ล้อตู้แห้ง",0.25],["รถ 12 ล้อคอก",0.25],["รถ 6 ล้อใหญ่",0.17986],
+  ["รถ 6 ล้อตู้เย็น",0.17986],["รถ 6 ล้อกลาง",0.16474],["รถ 6 ล้อเล็ก",0.13793]
+];
+const ROUTES = {"เชียงใหม่":{"สี่แยกมหานาค":720,"ปากคลองตลาด":720,"สี่มุมเมือง":720,"ตลาดไท":720,"มหาชัย":760,"พุทธมณฑลสาย 2":720,"พุทธมณฑลสาย 5":720,"ราชบุรี":790,"ปากคลองตลาดใหม่":720,"ร่มเกล้า":720},"ฝาง":{"สี่แยกมหานาค":844,"ปากคลองตลาด":844,"สี่มุมเมือง":844,"ตลาดไท":844,"พุทธมณฑลสาย 2":844,"พุทธมณฑลสาย 5":844,"ราชบุรี":914,"ปากคลองตลาดใหม่":844,"ร่มเกล้า":844},"ลำพูน":{"สี่แยกมหานาค":690,"ปากคลองตลาด":690,"สี่มุมเมือง":690,"ตลาดไท":690,"มหาชัย":730,"พุทธมณฑลสาย 2":690,"พุทธมณฑลสาย 5":690,"ราชบุรี":760,"ปากคลองตลาดใหม่":690,"ร่มเกล้า":690},"ท่าลี่":{"สี่แยกมหานาค":720,"ปากคลองตลาด":720,"สี่มุมเมือง":720,"ตลาดไท":720,"มหาชัย":760,"พุทธมณฑลสาย 2":720,"พุทธมณฑลสาย 5":720,"ราชบุรี":790,"ปากคลองตลาดใหม่":720,"ร่มเกล้า":720},"ลำปาง":{"สี่แยกมหานาค":620,"ปากคลองตลาด":620,"สี่มุมเมือง":620,"ตลาดไท":620,"มหาชัย":660,"พุทธมณฑลสาย 2":620,"พุทธมณฑลสาย 5":620,"ราชบุรี":690,"ปากคลองตลาดใหม่":620,"ร่มเกล้า":620},"กองลอย":{"สี่แยกมหานาค":747,"ปากคลองตลาด":747,"สี่มุมเมือง":747,"ตลาดไท":747,"พุทธมณฑลสาย 2":747,"พุทธมณฑลสาย 5":747,"ราชบุรี":817,"ปากคลองตลาดใหม่":747,"ร่มเกล้า":747},"สันกำแพง":{"สี่แยกมหานาค":720,"ปากคลองตลาด":720,"สี่มุมเมือง":720,"ตลาดไท":720,"พุทธมณฑลสาย 2":720,"พุทธมณฑลสาย 5":720,"ปากคลองตลาดใหม่":720,"ร่มเกล้า":720},"พะเยา":{"สี่แยกมหานาค":706,"ปากคลองตลาด":706,"สี่มุมเมือง":706,"ตลาดไท":706,"มหาชัย":746,"พุทธมณฑลสาย 2":706,"พุทธมณฑลสาย 5":706,"ราชบุรี":776,"ปากคลองตลาดใหม่":706,"ร่มเกล้า":706},"ตลาดไท":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"สี่แยกมหานาค":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"พุทธมณฑลสาย 2":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"พุทธมณฑลสาย 5":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"แพร่":{"สี่แยกมหานาค":572,"ปากคลองตลาด":572,"สี่มุมเมือง":572,"ตลาดไท":572,"พุทธมณฑลสาย 2":572,"พุทธมณฑลสาย 5":572,"มหาชัย":612,"ราชบุรี":620,"ปากคลองตลาดใหม่":572,"ร่มเกล้า":572},"เวียงป่าเป้า":{"สี่แยกมหานาค":797,"ปากคลองตลาด":797,"สี่มุมเมือง":797,"ตลาดไท":797,"พุทธมณฑลสาย 2":797,"พุทธมณฑลสาย 5":797,"ราชบุรี":867,"ปากคลองตลาดใหม่":797,"ร่มเกล้า":797},"เชียงราย":{"สี่แยกมหานาค":800,"ปากคลองตลาด":800,"สี่มุมเมือง":800,"ตลาดไท":800,"มหาชัย":840,"พุทธมณฑลสาย 2":800,"พุทธมณฑลสาย 5":800,"ราชบุรี":870,"ปากคลองตลาดใหม่":800,"ร่มเกล้า":800},"แม่สาย":{"สี่แยกมหานาค":860,"ปากคลองตลาด":860,"สี่มุมเมือง":860,"ตลาดไท":860,"มหาชัย":900,"พุทธมณฑลสาย 2":860,"พุทธมณฑลสาย 5":860,"ปากคลองตลาดใหม่":860,"ร่มเกล้า":860},"เชียงคำ":{"สี่แยกมหานาค":793,"ปากคลองตลาด":793,"สี่มุมเมือง":793,"ตลาดไท":793,"พุทธมณฑลสาย 2":793,"พุทธมณฑลสาย 5":793,"ปากคลองตลาดใหม่":793,"ร่มเกล้า":793},"ป่าซาง":{"สี่แยกมหานาค":689,"ปากคลองตลาด":689,"สี่มุมเมือง":689,"ตลาดไท":689,"พุทธมณฑลสาย 2":689,"พุทธมณฑลสาย 5":689,"ราชบุรี":759,"ปากคลองตลาดใหม่":689,"ร่มเกล้า":689},"มหาชัย":{"เชียงใหม่":760,"ลำพูน":730,"ท่าลี่":760,"ลำปาง":660,"พะเยา":746,"เชียงราย":840,"แม่สาย":900,"น่าน":713,"แพร่":612,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"ราชบุรี":{"เชียงใหม่":790,"ฝาง":914,"ลำพูน":760,"ท่าลี่":790,"ลำปาง":690,"กองลอย":817,"พะเยา":776,"เชียงราย":870,"ป่าซาง":759,"เวียงป่าเป้า":867,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"น่าน":{"สี่แยกมหานาค":673,"ปากคลองตลาด":673,"สี่มุมเมือง":673,"ตลาดไท":673,"พุทธมณฑลสาย 2":673,"พุทธมณฑลสาย 5":673,"ปากคลองตลาดใหม่":673,"ร่มเกล้า":673,"มหาชัย":713},"บ้านโฮ่ง":{"สี่แยกมหานาค":690,"ปากคลองตลาด":690,"สี่มุมเมือง":690,"ตลาดไท":690,"มหาชัย":730,"พุทธมณฑลสาย 2":690,"พุทธมณฑลสาย 5":690,"ราชบุรี":760,"ปากคลองตลาดใหม่":690,"ร่มเกล้า":690},"นิ่มโลจิสติกส์":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"ร่มเกล้า":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"บ้านกาด":{"สี่แยกมหานาค":746,"ปากคลองตลาด":746,"สี่มุมเมือง":746,"ตลาดไท":746,"มหาชัย":786,"พุทธมณฑลสาย 2":746,"พุทธมณฑลสาย 5":746,"ราชบุรี":816,"ปากคลองตลาดใหม่":746,"ร่มเกล้า":746},"เชียงดาว":{"สี่แยกมหานาค":782,"ปากคลองตลาด":782,"สี่มุมเมือง":782,"ตลาดไท":782,"พุทธมณฑลสาย 2":782,"พุทธมณฑลสาย 5":782,"ปากคลองตลาดใหม่":782,"ร่มเกล้า":782},"สี่มุมเมือง":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420}};
+
+// ===== ค่าซ่อมแซม (จากไฟล์ วิธีคิดค่าเดินทาง.xlsx) =====
+// ตามระยะเวลา = คงที่ (บาท/เที่ยว) แยกตามประเภทรถ + ชนิดรถ
+const REPAIR_FIXED = {
+  "รถบริษัท":{"รถ 10 ล้อตู้เย็น":564.82,"รถ 10 ล้อตู้แห้ง":1557.06,"รถ 12 ล้อคอก":797.42,"รถ 12 ล้อตู้เย็น":550.88,"รถ 6 ล้อ(ตู้แห้ง)":17.49,"รถ 6 ล้อใหญ่":320.95,"รถเทรเล่อร์ (แม่)":2127.14,"หางเทรเลอร์":0,"หางพ่วงคอก":734.87,"หางพ่วงตู้เย็น":562.37,"หางพ่วงตู้แห้ง":321.77},
+  "รถร่วม":{"รถ 10 ล้อ":131.77,"รถ 10 ล้อช่วงยาว":106.26,"รถ 10 ล้อตู้แห้ง":104.71,"รถ 6 ล้อ FC4":106.16,"รถ 6 ล้อ(ตู้แห้ง)":100.65,"รถ 6 ล้อเล็ก":31.17,"รถ 6 ล้อใหญ่":71.02,"รถเทรเล่อร์ (แม่)":122.09,"หางเทรเลอร์":0,"หางพ่วงตู้แห้ง":0}
+};
+// ตามระยะทาง = อัตราต่อกม. (บริษัท/ร่วม ใช้อัตราเดียวกัน)
+const REPAIR_VAR = {"รถ 10 ล้อ":0.0013,"รถ 10 ล้อช่วงยาว":0,"รถ 10 ล้อตู้เย็น":3.033,"รถ 10 ล้อตู้แห้ง":0.158,"รถ 12 ล้อคอก":2.1926,"รถ 12 ล้อตู้เย็น":2.6197,"รถ 6 ล้อ(ตู้แห้ง)":0.0852,"รถ 6 ล้อใหญ่":0.1284,"รถเทรเล่อร์ (แม่)":1.9955,"รถปิ๊กอัพตู้เย็น":0.7049,"หางเทรเลอร์":0,"หางพ่วงคอก":1.5272,"หางพ่วงตู้เย็น":1.0222,"หางพ่วงตู้แห้ง":0.6858};
+// จับคู่ชื่อชนิดรถ (ข้อ 1) → ชื่อในตารางค่าซ่อม (คันเดียวกันแต่สะกดต่าง)
+const REPAIR_ALIAS = {"รถเทรเลอร์":"รถเทรเล่อร์ (แม่)","รถ 10 ล้อยาว":"รถ 10 ล้อช่วงยาว"};
+
+// ================= helpers =================
+const $=id=>document.getElementById(id);
+const fmt=(n,d=2)=>isFinite(n)?n.toLocaleString("th-TH",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
+const num=id=>parseFloat($(id).value)||0;
+const TH_MONTHS=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+const pad=n=>String(n).padStart(2,"0");
+const thDate=s=>{const [y,m,d]=s.split("-");return `${+d} ${TH_MONTHS[+m-1]} ${(+y)+543}`;};
+const thDateSafe=s=>s?thDate(s):"–";
+const r2=n=>isFinite(n)?Math.round(n*100)/100:"";
+const genId=()=>"R"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ===== ประเภทการชำระ + สถานะ (logic ใหม่) =====
+const PAY_TYPES=["เชื่อต้นทาง","เชื่อปลายทาง","สดต้นทาง","สดปลายทาง"];
+const CASH_ORIGIN="สดต้นทาง";                       // สดต้นทาง = ถือว่าชำระแล้วทันที
+const ST_PAID="ชำระแล้ว", ST_PARTIAL="ยังชำระไม่ครบ", ST_UNPAID="ยังไม่ได้ชำระ";
+const STATUS_CLASS={[ST_PAID]:"paid",[ST_PARTIAL]:"partial",[ST_UNPAID]:"unpaid"};
+const recBills=r=>Array.isArray(r&&r.bills)?r.bills:[];
+const billIsPaid=b=>b.payType===CASH_ORIGIN||!!b.paid;
+const billPayDate=(b,r)=>b.payType===CASH_ORIGIN?((r&&r.date)||b.payDate||null):(b.paid?(b.payDate||null):null);
+function recStatus(r){
+  const bs=recBills(r); if(!bs.length) return ST_UNPAID;
+  const n=bs.filter(billIsPaid).length;
+  return n===bs.length?ST_PAID:(n>0?ST_PARTIAL:ST_UNPAID);
+}
+function recPayInfo(r){
+  const bs=recBills(r), status=recStatus(r);
+  let last=null; bs.forEach(b=>{ const d=billPayDate(b,r); if(d&&(!last||d>last)) last=d; });
+  const payDate=(status===ST_PAID)?last:null;
+  return { status, payDate, daysToPay:payDate?daysBetween(r.date,payDate):null,
+    count:bs.length, paidCount:bs.filter(billIsPaid).length,
+    total:bs.reduce((s,b)=>s+(+b.total||0),0) };
+}
+
+function showView(name){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  $("view-"+name).classList.add("active");
+  document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("active",n.dataset.view===name));
+  if(name==="debtors" && typeof renderDebtors==="function") renderDebtors();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+document.querySelectorAll(".navitem").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
+
+// ================= ราคาน้ำมัน =================
+const LS_KEY="fuelPriceUpdates";
+function loadUpdates(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||{}; }catch(e){ return {}; } }
+function saveUpdates(o){ try{ localStorage.setItem(LS_KEY,JSON.stringify(o)); }catch(e){} }
+let USER_UPDATES=loadUpdates();
+function buildPrices(){
+  const map=new Map(BASE_PRICES.map(([d,p])=>[d,p]));
+  Object.entries(USER_UPDATES).forEach(([d,p])=>map.set(d,+p));
+  return [...map.entries()].sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
+}
+let PRICES=buildPrices();
+function priceIndexFor(dateStr){ let idx=-1; for(let i=0;i<PRICES.length;i++){ if(PRICES[i][0]<=dateStr) idx=i; else break; } return idx; }
+function priceForDate(dateStr){ const i=dateStr?priceIndexFor(dateStr):PRICES.length-1; return PRICES[i<0?0:i]; }
+
+// ================= populate ฟอร์ม =================
+const mmS=$("mm"), yyS=$("yy"), ddI=$("dd");
+mmS.innerHTML='<option value="">เดือน</option>'+TH_MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+yyS.innerHTML='<option value="">ปี</option>'+[2024,2025,2026,2027].map(y=>`<option value="${y}">${y+543}</option>`).join("");
+function getDateStr(){ const d=parseInt(ddI.value,10),m=+mmS.value,y=+yyS.value;
+  if(!d||d<1||d>31||!m||!y) return ""; return `${y}-${pad(m)}-${pad(d)}`; }
+
+const veh=$("vehicle"), org=$("origin"), dst=$("dest");
+veh.innerHTML='<option value="">— เลือกชนิดรถ —</option>'+RATES.map((r,i)=>`<option value="${i}">${r[0]}</option>`).join("");
+const ORIGINS=Object.keys(ROUTES).sort((a,b)=>a.localeCompare(b,"th"));
+org.innerHTML='<option value="">— เลือกต้นทาง —</option>'+ORIGINS.map(o=>`<option>${o}</option>`).join("");
+function fillDests(){ const cur=dst.value;
+  const ds=Object.keys(ROUTES[org.value]||{}).sort((a,b)=>a.localeCompare(b,"th"));
+  dst.innerHTML='<option value="">— เลือกจุดลง —</option>'+ds.map(d=>`<option>${d}</option>`).join("");
+  if(ds.includes(cur))dst.value=cur; }
+fillDests();
+function applyRouteDistance(){ const d=ROUTES[org.value]?.[dst.value]; if(d!=null)$("distance").value=d; }
+
+// ===== ค่าซ่อมแซม (อิงประเภทรถ + ชนิดรถ จากข้อ 1 · ไม่มีข้อมูล = 0) =====
+const fleetTypeSel=$("fleetType");
+function repairInfo(){
+  const ft=fleetTypeSel.value;
+  const vi=parseInt(veh.value,10);
+  const vname=(!isNaN(vi)&&RATES[vi])?RATES[vi][0]:"";
+  const key=REPAIR_ALIAS[vname]||vname;   // จับคู่ชื่อกับตารางค่าซ่อม
+  // --- คิดแยกอิสระ 2 ส่วน: มีส่วนไหนคิดส่วนนั้น, ไม่มีเฉพาะส่วนนั้น = 0 ---
+  const hasFix=!!(ft&&REPAIR_FIXED[ft]&&Object.prototype.hasOwnProperty.call(REPAIR_FIXED[ft],key));
+  const fixed=hasFix?REPAIR_FIXED[ft][key]:0;                 // ตามระยะเวลา (ไม่มี = 0)
+  const hasVar=Object.prototype.hasOwnProperty.call(REPAIR_VAR,key);
+  const rate=hasVar?REPAIR_VAR[key]:0;
+  const dist=num("distance");
+  const varCost=rate*dist;                                    // ตามระยะทาง (ไม่มี = 0)
+  return {fixed,rate,varCost,dist,total:fixed+varCost,veh:vname,ft,hasFix,hasVar};
+}
+function updateRepNote(){
+  const r=repairInfo();
+  if(!r.ft || !r.veh){ $("repNote").innerHTML="อิงชนิดรถจากข้อ 1 — เลือก <b>ประเภทรถ + ชนิดรถ + ระยะทาง</b> ก่อน"; return; }
+  const fixTxt=r.hasFix?`<b>${fmt(r.fixed,2)}</b>`:`<b>0</b> <span style="color:var(--ink-faint)">(ไม่มีในตาราง)</span>`;
+  const varTxt=r.hasVar?`${r.rate.toFixed(4)}×${fmt(r.dist,0)} = <b>${fmt(r.varCost,2)}</b>`:`<b>0</b> <span style="color:var(--ink-faint)">(ไม่มีในตาราง)</span>`;
+  $("repNote").innerHTML=`${r.ft} · ${r.veh} → ตามเวลา ${fixTxt} + ตามระยะทาง ${varTxt} = รวม <b>${fmt(r.total,2)}</b> บาท`;
+}
+["fleetType","vehicle","distance"].forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateRepNote)));
+
+// ================= น้ำมันเดินทาง auto =================
+const fuelManualOn=$("fuelManualOn"), fuelTravelI=$("fuelTravel");
+function autoFuelInfo(){
+  const vi=parseInt(veh.value,10);
+  const rate=(!isNaN(vi)&&RATES[vi])?RATES[vi][1]:0;
+  const dist=num("distance");
+  const [effDate,price]=priceForDate(getDateStr());
+  const liters=dist*rate, cost=liters*price;
+  return {rate,dist,price,effDate,liters,cost};
+}
+function updateFuelNote(){
+  const a=autoFuelInfo();
+  if(fuelManualOn.checked){ $("fuelNote").innerHTML=`กำหนดเอง — ไม่ใช้การคำนวณอัตโนมัติ`; }
+  else if(a.rate>0&&a.dist>0){
+    $("fuelNote").innerHTML=`อัตโนมัติ: ${fmt(a.dist,0)} กม. × ${a.rate.toFixed(5)} × <b>${a.price.toFixed(2)}</b> บาท/ลิตร (เรท ${thDate(a.effDate)}) = <b>${fmt(a.cost,2)}</b> บาท (${fmt(a.liters,2)} ลิตร)`;
+  }else{ $("fuelNote").innerHTML=`อัตโนมัติ: เลือกชนิดรถ + ระยะทางก่อน (ราคาปัจจุบัน ${a.price.toFixed(2)} บาท/ลิตร)`; }
+}
+fuelManualOn.addEventListener("change",()=>{
+  fuelTravelI.disabled=!fuelManualOn.checked;
+  fuelTravelI.placeholder=fuelManualOn.checked?"กรอกค่าน้ำมันเดินทาง":"อัตโนมัติ";
+  if(fuelManualOn.checked){ if(!fuelTravelI.value){const a=autoFuelInfo(); if(a.cost>0) fuelTravelI.value=a.cost.toFixed(0);} fuelTravelI.focus(); }
+  else fuelTravelI.value="";
+  updateFuelNote();
+});
+org.addEventListener("change",()=>{fillDests();applyRouteDistance();refreshRoute();updateFuelNote();});
+dst.addEventListener("change",()=>{applyRouteDistance();refreshRoute();updateFuelNote();});
+function refreshRoute(){ $("routeText").textContent=(org.value&&dst.value)?`${org.value} → ${dst.value}`:"–"; }
+["vehicle","distance","dd","mm","yy"].forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateFuelNote)));
+
+// ================= คำนวณ =================
+let lastCalc=null;
+function doCalc(){
+  const a=autoFuelInfo();
+  const useManualFuel=fuelManualOn.checked;
+  const fuelTravel=useManualFuel?num("fuelTravel"):a.cost;
+  const gas=num("gas"), fuelPickup=num("fuelPickup"), fuelOff=num("fuelOff");
+  const drv=num("drv"), spare=num("spare"), snd=num("snd"), laborOff=num("laborOff");
+  const fees=num("feeTarp")+num("feePolice")+num("feeCont")+num("feePort")+num("feeDoc")+num("feeToll");
+  const labor=drv+spare+snd;
+  const rep=repairInfo();
+  const normal=gas+fuelTravel+fuelPickup+labor+fees+rep.total;
+  const waste=fuelOff+laborOff;
+  lastCalc={gas,fuelTravel,fuelSrc:useManualFuel?"กำหนดเอง":"อัตโนมัติ",fuelPickup,fuelOff,drv,spare,snd,laborOff,
+    feeTarp:num("feeTarp"),feePolice:num("feePolice"),feeCont:num("feeCont"),feePort:num("feePort"),feeDoc:num("feeDoc"),feeToll:num("feeToll"),
+    repVeh:rep.veh,repFix:rep.fixed,repRate:rep.rate,repVar:rep.varCost,repTotal:rep.total,
+    fees,labor,normal,waste,liters:(useManualFuel?0:a.liters),price:a.price};
+  renderSummary();
+  $("detailBox").style.display="";
+  $("dGas").textContent=fmt(gas,2)+" บาท";
+  $("dFuelSrc").textContent="("+lastCalc.fuelSrc+")";
+  $("dFuelTravel").textContent=fmt(fuelTravel,2)+" บาท";
+  $("dFuelPickup").textContent=fmt(fuelPickup,2)+" บาท";
+  $("dLabor").textContent=fmt(labor,2)+" บาท";
+  $("dFees").textContent=fmt(fees,2)+" บาท";
+  $("dRepFix").textContent=fmt(rep.fixed,2)+" บาท"+(rep.veh?` · ${rep.veh}`:"");
+  $("dRepVar").textContent=fmt(rep.varCost,2)+" บาท"+(rep.veh&&rep.hasVar?` (${rep.rate.toFixed(4)}/กม.)`:"");
+  $("dFuelOff").textContent=fmt(fuelOff,2)+" บาท";
+  $("dLaborOff").textContent=fmt(laborOff,2)+" บาท";
+}
+$("calcBtn").addEventListener("click",doCalc);
+function renderSummary(){
+  const revenue=num("revenue");
+  $("kRev").textContent=fmt(revenue,2);
+  if(!lastCalc){ $("kNormal").textContent="–"; $("kWaste").textContent="–"; $("kProfit").textContent="–"; return; }
+  const profit=revenue-lastCalc.normal-lastCalc.waste;
+  $("kNormal").textContent=fmt(lastCalc.normal,2);
+  $("kWaste").textContent=fmt(lastCalc.waste,2);
+  $("kProfit").textContent=fmt(profit,2);
+  $("kProfitCard").classList.toggle("loss",profit<0);
+}
+$("revenue").addEventListener("input",renderSummary);
+
+// ================= Google Sheet เชื่อมต่อ =================
+const LS_URL="gsWebAppUrl";
+function getUrl(){ return (localStorage.getItem(LS_URL)||"").trim(); }
+function setUrl(u){ localStorage.setItem(LS_URL,u.trim()); }
+function updateConnBadge(){
+  const on=!!getUrl();
+  const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
+}
+const GS_VERSION=3;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
+async function postToSheet(payload){
+  const url=getUrl();
+  if(!url) throw new Error("ยังไม่ได้ตั้งค่า URL (กด ⚙ ตั้งค่า)");
+  let res;
+  try{
+    res=await fetch(url,{ method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify(payload), redirect:"follow" });
+  }catch(err){
+    throw new Error("ติดต่อเซิร์ฟเวอร์ไม่ได้ (network/CORS) — ตรวจว่า URL ลงท้าย /exec และตอน Deploy ตั้ง ‘Who has access = Anyone’ · "+err.message);
+  }
+  const txt=await res.text();
+  let data;
+  try{ data=JSON.parse(txt); }
+  catch(e){
+    const hint=/accounts\.google\.com|Sign in|ต้องขออนุญาต/i.test(txt)
+      ? "Google ขอให้ล็อกอิน = สิทธิ์ Deploy ยังไม่ใช่ Anyone"
+      : "ตอบกลับไม่ใช่ JSON";
+    throw new Error(`${hint} (HTTP ${res.status}) · ${txt.replace(/<[^>]*>/g," ").trim().slice(0,110)}`);
+  }
+  if(!data.ok) throw new Error(data.error||"ไม่สำเร็จ");
+  if(data.version!==GS_VERSION)
+    throw new Error(`โค้ด Apps Script เป็นเวอร์ชันเก่า (v${data.version||"?"} · ต้องการ v${GS_VERSION}) — วางโค้ดจากไฟล์ AppsScript-โค้ด.gs ใหม่ แล้ว Deploy → Manage deployments → ✏ แก้ไข → Version: New version → Deploy`);
+  return data;
+}
+function recordToRow(r){
+  const p=recPayInfo(r), bs=recBills(r);
+  return [ r.id, thDateSafe(r.date), r.docNo||"", r.routeType||"", r.origin||"", r.dest||"", r2(r.dist),
+    r.fleetType||"", r.vehicle||"", r2(r.price), r2(r.liters), r2(r.gas), r2(r.fuelTravel), r.fuelSrc||"",
+    r2(r.fuelPickup), r2(r.drv), r2(r.spare), r2(r.snd),
+    r2(r.feeTarp), r2(r.feePolice), r2(r.feeCont), r2(r.feePort), r2(r.feeDoc), r2(r.feeToll),
+    r.repVeh||"", r2(r.repFix), r2(r.repVar),
+    r2(r.fuelOff), r2(r.laborOff), r2(r.normal), r2(r.waste), r2(r.revenue), r2(r.profit),
+    p.status, p.count, p.paidCount, r2(p.total), thDateSafe(p.payDate), (p.daysToPay!=null?p.daysToPay:""),
+    bs.map(b=>`${b.no||"-"}|${b.sender||""}→${b.receiver||""}|${b.qty||0}|${b.total||0}|${b.payType||"-"}|${billIsPaid(b)?"จ่ายแล้ว "+thDateSafe(billPayDate(b,r)):"ค้างชำระ"}`).join(" ; ") ];
+}
+// หนึ่งแถวต่อลูกหนี้ 1 ราย (ชีต “รายการลูกหนี้”)
+function recordBillRows(r){
+  const route=(r.origin&&r.dest)?`${r.origin}→${r.dest}`:"";
+  return recBills(r).map((b,i)=>{
+    const pd=billPayDate(b,r);
+    return [ r.id+"#"+i, r.id, r.docNo||"", thDateSafe(r.date), route,
+      b.no||"", b.sender||"", b.receiver||"", r2(b.qty), r2(b.total), b.payType||"",
+      billIsPaid(b)?"ชำระแล้ว":"ยังไม่ได้ชำระ", thDateSafe(pd),
+      (pd?daysBetween(r.date,pd):"") ];
+  });
+}
+async function pushRecords(list){
+  const bills=[]; list.forEach(r=>recordBillRows(r).forEach(x=>bills.push(x)));
+  return postToSheet({ rows:list.map(recordToRow), bills, billOwners:list.map(r=>r.id) });
+}
+$("gsSave").addEventListener("click",()=>{
+  const u=$("gsUrl").value.trim();
+  if(!/^https:\/\/script\.google\.com\/.*\/exec$/.test(u)){ gstat("ลิงก์ต้องเป็น .../exec ของ Apps Script","var(--red)"); return; }
+  setUrl(u); updateConnBadge(); gstat("บันทึกลิงก์แล้ว ✓ ลองกด ‘ทดสอบการเชื่อมต่อ’","var(--green)");
+});
+$("gsTest").addEventListener("click",async()=>{
+  gstat("กำลังทดสอบ...","var(--ink-soft)");
+  try{ const d=await postToSheet({ping:true}); gstat(`เชื่อมต่อสำเร็จ ✓ (โค้ด v${d.version}) พร้อมบันทึกลง Google Sheet`,"var(--green)"); }
+  catch(e){ gstat("เชื่อมต่อไม่สำเร็จ: "+e.message,"var(--red)"); }
+});
+function gstat(t,c){ const e=$("gsStatus"); e.textContent=t; e.style.color=c||"var(--ink-soft)"; }
+
+// ================= บันทึก + แก้ไข + รายการ =================
+const LS_REC="tripRecords";
+let RECORDS=(()=>{ try{ return JSON.parse(localStorage.getItem(LS_REC))||[]; }catch(e){ return []; } })();
+let editingIndex=null;
+function saveRecords(){ try{ localStorage.setItem(LS_REC,JSON.stringify(RECORDS)); }catch(e){} }
+
+// ---- ย้ายข้อมูลเก่า (บิลเดียว + payStatus) มาเป็นลูกหนี้หลายราย ----
+(function migrateRecords(){
+  let changed=false;
+  RECORDS.forEach(r=>{
+    if(r._v2) return;
+    let bs=Array.isArray(r.bills)?r.bills.slice():[];
+    if(!bs.length) bs=[{no:r.docNo||"",sender:"",receiver:"",qty:0,total:0,payType:""}];
+    if(r.payStatus==="ชำระแล้ว"){
+      bs.forEach(b=>{ if(b.payType!==CASH_ORIGIN){ b.paid=true; b.payDate=r.payDate||r.date||null; } });
+    }
+    bs.forEach(b=>{ if(b.paid===undefined) b.paid=false; if(b.payDate===undefined) b.payDate=null; });
+    r.bills=bs; delete r.payStatus; delete r.payDate; delete r.daysToPay;
+    r._v2=true; r.synced=false; changed=true;
+  });
+  if(changed) saveRecords();
+})();
+function msg(el,text,color){ const e=$(el); e.textContent=text; e.style.color=color||"var(--green)";
+  setTimeout(()=>{ if(e.textContent===text) e.textContent=""; },6000); }
+
+function resetDefaults(){
+  ["dd","docNo","distance","gas","fuelTravel","fuelPickup","fuelOff","drv","spare","snd","laborOff",
+   "feeTarp","feePolice","feeCont","feePort","feeDoc","feeToll","revenue"].forEach(id=>$(id).value="");
+  mmS.value=""; yyS.value=""; $("routeType").value=""; $("fleetType").value="";
+  org.value=""; fillDests(); dst.value=""; veh.value=""; updateRepNote();
+  fuelManualOn.checked=false; fuelTravelI.disabled=true; fuelTravelI.placeholder="อัตโนมัติ";
+  lastCalc=null; $("detailBox").style.display="none";
+  ["kRev","kNormal","kWaste","kProfit"].forEach(id=>$(id).textContent="–");
+  $("kProfitCard").classList.remove("loss");
+  editingIndex=null; updateEditUI();
+  fillBills([]);
+  refreshRoute(); updateFuelNote();
+}
+function updateEditUI(){
+  const editing=editingIndex!==null;
+  $("saveBtn").textContent=editing?"✔ อัปเดตรายการ":"💾 บันทึกข้อมูล";
+  $("editBanner").style.display=editing?"flex":"none";
+  if(editing){ const r=RECORDS[editingIndex];
+    $("editBannerText").textContent=`กำลังแก้ไขรายการ: ${r.docNo||"(ไม่มีเลขที่)"} · ${r.origin||"–"}→${r.dest||"–"}`; }
+}
+function buildRecord(){
+  const revenue=num("revenue");
+  const vi=parseInt(veh.value,10);
+  return {
+    date:getDateStr(), docNo:$("docNo").value.trim(), routeType:$("routeType").value,
+    fleetType:$("fleetType").value, vehicle:(!isNaN(vi)&&RATES[vi])?RATES[vi][0]:"",
+    origin:org.value, dest:dst.value, dist:num("distance"),
+    ...lastCalc, revenue, profit:revenue-lastCalc.normal-lastCalc.waste,
+    bills:readBills(), _v2:true
+  };
+}
+$("saveBtn").addEventListener("click",async()=>{
+  if(!lastCalc){ msg("saveMsg","กรุณากด “คำนวณ” ก่อนบันทึก","var(--orange-dark)"); return; }
+  const rec=buildRecord();
+  if(editingIndex!==null){ rec.id=RECORDS[editingIndex].id||genId(); rec.synced=false; RECORDS[editingIndex]=rec; }
+  else { rec.id=genId(); rec.synced=false; RECORDS.unshift(rec); }
+  saveRecords(); renderRecords(); resetDefaults();
+  // ส่งขึ้น Google Sheet (ถ้าเชื่อมต่อ)
+  if(getUrl()){
+    msg("saveMsg","บันทึกในเครื่องแล้ว · กำลังส่งขึ้น Google Sheet...","var(--ink-soft)");
+    try{ await pushRecords([rec]); rec.synced=true; saveRecords(); renderRecords();
+      msg("saveMsg","บันทึก + ขึ้น Google Sheet แล้ว ✓"); }
+    catch(e){ msg("saveMsg","บันทึกในเครื่องแล้ว แต่ขึ้น Sheet ไม่สำเร็จ: "+e.message+" (กด ‘ซิงก์’ ภายหลังได้)","var(--red)"); }
+  }else{
+    msg("saveMsg","บันทึกในเครื่องแล้ว ✓ (ยังไม่เชื่อม Google Sheet — ตั้งค่าที่หน้ารายการทั้งหมด)");
+  }
+});
+
+function loadRecordToForm(idx){
+  const r=RECORDS[idx];
+  if(r.date){ const [y,m,d]=r.date.split("-"); ddI.value=+d; mmS.value=+m; yyS.value=+y; }
+  else { ddI.value=""; mmS.value=""; yyS.value=""; }
+  $("docNo").value=r.docNo||""; $("routeType").value=r.routeType||""; $("fleetType").value=r.fleetType||"";
+  const vi=RATES.findIndex(x=>x[0]===r.vehicle); veh.value=vi>=0?vi:"";
+  org.value=r.origin||""; fillDests(); dst.value=r.dest||"";
+  $("distance").value=r.dist||"";
+  $("gas").value=r.gas||""; $("fuelPickup").value=r.fuelPickup||""; $("fuelOff").value=r.fuelOff||"";
+  $("drv").value=r.drv||""; $("spare").value=r.spare||""; $("snd").value=r.snd||""; $("laborOff").value=r.laborOff||"";
+  $("feeTarp").value=r.feeTarp||""; $("feePolice").value=r.feePolice||""; $("feeCont").value=r.feeCont||"";
+  $("feePort").value=r.feePort||""; $("feeDoc").value=r.feeDoc||""; $("feeToll").value=r.feeToll||"";
+  $("revenue").value=r.revenue||"";
+  if(r.fuelSrc==="กำหนดเอง"){ fuelManualOn.checked=true; fuelTravelI.disabled=false; fuelTravelI.value=r.fuelTravel||""; }
+  else { fuelManualOn.checked=false; fuelTravelI.disabled=true; fuelTravelI.value=""; }
+  fillBills(r.bills);
+  editingIndex=idx;
+  refreshRoute(); updateFuelNote(); updateRepNote(); doCalc(); updateEditUI();
+  showView("form");
+}
+$("cancelEdit").addEventListener("click",resetDefaults);
+
+function renderRecords(){
+  const q=$("searchBox").value.trim().toLowerCase();
+  const tb=$("recBody"); tb.innerHTML="";
+  let shown=0;
+  RECORDS.forEach((r,i)=>{
+    const route=(r.origin&&r.dest)?`${r.origin}→${r.dest}`:"–";
+    if(q && !((r.docNo||"").toLowerCase().includes(q) || route.toLowerCase().includes(q))) return;
+    shown++;
+    const tr=document.createElement("tr");
+    if(i===editingIndex) tr.classList.add("editing");
+    const badge=r.fleetType?`<span class="badge ${r.fleetType==="รถบริษัท"?"b1":"b2"}">${r.fleetType}</span>`:"–";
+    const dot=`<span class="sdot ${r.synced?"on":""}" title="${r.synced?"ซิงก์ขึ้น Google Sheet แล้ว":"ยังไม่ได้ซิงก์"}"></span>`;
+    tr.innerHTML=
+      `<td class="doc">${dot}${r.docNo||"–"}</td><td>${thDateSafe(r.date)}</td>`+
+      `<td>${route}${r.routeType?` <span style="color:var(--ink-faint);font-size:11px">(${r.routeType})</span>`:""}</td>`+
+      `<td>${badge}</td><td>${r.vehicle||"–"}</td>`+
+      `<td class="num">${fmt(r.revenue,0)}</td>`+
+      `<td class="num">${fmt(r.normal,0)}</td>`+
+      `<td class="num">${fmt(r.waste,0)}</td>`+
+      `<td class="num ${r.profit>=0?"profit-pos":"profit-neg"}">${fmt(r.profit,0)}</td>`+
+      `<td><span class="badge clk ${STATUS_CLASS[recStatus(r)]}" title="กดเพื่อดูรายละเอียดลูกหนี้">${recStatus(r)}</span></td>`+
+      `<td><span class="act">`+
+        `<button class="btn-edit" title="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>แก้ไข</button>`+
+        `<button class="btn-del" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`+
+      `</span></td>`;
+    tr.querySelector(".btn-edit").onclick=()=>loadRecordToForm(i);
+    tr.querySelector(".btn-del").onclick=()=>{
+      if(!confirm("ลบรายการนี้? (ลบเฉพาะในเครื่อง — แถวใน Google Sheet ต้องลบเองในชีต)")) return;
+      RECORDS.splice(i,1);
+      OPEN_DETAIL.delete(r.id);
+      if(editingIndex===i) resetDefaults(); else if(editingIndex!==null && i<editingIndex) editingIndex--;
+      saveRecords(); renderRecords();
+    };
+    tr.querySelector(".badge.clk").onclick=()=>{
+      if(OPEN_DETAIL.has(r.id)) OPEN_DETAIL.delete(r.id); else OPEN_DETAIL.add(r.id);
+      renderRecords();
+    };
+    tb.appendChild(tr);
+    if(OPEN_DETAIL.has(r.id)) tb.appendChild(buildDetailRow(r,i));
+  });
+  const noneAll=RECORDS.length===0, noneShown=shown===0;
+  $("recEmpty").style.display=(noneAll||noneShown)?"":"none";
+  $("recEmpty").textContent=noneAll?"ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ":"ไม่พบรายการที่ค้นหา";
+  renderDebtors();
+}
+$("searchBox").addEventListener("input",renderRecords);
+$("btnClearRec").addEventListener("click",()=>{
+  if(!RECORDS.length) return;
+  if(confirm("ล้างรายการในเครื่องทั้งหมด? (ไม่ลบข้อมูลใน Google Sheet)")){ RECORDS=[]; editingIndex=null; saveRecords(); renderRecords(); resetDefaults(); msg("recMsg","ล้างรายการในเครื่องแล้ว"); }
+});
+
+// ================= ลูกหนี้ + สถานะชำระ =================
+// ลูกหนี้ได้หลายรายต่อ 1 ใบรายการ · แต่ละรายมีเลขที่บิลของตัวเอง
+function todayISO(){ const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function daysBetween(a,b){ if(!a||!b) return null; return Math.round((new Date(b)-new Date(a))/86400000); }
+
+// ---- ฟอร์มกรอกลูกหนี้ (หลายแถว) ----
+const billsWrap=$("billRows");
+function addBillRow(b){
+  b=b||{};
+  const row=document.createElement("div");
+  row.className="bill-row";
+  row.innerHTML=
+    `<input class="b-no" placeholder="เลขที่บิล">`+
+    `<input class="b-sender" placeholder="ผู้ส่ง">`+
+    `<input class="b-receiver" placeholder="ผู้รับ">`+
+    `<input class="b-qty" type="number" min="0" placeholder="จำนวน">`+
+    `<input class="b-total" type="number" min="0" placeholder="ราคารวม">`+
+    `<select class="b-type"><option value="">เลือกประเภท</option>${PAY_TYPES.map(t=>`<option>${t}</option>`).join("")}</select>`+
+    `<span class="bill-x" title="ลบลูกหนี้รายนี้">✕</span>`;
+  row.querySelector(".b-no").value=b.no||"";
+  row.querySelector(".b-sender").value=b.sender||"";
+  row.querySelector(".b-receiver").value=b.receiver||"";
+  row.querySelector(".b-qty").value=(b.qty??"")===0?"":(b.qty??"");
+  row.querySelector(".b-total").value=(b.total??"")===0?"":(b.total??"");
+  row.querySelector(".b-type").value=b.payType||"";
+  row._paid=!!b.paid; row._payDate=b.payDate||null;
+  row.querySelector(".bill-x").onclick=()=>{
+    row.remove();
+    if(!billsWrap.children.length) addBillRow();
+    updatePayStatusNote();
+  };
+  row.querySelectorAll("input,select").forEach(el=>{
+    el.addEventListener("input",updatePayStatusNote);
+    el.addEventListener("change",updatePayStatusNote);
+  });
+  billsWrap.appendChild(row);
+  return row;
+}
+$("addBill").addEventListener("click",()=>{ addBillRow(); updatePayStatusNote(); });
+function fillBills(bills){
+  billsWrap.innerHTML="";
+  const list=(bills&&bills.length)?bills:[{}];
+  list.forEach(b=>addBillRow(b));
+  updatePayStatusNote();
+}
+function readBills(){
+  const docNo=$("docNo").value.trim(), out=[];
+  [...billsWrap.children].forEach(row=>{
+    const v=c=>row.querySelector("."+c).value.trim();
+    const no=v("b-no"), sender=v("b-sender"), receiver=v("b-receiver"), payType=v("b-type");
+    const qty=parseFloat(v("b-qty"))||0, total=parseFloat(v("b-total"))||0;
+    if(!(no||sender||receiver||qty||total||payType)) return;
+    out.push({ no:no||docNo, sender, receiver, qty, total, payType,
+      paid:!!row._paid, payDate:row._payDate||null });
+  });
+  if(!out.length && docNo) out.push({no:docNo,sender:"",receiver:"",qty:0,total:0,payType:"",paid:false,payDate:null});
+  return out;
+}
+function updatePayStatusNote(){
+  const bs=readBills(), el=$("payStatusNote");
+  if(!bs.length){ el.innerHTML="ยังไม่มีรายการลูกหนี้ — กรอกอย่างน้อย 1 ราย (หรือใส่เลขที่ใบรายการในส่วนที่ 1)"; return; }
+  const n=bs.filter(billIsPaid).length, st=recStatus({bills:bs});
+  const total=bs.reduce((s,b)=>s+(+b.total||0),0);
+  el.innerHTML=`สถานะการชำระ (คิดอัตโนมัติ): <b>${st}</b> · ชำระแล้ว <b>${n}/${bs.length}</b> ราย · ยอดรวมบิล <b>${fmt(total,0)}</b> บาท`;
+}
+$("docNo").addEventListener("input",updatePayStatusNote);
+
+// ---- ตารางรายละเอียดลูกหนี้ (กดที่ป้ายสถานะในหน้ารายการทั้งหมด) ----
+const OPEN_DETAIL=new Set();
+function buildDetailRow(r,recIdx){
+  const tr=document.createElement("tr");
+  tr.className="detail-row";
+  const td=document.createElement("td");
+  td.colSpan=11;
+  const bs=recBills(r);
+  if(!bs.length){
+    td.innerHTML=`<div class="detail-title">รายละเอียดลูกหนี้ (ใบ ${esc(r.docNo||"–")})</div>`+
+      `<div style="font-size:12.5px;color:var(--ink-faint)">ยังไม่มีข้อมูลลูกหนี้ — กด “แก้ไข” เพื่อเพิ่มรายการลูกหนี้</div>`;
+    tr.appendChild(td); return tr;
+  }
+  const rows=bs.map((b,bi)=>{
+    const pd=billPayDate(b,r), auto=b.payType===CASH_ORIGIN;
+    const cell = billIsPaid(b)
+      ? `<span class="chip-ok">จ่ายแล้ว ${thDateSafe(pd)}</span>`+
+        (auto?`<span style="font-size:11px;color:var(--ink-faint);margin-left:6px">อัตโนมัติ (สดต้นทาง)</span>`
+             :`<button class="btn-undo" data-b="${bi}">ยกเลิก</button>`)
+      : `<button class="btn-mini" data-p="${bi}">บันทึกจ่าย</button>`;
+    return `<tr><td style="font-weight:700">${esc(b.no||"–")}</td><td>${esc(b.sender||"–")}</td><td>${esc(b.receiver||"–")}</td>`+
+      `<td class="num">${b.qty?fmt(b.qty,0):"–"}</td><td class="num">${b.total?fmt(b.total,0):"–"}</td>`+
+      `<td>${esc(b.payType||"–")}</td><td>${cell}</td></tr>`;
+  }).join("");
+  td.innerHTML=`<div class="detail-title">รายละเอียดลูกหนี้ (ใบ ${esc(r.docNo||"–")})</div>`+
+    `<div class="scroll"><table class="subtable"><thead><tr>`+
+    `<th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th class="num">จำนวน</th><th class="num">ราคารวม</th>`+
+    `<th>ประเภทการชำระ</th><th>สถานะ / บันทึกการจ่าย</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  td.querySelectorAll(".btn-mini").forEach(btn=>btn.onclick=()=>openPayModal(recIdx,+btn.dataset.p));
+  td.querySelectorAll(".btn-undo").forEach(btn=>btn.onclick=()=>undoPay(recIdx,+btn.dataset.b));
+  tr.appendChild(td);
+  return tr;
+}
+async function undoPay(recIdx,billIdx){
+  const r=RECORDS[recIdx], b=recBills(r)[billIdx];
+  if(!b) return;
+  if(!confirm(`ยกเลิกการชำระของบิล ${b.no||"–"} ?`)) return;
+  b.paid=false; b.payDate=null; r.synced=false;
+  saveRecords(); renderRecords();
+  msg("recMsg","ยกเลิกการชำระของบิล "+(b.no||"–")+" แล้ว","var(--orange-dark)");
+  if(getUrl()){ try{ await pushRecords([r]); r.synced=true; saveRecords(); renderRecords(); }catch(e){} }
+}
+
+// ---- หน้ารายการลูกหนี้ (1 แถว = ลูกหนี้ 1 ราย) ----
+function allBillRows(){
+  const out=[];
+  RECORDS.forEach((r,ri)=>recBills(r).forEach((b,bi)=>out.push({r,ri,b,bi})));
+  return out;
+}
+function renderDebtors(){
+  const rows=allBillRows();
+  const active=rows.filter(x=>!billIsPaid(x.b));
+  const paid=rows.filter(x=>billIsPaid(x.b));
+
+  const tb=$("debtBody"); tb.innerHTML="";
+  active.forEach(({r,ri,b,bi})=>{
+    const aging=daysBetween(r.date,todayISO());
+    const tr=document.createElement("tr");
+    tr.innerHTML=
+      `<td class="doc">${esc(r.docNo||"–")}</td>`+
+      `<td style="font-weight:600">${esc(b.no||"–")}</td>`+
+      `<td>${esc(b.sender||"–")}</td><td>${esc(b.receiver||"–")}</td>`+
+      `<td>${thDateSafe(r.date)}</td>`+
+      `<td>${(r.origin&&r.dest)?esc(r.origin+"→"+r.dest):"–"}</td>`+
+      `<td class="num">${b.total?fmt(b.total,0):"–"}</td>`+
+      `<td class="num">${fmt(r.revenue,0)}</td>`+
+      `<td>${esc(b.payType||"–")}</td>`+
+      `<td class="num">${aging==null?"–":aging+" วัน"}</td>`+
+      `<td><button class="btn-pay">ชำระ</button></td>`;
+    tr.querySelector(".btn-pay").onclick=()=>openPayModal(ri,bi);
+    tb.appendChild(tr);
+  });
+  $("debtActiveCount").textContent=active.length;
+  $("debtEmpty").style.display=active.length?"none":"";
+
+  const pb=$("paidBody"); pb.innerHTML="";
+  paid.forEach(({r,b})=>{
+    const pd=billPayDate(b,r), used=daysBetween(r.date,pd);
+    const tr=document.createElement("tr");
+    tr.innerHTML=
+      `<td class="doc">${esc(r.docNo||"–")}</td>`+
+      `<td style="font-weight:600">${esc(b.no||"–")}</td>`+
+      `<td>${esc(b.sender||"–")}</td><td>${esc(b.receiver||"–")}</td>`+
+      `<td>${thDateSafe(r.date)}</td><td>${thDateSafe(pd)}</td>`+
+      `<td>${(r.origin&&r.dest)?esc(r.origin+"→"+r.dest):"–"}</td>`+
+      `<td class="num">${b.total?fmt(b.total,0):"–"}</td>`+
+      `<td class="num">${fmt(r.revenue,0)}</td>`+
+      `<td>${esc(b.payType||"–")}</td>`+
+      `<td class="num" style="font-weight:700;color:var(--blue)">${used!=null?used+" วัน":"–"}</td>`;
+    pb.appendChild(tr);
+  });
+  $("paidCount").textContent=paid.length;
+  $("paidEmpty").style.display=paid.length?"none":"";
+  $("debtCount").textContent=active.length?active.length:"";
+}
+
+// ---- modal ชำระเงิน (ทีละ 1 ลูกหนี้) ----
+$("payMm").innerHTML=TH_MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+[2024,2025,2026,2027].forEach(y=>{const o=document.createElement("option");o.value=y;o.textContent=y+543;$("payYy").appendChild(o);});
+let payTargetIdx=null, payTargetBill=null;
+function openPayModal(idx,billIdx){
+  payTargetIdx=idx; payTargetBill=billIdx;
+  const r=RECORDS[idx], b=recBills(r)[billIdx]||{};
+  $("payModalInfo").innerHTML=
+    `เลขที่ใบรายการ <b>${esc(r.docNo||"–")}</b> · วันที่บิล ${thDateSafe(r.date)}<br>`+
+    `บิล <b>${esc(b.no||"–")}</b> · ${esc(b.sender||"–")} → ${esc(b.receiver||"–")} · ยอด <b>${fmt(b.total||0,0)}</b> บาท`+
+    (b.payType?` · ${esc(b.payType)}`:"");
+  const t=new Date(); $("payDd").value=t.getDate(); $("payMm").value=t.getMonth()+1; $("payYy").value=t.getFullYear();
+  $("payModalMsg").textContent=""; $("payModal").style.display="flex";
+}
+$("payCancel").onclick=()=>{ $("payModal").style.display="none"; payTargetIdx=null; payTargetBill=null; };
+$("payConfirm").onclick=async()=>{
+  const d=parseInt($("payDd").value,10),m=+$("payMm").value,y=+$("payYy").value;
+  if(!d||d<1||d>31||!m||!y){ $("payModalMsg").textContent="กรุณากรอกวันที่ชำระให้ครบ"; return; }
+  const payISO=`${y}-${pad(m)}-${pad(d)}`;
+  const r=RECORDS[payTargetIdx], b=recBills(r)[payTargetBill];
+  if(!b){ $("payModal").style.display="none"; return; }
+  const days=daysBetween(r.date,payISO);
+  if(days!=null && days<0){ $("payModalMsg").textContent="วันที่ชำระต้องไม่ก่อนวันที่บิล"; return; }
+  b.paid=true; b.payDate=payISO; r.synced=false;
+  saveRecords(); renderRecords();
+  $("payModal").style.display="none"; payTargetIdx=null; payTargetBill=null;
+  const p=recPayInfo(r);
+  msg("debtMsg",`บันทึกการชำระบิล ${b.no||"–"} แล้ว ✓`+(r.date?` (ใช้เวลา ${days} วัน)`:"")+
+    ` · สถานะใบรายการ ${r.docNo||"–"}: ${p.status} (${p.paidCount}/${p.count})`);
+  if(getUrl()){ try{ await pushRecords([r]); r.synced=true; saveRecords(); renderRecords(); }catch(e){} }
+};
+
+// ---- ซิงก์รายการที่ยังไม่ขึ้น ----
+$("btnSync").addEventListener("click",async()=>{
+  if(!getUrl()){ msg("recMsg","ยังไม่ได้ตั้งค่า Google Sheet — กด ⚙ ตั้งค่าด้านบน","var(--red)"); $("gsConfig").open=true; return; }
+  const pending=RECORDS.filter(r=>!r.synced);
+  if(!pending.length){ msg("recMsg","ทุกรายการซิงก์ขึ้น Google Sheet แล้ว ✓"); return; }
+  msg("recMsg","กำลังซิงก์ "+pending.length+" รายการ...","var(--ink-soft)");
+  try{
+    await pushRecords(pending);
+    pending.forEach(r=>r.synced=true); saveRecords(); renderRecords();
+    msg("recMsg","ซิงก์ "+pending.length+" รายการขึ้น Google Sheet แล้ว ✓");
+  }catch(e){ msg("recMsg","ซิงก์ไม่สำเร็จ: "+e.message,"var(--red)"); }
+});
+
+// ================= ตารางราคาน้ำมัน =================
+const npDd=$("npDd"), npMm=$("npMm"), npYy=$("npYy"), npPrice=$("npPrice");
+npMm.innerHTML=TH_MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+[2024,2025,2026,2027].forEach(y=>{const o=document.createElement("option");o.value=y;o.textContent=y+543;npYy.appendChild(o);});
+npMm.value=(new Date()).getMonth()+1; npYy.value=(new Date()).getFullYear();
+function renderPrices(){
+  const tb=$("priceBody"); tb.innerHTML="";
+  PRICES.forEach(([d,p])=>{
+    const isUser=Object.prototype.hasOwnProperty.call(USER_UPDATES,d);
+    const tr=document.createElement("tr");
+    if(isUser) tr.classList.add("userrow");
+    tr.innerHTML=`<td>${thDate(d)}</td><td class="num">${p.toFixed(2)}</td>`+
+      `<td class="num">${isUser?'<span class="del-x" title="ลบราคาที่เพิ่มเอง">✕</span>':''}</td>`;
+    const del=tr.querySelector(".del-x");
+    if(del) del.onclick=()=>{ delete USER_UPDATES[d]; saveUpdates(USER_UPDATES); PRICES=buildPrices(); renderPrices(); updateFuelNote(); };
+    tb.appendChild(tr);
+  });
+}
+$("npAdd").onclick=()=>{
+  const d=parseInt(npDd.value,10), m=+npMm.value, y=+npYy.value, p=parseFloat(npPrice.value);
+  if(!d||d<1||d>31){ msg("npMsg","กรุณาระบุ ‘วัน’ ให้ถูกต้อง (1–31)","var(--orange-dark)"); return; }
+  if(!(p>0)){ msg("npMsg","กรุณาระบุ ‘ราคา’ ให้มากกว่า 0","var(--orange-dark)"); return; }
+  const iso=`${y}-${pad(m)}-${pad(d)}`;
+  const existed=PRICES.some(r=>r[0]===iso);
+  USER_UPDATES[iso]=p; saveUpdates(USER_UPDATES); PRICES=buildPrices(); renderPrices(); updateFuelNote();
+  npPrice.value="";
+  msg("npMsg",`${existed?"อัปเดต":"เพิ่ม"}ราคา ${thDate(iso)} = ${p.toFixed(2)} บาท/ลิตร แล้ว ✓`);
+};
+$("npReset").onclick=()=>{
+  if(!Object.keys(USER_UPDATES).length){ msg("npMsg","ยังไม่มีราคาที่เพิ่มเอง","var(--ink-faint)"); return; }
+  USER_UPDATES={}; saveUpdates(USER_UPDATES); PRICES=buildPrices(); renderPrices(); updateFuelNote();
+  msg("npMsg","ล้างราคาที่เพิ่มเองทั้งหมดแล้ว");
+};
+
+// ================= init =================
+$("gsUrl").value=getUrl();
+updateConnBadge();
+renderPrices();
+resetDefaults();
+renderRecords();
+</script>
+</body>
+</html>
