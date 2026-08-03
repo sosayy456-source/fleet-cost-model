@@ -29,24 +29,35 @@
  *   คอลัมน์อื่น ๆ แก้ในชีตได้ แต่หน้าเว็บจะเขียนทับเมื่อบันทึกรายการนั้นครั้งถัดไป
  */
 
-var SHEET_NAME = 'บันทึกเดินรถ';
-var DEBT_SHEET_NAME = 'รายการลูกหนี้';
+var SHEET_NAME = 'ค่าเดินทาง';
+var DEBT_SHEET_NAME = 'ลูกหนี้';
 var DATA_COL_NAME = '_DATA';
 var LOCK_WAIT_MS = 30000;
 
-var HEADERS = ["ID","วันที่","เลขที่ใบรายการ","สาขา","ทะเบียนรถ","ประเภทเส้นทาง","ต้นทาง","ปลายทาง","ระยะทาง(กม.)","ประเภทรถ","ชนิดรถ",
-  "ราคาน้ำมัน(บาท/ลิตร)","น้ำมัน(ลิตร)","ค่าแก๊ส","น้ำมันเดินทาง","ที่มาน้ำมันเดินทาง","น้ำมันไปเก็บสินค้า",
-  "พนักงานขับ","พนักงานสำรอง","SND","ค่าเปิดปิดผ้าใบ","ค่าด่านตำรวจ","ค่าธรรมเนียมคืนตู้","ค่าเข้าท่าเรือ","ค่าส่งเอกสาร","ค่าทางด่วน",
-  "ชนิดรถ(ค่าซ่อม)","ค่าซ่อมตามเวลา","ค่าซ่อมตามระยะทาง",
-  "น้ำมันนอกเส้นทาง(สูญเปล่า)","ค่าแรงนอกเส้นทาง(สูญเปล่า)","ต้นทุนเดินทางรวม(ปกติ)","ต้นทุนสูญเปล่า","รายได้","กำไร/ขาดทุน",
+// คอลัมน์ 1–34 ตรงรูปแบบชีต "Model หลัก" · 35+ เป็นข้อมูลเสริมของโมเดล · ท้ายสุดคือ _DATA
+var HEADERS = [
+  "ลำดับ","สาขา","วันที่ตัดจ่าย","เลขที่ใบรายการ","ประเภทใบรายการ","ประเภทรถ","ชนิดรถ","ทะเบียนรถ",
+  "ค่าแก๊สเดินทาง","ค่าน้ำมันเดินทาง(เงินสด)","ค่าน้ำมันเดินทางขาล่อง(บิลน้ำมัน)","ค่าน้ำมัน(Fleet Card)",
+  "ค่าน้ำมันไปเก็บสินค้า","ค่าน้ำมันเดินทางขาขึ้น (บิลน้ำมัน)","ค่าเรียกรถไปขึ้นของ (บิลน้ำมัน)",
+  "ค่าเบี้ยเลี้ยงพขร.","ค่าเบี้ยเลี้ยงพขร.สำรอง","เบี้ยเลี้ยง SND",
+  "ค่าน้ำมันรถวิ่งอ้อม","ค่าน้ำมันนอกเส้นทาง(Fleet Card)","เบี้ยเลี้ยงนอกเส้นทาง","น้ำมันนอกเส้นทาง",
+  "ค่าธรรมเนียมคืนตู้","ค่าเข้าท่าเรือ","ค่าส่งเอกสาร","ค่าทางด่วน","ค่าปิดเปิดผ้าใบรถเทเลอร์","ค่าตำรวจ",
+  "Rev ค่าบรรทุกทั้งใบรายการ","จุดขึ้น-จุดลง","ปี","รวมค่าใช้จ่าย","ค่าน้ำมันเหมา","ค่าซ่อมแซม",
+  // ───── ส่วนเสริมของโมเดล ─────
+  "ID","ประเภทเส้นทาง","ระยะทาง(กม.)","ราคาน้ำมัน(บาท/ลิตร)","น้ำมัน(ลิตร)","น้ำมันเดินทาง(คำนวณอัตโนมัติ)",
+  "ค่าซ่อมตามเวลา","ค่าซ่อมตามระยะทาง","ต้นทุนปกติรวม","ต้นทุนสูญเปล่า","กำไร/ขาดทุน",
   "สถานะชำระ","จำนวนลูกหนี้","ชำระแล้ว(ราย)","ยอดรวมบิล","วันที่ชำระครบ","จำนวนวันชำระ","รายการลูกหนี้",
   DATA_COL_NAME];
 
-var DEBT_HEADERS = ["BillID","ID ใบรายการ","เลขที่ใบรายการ","วันที่","เส้นทาง",
-  "เลขที่บิล","ผู้ส่ง","ผู้รับ","จำนวน","ราคารวม","ประเภทการชำระ","สถานะ","วันที่ชำระ","จำนวนวันชำระ"];
+// คอลัมน์ 1–9 ตรงรูปแบบชีต · 10+ เป็นข้อมูลเสริม
+var DEBT_HEADERS = [
+  "วันที่","เลขที่ใบรายการ","เลขที่บิล","ผู้ส่ง","ผู้รับ","ประเภทการชำระเงิน","สถานะการชำระเงิน","จำนวน","ราคารวม",
+  "BillID","ID ใบรายการ","สาขา","เส้นทาง","วันที่ชำระ","จำนวนวันชำระ"];
 
-var DATA_COL = HEADERS.length;          // คอลัมน์สุดท้าย = _DATA
-var ID_COL = 1;                         // คอลัมน์ A = ID
+var DATA_COL  = HEADERS.length;                         // คอลัมน์สุดท้าย = _DATA
+var SEQ_COL   = 1;                                      // "ลำดับ" — ระบบใส่ให้เอง
+var ID_COL    = HEADERS.indexOf('ID') + 1;              // คีย์สำหรับ upsert
+var OWNER_COL = DEBT_HEADERS.indexOf('ID ใบรายการ') + 1;
 
 
 /* ═══════════════ เสิร์ฟหน้าเว็บ ═══════════════ */
@@ -69,7 +80,7 @@ function apiLoad() {
     if (last < 2) return { ok: true, records: [] };
 
     var raw = sh.getRange(2, DATA_COL, last - 1, 1).getValues();
-    var ids = sh.getRange(2, ID_COL, last - 1, 1).getValues();
+    var ids = sh.getRange(2, ID_COL,   last - 1, 1).getValues();
     var records = [];
     for (var i = 0; i < raw.length; i++) {
       var txt = String(raw[i][0] || '').trim();
@@ -103,18 +114,15 @@ function apiSave(payload) {
     var sh = getSheet_(SHEET_NAME, HEADERS);
 
     var row = padRow_(payload.row || [], HEADERS.length);
-    row[0] = id;
+    row[ID_COL - 1]   = id;
     row[DATA_COL - 1] = JSON.stringify(payload.record);
 
     var at = findRow_(sh, id);
-    if (at) {
-      sh.getRange(at, 1, 1, HEADERS.length).setValues([row]);
-    } else {
-      at = sh.getLastRow() + 1;
-      sh.getRange(at, 1, 1, HEADERS.length).setValues([row]);
-    }
+    if (!at) at = sh.getLastRow() + 1;
+    sh.getRange(at, 1, 1, HEADERS.length).setValues([row]);
 
     writeBills_(id, payload.bills || []);
+    renumber_(sh);
     return { ok: true, id: id, row: at };
   } catch (err) {
     return { ok: false, error: String(err) };
@@ -132,6 +140,7 @@ function apiDelete(id) {
     var at = findRow_(sh, String(id));
     if (at) sh.deleteRow(at);
     writeBills_(String(id), []);
+    renumber_(sh);
     return { ok: true, deleted: at ? 1 : 0 };
   } catch (err) {
     return { ok: false, error: String(err) };
@@ -169,7 +178,7 @@ function writeBills_(recordId, bills) {
   var last = sh.getLastRow();
 
   if (last > 1) {
-    var owners = sh.getRange(2, 2, last - 1, 1).getValues();   // คอลัมน์ B = ID ใบรายการ
+    var owners = sh.getRange(2, OWNER_COL, last - 1, 1).getValues();
     for (var i = owners.length - 1; i >= 0; i--) {
       if (String(owners[i][0]) === recordId) sh.deleteRow(i + 2);
     }
@@ -210,6 +219,15 @@ function getSheet_(name, headers) {
     sh.hideColumns(headers.length);
   }
   return sh;
+}
+
+/** ใส่เลข "ลำดับ" ใหม่ให้ทุกแถวตามตำแหน่ง (1, 2, 3, ...) */
+function renumber_(sh) {
+  var last = sh.getLastRow();
+  if (last < 2) return;
+  var seq = [];
+  for (var i = 2; i <= last; i++) seq.push([i - 1]);
+  sh.getRange(2, SEQ_COL, seq.length, 1).setValues(seq);
 }
 
 function clearBody_(sh) {

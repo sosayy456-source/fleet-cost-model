@@ -257,7 +257,8 @@
         </div>
         <div class="grid3">
           <div class="field"><label for="branch">สาขา</label><select id="branch"></select></div>
-          <div class="field"><label for="plate">เลขทะเบียนรถ</label><input id="plate" type="text" placeholder="เช่น 70-1234 เชียงใหม่"></div>
+          <div class="field"><label for="plate">เลขทะเบียนรถ</label><input id="plate" type="text" placeholder="เช่น ชม.70-0820"></div>
+          <div class="field"><label for="docType">ประเภทใบรายการ</label><select id="docType"></select></div>
         </div>
         <div class="grid3">
           <div class="field"><label for="origin">เส้นทาง · ต้นทาง</label><select id="origin"></select></div>
@@ -279,20 +280,30 @@
           <div class="field"><label for="gas">1) ค่าแก๊ส</label>
             <div class="input-suffix"><input id="gas" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
         </div>
-        <h3 class="grp"><span class="dot"></span>2) ค่าน้ำมัน — ต้นทุนปกติ</h3>
-        <div class="grid2">
-          <div class="field">
-            <label class="chk"><input id="fuelManualOn" type="checkbox"><span>กำหนดค่าน้ำมันเดินทางเอง (ไม่ติ๊ก = คำนวณอัตโนมัติตามโมเดลเดิม)</span></label>
-            <div class="input-suffix"><input id="fuelTravel" type="number" min="0" step="1" placeholder="อัตโนมัติ" disabled><span class="unit">บาท</span></div>
-            <div class="price-note" id="fuelNote">น้ำมันเดินทาง (อัตโนมัติ): –</div>
-          </div>
+        <h3 class="grp"><span class="dot"></span>2) ค่าน้ำมัน — ต้นทุนปกติ <span style="font-weight:400;color:var(--ink-faint)">(แยกตามวิธีจ่าย ตามรูปแบบชีต)</span></h3>
+        <div class="grid3">
+          <div class="field"><label for="fuelCash">ค่าน้ำมันเดินทาง (เงินสด)</label>
+            <div class="input-suffix"><input id="fuelCash" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="fuelDownBill">ค่าน้ำมันเดินทางขาล่อง (บิลน้ำมัน)</label>
+            <div class="input-suffix"><input id="fuelDownBill" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="fuelUpBill">ค่าน้ำมันเดินทางขาขึ้น (บิลน้ำมัน)</label>
+            <div class="input-suffix"><input id="fuelUpBill" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="fuelFleet">ค่าน้ำมัน (Fleet Card)</label>
+            <div class="input-suffix"><input id="fuelFleet" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
           <div class="field"><label for="fuelPickup">ค่าน้ำมันไปเก็บสินค้า</label>
             <div class="input-suffix"><input id="fuelPickup" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="fuelCallTruck">ค่าเรียกรถไปขึ้นของ (บิลน้ำมัน)</label>
+            <div class="input-suffix"><input id="fuelCallTruck" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
         </div>
+        <div class="price-note" id="fuelNote">น้ำมันเดินทาง (คำนวณอัตโนมัติ): –</div>
         <h3 class="grp waste"><span class="dot"></span>ค่าน้ำมัน — ต้นทุนสูญเปล่า</h3>
-        <div class="grid2">
+        <div class="grid3">
           <div class="field"><label for="fuelOff">น้ำมันวิ่งรถนอกเส้นทาง</label>
             <div class="input-suffix"><input id="fuelOff" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="fuelDetour">ค่าน้ำมันรถวิ่งอ้อม</label>
+            <div class="input-suffix"><input id="fuelDetour" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          <div class="field"><label for="fuelOffFleet">ค่าน้ำมันนอกเส้นทาง (Fleet Card)</label>
+            <div class="input-suffix"><input id="fuelOffFleet" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
         </div>
         <h3 class="grp"><span class="dot"></span>3) ค่าแรงพนักงาน — ต้นทุนปกติ</h3>
         <div class="grid3">
@@ -337,14 +348,14 @@
         </div>
         <div class="result" id="detailBox" style="display:none">
           <div class="result-row"><span class="k">ค่าแก๊ส</span><span class="v" id="dGas">–</span></div>
-          <div class="result-row"><span class="k">น้ำมันเดินทาง <span id="dFuelSrc"></span></span><span class="v" id="dFuelTravel">–</span></div>
-          <div class="result-row"><span class="k">น้ำมันไปเก็บสินค้า</span><span class="v" id="dFuelPickup">–</span></div>
+          <div class="result-row"><span class="k">ค่าน้ำมันรวม (ค่าน้ำมันเหมา)</span><span class="v" id="dFuelSum">–</span></div>
           <div class="result-row"><span class="k">ค่าแรง (ขับ+สำรอง+SND)</span><span class="v" id="dLabor">–</span></div>
           <div class="result-row"><span class="k">ค่าธรรมเนียมรวม</span><span class="v" id="dFees">–</span></div>
           <div class="result-row"><span class="k">ค่าซ่อมตามระยะเวลา (คงที่)</span><span class="v" id="dRepFix">–</span></div>
           <div class="result-row"><span class="k">ค่าซ่อมตามระยะทาง (ตาม กม.)</span><span class="v" id="dRepVar">–</span></div>
-          <div class="result-row"><span class="k" style="color:#B0641F">สูญเปล่า: น้ำมันนอกเส้นทาง</span><span class="v" id="dFuelOff">–</span></div>
-          <div class="result-row"><span class="k" style="color:#B0641F">สูญเปล่า: ค่าแรงนอกเส้นทาง</span><span class="v" id="dLaborOff">–</span></div>
+          <div class="result-row"><span class="k" style="color:#B0641F">สูญเปล่า: น้ำมัน (นอกเส้นทาง + วิ่งอ้อม + Fleet Card)</span><span class="v" id="dWasteFuel">–</span></div>
+          <div class="result-row"><span class="k" style="color:#B0641F">สูญเปล่า: เบี้ยเลี้ยงนอกเส้นทาง</span><span class="v" id="dLaborOff">–</span></div>
+          <div class="result-row"><span class="k" style="font-weight:700">รวมค่าใช้จ่าย <span style="font-weight:400;color:var(--ink-faint)">(ตามสูตรชีต · ไม่รวมค่าซ่อม)</span></span><span class="v" id="dSheetTotal">–</span></div>
         </div>
         <div id="debtorBox">
           <h3 class="grp"><span class="dot"></span>รายการลูกหนี้ / บิล</h3>
@@ -408,7 +419,7 @@
             <b style="color:var(--red)">เคย Deploy ไว้แล้วแต่ข้อมูลไม่ขึ้นชีต?</b> = โค้ดในชีตเป็นเวอร์ชันเก่า<br>
             วางโค้ดใหม่ทับ → บันทึก → <b>Deploy → Manage deployments</b> → กดดินสอ <b>✏</b> ที่ deployment เดิม →
             ช่อง <b>Version</b> เลือก <b>New version</b> → <b>Deploy</b> · URL เดิมใช้ต่อได้ไม่ต้องเปลี่ยน<br>
-            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v4</code> จึงจะบันทึกได้)<br>
+            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v5</code> จึงจะบันทึกได้)<br>
             <br>ระบบจะสร้าง 2 ชีต: <code>บันทึกเดินรถ</code> (1 แถว = 1 ใบรายการ) และ <code>รายการลูกหนี้</code> (1 แถว = ลูกหนี้ 1 ราย)
           </div>
         </div>
@@ -504,6 +515,7 @@ const BASE_PRICES = [
   ["2026-05-19",42.73],["2026-05-26",41.73],["2026-05-30",41.23],["2026-06-04",42.03]
 ];
 // สาขา (เรียงตามตัวอักษรไทย)
+const DOC_TYPES = ["ของย่อย","ของสด","รถว่างไปสาขา"];
 const BRANCHES = ["เชียงราย","เชียงใหม่","ตลาดไท","ท่าลี่","ฝาง","พะเยา","พุทธมณฑลสาย 2","พุทธมณฑลสาย 5",
   "แพร่","มหาชัย","แม่สาย","ร่มเกล้า","ราชบุรี","ลำปาง","เวียงป่าเป้า","สี่แยกมหานาค"];
 const RATES = [
@@ -533,6 +545,9 @@ const TH_MONTHS=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","�
 const pad=n=>String(n).padStart(2,"0");
 const thDate=s=>{const [y,m,d]=s.split("-");return `${+d} ${TH_MONTHS[+m-1]} ${(+y)+543}`;};
 const thDateSafe=s=>s?thDate(s):"–";
+// รูปแบบวันที่ของชีต: dd/mm/yyyy พ.ศ. เช่น 01/01/2567
+const thSlash=s=>{const [y,m,d]=s.split("-");return `${pad(+d)}/${pad(+m)}/${(+y)+543}`;};
+const thSlashSafe=s=>s?thSlash(s):"";
 const r2=n=>isFinite(n)?Math.round(n*100)/100:"";
 const genId=()=>"R"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -591,6 +606,7 @@ function getDateStr(){ const d=parseInt(ddI.value,10),m=+mmS.value,y=+yyS.value;
 
 const veh=$("vehicle"), org=$("origin"), dst=$("dest");
 $("branch").innerHTML='<option value="">— เลือกสาขา —</option>'+BRANCHES.map(b=>`<option>${b}</option>`).join("");
+$("docType").innerHTML='<option value="">— เลือก —</option>'+DOC_TYPES.map(t=>`<option>${t}</option>`).join("");
 veh.innerHTML='<option value="">— เลือกชนิดรถ —</option>'+RATES.map((r,i)=>`<option value="${i}">${r[0]}</option>`).join("");
 const ORIGINS=Object.keys(ROUTES).sort((a,b)=>a.localeCompare(b,"th"));
 org.innerHTML='<option value="">— เลือกต้นทาง —</option>'+ORIGINS.map(o=>`<option>${o}</option>`).join("");
@@ -626,8 +642,11 @@ function updateRepNote(){
 }
 ["fleetType","vehicle","distance"].forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateRepNote)));
 
-// ================= น้ำมันเดินทาง auto =================
-const fuelManualOn=$("fuelManualOn"), fuelTravelI=$("fuelTravel");
+// ================= น้ำมันเดินทาง =================
+// ค่าใช้จ่ายจริง = ผลรวม 6 ช่องที่กรอกเอง (ตามรูปแบบชีต)
+// ตัวเลขคำนวณอัตโนมัติ (ระยะทาง × อัตราสิ้นเปลือง × ราคาน้ำมัน) เก็บไว้เป็น "ตัวเทียบ" เท่านั้น
+const FUEL_IDS=["fuelCash","fuelDownBill","fuelFleet","fuelPickup","fuelUpBill","fuelCallTruck"];
+function fuelActual(){ return FUEL_IDS.reduce((s,id)=>s+num(id),0); }   // = ค่าน้ำมันเหมา (คอลัมน์ 33)
 function autoFuelInfo(){
   const vi=parseInt(veh.value,10);
   const rate=(!isNaN(vi)&&RATES[vi])?RATES[vi][1]:0;
@@ -637,53 +656,62 @@ function autoFuelInfo(){
   return {rate,dist,price,effDate,liters,cost};
 }
 function updateFuelNote(){
-  const a=autoFuelInfo();
-  if(fuelManualOn.checked){ $("fuelNote").innerHTML=`กำหนดเอง — ไม่ใช้การคำนวณอัตโนมัติ`; }
-  else if(a.rate>0&&a.dist>0){
-    $("fuelNote").innerHTML=`อัตโนมัติ: ${fmt(a.dist,0)} กม. × ${a.rate.toFixed(5)} × <b>${a.price.toFixed(2)}</b> บาท/ลิตร (เรท ${thDate(a.effDate)}) = <b>${fmt(a.cost,2)}</b> บาท (${fmt(a.liters,2)} ลิตร)`;
-  }else{ $("fuelNote").innerHTML=`อัตโนมัติ: เลือกชนิดรถ + ระยะทางก่อน (ราคาปัจจุบัน ${a.price.toFixed(2)} บาท/ลิตร)`; }
+  const a=autoFuelInfo(), actual=fuelActual();
+  let html;
+  if(a.rate>0&&a.dist>0){
+    html=`ตัวเทียบอัตโนมัติ: ${fmt(a.dist,0)} กม. × ${a.rate.toFixed(5)} × <b>${a.price.toFixed(2)}</b> บาท/ลิตร (เรท ${thDate(a.effDate)}) = <b>${fmt(a.cost,2)}</b> บาท (${fmt(a.liters,2)} ลิตร)`;
+  }else{
+    html=`ตัวเทียบอัตโนมัติ: เลือกชนิดรถ + ระยะทางก่อน (ราคาปัจจุบัน ${a.price.toFixed(2)} บาท/ลิตร)`;
+  }
+  html+=`<br>ค่าน้ำมันจริงที่กรอก (ค่าน้ำมันเหมา): <b>${fmt(actual,2)}</b> บาท`;
+  if(a.cost>0&&actual>0){
+    const diff=actual-a.cost;
+    html+=` · ต่างจากตัวเทียบ <b style="color:${Math.abs(diff)>a.cost*0.15?"var(--red)":"var(--green)"}">${diff>=0?"+":""}${fmt(diff,2)}</b> บาท`;
+  }else if(a.cost>0&&actual===0){
+    html+=` <b style="color:var(--red)">— ยังไม่ได้กรอกค่าน้ำมันสักช่อง ต้นทุนจะไม่รวมค่าน้ำมัน</b>`;
+  }
+  $("fuelNote").innerHTML=html;
 }
-fuelManualOn.addEventListener("change",()=>{
-  fuelTravelI.disabled=!fuelManualOn.checked;
-  fuelTravelI.placeholder=fuelManualOn.checked?"กรอกค่าน้ำมันเดินทาง":"อัตโนมัติ";
-  if(fuelManualOn.checked){ if(!fuelTravelI.value){const a=autoFuelInfo(); if(a.cost>0) fuelTravelI.value=a.cost.toFixed(0);} fuelTravelI.focus(); }
-  else fuelTravelI.value="";
-  updateFuelNote();
-});
 org.addEventListener("change",()=>{fillDests();applyRouteDistance();refreshRoute();updateFuelNote();});
 dst.addEventListener("change",()=>{applyRouteDistance();refreshRoute();updateFuelNote();});
 function refreshRoute(){ $("routeText").textContent=(org.value&&dst.value)?`${org.value} → ${dst.value}`:"–"; }
-["vehicle","distance","dd","mm","yy"].forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateFuelNote)));
+["vehicle","distance","dd","mm","yy"].concat(FUEL_IDS)
+  .forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateFuelNote)));
 
 // ================= คำนวณ =================
 let lastCalc=null;
 function doCalc(){
   const a=autoFuelInfo();
-  const useManualFuel=fuelManualOn.checked;
-  const fuelTravel=useManualFuel?num("fuelTravel"):a.cost;
-  const gas=num("gas"), fuelPickup=num("fuelPickup"), fuelOff=num("fuelOff");
+  const gas=num("gas");
+  const fuelCash=num("fuelCash"), fuelDownBill=num("fuelDownBill"), fuelFleet=num("fuelFleet");
+  const fuelPickup=num("fuelPickup"), fuelUpBill=num("fuelUpBill"), fuelCallTruck=num("fuelCallTruck");
+  const fuelSum=fuelCash+fuelDownBill+fuelFleet+fuelPickup+fuelUpBill+fuelCallTruck;   // = ค่าน้ำมันเหมา
+  const fuelOff=num("fuelOff"), fuelDetour=num("fuelDetour"), fuelOffFleet=num("fuelOffFleet");
   const drv=num("drv"), spare=num("spare"), snd=num("snd"), laborOff=num("laborOff");
   const fees=num("feeTarp")+num("feePolice")+num("feeCont")+num("feePort")+num("feeDoc")+num("feeToll");
   const labor=drv+spare+snd;
   const rep=repairInfo();
-  const normal=gas+fuelTravel+fuelPickup+labor+fees+rep.total;
-  const waste=fuelOff+laborOff;
-  lastCalc={gas,fuelTravel,fuelSrc:useManualFuel?"กำหนดเอง":"อัตโนมัติ",fuelPickup,fuelOff,drv,spare,snd,laborOff,
+  const normal=gas+fuelSum+labor+fees+rep.total;
+  const waste=fuelDetour+fuelOffFleet+laborOff+fuelOff;
+  const sheetTotal=gas+fuelSum+labor+waste+fees;   // "รวมค่าใช้จ่าย" ของชีต = คอลัมน์ 9–28 (ไม่รวมค่าซ่อม)
+  lastCalc={gas,fuelCash,fuelDownBill,fuelFleet,fuelPickup,fuelUpBill,fuelCallTruck,fuelSum,
+    fuelOff,fuelDetour,fuelOffFleet,drv,spare,snd,laborOff,
     feeTarp:num("feeTarp"),feePolice:num("feePolice"),feeCont:num("feeCont"),feePort:num("feePort"),feeDoc:num("feeDoc"),feeToll:num("feeToll"),
     repVeh:rep.veh,repFix:rep.fixed,repRate:rep.rate,repVar:rep.varCost,repTotal:rep.total,
-    fees,labor,normal,waste,liters:(useManualFuel?0:a.liters),price:a.price};
+    fees,labor,normal,waste,sheetTotal,
+    fuelAuto:a.cost,liters:a.liters,price:a.price};
   renderSummary();
+  updateFuelNote();
   $("detailBox").style.display="";
   $("dGas").textContent=fmt(gas,2)+" บาท";
-  $("dFuelSrc").textContent="("+lastCalc.fuelSrc+")";
-  $("dFuelTravel").textContent=fmt(fuelTravel,2)+" บาท";
-  $("dFuelPickup").textContent=fmt(fuelPickup,2)+" บาท";
+  $("dFuelSum").textContent=fmt(fuelSum,2)+" บาท"+(a.cost>0?` (ตัวเทียบอัตโนมัติ ${fmt(a.cost,2)})`:"");
   $("dLabor").textContent=fmt(labor,2)+" บาท";
   $("dFees").textContent=fmt(fees,2)+" บาท";
   $("dRepFix").textContent=fmt(rep.fixed,2)+" บาท"+(rep.veh?` · ${rep.veh}`:"");
   $("dRepVar").textContent=fmt(rep.varCost,2)+" บาท"+(rep.veh&&rep.hasVar?` (${rep.rate.toFixed(4)}/กม.)`:"");
-  $("dFuelOff").textContent=fmt(fuelOff,2)+" บาท";
+  $("dWasteFuel").textContent=fmt(fuelDetour+fuelOffFleet+fuelOff,2)+" บาท";
   $("dLaborOff").textContent=fmt(laborOff,2)+" บาท";
+  $("dSheetTotal").textContent=fmt(sheetTotal,2)+" บาท";
 }
 $("calcBtn").addEventListener("click",doCalc);
 function renderSummary(){
@@ -706,7 +734,7 @@ function updateConnBadge(){
   const on=!!getUrl();
   const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
 }
-const GS_VERSION=4;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
+const GS_VERSION=5;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
 async function postToSheet(payload){
   const url=getUrl();
   if(!url) throw new Error("ยังไม่ได้ตั้งค่า URL (กด ⚙ ตั้งค่า)");
@@ -731,26 +759,95 @@ async function postToSheet(payload){
     throw new Error(`โค้ด Apps Script เป็นเวอร์ชันเก่า (v${data.version||"?"} · ต้องการ v${GS_VERSION}) — วางโค้ดจากไฟล์ AppsScript-โค้ด.gs ใหม่ แล้ว Deploy → Manage deployments → ✏ แก้ไข → Version: New version → Deploy`);
   return data;
 }
+// ---- แถวชีต "ค่าเดินทาง" : คอลัมน์ 1–34 ตรงรูปแบบเดิมของชีต, 35+ เป็นข้อมูลเสริมของโมเดล ----
+// (คอลัมน์ 1 "ลำดับ" เว้นว่างไว้ ให้ฝั่ง Apps Script ใส่เลขลำดับตามตำแหน่งแถวเอง)
 function recordToRow(r){
   const p=recPayInfo(r), bs=recBills(r);
-  return [ r.id, thDateSafe(r.date), r.docNo||"", r.branch||"", r.plate||"", r.routeType||"", r.origin||"", r.dest||"", r2(r.dist),
-    r.fleetType||"", r.vehicle||"", r2(r.price), r2(r.liters), r2(r.gas), r2(r.fuelTravel), r.fuelSrc||"",
-    r2(r.fuelPickup), r2(r.drv), r2(r.spare), r2(r.snd),
-    r2(r.feeTarp), r2(r.feePolice), r2(r.feeCont), r2(r.feePort), r2(r.feeDoc), r2(r.feeToll),
-    r.repVeh||"", r2(r.repFix), r2(r.repVar),
-    r2(r.fuelOff), r2(r.laborOff), r2(r.normal), r2(r.waste), r2(r.revenue), r2(r.profit),
-    p.status, p.count, p.paidCount, r2(p.total), thDateSafe(p.payDate), (p.daysToPay!=null?p.daysToPay:""),
-    bs.map(b=>`${b.no||"-"}|${b.sender||""}→${b.receiver||""}|${b.qty||0}|${b.total||0}|${b.payType||"-"}|${billIsPaid(b)?"จ่ายแล้ว "+thDateSafe(billPayDate(b,r)):"ค้างชำระ"}`).join(" ; ") ];
+  const fuelSum=(r.fuelSum!=null)?r.fuelSum
+    :(+r.fuelCash||0)+(+r.fuelDownBill||0)+(+r.fuelFleet||0)+(+r.fuelPickup||0)+(+r.fuelUpBill||0)+(+r.fuelCallTruck||0);
+  const sheetTotal=(r.sheetTotal!=null)?r.sheetTotal
+    :(+r.gas||0)+fuelSum+(+r.drv||0)+(+r.spare||0)+(+r.snd||0)
+     +(+r.fuelDetour||0)+(+r.fuelOffFleet||0)+(+r.laborOff||0)+(+r.fuelOff||0)+(+r.fees||0);
+  return [
+    /* 1  ลำดับ                          */ "",
+    /* 2  สาขา                           */ r.branch||"",
+    /* 3  วันที่ตัดจ่าย                    */ thSlashSafe(r.date),
+    /* 4  เลขที่ใบรายการ                  */ r.docNo||"",
+    /* 5  ประเภทใบรายการ                 */ r.docType||"",
+    /* 6  ประเภทรถ                        */ r.fleetType||"",
+    /* 7  ชนิดรถ                          */ r.vehicle||"",
+    /* 8  ทะเบียนรถ                       */ r.plate||"",
+    /* 9  ค่าแก๊สเดินทาง                   */ r2(r.gas),
+    /* 10 ค่าน้ำมันเดินทาง(เงินสด)          */ r2(r.fuelCash),
+    /* 11 ขาล่อง(บิลน้ำมัน)                */ r2(r.fuelDownBill),
+    /* 12 ค่าน้ำมัน(Fleet Card)            */ r2(r.fuelFleet),
+    /* 13 ค่าน้ำมันไปเก็บสินค้า             */ r2(r.fuelPickup),
+    /* 14 ขาขึ้น(บิลน้ำมัน)                */ r2(r.fuelUpBill),
+    /* 15 ค่าเรียกรถไปขึ้นของ(บิลน้ำมัน)    */ r2(r.fuelCallTruck),
+    /* 16 ค่าเบี้ยเลี้ยงพขร.               */ r2(r.drv),
+    /* 17 ค่าเบี้ยเลี้ยงพขร.สำรอง          */ r2(r.spare),
+    /* 18 เบี้ยเลี้ยง SND                  */ r2(r.snd),
+    /* 19 ค่าน้ำมันรถวิ่งอ้อม               */ r2(r.fuelDetour),
+    /* 20 ค่าน้ำมันนอกเส้นทาง(Fleet Card)  */ r2(r.fuelOffFleet),
+    /* 21 เบี้ยเลี้ยงนอกเส้นทาง            */ r2(r.laborOff),
+    /* 22 น้ำมันนอกเส้นทาง                 */ r2(r.fuelOff),
+    /* 23 ค่าธรรมเนียมคืนตู้               */ r2(r.feeCont),
+    /* 24 ค่าเข้าท่าเรือ                   */ r2(r.feePort),
+    /* 25 ค่าส่งเอกสาร                    */ r2(r.feeDoc),
+    /* 26 ค่าทางด่วน                      */ r2(r.feeToll),
+    /* 27 ค่าปิดเปิดผ้าใบรถเทเลอร์          */ r2(r.feeTarp),
+    /* 28 ค่าตำรวจ                        */ r2(r.feePolice),
+    /* 29 Rev ค่าบรรทุกทั้งใบรายการ        */ r2(r.revenue),
+    /* 30 จุดขึ้น-จุดลง                    */ (r.origin&&r.dest)?`${r.origin}-${r.dest}`:"-",
+    /* 31 ปี                              */ r.date?(+r.date.slice(0,4)+543):"",
+    /* 32 รวมค่าใช้จ่าย                    */ r2(sheetTotal),
+    /* 33 ค่าน้ำมันเหมา                    */ r2(fuelSum),
+    /* 34 ค่าซ่อมแซม                       */ r2(r.repTotal),
+    // ───── ส่วนเสริมของโมเดล (ชีตต้นฉบับไม่มี) ─────
+    /* 35 ID                              */ r.id,
+    /* 36 ประเภทเส้นทาง                    */ r.routeType||"",
+    /* 37 ระยะทาง(กม.)                     */ r2(r.dist),
+    /* 38 ราคาน้ำมัน(บาท/ลิตร)             */ r2(r.price),
+    /* 39 น้ำมัน(ลิตร)                     */ r2(r.liters),
+    /* 40 น้ำมันเดินทาง(คำนวณอัตโนมัติ)     */ r2(r.fuelAuto),
+    /* 41 ค่าซ่อมตามเวลา                   */ r2(r.repFix),
+    /* 42 ค่าซ่อมตามระยะทาง                */ r2(r.repVar),
+    /* 43 ต้นทุนปกติรวม                    */ r2(r.normal),
+    /* 44 ต้นทุนสูญเปล่า                    */ r2(r.waste),
+    /* 45 กำไร/ขาดทุน                      */ r2(r.profit),
+    /* 46 สถานะชำระ                        */ p.status,
+    /* 47 จำนวนลูกหนี้                     */ p.count,
+    /* 48 ชำระแล้ว(ราย)                    */ p.paidCount,
+    /* 49 ยอดรวมบิล                        */ r2(p.total),
+    /* 50 วันที่ชำระครบ                     */ thSlashSafe(p.payDate),
+    /* 51 จำนวนวันชำระ                     */ (p.daysToPay!=null?p.daysToPay:""),
+    /* 52 รายการลูกหนี้                     */
+      bs.map(b=>`${b.no||"-"}|${b.sender||""}→${b.receiver||""}|${b.qty||0}|${b.total||0}|${b.payType||"-"}|${billIsPaid(b)?"จ่ายแล้ว "+thDateSafe(billPayDate(b,r)):"ค้างชำระ"}`).join(" ; ")
+  ];
 }
-// หนึ่งแถวต่อลูกหนี้ 1 ราย (ชีต “รายการลูกหนี้”)
+// ---- แถวชีต "ลูกหนี้" : คอลัมน์ 1–9 ตรงรูปแบบเดิม, 10+ เป็นข้อมูลเสริม ----
 function recordBillRows(r){
-  const route=(r.origin&&r.dest)?`${r.origin}→${r.dest}`:"";
+  const route=(r.origin&&r.dest)?`${r.origin}-${r.dest}`:"-";
   return recBills(r).map((b,i)=>{
     const pd=billPayDate(b,r);
-    return [ r.id+"#"+i, r.id, r.docNo||"", thDateSafe(r.date), route,
-      b.no||"", b.sender||"", b.receiver||"", r2(b.qty), r2(b.total), b.payType||"",
-      billIsPaid(b)?"ชำระแล้ว":"ยังไม่ได้ชำระ", thDateSafe(pd),
-      (pd?daysBetween(r.date,pd):"") ];
+    return [
+      /* 1 วันที่               */ thSlashSafe(r.date),
+      /* 2 เลขที่ใบรายการ       */ r.docNo||"",
+      /* 3 เลขที่บิล            */ b.no||"",
+      /* 4 ผู้ส่ง               */ b.sender||"",
+      /* 5 ผู้รับ               */ b.receiver||"",
+      /* 6 ประเภทการชำระเงิน    */ b.payType||"",
+      /* 7 สถานะการชำระเงิน     */ billIsPaid(b)?"ชำระแล้ว":"ยังไม่ได้ชำระ",
+      /* 8 จำนวน                */ r2(b.qty),
+      /* 9 ราคารวม              */ r2(b.total),
+      // ───── ส่วนเสริม ─────
+      /* 10 BillID              */ r.id+"#"+i,
+      /* 11 ID ใบรายการ         */ r.id,
+      /* 12 สาขา                */ r.branch||"",
+      /* 13 เส้นทาง             */ route,
+      /* 14 วันที่ชำระ           */ thSlashSafe(pd),
+      /* 15 จำนวนวันชำระ         */ (pd?daysBetween(r.date,pd):"")
+    ];
   });
 }
 async function pushRecords(list){
@@ -789,17 +886,29 @@ function saveRecords(){ try{ localStorage.setItem(LS_REC,JSON.stringify(RECORDS)
     r.bills=bs; delete r.payStatus; delete r.payDate; delete r.daysToPay;
     r._v2=true; r.synced=false; changed=true;
   });
+  // ---- รูปแบบใหม่: น้ำมันเดินทางช่องเดียว -> แยกตามวิธีจ่าย (ค่าเดิมลงช่อง "เงินสด" ไว้ก่อน) ----
+  RECORDS.forEach(r=>{
+    if(r._v3) return;
+    if(r.fuelTravel!=null && r.fuelCash==null) r.fuelCash=r.fuelTravel;
+    ["fuelCash","fuelDownBill","fuelFleet","fuelUpBill","fuelCallTruck","fuelDetour","fuelOffFleet"]
+      .forEach(k=>{ if(r[k]==null) r[k]=0; });
+    r.fuelSum=(+r.fuelCash||0)+(+r.fuelDownBill||0)+(+r.fuelFleet||0)+(+r.fuelPickup||0)+(+r.fuelUpBill||0)+(+r.fuelCallTruck||0);
+    r.waste=(+r.fuelDetour||0)+(+r.fuelOffFleet||0)+(+r.laborOff||0)+(+r.fuelOff||0);
+    r.sheetTotal=(+r.gas||0)+r.fuelSum+(+r.drv||0)+(+r.spare||0)+(+r.snd||0)+r.waste+(+r.fees||0);
+    delete r.fuelTravel; delete r.fuelSrc;
+    r._v3=true; r.synced=false; changed=true;
+  });
   if(changed) saveRecords();
 })();
 function msg(el,text,color){ const e=$(el); e.textContent=text; e.style.color=color||"var(--green)";
   setTimeout(()=>{ if(e.textContent===text) e.textContent=""; },6000); }
 
 function resetDefaults(){
-  ["dd","docNo","plate","distance","gas","fuelTravel","fuelPickup","fuelOff","drv","spare","snd","laborOff",
+  ["dd","docNo","plate","distance","gas","fuelCash","fuelDownBill","fuelFleet","fuelPickup","fuelUpBill","fuelCallTruck",
+   "fuelOff","fuelDetour","fuelOffFleet","drv","spare","snd","laborOff",
    "feeTarp","feePolice","feeCont","feePort","feeDoc","feeToll","revenue"].forEach(id=>$(id).value="");
-  mmS.value=""; yyS.value=""; $("routeType").value=""; $("branch").value=""; $("fleetType").value="";
+  mmS.value=""; yyS.value=""; $("routeType").value=""; $("branch").value=""; $("docType").value=""; $("fleetType").value="";
   org.value=""; fillDests(); dst.value=""; veh.value=""; updateRepNote();
-  fuelManualOn.checked=false; fuelTravelI.disabled=true; fuelTravelI.placeholder="อัตโนมัติ";
   lastCalc=null; $("detailBox").style.display="none";
   ["kRev","kNormal","kWaste","kProfit"].forEach(id=>$(id).textContent="–");
   $("kProfitCard").classList.remove("loss");
@@ -819,11 +928,11 @@ function buildRecord(){
   const vi=parseInt(veh.value,10);
   return {
     date:getDateStr(), docNo:$("docNo").value.trim(), branch:$("branch").value, plate:$("plate").value.trim(),
-    routeType:$("routeType").value,
+    docType:$("docType").value, routeType:$("routeType").value,
     fleetType:$("fleetType").value, vehicle:(!isNaN(vi)&&RATES[vi])?RATES[vi][0]:"",
     origin:org.value, dest:dst.value, dist:num("distance"),
     ...lastCalc, revenue, profit:revenue-lastCalc.normal-lastCalc.waste,
-    bills:readBills(), _v2:true
+    bills:readBills(), _v2:true, _v3:true
   };
 }
 $("saveBtn").addEventListener("click",async()=>{
@@ -848,17 +957,18 @@ function loadRecordToForm(idx){
   if(r.date){ const [y,m,d]=r.date.split("-"); ddI.value=+d; mmS.value=+m; yyS.value=+y; }
   else { ddI.value=""; mmS.value=""; yyS.value=""; }
   $("docNo").value=r.docNo||""; $("branch").value=r.branch||""; $("plate").value=r.plate||"";
+  $("docType").value=r.docType||"";
   $("routeType").value=r.routeType||""; $("fleetType").value=r.fleetType||"";
   const vi=RATES.findIndex(x=>x[0]===r.vehicle); veh.value=vi>=0?vi:"";
   org.value=r.origin||""; fillDests(); dst.value=r.dest||"";
   $("distance").value=r.dist||"";
-  $("gas").value=r.gas||""; $("fuelPickup").value=r.fuelPickup||""; $("fuelOff").value=r.fuelOff||"";
+  $("gas").value=r.gas||"";
+  ["fuelCash","fuelDownBill","fuelFleet","fuelPickup","fuelUpBill","fuelCallTruck",
+   "fuelOff","fuelDetour","fuelOffFleet"].forEach(k=>$(k).value=r[k]||"");
   $("drv").value=r.drv||""; $("spare").value=r.spare||""; $("snd").value=r.snd||""; $("laborOff").value=r.laborOff||"";
   $("feeTarp").value=r.feeTarp||""; $("feePolice").value=r.feePolice||""; $("feeCont").value=r.feeCont||"";
   $("feePort").value=r.feePort||""; $("feeDoc").value=r.feeDoc||""; $("feeToll").value=r.feeToll||"";
   $("revenue").value=r.revenue||"";
-  if(r.fuelSrc==="กำหนดเอง"){ fuelManualOn.checked=true; fuelTravelI.disabled=false; fuelTravelI.value=r.fuelTravel||""; }
-  else { fuelManualOn.checked=false; fuelTravelI.disabled=true; fuelTravelI.value=""; }
   fillBills(r.bills);
   editingIndex=idx;
   refreshRoute(); updateFuelNote(); updateRepNote(); doCalc(); updateEditUI();
