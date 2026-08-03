@@ -144,6 +144,17 @@
   .badge.clk{cursor:pointer;user-select:none;border:1px solid transparent}
   .badge.clk:hover{filter:brightness(.97);border-color:currentColor}
   .badge.clk::after{content:" ▾";font-size:9px;opacity:.7}
+  .badge.src-new{background:var(--green-soft);color:var(--green)}
+  .badge.src-old{background:#EEF0F3;color:#6B7280}
+  .srcfilter{display:inline-flex;border:1px solid var(--border-strong);border-radius:9px;overflow:hidden;background:#fff}
+  .srcfilter button{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-soft);
+    background:#fff;border:none;border-right:1px solid var(--border);padding:9px 14px;cursor:pointer}
+  .srcfilter button:last-child{border-right:none}
+  .srcfilter button:hover{background:#F6F7F9}
+  .srcfilter button.on{background:var(--navy);color:#fff}
+  tr.oldrow td{background:#FCFCFD}
+  tr.oldrow:hover td{background:#F6F7F9}
+  .locknote{font-size:11.5px;color:var(--ink-faint)}
   tr.detail-row>td{background:#FAFBFC;padding:14px 16px;white-space:normal}
   .detail-title{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px}
   .subtable{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid var(--border);border-radius:10px;overflow:hidden}
@@ -419,7 +430,7 @@
             <b style="color:var(--red)">เคย Deploy ไว้แล้วแต่ข้อมูลไม่ขึ้นชีต?</b> = โค้ดในชีตเป็นเวอร์ชันเก่า<br>
             วางโค้ดใหม่ทับ → บันทึก → <b>Deploy → Manage deployments</b> → กดดินสอ <b>✏</b> ที่ deployment เดิม →
             ช่อง <b>Version</b> เลือก <b>New version</b> → <b>Deploy</b> · URL เดิมใช้ต่อได้ไม่ต้องเปลี่ยน<br>
-            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v5</code> จึงจะบันทึกได้)<br>
+            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v6</code> จึงจะบันทึกได้)<br>
             <br>ระบบจะสร้าง 2 ชีต: <code>บันทึกเดินรถ</code> (1 แถว = 1 ใบรายการ) และ <code>รายการลูกหนี้</code> (1 แถว = ลูกหนี้ 1 ราย)
           </div>
         </div>
@@ -430,7 +441,13 @@
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="searchBox" type="text" placeholder="ค้นหาเลขที่ใบรายการ / เส้นทาง...">
         </div>
-        <div style="display:flex;gap:10px;align-items:center">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div class="srcfilter" id="srcFilter">
+            <button type="button" data-src="all" class="on">ทั้งหมด</button>
+            <button type="button" data-src="new">ข้อมูลใหม่</button>
+            <button type="button" data-src="old">ข้อมูลเก่า</button>
+          </div>
+          <button id="btnLoadOld" class="btn-ghost" type="button">↻ โหลดข้อมูลเก่า</button>
           <button id="btnSync" class="btn btn-green" type="button">⬆ ซิงก์ขึ้น Google Sheet</button>
           <button id="btnClearRec" class="btn-ghost" type="button">ล้างทั้งหมด</button>
         </div>
@@ -439,7 +456,7 @@
         <div class="scroll">
           <table class="rec-table">
             <thead><tr>
-              <th>เลขที่ใบรายการ</th><th>สาขา</th><th>ทะเบียนรถ</th><th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
+              <th>แหล่งข้อมูล</th><th>เลขที่ใบรายการ</th><th>สาขา</th><th>ทะเบียนรถ</th><th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
               <th class="num">รายได้</th><th class="num">ต้นทุนรวม</th><th class="num">สูญเปล่า</th><th class="num">กำไร/ขาดทุน</th><th>สถานะ</th><th>แก้ไข</th>
             </tr></thead>
             <tbody id="recBody"></tbody>
@@ -447,7 +464,8 @@
         </div>
         <div id="recEmpty" class="rec-empty">ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ</div>
       </div>
-      <div class="msg" id="recMsg" style="color:var(--green);margin-top:10px"></div>
+      <div class="locknote" id="recCount" style="margin-top:8px"></div>
+      <div class="msg" id="recMsg" style="color:var(--green);margin-top:6px"></div>
     </section>
 
     <!-- ============ VIEW: รายการลูกหนี้ ============ -->
@@ -734,7 +752,7 @@ function updateConnBadge(){
   const on=!!getUrl();
   const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
 }
-const GS_VERSION=5;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
+const GS_VERSION=6;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
 async function postToSheet(payload){
   const url=getUrl();
   if(!url) throw new Error("ยังไม่ได้ตั้งค่า URL (กด ⚙ ตั้งค่า)");
@@ -850,6 +868,13 @@ function recordBillRows(r){
     ];
   });
 }
+// ---- โหลดข้อมูลเก่าจากชีต (ทุกแท็บที่ชื่อขึ้นต้นด้วย "ข้อมูลเก่า") ----
+async function loadOldRecords(){
+  if(!getUrl()) return false;
+  const res=await postToSheet({loadOld:true});
+  OLD_RECORDS=(res.records||[]).map(r=>({...r, source:"เก่า", bills:[]}));
+  return true;
+}
 async function pushRecords(list){
   const bills=[]; list.forEach(r=>recordBillRows(r).forEach(x=>bills.push(x)));
   return postToSheet({ rows:list.map(recordToRow), bills, billOwners:list.map(r=>r.id) });
@@ -872,6 +897,8 @@ function gstat(t,c){ const e=$("gsStatus"); e.textContent=t; e.style.color=c||"v
 // ================= บันทึก + แก้ไข + รายการ =================
 const LS_REC="tripRecords";
 let RECORDS=(()=>{ try{ return JSON.parse(localStorage.getItem(LS_REC))||[]; }catch(e){ return []; } })();
+let OLD_RECORDS=[];              // ข้อมูลเก่าจากชีต — อ่านอย่างเดียว ไม่เก็บลงเครื่อง
+let SRC_FILTER="all";            // all | new | old
 let editingIndex=null;
 function saveRecords(){ try{ localStorage.setItem(LS_REC,JSON.stringify(RECORDS)); }catch(e){} }
 
@@ -982,51 +1009,87 @@ $("cancelEdit").addEventListener("click",resetDefaults);
 function renderRecords(){
   const q=$("searchBox").value.trim().toLowerCase();
   const tb=$("recBody"); tb.innerHTML="";
+
+  // รวมข้อมูลใหม่ (แก้ไขได้) + ข้อมูลเก่าจากชีต (อ่านอย่างเดียว) แล้วเรียงตามวันที่ล่าสุดก่อน
+  const list=[];
+  if(SRC_FILTER!=="old") RECORDS.forEach((r,i)=>list.push({r,i,old:false}));
+  if(SRC_FILTER!=="new") OLD_RECORDS.forEach(r=>list.push({r,i:-1,old:true}));
+  list.sort((a,b)=>(b.r.date||"").localeCompare(a.r.date||""));
+
   let shown=0;
-  RECORDS.forEach((r,i)=>{
+  list.forEach(({r,i,old})=>{
     const route=(r.origin&&r.dest)?`${r.origin}→${r.dest}`:"–";
     if(q && !((r.docNo||"").toLowerCase().includes(q) || route.toLowerCase().includes(q)
       || (r.branch||"").toLowerCase().includes(q) || (r.plate||"").toLowerCase().includes(q))) return;
     shown++;
     const tr=document.createElement("tr");
-    if(i===editingIndex) tr.classList.add("editing");
-    const badge=r.fleetType?`<span class="badge ${r.fleetType==="รถบริษัท"?"b1":"b2"}">${r.fleetType}</span>`:"–";
-    const dot=`<span class="sdot ${r.synced?"on":""}" title="${r.synced?"ซิงก์ขึ้น Google Sheet แล้ว":"ยังไม่ได้ซิงก์"}"></span>`;
+    if(old) tr.classList.add("oldrow");
+    else if(i===editingIndex) tr.classList.add("editing");
+    const badge=r.fleetType?`<span class="badge ${r.fleetType==="รถบริษัท"?"b1":"b2"}">${esc(r.fleetType)}</span>`:"–";
+    const dot=old?"":`<span class="sdot ${r.synced?"on":""}" title="${r.synced?"ซิงก์ขึ้น Google Sheet แล้ว":"ยังไม่ได้ซิงก์"}"></span>`;
+    const srcBadge=old
+      ? `<span class="badge src-old" title="มาจากแท็บ ${esc(r.sheetName||"ข้อมูลเก่า")} · แก้ไขในชีต">ข้อมูลเก่า</span>`
+      : `<span class="badge src-new">ข้อมูลใหม่</span>`;
+    const statusCell=old
+      ? `<span class="locknote">–</span>`
+      : `<span class="badge clk ${STATUS_CLASS[recStatus(r)]}" title="กดเพื่อดูรายละเอียดลูกหนี้">${recStatus(r)}</span>`;
+    const actCell=old
+      ? `<span class="locknote">แก้ในชีต</span>`
+      : `<span class="act">`+
+        `<button class="btn-edit" title="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>แก้ไข</button>`+
+        `<button class="btn-del" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`+
+        `</span>`;
     tr.innerHTML=
-      `<td class="doc">${dot}${r.docNo||"–"}</td>`+
+      `<td>${srcBadge}</td>`+
+      `<td class="doc">${dot}${esc(r.docNo||"–")}</td>`+
       `<td>${esc(r.branch||"–")}</td><td>${esc(r.plate||"–")}</td>`+
       `<td>${thDateSafe(r.date)}</td>`+
-      `<td>${route}${r.routeType?` <span style="color:var(--ink-faint);font-size:11px">(${r.routeType})</span>`:""}</td>`+
-      `<td>${badge}</td><td>${r.vehicle||"–"}</td>`+
+      `<td>${esc(route)}${r.routeType?` <span style="color:var(--ink-faint);font-size:11px">(${esc(r.routeType)})</span>`:""}</td>`+
+      `<td>${badge}</td><td>${esc(r.vehicle||"–")}</td>`+
       `<td class="num">${fmt(r.revenue,0)}</td>`+
       `<td class="num">${fmt(r.normal,0)}</td>`+
       `<td class="num">${fmt(r.waste,0)}</td>`+
       `<td class="num ${r.profit>=0?"profit-pos":"profit-neg"}">${fmt(r.profit,0)}</td>`+
-      `<td><span class="badge clk ${STATUS_CLASS[recStatus(r)]}" title="กดเพื่อดูรายละเอียดลูกหนี้">${recStatus(r)}</span></td>`+
-      `<td><span class="act">`+
-        `<button class="btn-edit" title="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>แก้ไข</button>`+
-        `<button class="btn-del" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>`+
-      `</span></td>`;
-    tr.querySelector(".btn-edit").onclick=()=>loadRecordToForm(i);
-    tr.querySelector(".btn-del").onclick=()=>{
-      if(!confirm("ลบรายการนี้? (ลบเฉพาะในเครื่อง — แถวใน Google Sheet ต้องลบเองในชีต)")) return;
-      RECORDS.splice(i,1);
-      OPEN_DETAIL.delete(r.id);
-      if(editingIndex===i) resetDefaults(); else if(editingIndex!==null && i<editingIndex) editingIndex--;
-      saveRecords(); renderRecords();
-    };
-    tr.querySelector(".badge.clk").onclick=()=>{
-      if(OPEN_DETAIL.has(r.id)) OPEN_DETAIL.delete(r.id); else OPEN_DETAIL.add(r.id);
-      renderRecords();
-    };
+      `<td>${statusCell}</td><td>${actCell}</td>`;
+    if(!old){
+      tr.querySelector(".btn-edit").onclick=()=>loadRecordToForm(i);
+      tr.querySelector(".btn-del").onclick=()=>{
+        if(!confirm("ลบรายการนี้? (ลบเฉพาะในเครื่อง — แถวใน Google Sheet ต้องลบเองในชีต)")) return;
+        RECORDS.splice(i,1);
+        OPEN_DETAIL.delete(r.id);
+        if(editingIndex===i) resetDefaults(); else if(editingIndex!==null && i<editingIndex) editingIndex--;
+        saveRecords(); renderRecords();
+      };
+      tr.querySelector(".badge.clk").onclick=()=>{
+        if(OPEN_DETAIL.has(r.id)) OPEN_DETAIL.delete(r.id); else OPEN_DETAIL.add(r.id);
+        renderRecords();
+      };
+    }
     tb.appendChild(tr);
-    if(OPEN_DETAIL.has(r.id)) tb.appendChild(buildDetailRow(r,i));
+    if(!old && OPEN_DETAIL.has(r.id)) tb.appendChild(buildDetailRow(r,i));
   });
-  const noneAll=RECORDS.length===0, noneShown=shown===0;
-  $("recEmpty").style.display=(noneAll||noneShown)?"":"none";
-  $("recEmpty").textContent=noneAll?"ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ":"ไม่พบรายการที่ค้นหา";
+
+  const noneAtAll=(RECORDS.length+OLD_RECORDS.length)===0;
+  $("recEmpty").style.display=(noneAtAll||shown===0)?"":"none";
+  $("recEmpty").textContent=noneAtAll
+    ? "ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ (ข้อมูลเก่ากด “โหลดข้อมูลเก่า”)"
+    : "ไม่พบรายการที่ตรงกับเงื่อนไข";
+  $("recCount").textContent=`แสดง ${shown} รายการ · ใหม่ ${RECORDS.length} · เก่า ${OLD_RECORDS.length}`;
   renderDebtors();
 }
+document.querySelectorAll("#srcFilter button").forEach(b=>b.addEventListener("click",()=>{
+  SRC_FILTER=b.dataset.src;
+  document.querySelectorAll("#srcFilter button").forEach(x=>x.classList.toggle("on",x===b));
+  renderRecords();
+}));
+$("btnLoadOld").addEventListener("click",async()=>{
+  if(!getUrl()){ msg("recMsg","ยังไม่ได้ตั้งค่า Google Sheet — กด ⚙ ตั้งค่าด้านบน","var(--red)"); $("gsConfig").open=true; return; }
+  msg("recMsg","กำลังโหลดข้อมูลเก่าจากชีต...","var(--ink-soft)");
+  try{
+    await loadOldRecords(); renderRecords();
+    msg("recMsg",`โหลดข้อมูลเก่าแล้ว ${OLD_RECORDS.length} รายการ ✓`);
+  }catch(e){ msg("recMsg","โหลดข้อมูลเก่าไม่สำเร็จ: "+e.message,"var(--red)"); }
+});
 $("searchBox").addEventListener("input",renderRecords);
 $("btnClearRec").addEventListener("click",()=>{
   if(!RECORDS.length) return;
@@ -1106,7 +1169,7 @@ function buildDetailRow(r,recIdx){
   const tr=document.createElement("tr");
   tr.className="detail-row";
   const td=document.createElement("td");
-  td.colSpan=13;
+  td.colSpan=14;
   const bs=recBills(r);
   if(!bs.length){
     td.innerHTML=`<div class="detail-title">รายละเอียดลูกหนี้ (ใบ ${esc(r.docNo||"–")})</div>`+
@@ -1281,6 +1344,12 @@ updateConnBadge();
 renderPrices();
 resetDefaults();
 renderRecords();
+// ดึงข้อมูลเก่าจากชีตมาแสดงตั้งแต่เปิดหน้า (ถ้าเชื่อมต่อไว้แล้ว) — เงียบ ๆ ไม่รบกวนถ้าพลาด
+if(getUrl()){
+  loadOldRecords()
+    .then(ok=>{ if(ok && OLD_RECORDS.length) renderRecords(); })
+    .catch(()=>{});
+}
 </script>
 </body>
 </html>

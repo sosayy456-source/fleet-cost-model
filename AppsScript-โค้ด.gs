@@ -1,5 +1,5 @@
 /**
- * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 5)
+ * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 6)
  * ใช้คู่กับไฟล์ โมเดลเดินรถ-gsheet.html
  *
  * ── วิธีติดตั้ง ──────────────────────────────────────────────
@@ -11,7 +11,7 @@
  *      - กด Deploy → กดอนุญาตสิทธิ์ (Authorize) ให้เรียบร้อย
  * 3) คัดลอก "URL ของเว็บแอป" ที่ลงท้ายด้วย /exec
  * 4) เปิดหน้าเว็บโมเดล → แท็บ "รายการทั้งหมด" → ⚙ ตั้งค่าการเชื่อม Google Sheet
- *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v5")
+ *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v6")
  *
  * ── แก้โค้ดภายหลัง ─────────────────────────────────────────
  * บันทึก → Deploy → จัดการการทำให้ใช้งานได้ (Manage deployments) → กดดินสอ ✏
@@ -23,7 +23,7 @@
  * เป็นระบบ upsert — ส่งใบรายการเดิมซ้ำจะทับแถวเดิม ไม่เพิ่มแถวใหม่
  */
 
-var VERSION = 5;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
+var VERSION = 6;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
 
 // ★ ชีตปลายทางที่จะเขียนข้อมูลลง
 //   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
@@ -34,6 +34,24 @@ var SPREADSHEET_ID = '';
 
 var SHEET_NAME = 'ค่าเดินทาง';
 var DEBT_SHEET_NAME = 'ลูกหนี้';
+
+// ── ข้อมูลเก่า ──────────────────────────────────────────────
+// ทุกแท็บที่ "ชื่อขึ้นต้นด้วย" คำนี้ จะถูกอ่านเข้ามาแสดงในโมเดลเป็นข้อมูลเก่า (อ่านอย่างเดียว)
+// เพิ่มแท็บใหม่ได้เรื่อย ๆ เช่น "ข้อมูลเก่า 2567", "ข้อมูลเก่า เชียงราย" — ไม่ต้องแก้โค้ด
+var OLD_SHEET_PREFIX = 'ข้อมูลเก่า';
+var MERGED_SHEET_NAME = 'รวมทั้งหมด';     // แท็บสำหรับ Dashboard (เก่า + ใหม่)
+
+// ชื่อหัวคอลัมน์ที่สะกดต่างกัน → ชื่อมาตรฐานที่โค้ดใช้
+// อ่านข้อมูลด้วย "ชื่อหัวคอลัมน์" ไม่ใช่ตำแหน่ง ข้อมูลเก่าชุดหน้าที่เรียงคอลัมน์ต่างไปจึงยังอ่านได้
+var HEADER_ALIAS = {
+  'Rev ค่าบรรทุกทั้งใบรายการ': 'รายได้',
+  'รายได้ค่าบรรทุก': 'รายได้',
+  'ค่าบรรทุก': 'รายได้',
+  'วันที่ตัดจ่าย': 'วันที่',
+  'ค่าน้ำมันแบบเหมา': 'ค่าน้ำมันเหมา',
+  'ทะเบียน': 'ทะเบียนรถ',
+  'เส้นทาง': 'จุดขึ้น-จุดลง'
+};
 
 // คอลัมน์ 1–34 ตรงรูปแบบชีต "Model หลัก" · 35+ เป็นข้อมูลเสริมของโมเดล
 var HEADERS = [
@@ -63,13 +81,42 @@ function doGet() {
 }
 
 function doPost(e) {
-  var lock = LockService.getScriptLock();
+  var body;
   try {
-    lock.waitLock(30000);
-    var body = JSON.parse(e.postData.contents);
-    if (body.ping) {
-      var ss = getSpreadsheet_();
-      return json({ ok: true, pong: true, version: VERSION, sheet: ss.getName(), url: ss.getUrl() });
+    body = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return json({ ok: false, version: VERSION, error: 'อ่านข้อมูลที่ส่งมาไม่ได้: ' + err });
+  }
+
+  // ปุ่ม "ทดสอบการเชื่อมต่อ" — แค่อ่านชื่อชีต ไม่ต้องรอล็อก
+  if (body.ping) {
+    try {
+      var ssPing = getSpreadsheet_();
+      return json({ ok: true, pong: true, version: VERSION, sheet: ssPing.getName(), url: ssPing.getUrl() });
+    } catch (err) {
+      return json({ ok: false, version: VERSION, error: String(err) });
+    }
+  }
+
+  // โหลดข้อมูลเก่ามาแสดงในโมเดล — อ่านอย่างเดียว ไม่ต้องรอล็อก
+  if (body.loadOld) {
+    try {
+      var oldRecs = readOldRecords_();
+      return json({ ok: true, version: VERSION, records: oldRecs, count: oldRecs.length });
+    } catch (err) {
+      return json({ ok: false, version: VERSION, error: String(err) });
+    }
+  }
+
+  var lock = LockService.getScriptLock();
+  var locked = false;
+  try {
+    locked = lock.tryLock(30000);
+    if (!locked) {
+      return json({ ok: false, version: VERSION, error:
+        'มีการบันทึกอื่นค้างอยู่ ยังแทรกไม่ได้ — รอสักครู่แล้วกดบันทึกใหม่อีกครั้ง ' +
+        '(ถ้าเกิน 5 นาทีแล้วยังไม่หาย ให้เปิด Apps Script → บันทึกการดำเนินการ ' +
+        'ดูว่ามีรายการสถานะ "กำลังทำงาน" ค้างอยู่หรือไม่)' });
     }
 
     var sh = getSheet_(SHEET_NAME, HEADERS);
@@ -93,37 +140,235 @@ function doPost(e) {
     var billsWritten = writeBills_(body.bills || [], body.billOwners || []);
     renumber_(sh);
 
-    return json({ ok: true, version: VERSION, added: added, updated: updated, bills: billsWritten });
+    // อัปเดตแท็บรวมสำหรับ Dashboard — ถ้าพลาดก็ไม่ให้กระทบการบันทึก
+    var merged = -1, mergeErr = '';
+    try { merged = rebuildMerged_(); } catch (e2) { mergeErr = String(e2); }
+
+    return json({ ok: true, version: VERSION, added: added, updated: updated,
+      bills: billsWritten, merged: merged, mergeError: mergeErr });
   } catch (err) {
     return json({ ok: false, version: VERSION, error: String(err) });
   } finally {
-    lock.releaseLock();
+    if (locked) lock.releaseLock();     // ปล่อยเฉพาะตอนที่จับล็อกได้จริง
   }
 }
 
-/** เขียนแถวลูกหนี้: ลบของใบรายการที่ส่งมาทั้งหมดก่อน แล้ว append ชุดใหม่ */
+/**
+ * เขียนแถวลูกหนี้ของใบรายการที่ส่งมา
+ * อ่านทั้งชีตทีเดียว → คัดแถวของใบรายการเดิมออก → ต่อแถวใหม่ → เขียนกลับทีเดียว
+ * (เร็วกว่าลบทีละแถวมาก จึงไม่ถือล็อกค้างนานจนคำสั่งอื่นรอไม่ไหว)
+ */
 function writeBills_(bills, owners) {
   if (!owners.length && !bills.length) return 0;
   var sh = getSheet_(DEBT_SHEET_NAME, DEBT_HEADERS);
+  var W = DEBT_HEADERS.length;
+  var last = sh.getLastRow();
+  var oldCount = Math.max(0, last - 1);
 
-  if (owners.length) {
-    var ownerSet = {};
-    for (var i = 0; i < owners.length; i++) ownerSet[String(owners[i])] = true;
-    var last = sh.getLastRow();
-    if (last > 1) {
-      var col = sh.getRange(2, OWNER_COL, last - 1, 1).getValues();
-      for (var rIdx = col.length - 1; rIdx >= 0; rIdx--) {
-        if (ownerSet[String(col[rIdx][0])]) sh.deleteRow(rIdx + 2);
-      }
+  var ownerSet = {};
+  for (var i = 0; i < owners.length; i++) ownerSet[String(owners[i])] = true;
+
+  var keep = [];
+  if (oldCount > 0) {
+    var all = sh.getRange(2, 1, oldCount, W).getValues();
+    for (var r = 0; r < all.length; r++) {
+      if (all[r].join('').toString().trim() === '') continue;          // ข้ามแถวว่าง
+      if (ownerSet[String(all[r][OWNER_COL - 1])]) continue;           // ของใบรายการนี้ → เขียนใหม่
+      keep.push(all[r]);
     }
   }
+  for (var b = 0; b < bills.length; b++) keep.push(padRow_(bills[b], W));
 
-  if (bills.length) {
-    var out = [];
-    for (var b = 0; b < bills.length; b++) out.push(padRow_(bills[b], DEBT_HEADERS.length));
-    sh.getRange(sh.getLastRow() + 1, 1, out.length, DEBT_HEADERS.length).setValues(out);
-  }
+  if (keep.length) sh.getRange(2, 1, keep.length, W).setValues(keep);
+  var extra = oldCount - keep.length;
+  if (extra > 0) sh.getRange(2 + keep.length, 1, extra, W).clearContent();
   return bills.length;
+}
+
+/* ═══════════════ อ่านข้อมูลเก่า + สร้างแท็บรวม ═══════════════ */
+
+function pad2_(n) { return (n < 10 ? '0' : '') + n; }
+
+/** แปลงวันที่จากชีตเป็น YYYY-MM-DD (รับได้ทั้ง Date และข้อความ dd/mm/yyyy พ.ศ.) */
+function toIsoDate_(v) {
+  if (v instanceof Date) return v.getFullYear() + '-' + pad2_(v.getMonth() + 1) + '-' + pad2_(v.getDate());
+  var s = String(v || '').trim();
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);          // dd/mm/yyyy
+  if (m) {
+    var y = +m[3];
+    if (y > 2400) y -= 543;                                     // พ.ศ. → ค.ศ.
+    return y + '-' + pad2_(+m[2]) + '-' + pad2_(+m[1]);
+  }
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);                 // ISO อยู่แล้ว
+  if (m) return m[1] + '-' + pad2_(+m[2]) + '-' + pad2_(+m[3]);
+  return '';
+}
+
+/** ทำแผนที่ ชื่อหัวคอลัมน์ → เลขคอลัมน์ (ผ่านตารางชื่อพ้อง) */
+function headerIndex_(headerRow) {
+  var map = {};
+  for (var i = 0; i < headerRow.length; i++) {
+    var h = String(headerRow[i] || '').trim();
+    if (!h) continue;
+    var std = HEADER_ALIAS[h] || h;
+    if (map[std] === undefined) map[std] = i;
+  }
+  return map;
+}
+
+/** แปลง 1 แถวในชีต → ออบเจ็กต์รายการ (คืน null ถ้าเป็นแถวที่ต้องตัดทิ้ง) */
+function rowToRecord_(row, idx, source, sheetName, rowNo) {
+  function g(k) { var i = idx[k]; return (i === undefined) ? '' : row[i]; }
+  function n(k) {
+    var v = g(k);
+    if (typeof v === 'number') return v;
+    var f = parseFloat(String(v || '').replace(/,/g, '').trim());
+    return isNaN(f) ? 0 : f;
+  }
+
+  var docNo = String(g('เลขที่ใบรายการ') || '').trim();
+  var revenue = n('รายได้');
+
+  // ★ ตัดทิ้งเฉพาะแถวที่ขาด "ทั้ง" เลขที่ใบรายการ และ รายได้
+  //   (อยากตัดแถวที่ขาดอย่างใดอย่างหนึ่งด้วย ให้เปลี่ยน && เป็น ||)
+  if (!docNo && !revenue) return null;
+
+  var route = String(g('จุดขึ้น-จุดลง') || '').trim();
+  var origin = '', dest = '';
+  if (route && route !== '-') {
+    var p = route.split('-');
+    if (p.length >= 2) { origin = p[0].trim(); dest = p.slice(1).join('-').trim(); }
+    else origin = route;
+  }
+
+  var waste = n('ค่าน้ำมันรถวิ่งอ้อม') + n('ค่าน้ำมันนอกเส้นทาง(Fleet Card)')
+            + n('เบี้ยเลี้ยงนอกเส้นทาง') + n('น้ำมันนอกเส้นทาง');
+  var total  = n('รวมค่าใช้จ่าย');       // ชีตคำนวณไว้แล้ว = คอลัมน์ 9–28 (รวมสูญเปล่า ไม่รวมค่าซ่อม)
+  var repair = n('ค่าซ่อมแซม');
+  var fuel   = n('ค่าน้ำมันเหมา');       // ★ ค่าน้ำมันที่เป็นต้นทุนจริง (ไม่ใช่สูญเปล่า)
+
+  return {
+    id: (source === 'เก่า') ? ('OLD:' + sheetName + ':' + rowNo) : String(g('ID') || ''),
+    source: source,
+    sheetName: sheetName,
+    date: toIsoDate_(g('วันที่')),
+    docNo: docNo,
+    branch: String(g('สาขา') || ''),
+    docType: String(g('ประเภทใบรายการ') || ''),
+    fleetType: String(g('ประเภทรถ') || ''),
+    vehicle: String(g('ชนิดรถ') || ''),
+    plate: String(g('ทะเบียนรถ') || ''),
+    origin: origin,
+    dest: dest,
+    revenue: revenue,
+    fuelSum: fuel,
+    sheetTotal: total,
+    waste: waste,
+    normal: total - waste + repair,      // ต้นทุนปกติ = รวมทั้งหมด − สูญเปล่า + ค่าซ่อม
+    repTotal: repair,
+    profit: revenue - total - repair,
+    bills: []                            // ข้อมูลเก่าไม่มีรายละเอียดลูกหนี้
+  };
+}
+
+/** อ่านทุกแท็บที่ชื่อขึ้นต้นด้วย "ข้อมูลเก่า" */
+function readOldRecords_() {
+  var ss = getSpreadsheet_();
+  var sheets = ss.getSheets();
+  var out = [];
+  for (var s = 0; s < sheets.length; s++) {
+    var sh = sheets[s], name = sh.getName();
+    if (name.indexOf(OLD_SHEET_PREFIX) !== 0) continue;
+    var last = sh.getLastRow(), lastCol = sh.getLastColumn();
+    if (last < 2 || lastCol < 1) continue;
+    var vals = sh.getRange(1, 1, last, lastCol).getValues();
+    var idx = headerIndex_(vals[0]);
+    for (var r = 1; r < vals.length; r++) {
+      if (vals[r].join('').toString().trim() === '') continue;
+      var rec = rowToRecord_(vals[r], idx, 'เก่า', name, r + 1);
+      if (rec) out.push(rec);
+    }
+  }
+  return out;
+}
+
+/** อ่านแท็บข้อมูลใหม่ (ค่าเดินทาง) ด้วยวิธีเดียวกัน — ใช้ตอนสร้างแท็บรวม */
+function readNewRecords_() {
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) return [];
+  var last = sh.getLastRow(), lastCol = sh.getLastColumn();
+  if (last < 2 || lastCol < 1) return [];
+  var vals = sh.getRange(1, 1, last, lastCol).getValues();
+  var idx = headerIndex_(vals[0]);
+  var out = [];
+  for (var r = 1; r < vals.length; r++) {
+    if (vals[r].join('').toString().trim() === '') continue;
+    var rec = rowToRecord_(vals[r], idx, 'ใหม่', SHEET_NAME, r + 1);
+    if (rec) {
+      rec.payStatus = String(vals[r][idx['สถานะชำระ']] || '');
+      out.push(rec);
+    }
+  }
+  return out;
+}
+
+// หัวตารางของแท็บรวม — จัดให้พร้อมทำ Dashboard (มีคอลัมน์ ปี/เดือน ไว้ทำกราฟตามเวลา)
+var MERGED_HEADERS = ['แหล่งข้อมูล','วันที่','ปี','เดือน','สาขา','เลขที่ใบรายการ','ประเภทใบรายการ',
+  'ประเภทรถ','ชนิดรถ','ทะเบียนรถ','ต้นทาง','ปลายทาง','จุดขึ้น-จุดลง',
+  'รายได้','ค่าน้ำมันเหมา','รวมค่าใช้จ่าย','ต้นทุนปกติ','ต้นทุนสูญเปล่า','ค่าซ่อมแซม','กำไร/ขาดทุน',
+  'สถานะชำระ','ID'];
+
+function recToMergedRow_(r) {
+  var y = r.date ? +r.date.slice(0, 4) : '';
+  var m = r.date ? +r.date.slice(5, 7) : '';
+  return [ r.source, r.date, y ? y + 543 : '', m, r.branch, r.docNo, r.docType,
+    r.fleetType, r.vehicle, r.plate, r.origin, r.dest,
+    (r.origin && r.dest) ? (r.origin + '-' + r.dest) : '',
+    r.revenue, r.fuelSum, r.sheetTotal, r.normal, r.waste, r.repTotal, r.profit,
+    r.payStatus || '', r.id ];
+}
+
+/** สร้าง/อัปเดตแท็บ "รวมทั้งหมด" — ข้อมูลใหม่ + ข้อมูลเก่า เรียงตามวันที่ */
+function rebuildMerged_() {
+  var ss = getSpreadsheet_();
+  var sh = ss.getSheetByName(MERGED_SHEET_NAME) || ss.insertSheet(MERGED_SHEET_NAME);
+  var W = MERGED_HEADERS.length;
+
+  if (sh.getMaxColumns() < W) sh.insertColumnsAfter(sh.getMaxColumns(), W - sh.getMaxColumns());
+  sh.getRange(1, 1, 1, W).setValues([MERGED_HEADERS]).setFontWeight('bold');
+  if (sh.getFrozenRows() < 1) sh.setFrozenRows(1);
+
+  var all = readNewRecords_().concat(readOldRecords_());
+  all.sort(function (a, b) { return (a.date < b.date) ? -1 : (a.date > b.date) ? 1 : 0; });
+
+  var rows = [];
+  for (var i = 0; i < all.length; i++) rows.push(recToMergedRow_(all[i]));
+
+  var oldCount = Math.max(0, sh.getLastRow() - 1);
+  if (rows.length) sh.getRange(2, 1, rows.length, W).setValues(rows);
+  var extra = oldCount - rows.length;
+  if (extra > 0) sh.getRange(2 + rows.length, 1, extra, W).clearContent();
+  return rows.length;
+}
+
+/** ★ กดจากเมนูเพื่ออัปเดตแท็บรวมเอง (ปกติระบบอัปเดตให้ทุกครั้งที่บันทึกอยู่แล้ว) */
+function อัปเดตแท็บรวมทั้งหมด() {
+  var n = rebuildMerged_();
+  var msg = 'อัปเดตแท็บ "' + MERGED_SHEET_NAME + '" แล้ว ' + n + ' แถว';
+  Logger.log(msg);
+  try { SpreadsheetApp.getActiveSpreadsheet().toast(msg, 'เสร็จแล้ว', 5); } catch (e) {}
+  return msg;
+}
+
+function onOpen() {
+  try {
+    SpreadsheetApp.getUi()
+      .createMenu('โมเดลเดินรถ')
+      .addItem('อัปเดตแท็บรวมทั้งหมด', 'อัปเดตแท็บรวมทั้งหมด')
+      .addItem('ตรวจสอบชีตปลายทาง', 'ตรวจสอบชีตปลายทาง')
+      .addToUi();
+  } catch (e) {}
 }
 
 /** เอาสเปรดชีตปลายทาง — ตามไอดีที่ตั้งไว้ ถ้าไม่ได้ตั้งก็ใช้ชีตที่สคริปต์ผูกอยู่ */
