@@ -1,5 +1,5 @@
 /**
- * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 6)
+ * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 7)
  * ใช้คู่กับไฟล์ โมเดลเดินรถ-gsheet.html
  *
  * ── วิธีติดตั้ง ──────────────────────────────────────────────
@@ -11,7 +11,7 @@
  *      - กด Deploy → กดอนุญาตสิทธิ์ (Authorize) ให้เรียบร้อย
  * 3) คัดลอก "URL ของเว็บแอป" ที่ลงท้ายด้วย /exec
  * 4) เปิดหน้าเว็บโมเดล → แท็บ "รายการทั้งหมด" → ⚙ ตั้งค่าการเชื่อม Google Sheet
- *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v6")
+ *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v7")
  *
  * ── แก้โค้ดภายหลัง ─────────────────────────────────────────
  * บันทึก → Deploy → จัดการการทำให้ใช้งานได้ (Manage deployments) → กดดินสอ ✏
@@ -23,7 +23,7 @@
  * เป็นระบบ upsert — ส่งใบรายการเดิมซ้ำจะทับแถวเดิม ไม่เพิ่มแถวใหม่
  */
 
-var VERSION = 6;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
+var VERSION = 7;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
 
 // ★ ชีตปลายทางที่จะเขียนข้อมูลลง
 //   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
@@ -38,7 +38,8 @@ var DEBT_SHEET_NAME = 'ลูกหนี้';
 // ── ข้อมูลเก่า ──────────────────────────────────────────────
 // ทุกแท็บที่ "ชื่อขึ้นต้นด้วย" คำนี้ จะถูกอ่านเข้ามาแสดงในโมเดลเป็นข้อมูลเก่า (อ่านอย่างเดียว)
 // เพิ่มแท็บใหม่ได้เรื่อย ๆ เช่น "ข้อมูลเก่า 2567", "ข้อมูลเก่า เชียงราย" — ไม่ต้องแก้โค้ด
-var OLD_SHEET_PREFIX = 'ข้อมูลเก่า';
+var OLD_SHEET_PREFIX = 'ข้อมูลเก่า';        // แท็บเที่ยววิ่งเก่า
+var OLD_DEBT_PREFIX  = 'ข้อมูลเก่าลูกหนี้';  // แท็บลูกหนี้เก่า (ขึ้นต้นเหมือนกัน — ต้องเช็คตัวนี้ก่อนเสมอ)
 var MERGED_SHEET_NAME = 'รวมทั้งหมด';     // แท็บสำหรับ Dashboard (เก่า + ใหม่)
 
 // ชื่อหัวคอลัมน์ที่สะกดต่างกัน → ชื่อมาตรฐานที่โค้ดใช้
@@ -67,10 +68,12 @@ var HEADERS = [
   "ค่าซ่อมตามเวลา","ค่าซ่อมตามระยะทาง","ต้นทุนปกติรวม","ต้นทุนสูญเปล่า","กำไร/ขาดทุน",
   "สถานะชำระ","จำนวนลูกหนี้","ชำระแล้ว(ราย)","ยอดรวมบิล","วันที่ชำระครบ","จำนวนวันชำระ","รายการลูกหนี้"];
 
-// คอลัมน์ 1–9 ตรงรูปแบบชีต · 10+ เป็นข้อมูลเสริม
+// คอลัมน์ 1–13 ตรงรูปแบบแท็บ "ข้อมูลเก่าลูกหนี้" · 14+ เป็นข้อมูลเสริมของโมเดล
 var DEBT_HEADERS = [
-  "วันที่","เลขที่ใบรายการ","เลขที่บิล","ผู้ส่ง","ผู้รับ","ประเภทการชำระเงิน","สถานะการชำระเงิน","จำนวน","ราคารวม",
-  "BillID","ID ใบรายการ","สาขา","เส้นทาง","วันที่ชำระ","จำนวนวันชำระ"];
+  "วันที่","เลขที่ใบรายการ","เลขที่บิล","ประเภทสินค้า","ต้นทาง","ปลายทาง","ผู้ส่ง","ผู้รับ",
+  "ประเภทการชำระเงิน","สถานะการชำระเงิน","จำนวน","ราคารวม","จำนวนวันค้างชำระ",
+  // ───── ส่วนเสริมของโมเดล ─────
+  "BillID","ID ใบรายการ","สาขา","วันที่ชำระ","จำนวนวันชำระ"];
 
 var SEQ_COL   = 1;                                  // คอลัมน์ "ลำดับ" — ระบบใส่ให้เอง
 var ID_COL    = HEADERS.indexOf('ID') + 1;          // คีย์สำหรับ upsert
@@ -98,11 +101,13 @@ function doPost(e) {
     }
   }
 
-  // โหลดข้อมูลเก่ามาแสดงในโมเดล — อ่านอย่างเดียว ไม่ต้องรอล็อก
+  // โหลดข้อมูลเก่ามาแสดงในโมเดล (เที่ยววิ่ง + ลูกหนี้) — อ่านอย่างเดียว ไม่ต้องรอล็อก
   if (body.loadOld) {
     try {
       var oldRecs = readOldRecords_();
-      return json({ ok: true, version: VERSION, records: oldRecs, count: oldRecs.length });
+      var oldDebt = readOldDebtors_();
+      return json({ ok: true, version: VERSION, records: oldRecs, debtors: oldDebt,
+        count: oldRecs.length, debtCount: oldDebt.length });
     } catch (err) {
       return json({ ok: false, version: VERSION, error: String(err) });
     }
@@ -271,7 +276,7 @@ function rowToRecord_(row, idx, source, sheetName, rowNo) {
   };
 }
 
-/** อ่านทุกแท็บที่ชื่อขึ้นต้นด้วย "ข้อมูลเก่า" */
+/** อ่านแท็บเที่ยววิ่งเก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่า" แต่ไม่ใช่แท็บลูกหนี้เก่า */
 function readOldRecords_() {
   var ss = getSpreadsheet_();
   var sheets = ss.getSheets();
@@ -279,6 +284,7 @@ function readOldRecords_() {
   for (var s = 0; s < sheets.length; s++) {
     var sh = sheets[s], name = sh.getName();
     if (name.indexOf(OLD_SHEET_PREFIX) !== 0) continue;
+    if (name.indexOf(OLD_DEBT_PREFIX) === 0) continue;      // แท็บลูกหนี้เก่า — อ่านที่อื่น
     var last = sh.getLastRow(), lastCol = sh.getLastColumn();
     if (last < 2 || lastCol < 1) continue;
     var vals = sh.getRange(1, 1, last, lastCol).getValues();
@@ -287,6 +293,66 @@ function readOldRecords_() {
       if (vals[r].join('').toString().trim() === '') continue;
       var rec = rowToRecord_(vals[r], idx, 'เก่า', name, r + 1);
       if (rec) out.push(rec);
+    }
+  }
+  return out;
+}
+
+/** อ่านแท็บลูกหนี้เก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่าลูกหนี้" */
+function readOldDebtors_() {
+  var ss = getSpreadsheet_();
+  var sheets = ss.getSheets();
+  var out = [];
+  for (var s = 0; s < sheets.length; s++) {
+    var sh = sheets[s], name = sh.getName();
+    if (name.indexOf(OLD_DEBT_PREFIX) !== 0) continue;
+    var last = sh.getLastRow(), lastCol = sh.getLastColumn();
+    if (last < 2 || lastCol < 1) continue;
+    var vals = sh.getRange(1, 1, last, lastCol).getValues();
+    var idx = headerIndex_(vals[0]);
+
+    for (var r = 1; r < vals.length; r++) {
+      var row = vals[r];
+      if (row.join('').toString().trim() === '') continue;
+
+      var g = (function (rr) {
+        return function (k) { var i = idx[k]; return (i === undefined) ? '' : rr[i]; };
+      })(row);
+      var n = (function (gg) {
+        return function (k) {
+          var v = gg(k);
+          if (typeof v === 'number') return v;
+          var f = parseFloat(String(v || '').replace(/,/g, '').trim());
+          return isNaN(f) ? 0 : f;
+        };
+      })(g);
+
+      var billNo = String(g('เลขที่บิล') || '').trim();
+      var docNo  = String(g('เลขที่ใบรายการ') || '').trim();
+      if (!billNo && !docNo) continue;                       // แถวว่างจริง ๆ
+
+      var status = String(g('สถานะการชำระเงิน') || '').trim() || 'ยังไม่ได้ชำระ';
+      out.push({
+        id: 'OLDB:' + name + ':' + (r + 1),
+        source: 'เก่า',
+        sheetName: name,
+        date: toIsoDate_(g('วันที่')),
+        docNo: docNo,
+        billNo: billNo,
+        goodsType: String(g('ประเภทสินค้า') || ''),
+        origin: String(g('ต้นทาง') || ''),
+        dest: String(g('ปลายทาง') || ''),
+        sender: String(g('ผู้ส่ง') || ''),
+        receiver: String(g('ผู้รับ') || ''),
+        payType: String(g('ประเภทการชำระเงิน') || ''),
+        status: status,
+        paid: (status === 'ชำระแล้ว'),
+        qty: n('จำนวน'),
+        total: n('ราคารวม'),
+        agingDays: n('จำนวนวันค้างชำระ'),
+        payDate: toIsoDate_(g('วันที่ชำระ')),
+        daysToPay: n('จำนวนวันชำระ')
+      });
     }
   }
   return out;

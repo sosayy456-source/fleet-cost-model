@@ -171,12 +171,12 @@
   .nav-count{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:20px;padding:1px 7px;margin-left:2px}
   .nav-count:empty{display:none}
   /* bill rows */
-  .bill-row{display:grid;grid-template-columns:1fr 1.1fr 1.1fr .7fr .9fr 1.1fr 26px;gap:8px;align-items:center;margin-bottom:8px}
+  .bill-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.05fr .65fr .85fr 26px;gap:8px;align-items:center;margin-bottom:8px}
   @media(max-width:820px){.bill-row{grid-template-columns:1fr 1fr;}}
   .bill-row input,.bill-row select{padding:9px 11px;font-size:13.5px}
   .bill-x{color:var(--red);cursor:pointer;font-weight:700;font-size:16px;padding:0 4px;text-align:center}
   .bill-x:hover{color:#B62E2E}
-  .bill-head{display:grid;grid-template-columns:1fr 1.1fr 1.1fr .7fr .9fr 1.1fr 26px;gap:8px;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
+  .bill-head{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.05fr .65fr .85fr 26px;gap:8px;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
   @media(max-width:820px){.bill-head{display:none}}
   .btn-pay{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12.5px;font-weight:600;color:#fff;background:var(--green);border:none;border-radius:8px;padding:6px 13px;cursor:pointer}
   .btn-pay:hover{background:#18915F}
@@ -375,8 +375,9 @@
             ประเภท <b>สดต้นทาง</b> = ถือว่าชำระแล้ว · <b>เชื่อต้นทาง / เชื่อปลายทาง / สดปลายทาง</b> = ยังไม่ได้ชำระ
           </div>
           <div class="bill-head">
-            <span>เลขที่บิล</span><span>ผู้ส่ง</span><span>ผู้รับ</span><span>จำนวน</span><span>ราคารวม</span><span>ประเภทการชำระ</span><span></span>
+            <span>เลขที่บิล</span><span>ประเภทสินค้า</span><span>ผู้ส่ง</span><span>ผู้รับ</span><span>ประเภทการชำระ</span><span>จำนวน</span><span>ราคารวม</span><span></span>
           </div>
+          <datalist id="goodsTypes"></datalist>
           <div id="billRows"></div>
           <button id="addBill" class="btn-add" type="button">+ เพิ่มรายการลูกหนี้</button>
           <div class="price-note" id="payStatusNote" style="margin-top:12px">สถานะการชำระ: –</div>
@@ -430,7 +431,7 @@
             <b style="color:var(--red)">เคย Deploy ไว้แล้วแต่ข้อมูลไม่ขึ้นชีต?</b> = โค้ดในชีตเป็นเวอร์ชันเก่า<br>
             วางโค้ดใหม่ทับ → บันทึก → <b>Deploy → Manage deployments</b> → กดดินสอ <b>✏</b> ที่ deployment เดิม →
             ช่อง <b>Version</b> เลือก <b>New version</b> → <b>Deploy</b> · URL เดิมใช้ต่อได้ไม่ต้องเปลี่ยน<br>
-            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v6</code> จึงจะบันทึกได้)<br>
+            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v7</code> จึงจะบันทึกได้)<br>
             <br>ระบบจะสร้าง 2 ชีต: <code>บันทึกเดินรถ</code> (1 แถว = 1 ใบรายการ) และ <code>รายการลูกหนี้</code> (1 แถว = ลูกหนี้ 1 ราย)
           </div>
         </div>
@@ -472,13 +473,24 @@
     <section class="view" id="view-debtors">
       <div class="page-h"><h1>รายการลูกหนี้</h1><p>แยกเป็นรายบิล (ลูกหนี้แต่ละราย) · กดปุ่ม “ชำระ” เมื่อลูกหนี้มาจ่าย · ต้องจ่ายครบทุกรายในใบรายการเดียวกัน สถานะในหน้า “รายการทั้งหมด” จึงเปลี่ยนเป็น ชำระแล้ว</p></div>
 
+      <div class="rec-bar">
+        <div class="srcfilter" id="debtFilter">
+          <button type="button" data-src="all" class="on">ทั้งหมด</button>
+          <button type="button" data-src="new">ข้อมูลใหม่</button>
+          <button type="button" data-src="old">ข้อมูลเก่า</button>
+        </div>
+        <button id="btnLoadOldDebt" class="btn btn-green" type="button">↻ อัปเดตข้อมูลลูกหนี้เก่า</button>
+      </div>
+
       <div class="rec-card" style="margin-bottom:18px">
         <div style="padding:14px 16px 6px;font-weight:700;font-size:15px">🔴 ค้างชำระ (<span id="debtActiveCount">0</span>)</div>
         <div class="scroll">
           <table class="rec-table">
             <thead><tr>
-              <th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>วันที่</th><th>เส้นทาง</th>
-              <th class="num">ยอดบิล</th><th class="num">รายได้</th><th>ประเภทการชำระ</th><th class="num">ค้างชำระ (วัน)</th><th>ชำระ</th>
+              <th>แหล่งข้อมูล</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
+              <th>ต้นทาง</th><th>ปลายทาง</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>ประเภทการชำระเงิน</th>
+              <th>สถานะการชำระเงิน</th><th class="num">จำนวน</th><th class="num">ราคารวม</th>
+              <th class="num">จำนวนวันค้างชำระ</th><th>ชำระ</th>
             </tr></thead>
             <tbody id="debtBody"></tbody>
           </table>
@@ -491,14 +503,17 @@
         <div class="scroll">
           <table class="rec-table">
             <thead><tr>
-              <th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>วันที่บิล</th><th>วันที่ชำระ</th><th>เส้นทาง</th>
-              <th class="num">ยอดบิล</th><th class="num">รายได้</th><th>ประเภทการชำระ</th><th class="num">ใช้เวลา (วัน)</th>
+              <th>แหล่งข้อมูล</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
+              <th>ต้นทาง</th><th>ปลายทาง</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>ประเภทการชำระเงิน</th>
+              <th>สถานะการชำระเงิน</th><th class="num">จำนวน</th><th class="num">ราคารวม</th>
+              <th>วันที่ชำระ</th><th class="num">ใช้เวลา (วัน)</th>
             </tr></thead>
             <tbody id="paidBody"></tbody>
           </table>
         </div>
         <div id="paidEmpty" class="rec-empty">ยังไม่มีประวัติการชำระ</div>
       </div>
+      <div class="locknote" id="debtCountLine" style="margin-top:8px"></div>
       <div class="msg" id="debtMsg" style="color:var(--green);margin-top:10px"></div>
     </section>
 
@@ -752,7 +767,7 @@ function updateConnBadge(){
   const on=!!getUrl();
   const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
 }
-const GS_VERSION=6;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
+const GS_VERSION=7;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
 async function postToSheet(payload){
   const url=getUrl();
   if(!url) throw new Error("ยังไม่ได้ตั้งค่า URL (กด ⚙ ตั้งค่า)");
@@ -848,23 +863,27 @@ function recordBillRows(r){
   const route=(r.origin&&r.dest)?`${r.origin}-${r.dest}`:"-";
   return recBills(r).map((b,i)=>{
     const pd=billPayDate(b,r);
+    const aging=billIsPaid(b)?"":(daysBetween(r.date,todayISO())??"");
     return [
-      /* 1 วันที่               */ thSlashSafe(r.date),
-      /* 2 เลขที่ใบรายการ       */ r.docNo||"",
-      /* 3 เลขที่บิล            */ b.no||"",
-      /* 4 ผู้ส่ง               */ b.sender||"",
-      /* 5 ผู้รับ               */ b.receiver||"",
-      /* 6 ประเภทการชำระเงิน    */ b.payType||"",
-      /* 7 สถานะการชำระเงิน     */ billIsPaid(b)?"ชำระแล้ว":"ยังไม่ได้ชำระ",
-      /* 8 จำนวน                */ r2(b.qty),
-      /* 9 ราคารวม              */ r2(b.total),
-      // ───── ส่วนเสริม ─────
-      /* 10 BillID              */ r.id+"#"+i,
-      /* 11 ID ใบรายการ         */ r.id,
-      /* 12 สาขา                */ r.branch||"",
-      /* 13 เส้นทาง             */ route,
-      /* 14 วันที่ชำระ           */ thSlashSafe(pd),
-      /* 15 จำนวนวันชำระ         */ (pd?daysBetween(r.date,pd):"")
+      /* 1  วันที่               */ thSlashSafe(r.date),
+      /* 2  เลขที่ใบรายการ       */ r.docNo||"",
+      /* 3  เลขที่บิล            */ b.no||"",
+      /* 4  ประเภทสินค้า         */ b.goodsType||"",
+      /* 5  ต้นทาง               */ r.origin||"",
+      /* 6  ปลายทาง              */ r.dest||"",
+      /* 7  ผู้ส่ง               */ b.sender||"",
+      /* 8  ผู้รับ               */ b.receiver||"",
+      /* 9  ประเภทการชำระเงิน    */ b.payType||"",
+      /* 10 สถานะการชำระเงิน     */ billIsPaid(b)?"ชำระแล้ว":"ยังไม่ได้ชำระ",
+      /* 11 จำนวน                */ r2(b.qty),
+      /* 12 ราคารวม              */ r2(b.total),
+      /* 13 จำนวนวันค้างชำระ      */ aging,
+      // ───── ส่วนเสริมของโมเดล ─────
+      /* 14 BillID              */ r.id+"#"+i,
+      /* 15 ID ใบรายการ         */ r.id,
+      /* 16 สาขา                */ r.branch||"",
+      /* 17 วันที่ชำระ           */ thSlashSafe(pd),
+      /* 18 จำนวนวันชำระ         */ (pd?daysBetween(r.date,pd):"")
     ];
   });
 }
@@ -873,6 +892,11 @@ async function loadOldRecords(){
   if(!getUrl()) return false;
   const res=await postToSheet({loadOld:true});
   OLD_RECORDS=(res.records||[]).map(r=>({...r, source:"เก่า", bills:[]}));
+  OLD_DEBTORS=(res.debtors||[]).map(d=>({...d, source:"เก่า"}));
+  // เติมรายการ "ประเภทสินค้า" ที่เคยใช้ ให้เลือกซ้ำได้ตอนกรอกบิลใหม่
+  const seen=[...new Set(OLD_DEBTORS.map(d=>d.goodsType).filter(Boolean))].sort();
+  const dl=$("goodsTypes");
+  if(dl) dl.innerHTML=seen.map(g=>`<option value="${esc(g)}">`).join("");
   return true;
 }
 async function pushRecords(list){
@@ -897,8 +921,10 @@ function gstat(t,c){ const e=$("gsStatus"); e.textContent=t; e.style.color=c||"v
 // ================= บันทึก + แก้ไข + รายการ =================
 const LS_REC="tripRecords";
 let RECORDS=(()=>{ try{ return JSON.parse(localStorage.getItem(LS_REC))||[]; }catch(e){ return []; } })();
-let OLD_RECORDS=[];              // ข้อมูลเก่าจากชีต — อ่านอย่างเดียว ไม่เก็บลงเครื่อง
-let SRC_FILTER="all";            // all | new | old
+let OLD_RECORDS=[];              // เที่ยววิ่งเก่าจากชีต — อ่านอย่างเดียว ไม่เก็บลงเครื่อง
+let OLD_DEBTORS=[];              // ลูกหนี้เก่าจากชีต — อ่านอย่างเดียว
+let SRC_FILTER="all";            // ตัวกรองหน้ารายการทั้งหมด : all | new | old
+let DEBT_FILTER="all";           // ตัวกรองหน้ารายการลูกหนี้  : all | new | old
 let editingIndex=null;
 function saveRecords(){ try{ localStorage.setItem(LS_REC,JSON.stringify(RECORDS)); }catch(e){} }
 
@@ -1109,12 +1135,14 @@ function addBillRow(b){
   row.className="bill-row";
   row.innerHTML=
     `<input class="b-no" placeholder="เลขที่บิล">`+
+    `<input class="b-goods" list="goodsTypes" placeholder="ประเภทสินค้า">`+
     `<input class="b-sender" placeholder="ผู้ส่ง">`+
     `<input class="b-receiver" placeholder="ผู้รับ">`+
+    `<select class="b-type"><option value="">เลือกประเภท</option>${PAY_TYPES.map(t=>`<option>${t}</option>`).join("")}</select>`+
     `<input class="b-qty" type="number" min="0" placeholder="จำนวน">`+
     `<input class="b-total" type="number" min="0" placeholder="ราคารวม">`+
-    `<select class="b-type"><option value="">เลือกประเภท</option>${PAY_TYPES.map(t=>`<option>${t}</option>`).join("")}</select>`+
     `<span class="bill-x" title="ลบลูกหนี้รายนี้">✕</span>`;
+  row.querySelector(".b-goods").value=b.goodsType||"";
   row.querySelector(".b-no").value=b.no||"";
   row.querySelector(".b-sender").value=b.sender||"";
   row.querySelector(".b-receiver").value=b.receiver||"";
@@ -1146,12 +1174,13 @@ function readBills(){
   [...billsWrap.children].forEach(row=>{
     const v=c=>row.querySelector("."+c).value.trim();
     const no=v("b-no"), sender=v("b-sender"), receiver=v("b-receiver"), payType=v("b-type");
+    const goodsType=v("b-goods");
     const qty=parseFloat(v("b-qty"))||0, total=parseFloat(v("b-total"))||0;
-    if(!(no||sender||receiver||qty||total||payType)) return;
-    out.push({ no:no||docNo, sender, receiver, qty, total, payType,
+    if(!(no||sender||receiver||qty||total||payType||goodsType)) return;
+    out.push({ no:no||docNo, goodsType, sender, receiver, qty, total, payType,
       paid:!!row._paid, payDate:row._payDate||null });
   });
-  if(!out.length && docNo) out.push({no:docNo,sender:"",receiver:"",qty:0,total:0,payType:"",paid:false,payDate:null});
+  if(!out.length && docNo) out.push({no:docNo,goodsType:"",sender:"",receiver:"",qty:0,total:0,payType:"",paid:false,payDate:null});
   return out;
 }
 function updatePayStatusNote(){
@@ -1212,52 +1241,104 @@ function allBillRows(){
   RECORDS.forEach((r,ri)=>recBills(r).forEach((b,bi)=>out.push({r,ri,b,bi})));
   return out;
 }
+// ย่อค่าที่เป็น hash ยาว ๆ (ผู้ส่ง/ผู้รับในข้อมูลเก่าถูกเข้ารหัสมา) ให้ตารางไม่ยืด
+function shortId(v){
+  const s=String(v||"");
+  if(s.length>24 && /^[0-9a-f]+$/i.test(s)) return `<span title="${esc(s)}" style="font-family:monospace;font-size:11px">${esc(s.slice(0,10))}…</span>`;
+  return esc(s||"–");
+}
+// แปลงลูกหนี้ (ใหม่/เก่า) ให้เป็นรูปแบบเดียวกันก่อนวาดตาราง
+function unifyDebtRows(){
+  const out=[];
+  if(DEBT_FILTER!=="old"){
+    allBillRows().forEach(({r,ri,b,bi})=>{
+      const pd=billPayDate(b,r), paid=billIsPaid(b);
+      out.push({ old:false, ri, bi,
+        date:r.date, docNo:r.docNo, billNo:b.no, goodsType:b.goodsType,
+        origin:r.origin, dest:r.dest, sender:b.sender, receiver:b.receiver,
+        payType:b.payType, paid, status:paid?"ชำระแล้ว":"ยังไม่ได้ชำระ",
+        qty:b.qty, total:b.total,
+        aging:paid?null:daysBetween(r.date,todayISO()),
+        payDate:pd, daysToPay:pd?daysBetween(r.date,pd):null });
+    });
+  }
+  if(DEBT_FILTER!=="new"){
+    OLD_DEBTORS.forEach(d=>out.push({ old:true, ri:-1, bi:-1,
+      date:d.date, docNo:d.docNo, billNo:d.billNo, goodsType:d.goodsType,
+      origin:d.origin, dest:d.dest, sender:d.sender, receiver:d.receiver,
+      payType:d.payType, paid:!!d.paid, status:d.status||"ยังไม่ได้ชำระ",
+      qty:d.qty, total:d.total,
+      aging:d.paid?null:(d.agingDays||daysBetween(d.date,todayISO())),
+      payDate:d.payDate||null, daysToPay:d.daysToPay||null,
+      sheetName:d.sheetName }));
+  }
+  out.sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+  return out;
+}
+function debtCommonCells(x){
+  const srcBadge=x.old
+    ? `<span class="badge src-old" title="มาจากแท็บ ${esc(x.sheetName||"ข้อมูลเก่าลูกหนี้")} · แก้ไขในชีต">ข้อมูลเก่า</span>`
+    : `<span class="badge src-new">ข้อมูลใหม่</span>`;
+  return `<td>${srcBadge}</td>`+
+    `<td>${thDateSafe(x.date)}</td>`+
+    `<td class="doc">${esc(x.docNo||"–")}</td>`+
+    `<td style="font-weight:600">${esc(x.billNo||"–")}</td>`+
+    `<td>${esc(x.goodsType||"–")}</td>`+
+    `<td>${esc(x.origin||"–")}</td><td>${esc(x.dest||"–")}</td>`+
+    `<td>${shortId(x.sender)}</td><td>${shortId(x.receiver)}</td>`+
+    `<td>${esc(x.payType||"–")}</td>`+
+    `<td><span class="badge ${x.paid?"paid":"unpaid"}">${esc(x.status)}</span></td>`+
+    `<td class="num">${x.qty?fmt(x.qty,0):"–"}</td>`+
+    `<td class="num">${x.total?fmt(x.total,0):"–"}</td>`;
+}
 function renderDebtors(){
-  const rows=allBillRows();
-  const active=rows.filter(x=>!billIsPaid(x.b));
-  const paid=rows.filter(x=>billIsPaid(x.b));
+  const rows=unifyDebtRows();
+  const active=rows.filter(x=>!x.paid);
+  const paid=rows.filter(x=>x.paid);
 
   const tb=$("debtBody"); tb.innerHTML="";
-  active.forEach(({r,ri,b,bi})=>{
-    const aging=daysBetween(r.date,todayISO());
+  active.forEach(x=>{
     const tr=document.createElement("tr");
-    tr.innerHTML=
-      `<td class="doc">${esc(r.docNo||"–")}</td>`+
-      `<td style="font-weight:600">${esc(b.no||"–")}</td>`+
-      `<td>${esc(b.sender||"–")}</td><td>${esc(b.receiver||"–")}</td>`+
-      `<td>${thDateSafe(r.date)}</td>`+
-      `<td>${(r.origin&&r.dest)?esc(r.origin+"→"+r.dest):"–"}</td>`+
-      `<td class="num">${b.total?fmt(b.total,0):"–"}</td>`+
-      `<td class="num">${fmt(r.revenue,0)}</td>`+
-      `<td>${esc(b.payType||"–")}</td>`+
-      `<td class="num">${aging==null?"–":aging+" วัน"}</td>`+
-      `<td><button class="btn-pay">ชำระ</button></td>`;
-    tr.querySelector(".btn-pay").onclick=()=>openPayModal(ri,bi);
+    if(x.old) tr.classList.add("oldrow");
+    tr.innerHTML=debtCommonCells(x)+
+      `<td class="num">${x.aging==null?"–":x.aging+" วัน"}</td>`+
+      `<td>${x.old?'<span class="locknote">แก้ในชีต</span>':'<button class="btn-pay">ชำระ</button>'}</td>`;
+    if(!x.old) tr.querySelector(".btn-pay").onclick=()=>openPayModal(x.ri,x.bi);
     tb.appendChild(tr);
   });
   $("debtActiveCount").textContent=active.length;
   $("debtEmpty").style.display=active.length?"none":"";
 
   const pb=$("paidBody"); pb.innerHTML="";
-  paid.forEach(({r,b})=>{
-    const pd=billPayDate(b,r), used=daysBetween(r.date,pd);
+  paid.forEach(x=>{
     const tr=document.createElement("tr");
-    tr.innerHTML=
-      `<td class="doc">${esc(r.docNo||"–")}</td>`+
-      `<td style="font-weight:600">${esc(b.no||"–")}</td>`+
-      `<td>${esc(b.sender||"–")}</td><td>${esc(b.receiver||"–")}</td>`+
-      `<td>${thDateSafe(r.date)}</td><td>${thDateSafe(pd)}</td>`+
-      `<td>${(r.origin&&r.dest)?esc(r.origin+"→"+r.dest):"–"}</td>`+
-      `<td class="num">${b.total?fmt(b.total,0):"–"}</td>`+
-      `<td class="num">${fmt(r.revenue,0)}</td>`+
-      `<td>${esc(b.payType||"–")}</td>`+
-      `<td class="num" style="font-weight:700;color:var(--blue)">${used!=null?used+" วัน":"–"}</td>`;
+    if(x.old) tr.classList.add("oldrow");
+    tr.innerHTML=debtCommonCells(x)+
+      `<td>${thDateSafe(x.payDate)}</td>`+
+      `<td class="num" style="font-weight:700;color:var(--blue)">${x.daysToPay!=null?x.daysToPay+" วัน":"–"}</td>`;
     pb.appendChild(tr);
   });
   $("paidCount").textContent=paid.length;
   $("paidEmpty").style.display=paid.length?"none":"";
-  $("debtCount").textContent=active.length?active.length:"";
+
+  const newUnpaid=allBillRows().filter(x=>!billIsPaid(x.b)).length;
+  $("debtCount").textContent=newUnpaid?newUnpaid:"";
+  $("debtCountLine").textContent=
+    `ค้างชำระ ${active.length} · ชำระแล้ว ${paid.length} · ลูกหนี้เก่าจากชีต ${OLD_DEBTORS.length} ราย`;
 }
+document.querySelectorAll("#debtFilter button").forEach(b=>b.addEventListener("click",()=>{
+  DEBT_FILTER=b.dataset.src;
+  document.querySelectorAll("#debtFilter button").forEach(x=>x.classList.toggle("on",x===b));
+  renderDebtors();
+}));
+$("btnLoadOldDebt").addEventListener("click",async()=>{
+  if(!getUrl()){ msg("debtMsg","ยังไม่ได้ตั้งค่า Google Sheet — ไปตั้งค่าที่หน้ารายการทั้งหมด","var(--red)"); return; }
+  msg("debtMsg","กำลังอัปเดตข้อมูลเก่าจากชีต...","var(--ink-soft)");
+  try{
+    await loadOldRecords(); renderRecords();
+    msg("debtMsg",`อัปเดตแล้ว ✓ ลูกหนี้เก่า ${OLD_DEBTORS.length} ราย · เที่ยววิ่งเก่า ${OLD_RECORDS.length} รายการ`);
+  }catch(e){ msg("debtMsg","อัปเดตไม่สำเร็จ: "+e.message,"var(--red)"); }
+});
 
 // ---- modal ชำระเงิน (ทีละ 1 ลูกหนี้) ----
 $("payMm").innerHTML=TH_MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
