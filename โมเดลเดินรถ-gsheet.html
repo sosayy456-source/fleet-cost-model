@@ -861,7 +861,10 @@ $("gsSave").addEventListener("click",()=>{
 });
 $("gsTest").addEventListener("click",async()=>{
   gstat("กำลังทดสอบ...","var(--ink-soft)");
-  try{ const d=await postToSheet({ping:true}); gstat(`เชื่อมต่อสำเร็จ ✓ (โค้ด v${d.version}) พร้อมบันทึกลง Google Sheet`,"var(--green)"); }
+  try{
+    const d=await postToSheet({ping:true});
+    gstat(`เชื่อมต่อสำเร็จ ✓ (โค้ด v${d.version}) · จะบันทึกลงชีต “${d.sheet||"—"}” แท็บ ค่าเดินทาง / ลูกหนี้`,"var(--green)");
+  }
   catch(e){ gstat("เชื่อมต่อไม่สำเร็จ: "+e.message,"var(--red)"); }
 });
 function gstat(t,c){ const e=$("gsStatus"); e.textContent=t; e.style.color=c||"var(--ink-soft)"; }

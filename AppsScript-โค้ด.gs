@@ -25,10 +25,12 @@
 
 var VERSION = 5;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
 
-// ★ ไอดีของสเปรดชีตปลายทาง (ตัวอักษรยาว ๆ ใน URL ระหว่าง /d/ กับ /edit)
-//   - ใส่ไอดีไว้ = เขียนลงชีตนั้นเสมอ ใช้ได้แม้สคริปต์ไม่ได้ผูกกับชีต
-//   - ปล่อยว่าง '' = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (เปิดจาก ส่วนขยาย → Apps Script)
-var SPREADSHEET_ID = '1oUvlqIp5jIjfWr5d_nbvZMju1_YC6JXDytT8lmkuZkU';
+// ★ ชีตปลายทางที่จะเขียนข้อมูลลง
+//   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
+//   ใส่ไอดี      = เขียนลงชีตนั้นเสมอ (กรณีสร้างโปรเจกต์ Apps Script แยกไม่ได้ผูกกับชีต)
+//                  ไอดีคือตัวอักษรยาว ๆ ใน URL ของชีต ระหว่าง /d/ กับ /edit
+//                  เช่น https://docs.google.com/spreadsheets/d/[ไอดีอยู่ตรงนี้]/edit
+var SPREADSHEET_ID = '';
 
 var SHEET_NAME = 'ค่าเดินทาง';
 var DEBT_SHEET_NAME = 'ลูกหนี้';
@@ -65,7 +67,10 @@ function doPost(e) {
   try {
     lock.waitLock(30000);
     var body = JSON.parse(e.postData.contents);
-    if (body.ping) return json({ ok: true, pong: true, version: VERSION });
+    if (body.ping) {
+      var ss = getSpreadsheet_();
+      return json({ ok: true, pong: true, version: VERSION, sheet: ss.getName(), url: ss.getUrl() });
+    }
 
     var sh = getSheet_(SHEET_NAME, HEADERS);
     var rows = body.rows || [];
@@ -125,8 +130,23 @@ function writeBills_(bills, owners) {
 function getSpreadsheet_() {
   if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) throw new Error('สคริปต์นี้ไม่ได้ผูกกับสเปรดชีต — กรุณาใส่ไอดีชีตในตัวแปร SPREADSHEET_ID');
+  if (!ss) throw new Error(
+    'สคริปต์นี้ไม่ได้ผูกกับสเปรดชีต จึงไม่รู้ว่าจะเขียนลงที่ไหน — ' +
+    'ให้เปิดชีตที่ต้องการ คัดลอกไอดีจาก URL (ส่วนระหว่าง /d/ กับ /edit) ' +
+    'มาใส่ในตัวแปร SPREADSHEET_ID ด้านบนของโค้ด แล้ว Deploy เวอร์ชันใหม่');
   return ss;
+}
+
+/**
+ * ★ ตรวจก่อน Deploy — เลือกฟังก์ชันนี้ในช่องข้าง ▶ เรียกใช้ แล้วกดเรียกใช้
+ *   จะบอกในบันทึกการดำเนินการว่ากำลังจะเขียนลงชีตชื่ออะไร ลิงก์ไหน
+ */
+function ตรวจสอบชีตปลายทาง() {
+  var ss = getSpreadsheet_();
+  var msg = 'จะเขียนลงชีต: "' + ss.getName() + '"\n' + ss.getUrl()
+    + '\nแท็บที่ใช้: "' + SHEET_NAME + '" และ "' + DEBT_SHEET_NAME + '"';
+  Logger.log(msg);
+  return msg;
 }
 
 function getSheet_(name, headers) {
