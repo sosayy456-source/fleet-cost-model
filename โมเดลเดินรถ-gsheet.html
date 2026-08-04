@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root{
     --bg:#F3F4F6; --card:#FFFFFF; --border:#E7E9ED; --border-strong:#DADDE2;
@@ -198,6 +199,40 @@
   .rec-empty{color:var(--ink-faint);font-size:13.5px;padding:26px;text-align:center}
   .msg{font-size:12.5px;min-height:18px;font-weight:600}
 
+  /* ================= แดชบอร์ด ================= */
+  .dz-t{font-size:14px;font-weight:800;color:var(--navy);margin:22px 0 12px;padding-left:10px;border-left:4px solid var(--orange)}
+  .dz-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:6px}
+  .dz-cards.four{grid-template-columns:repeat(4,1fr)}
+  @media(max-width:900px){.dz-cards,.dz-cards.four{grid-template-columns:repeat(2,1fr)}}
+  .dash-tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:2px solid var(--border)}
+  .dtab{font-family:inherit;font-size:14px;font-weight:700;color:var(--ink-soft);background:none;border:none;
+    border-bottom:3px solid transparent;padding:9px 18px;margin-bottom:-2px;cursor:pointer}
+  .dtab.active{color:var(--orange);border-bottom-color:var(--orange)}
+  .dz-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 12px;align-items:end;
+    background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .dz-filters .ff{display:flex;flex-direction:column;gap:4px}
+  .dz-filters label{font-size:11px;color:var(--ink-soft);font-weight:600;margin:0}
+  .dz-filters select,.dz-filters input{font-family:inherit;font-size:13px;padding:7px 9px;border:1px solid var(--border);
+    border-radius:8px;background:#fff;width:100%;box-sizing:border-box}
+  .dz-fbtn{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-soft);background:#F1F2F4;
+    border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;height:36px}
+  .dz-fbtn:hover{background:#E6E8EB}
+  .dz-kc{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:14px 15px;box-shadow:var(--shadow)}
+  .dz-kc .l{font-size:11.5px;color:var(--ink-soft)}
+  .dz-kc .v{font-size:19px;font-weight:800;color:var(--navy);margin-top:5px;font-variant-numeric:tabular-nums}
+  .dz-kc .s{font-size:10.5px;color:var(--ink-faint);margin-top:2px}
+  .dz-row{display:grid;gap:14px;margin-bottom:4px}
+  .dz-2{grid-template-columns:1.4fr 1fr} .dz-11{grid-template-columns:1fr 1fr}
+  @media(max-width:900px){.dz-2,.dz-11{grid-template-columns:1fr}}
+  .dz-cc{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:16px;box-shadow:var(--shadow)}
+  .dz-cc h4{font-size:13.5px;color:var(--navy);margin:0 0 12px;font-weight:700}
+  .dz-box{position:relative;height:250px} .dz-box.tall{height:440px}
+  .dz-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .dz-tbl th,.dz-tbl td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
+  .dz-tbl th{background:var(--navy);color:#fff;font-size:11.5px;white-space:nowrap}
+  .dz-tbl td.n,.dz-tbl th.n{text-align:right;font-variant-numeric:tabular-nums}
+  .dz-note{font-size:11.5px;color:var(--ink-faint);margin-top:10px;line-height:1.7}
+
   /* Google Sheet config */
   .gs-config{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);margin-bottom:16px}
   .gs-config summary{cursor:pointer;list-style:none;padding:14px 18px;font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:9px}
@@ -237,6 +272,10 @@
       <div class="sub">ต้นทุนต่อเที่ยววิ่ง</div>
     </div>
     <nav class="nav">
+      <button class="navitem" data-view="dash">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>
+        แดชบอร์ด
+      </button>
       <button class="navitem active" data-view="form">
         <svg class="plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         บันทึกข้อมูล
@@ -253,6 +292,99 @@
   </aside>
 
   <main class="app">
+    <!-- ============ VIEW: แดชบอร์ด ============ -->
+    <section class="view" id="view-dash">
+      <div class="page-h"><h1>แดชบอร์ด</h1><p>ภาพรวมการเงิน · ต้นทุน · ลูกหนี้ · รวมข้อมูลใหม่กับข้อมูลเก่าจากชีต</p></div>
+      <div class="dash-tabs">
+        <button class="dtab active" data-dtab="main">หลัก</button>
+        <button class="dtab" data-dtab="debt">ลูกหนี้</button>
+      </div>
+
+      <!-- ---------------- หลัก ---------------- -->
+      <div id="dpane-main">
+        <div class="dz-filters">
+          <div class="ff"><label>แหล่งข้อมูล</label><select id="fMain_src">
+            <option value="">ทั้งหมด</option><option value="ใหม่">ข้อมูลใหม่</option><option value="เก่า">ข้อมูลเก่า</option></select></div>
+          <div class="ff"><label>ปี</label><select id="fMain_year"></select></div>
+          <div class="ff"><label>สาขา</label><select id="fMain_branch"></select></div>
+          <div class="ff"><label>ประเภทรถ</label><select id="fMain_fleet"></select></div>
+          <div class="ff"><label>ชนิดรถ</label><select id="fMain_veh"></select></div>
+          <div class="ff"><label>ทะเบียนรถ</label><select id="fMain_plate"></select></div>
+          <div class="ff"><label>ประเภทใบรายการ</label><select id="fMain_rectype"></select></div>
+          <div class="ff"><label>จุดขึ้น (ต้นทาง)</label><select id="fMain_origin"></select></div>
+          <div class="ff"><label>จุดลง (ปลายทาง)</label><select id="fMain_dest"></select></div>
+          <button class="dz-fbtn" id="fMain_reset">↺ ล้างตัวกรอง</button>
+        </div>
+        <div class="dz-cards">
+          <div class="dz-kc"><div class="l">🧾 ค่าใช้จ่ายรวม</div><div class="v" id="dk_cost">0</div><div class="s">บาท · ปกติ + สูญเปล่า</div></div>
+          <div class="dz-kc"><div class="l">🚚 จำนวนเที่ยววิ่ง</div><div class="v" id="dk_trips">0</div><div class="s">เที่ยว</div></div>
+          <div class="dz-kc"><div class="l">⛽ ค่าน้ำมันรวม</div><div class="v" id="dk_fuel">0</div><div class="s">บาท · ค่าน้ำมันเหมา + แก๊ส</div></div>
+          <div class="dz-kc"><div class="l">🧍 ค่าเบี้ยเลี้ยงคนขับรวม</div><div class="v" id="dk_driver">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">📦 ค่าธรรมเนียมอื่นๆ</div><div class="v" id="dk_other">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">🔧 ค่าซ่อมแซม</div><div class="v" id="dk_repair">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">💨 ต้นทุนสูญเปล่า</div><div class="v" id="dk_waste">0</div><div class="s">บาท · นอกเส้นทาง + วิ่งอ้อม</div></div>
+          <div class="dz-kc"><div class="l">🗂️ ค่าบริหาร (บิลเคลียร์)</div><div class="v" id="dk_admin">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">💳 ลูกหนี้ค้างชำระ</div><div class="v" id="dk_ar">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">💰 รายได้รวม</div><div class="v" id="dk_rev">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">📈 กำไรสุทธิ</div><div class="v" id="dk_profit">0</div><div class="s">บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร</div></div>
+          <div class="dz-kc"><div class="l">📊 กำไรเฉลี่ย/เที่ยว</div><div class="v" id="dk_avgprofit">0</div><div class="s">บาท · อัตรากำไร <span id="dk_margin">0</span>%</div></div>
+        </div>
+
+        <div class="dz-t">แนวโน้ม &amp; โครงสร้างต้นทุน</div>
+        <div class="dz-row dz-2">
+          <div class="dz-cc"><h4>แนวโน้มต้นทุนรายเดือน</h4><div class="dz-box"><canvas id="dch_costtrend"></canvas></div></div>
+          <div class="dz-cc"><h4>สัดส่วนค่าใช้จ่าย</h4><div class="dz-box"><canvas id="dch_break"></canvas></div></div>
+        </div>
+        <div class="dz-row dz-11" style="margin-top:14px">
+          <div class="dz-cc"><h4>ต้นทุน vs รายได้ รายปี (เส้น = กำไร)</h4><div class="dz-box"><canvas id="dch_yearcmp"></canvas></div></div>
+          <div class="dz-cc"><h4>แนวโน้มรายได้ · ต้นทุน · กำไร รายเดือน</h4><div class="dz-box"><canvas id="dch_month3"></canvas></div></div>
+        </div>
+        <div class="dz-cc" style="margin-top:14px"><h4>ต้นทุน vs รายได้ และกำไร ตามชนิดรถ</h4><div class="dz-box"><canvas id="dch_bytype"></canvas></div></div>
+        <div class="dz-row dz-11" style="margin-top:14px">
+          <div class="dz-cc"><h4>ต้นทุนแยกตามสาขา (Top 10)</h4><div class="dz-box tall"><canvas id="dch_branch"></canvas></div></div>
+          <div class="dz-cc"><h4>ต้นทุนทุกประเภท (มาก → น้อย)</h4><div class="dz-box tall"><canvas id="dch_allcost"></canvas></div></div>
+        </div>
+        <div class="dz-note" id="dashNote"></div>
+      </div>
+
+      <!-- ---------------- ลูกหนี้ ---------------- -->
+      <div id="dpane-debt" style="display:none">
+        <div class="dz-filters">
+          <div class="ff"><label>แหล่งข้อมูล</label><select id="fDebt_src">
+            <option value="">ทั้งหมด</option><option value="ใหม่">ข้อมูลใหม่</option><option value="เก่า">ข้อมูลเก่า</option></select></div>
+          <div class="ff"><label>สถานะ</label><select id="fDebt_status">
+            <option value="">ทั้งหมด</option><option value="unpaid">ค้างชำระ</option><option value="paid">ชำระแล้ว</option><option value="cleared">บิลเคลียร์</option></select></div>
+          <div class="ff"><label>ผู้ส่ง</label><select id="fDebt_sender"></select></div>
+          <div class="ff"><label>ผู้รับ</label><select id="fDebt_receiver"></select></div>
+          <div class="ff"><label>ประเภทการชำระเงิน</label><select id="fDebt_pay"></select></div>
+          <div class="ff"><label>ประเภทสินค้า</label><select id="fDebt_prod"></select></div>
+          <button class="dz-fbtn" id="fDebt_reset">↺ ล้างตัวกรอง</button>
+        </div>
+        <div class="dz-cards four">
+          <div class="dz-kc"><div class="l">💳 ยอดค้างชำระรวม</div><div class="v" id="dd_out">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">✅ ยอดรับชำระแล้ว</div><div class="v" id="dd_paid">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">📋 จำนวนรายการค้างชำระ</div><div class="v" id="dd_cnt">0</div><div class="s">ราย</div></div>
+          <div class="dz-kc"><div class="l">% สัดส่วนค้างชำระ</div><div class="v" id="dd_ratio">0%</div><div class="s">ของยอดออกบิลทั้งหมด</div></div>
+        </div>
+        <div class="dz-row dz-11">
+          <div class="dz-cc"><h4>ลูกหนี้ค้างชำระ (Top 10)</h4><div class="dz-box"><canvas id="ddc_top"></canvas></div></div>
+          <div class="dz-cc"><h4>สัดส่วนชำระแล้ว vs ค้างชำระ</h4><div class="dz-box"><canvas id="ddc_pie"></canvas></div></div>
+        </div>
+        <div class="dz-cc" style="margin-top:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+            <h4 style="margin:0">รายการค้างชำระทั้งหมด</h4>
+            <input id="ddSearch" placeholder="🔍 ค้นหา ผู้ส่ง / ผู้รับ / เลขที่บิล / เลขที่ใบรายการ"
+              style="font-family:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;min-width:280px">
+          </div>
+          <div class="scroll"><table class="dz-tbl">
+            <thead><tr><th>แหล่งข้อมูล</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
+              <th>ผู้ส่ง</th><th>ผู้รับ</th><th>ประเภทการชำระ</th><th class="n">ค้างชำระ</th><th class="n">ค้าง (วัน)</th><th>ชำระ</th></tr></thead>
+            <tbody id="ddTbl"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ============ VIEW: บันทึกข้อมูล ============ -->
     <section class="view active" id="view-form">
       <div class="page-h"><h1>บันทึกข้อมูล</h1><p>กรอกข้อมูล → คำนวณ → บันทึก (บันทึกในเครื่อง + ส่งขึ้น Google Sheet ถ้าเชื่อมต่อแล้ว)</p></div>
@@ -431,7 +563,7 @@
             <b style="color:var(--red)">เคย Deploy ไว้แล้วแต่ข้อมูลไม่ขึ้นชีต?</b> = โค้ดในชีตเป็นเวอร์ชันเก่า<br>
             วางโค้ดใหม่ทับ → บันทึก → <b>Deploy → Manage deployments</b> → กดดินสอ <b>✏</b> ที่ deployment เดิม →
             ช่อง <b>Version</b> เลือก <b>New version</b> → <b>Deploy</b> · URL เดิมใช้ต่อได้ไม่ต้องเปลี่ยน<br>
-            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v8</code> จึงจะบันทึกได้)<br>
+            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v9</code> จึงจะบันทึกได้)<br>
             <br>ระบบจะสร้าง 2 ชีต: <code>บันทึกเดินรถ</code> (1 แถว = 1 ใบรายการ) และ <code>รายการลูกหนี้</code> (1 แถว = ลูกหนี้ 1 ราย)
           </div>
         </div>
@@ -612,6 +744,7 @@ function showView(name){
   $("view-"+name).classList.add("active");
   document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("active",n.dataset.view===name));
   if(name==="debtors" && typeof renderDebtors==="function") renderDebtors();
+  if(name==="dash" && typeof renderDash==="function") renderDash();
   window.scrollTo({top:0,behavior:"smooth"});
 }
 document.querySelectorAll(".navitem").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
@@ -767,7 +900,7 @@ function updateConnBadge(){
   const on=!!getUrl();
   const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
 }
-const GS_VERSION=8;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
+const GS_VERSION=9;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
 async function postToSheet(payload){
   const url=getUrl();
   if(!url) throw new Error("ยังไม่ได้ตั้งค่า URL (กด ⚙ ตั้งค่า)");
@@ -1248,7 +1381,8 @@ function shortId(v){
   return esc(s||"–");
 }
 // แปลงลูกหนี้ (ใหม่/เก่า) ให้เป็นรูปแบบเดียวกันก่อนวาดตาราง
-function unifyDebtRows(){
+function unifyDebtRows(filter){
+  const DEBT_FILTER=filter||"all";
   const out=[];
   if(DEBT_FILTER!=="old"){
     allBillRows().forEach(({r,ri,b,bi})=>{
@@ -1292,7 +1426,7 @@ function debtCommonCells(x){
     `<td class="num">${x.total?fmt(x.total,0):"–"}</td>`;
 }
 function renderDebtors(){
-  const rows=unifyDebtRows();
+  const rows=unifyDebtRows(DEBT_FILTER);
   const active=rows.filter(x=>!x.paid);
   const paid=rows.filter(x=>x.paid);
 
@@ -1418,6 +1552,263 @@ $("npReset").onclick=()=>{
   USER_UPDATES={}; saveUpdates(USER_UPDATES); PRICES=buildPrices(); renderPrices(); updateFuelNote();
   msg("npMsg","ล้างราคาที่เพิ่มเองทั้งหมดแล้ว");
 };
+
+// ================= แดชบอร์ด =================
+// รวมข้อมูลใหม่ (ในเครื่อง) + ข้อมูลเก่า (จากชีต) เข้าด้วยกัน ใช้หลักการคิดเดียวกับหน้าอื่น
+// ★ ค่าน้ำมันที่เป็น "ต้นทุนจริง" อ่านจาก fuelSum (= ค่าน้ำมันเหมา) ไม่ใช่ต้นทุนสูญเปล่า
+let dCharts={};
+const dNum=v=>isFinite(+v)?+v:0;
+
+function dashRecords(){
+  const src=$("fMain_src")?$("fMain_src").value:"";
+  const out=[];
+  if(src!=="เก่า") RECORDS.forEach(r=>out.push({...r, source:"ใหม่"}));
+  if(src!=="ใหม่") OLD_RECORDS.forEach(r=>out.push(r));
+  return out;
+}
+// ต้นทุนแยกส่วนต่อ 1 รายการ (ข้อมูลเก่ามีครบเท่าที่ชีตให้มา)
+function recCost(r){
+  const fuel   = dNum(r.gas)+dNum(r.fuelSum);                       // แก๊ส + ค่าน้ำมันเหมา
+  const driver = dNum(r.drv)+dNum(r.spare)+dNum(r.snd);
+  const repair = (r.repTotal!=null)?dNum(r.repTotal):(dNum(r.repFix)+dNum(r.repVar));
+  const other  = dNum(r.feeTarp)+dNum(r.feePolice)+dNum(r.feeCont)+dNum(r.feePort)+dNum(r.feeDoc)+dNum(r.feeToll);
+  const waste  = (r.waste!=null)?dNum(r.waste)
+                : dNum(r.fuelOff)+dNum(r.fuelDetour)+dNum(r.fuelOffFleet)+dNum(r.laborOff);
+  return {fuel,driver,repair,other,waste,total:fuel+driver+repair+other+waste};
+}
+const COST_ITEMS=[
+  ["ค่าแก๊ส","gas"],["น้ำมัน (เงินสด)","fuelCash"],["น้ำมันขาล่อง (บิล)","fuelDownBill"],
+  ["น้ำมัน (Fleet Card)","fuelFleet"],["น้ำมันไปเก็บสินค้า","fuelPickup"],["น้ำมันขาขึ้น (บิล)","fuelUpBill"],
+  ["ค่าเรียกรถไปขึ้นของ","fuelCallTruck"],
+  ["เบี้ยเลี้ยงพขร.","drv"],["เบี้ยเลี้ยงพขร.สำรอง","spare"],["เบี้ยเลี้ยง SND","snd"],
+  ["ค่าเปิดปิดผ้าใบ","feeTarp"],["ค่าตำรวจ","feePolice"],["ค่าคืนตู้","feeCont"],["ค่าเข้าท่าเรือ","feePort"],
+  ["ค่าส่งเอกสาร","feeDoc"],["ค่าทางด่วน","feeToll"],
+  ["ค่าซ่อมตามเวลา","repFix"],["ค่าซ่อมตามระยะทาง","repVar"],
+  ["สูญเปล่า: น้ำมันนอกเส้นทาง","fuelOff"],["สูญเปล่า: วิ่งอ้อม","fuelDetour"],
+  ["สูญเปล่า: นอกเส้นทาง (Fleet)","fuelOffFleet"],["สูญเปล่า: เบี้ยเลี้ยงนอกเส้นทาง","laborOff"]
+];
+const CLEARED="บิลเคลียร์";
+const billCleared=b=>(b.goodsType||"")===CLEARED;
+
+function setTxt(id,v){ const e=$(id); if(e) e.textContent=v; }
+function duniq(a){ return [...new Set(a.filter(v=>v!=null&&v!==""))].sort((x,y)=>String(x).localeCompare(String(y),"th")); }
+function fillSel(id,vals,allLabel){ const s=$(id); if(!s)return; const cur=s.value;
+  s.innerHTML=`<option value="">${allLabel}</option>`+vals.map(v=>`<option value="${esc(String(v))}">${esc(String(v))}</option>`).join("");
+  if([...s.options].some(o=>o.value===cur)) s.value=cur; }
+function dOpts(horiz,showLeg){ return {responsive:true,maintainAspectRatio:false,animation:{duration:300},
+  plugins:{legend:{display:showLeg!==false,position:"bottom",labels:{font:{family:"Noto Sans Thai",size:11},boxWidth:12}}},
+  scales:{x:{ticks:{font:{family:"Noto Sans Thai",size:10}}},y:{ticks:{font:{family:"Noto Sans Thai",size:10}}}},
+  indexAxis:horiz?"y":"x"}; }
+function dHas(id){ return typeof Chart!=="undefined" && $(id); }
+function dBar(id,labels,ds,horiz,showLeg){ if(!dHas(id))return; if(dCharts[id])dCharts[id].destroy();
+  dCharts[id]=new Chart($(id),{type:"bar",data:{labels,datasets:ds},options:dOpts(horiz,showLeg)}); }
+function dLine(id,labels,ds){ if(!dHas(id))return; if(dCharts[id])dCharts[id].destroy();
+  dCharts[id]=new Chart($(id),{type:"line",data:{labels,datasets:ds.map(d=>({label:d.label,data:d.data,
+    borderColor:d.color,backgroundColor:d.color,borderWidth:2,tension:.3,fill:false,pointRadius:2}))},options:dOpts(false,ds.length>1)}); }
+function dMixed(id,labels,bars,line){ if(!dHas(id))return; if(dCharts[id])dCharts[id].destroy();
+  const ds=bars.map(b=>({type:"bar",label:b.label,data:b.data,backgroundColor:b.color}));
+  if(line) ds.push({type:"line",label:line.label,data:line.data,borderColor:line.color,backgroundColor:line.color,borderWidth:2,tension:.3,fill:false,pointRadius:2});
+  dCharts[id]=new Chart($(id),{data:{labels,datasets:ds},options:dOpts(false,true)}); }
+function dPie(id,labels,data,colors){ if(!dHas(id))return; if(dCharts[id])dCharts[id].destroy();
+  dCharts[id]=new Chart($(id),{type:"doughnut",data:{labels,datasets:[{data,backgroundColor:colors}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:300},
+      plugins:{legend:{position:"bottom",labels:{font:{family:"Noto Sans Thai",size:11},boxWidth:12}}}}}); }
+
+// ---------- ตัวกรองหน้าหลัก ----------
+function passMain(r,ignoreYear){
+  const g=id=>$(id)?$(id).value:"";
+  if(!ignoreYear && g("fMain_year") && String(r.date||"").slice(0,4)!==g("fMain_year")) return false;
+  if(g("fMain_branch")  && (r.branch||"")!==g("fMain_branch"))   return false;
+  if(g("fMain_fleet")   && (r.fleetType||"")!==g("fMain_fleet")) return false;
+  if(g("fMain_veh")     && (r.vehicle||"")!==g("fMain_veh"))     return false;
+  if(g("fMain_plate")   && (r.plate||"")!==g("fMain_plate"))     return false;
+  if(g("fMain_rectype") && (r.docType||"")!==g("fMain_rectype")) return false;
+  if(g("fMain_origin")  && (r.origin||"")!==g("fMain_origin"))   return false;
+  if(g("fMain_dest")    && (r.dest||"")!==g("fMain_dest"))       return false;
+  return true;
+}
+function populateMainFilters(){
+  const all=dashRecords();
+  const ys=duniq(all.map(r=>String(r.date||"").slice(0,4)));
+  const s=$("fMain_year");
+  if(s){ const cur=s.value;
+    s.innerHTML='<option value="">ทุกปี</option>'+ys.map(y=>`<option value="${y}">พ.ศ. ${(+y)+543}</option>`).join("");
+    if([...s.options].some(o=>o.value===cur)) s.value=cur; }
+  fillSel("fMain_branch", duniq(all.map(r=>r.branch)),   "ทุกสาขา");
+  fillSel("fMain_fleet",  duniq(all.map(r=>r.fleetType)),"ทุกประเภทรถ");
+  fillSel("fMain_veh",    duniq(all.map(r=>r.vehicle)),  "ทุกชนิดรถ");
+  fillSel("fMain_plate",  duniq(all.map(r=>r.plate)),    "ทุกทะเบียน");
+  fillSel("fMain_rectype",duniq(all.map(r=>r.docType)),  "ทุกประเภทใบรายการ");
+  fillSel("fMain_origin", duniq(all.map(r=>r.origin)),   "ทุกต้นทาง");
+  fillSel("fMain_dest",   duniq(all.map(r=>r.dest)),     "ทุกปลายทาง");
+}
+
+// ---------- แดชบอร์ดหลัก ----------
+function renderDashMain(){
+  const base=dashRecords();
+  const recs=base.filter(r=>passMain(r,false));
+  // ข้อมูลเก่าเก็บลูกหนี้ไว้คนละแท็บ จึงต้องดึงมาผูกกับใบรายการด้วยเลขที่ใบรายการ
+  const oldBillsOf=r=>(r.source==="เก่า"&&r.docNo)?OLD_DEBTORS.filter(d=>d.docNo===r.docNo):[];
+  const adminOf=r=>
+    recBills(r).reduce((s,b)=>s+(billCleared(b)?dNum(b.total):0),0)+
+    oldBillsOf(r).reduce((s,d)=>s+(billCleared(d)?dNum(d.total):0),0);
+
+  const rev=recs.reduce((s,r)=>s+dNum(r.revenue),0);
+  let fuel=0,driver=0,repair=0,other=0,waste=0,cost=0,admin=0;
+  recs.forEach(r=>{ const c=recCost(r);
+    fuel+=c.fuel; driver+=c.driver; repair+=c.repair; other+=c.other; waste+=c.waste; cost+=c.total; admin+=adminOf(r); });
+  const profit=rev-cost-admin;
+  const trips=recs.length;
+
+  // ลูกหนี้ค้างชำระ (ไม่นับบิลเคลียร์ เพราะไปอยู่ในค่าบริหารแล้ว)
+  let arOut=0;
+  recs.forEach(r=>{
+    recBills(r).forEach(b=>{ if(!billIsPaid(b)&&!billCleared(b)) arOut+=dNum(b.total); });
+    oldBillsOf(r).forEach(d=>{ if(!d.paid&&!billCleared(d)) arOut+=dNum(d.total); });
+  });
+
+  setTxt("dk_cost",fmt(cost,0));      setTxt("dk_trips",fmt(trips,0));   setTxt("dk_fuel",fmt(fuel,0));
+  setTxt("dk_driver",fmt(driver,0));  setTxt("dk_other",fmt(other,0));   setTxt("dk_repair",fmt(repair,0));
+  setTxt("dk_waste",fmt(waste,0));    setTxt("dk_admin",fmt(admin,0));   setTxt("dk_ar",fmt(arOut,0));
+  setTxt("dk_rev",fmt(rev,0));
+  setTxt("dk_profit",(profit<0?"−":"")+fmt(Math.abs(profit),0));
+  if($("dk_profit")) $("dk_profit").style.color=profit>=0?"var(--green)":"var(--red)";
+  setTxt("dk_margin", rev?Math.round(profit/rev*100):0);
+  setTxt("dk_avgprofit", fmt(trips?Math.round(profit/trips):0,0));
+
+  const nNew=recs.filter(r=>r.source!=="เก่า").length, nOld=recs.length-nNew;
+  setTxt("dashNote",`นับจาก ${recs.length} เที่ยว (ข้อมูลใหม่ ${nNew} · ข้อมูลเก่า ${nOld}) · `+
+    `ค่าน้ำมันใช้ช่อง “ค่าน้ำมันเหมา” เป็นต้นทุนจริง ส่วนน้ำมันนอกเส้นทาง/วิ่งอ้อม นับเป็นต้นทุนสูญเปล่าแยกต่างหาก`);
+
+  const months=duniq(recs.map(r=>String(r.date||"").slice(0,7)));
+  const mlabel=m=>{const[y,mm]=m.split("-");return TH_MONTHS[(+mm)-1]+" "+((+y)+543-2500);};
+  const sumBy=(list,fn)=>list.reduce((s,r)=>s+fn(r),0);
+  const inMonth=m=>recs.filter(r=>String(r.date||"").slice(0,7)===m);
+
+  const mcost=months.map(m=>sumBy(inMonth(m),r=>recCost(r).total));
+  dLine("dch_costtrend",months.map(mlabel),[{label:"ต้นทุนรวม",data:mcost,color:"#F5821F"}]);
+
+  dPie("dch_break",["ค่าน้ำมัน","เบี้ยเลี้ยงคนขับ","ค่าซ่อมแซม","ค่าธรรมเนียมอื่นๆ","สูญเปล่า"],
+    [fuel,driver,repair,other,waste],["#3672C4","#1E2A46","#F5821F","#9AA1AC","#B0641F"]);
+
+  // รายปี — ใช้ตัวกรองอื่นทั้งหมด ยกเว้นปี
+  const yrecs=base.filter(r=>passMain(r,true));
+  const years=duniq(yrecs.map(r=>String(r.date||"").slice(0,4)));
+  const inYear=y=>yrecs.filter(r=>String(r.date||"").slice(0,4)===y);
+  const yrev=years.map(y=>sumBy(inYear(y),r=>dNum(r.revenue)));
+  const ycost=years.map(y=>sumBy(inYear(y),r=>recCost(r).total));
+  const yadmin=years.map(y=>sumBy(inYear(y),adminOf));
+  dMixed("dch_yearcmp",years.map(y=>"พ.ศ. "+((+y)+543)),
+    [{label:"รายได้",data:yrev,color:"#1E2A46"},{label:"ต้นทุน",data:ycost,color:"#F5821F"}],
+    {label:"กำไร",data:years.map((y,i)=>yrev[i]-ycost[i]-yadmin[i]),color:"#1FA971"});
+
+  const mrev=months.map(m=>sumBy(inMonth(m),r=>dNum(r.revenue)));
+  const madmin=months.map(m=>sumBy(inMonth(m),adminOf));
+  dLine("dch_month3",months.map(mlabel),[
+    {label:"รายได้",data:mrev,color:"#1E2A46"},{label:"ต้นทุน",data:mcost,color:"#F5821F"},
+    {label:"กำไร",data:months.map((m,i)=>mrev[i]-mcost[i]-madmin[i]),color:"#1FA971"}]);
+
+  const vehs=duniq(recs.map(r=>r.vehicle));
+  const inVeh=v=>recs.filter(r=>r.vehicle===v);
+  const vrev=vehs.map(v=>sumBy(inVeh(v),r=>dNum(r.revenue)));
+  const vcost=vehs.map(v=>sumBy(inVeh(v),r=>recCost(r).total));
+  const vadmin=vehs.map(v=>sumBy(inVeh(v),adminOf));
+  dMixed("dch_bytype",vehs,
+    [{label:"รายได้",data:vrev,color:"#1E2A46"},{label:"ต้นทุน",data:vcost,color:"#F5821F"}],
+    {label:"กำไร",data:vehs.map((v,i)=>vrev[i]-vcost[i]-vadmin[i]),color:"#1FA971"});
+
+  const bmap={}; recs.forEach(r=>{ const k=r.branch||"(ไม่ระบุสาขา)"; bmap[k]=(bmap[k]||0)+recCost(r).total; });
+  const br=Object.entries(bmap).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  dBar("dch_branch",br.map(x=>x[0]),[{label:"ต้นทุน",data:br.map(x=>x[1]),backgroundColor:"#3672C4"}],true,false);
+
+  const items=COST_ITEMS.map(([lab,key])=>[lab,sumBy(recs,r=>dNum(r[key]))]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  dBar("dch_allcost",items.map(x=>x[0]),[{label:"ต้นทุน",data:items.map(x=>x[1]),backgroundColor:"#8a6d00"}],true,false);
+}
+
+// ---------- แดชบอร์ดลูกหนี้ ----------
+function dStatusKey(x){ return (x.goodsType||"")===CLEARED?"cleared":(x.paid?"paid":"unpaid"); }
+function debtRowsFiltered(){
+  const g=id=>$(id)?$(id).value:"";
+  const src=g("fDebt_src");
+  return unifyDebtRows(src==="เก่า"?"old":src==="ใหม่"?"new":"all").filter(x=>{
+    if(g("fDebt_status")   && dStatusKey(x)!==g("fDebt_status"))       return false;
+    if(g("fDebt_sender")   && (x.sender||"")!==g("fDebt_sender"))      return false;
+    if(g("fDebt_receiver") && (x.receiver||"")!==g("fDebt_receiver"))  return false;
+    if(g("fDebt_pay")      && (x.payType||"")!==g("fDebt_pay"))        return false;
+    if(g("fDebt_prod")     && (x.goodsType||"")!==g("fDebt_prod"))     return false;
+    return true;
+  });
+}
+function populateDebtFilters(){
+  const all=unifyDebtRows("all");
+  fillSel("fDebt_sender",  duniq(all.map(x=>x.sender)),   "ผู้ส่งทั้งหมด");
+  fillSel("fDebt_receiver",duniq(all.map(x=>x.receiver)), "ผู้รับทั้งหมด");
+  fillSel("fDebt_pay",     duniq(all.map(x=>x.payType)),  "ทุกประเภทการชำระ");
+  fillSel("fDebt_prod",    duniq(all.map(x=>x.goodsType)),"ทุกประเภทสินค้า");
+}
+function renderDashDebt(){
+  const rows=debtRowsFiltered();
+  let outT=0,paidT=0,clrT=0,cntUnpaid=0;
+  rows.forEach(x=>{ const t=dNum(x.total), k=dStatusKey(x);
+    if(k==="unpaid"){ outT+=t; cntUnpaid++; } else if(k==="cleared"){ clrT+=t; } else { paidT+=t; } });
+  const billed=outT+paidT+clrT;
+  setTxt("dd_out",fmt(outT,0)); setTxt("dd_paid",fmt(paidT,0)); setTxt("dd_cnt",fmt(cntUnpaid,0));
+  setTxt("dd_ratio",(billed?Math.round(outT/billed*100):0)+"%");
+
+  const cm={};
+  rows.forEach(x=>{ if(dStatusKey(x)==="unpaid"){
+    const key=(x.sender||"?")+" → "+(x.receiver||"?");
+    const lab=key.length>28?key.slice(0,26)+"…":key;
+    cm[lab]=(cm[lab]||0)+dNum(x.total); } });
+  const top=Object.entries(cm).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  dBar("ddc_top",top.map(x=>x[0]),[{label:"ค้างชำระ",data:top.map(x=>x[1]),backgroundColor:"#E24B4B"}],true,false);
+  dPie("ddc_pie",["ชำระแล้ว","ค้างชำระ","บิลเคลียร์"],[paidT,outT,clrT],["#1FA971","#E24B4B","#3672C4"]);
+  renderDdTable(rows);
+}
+function renderDdTable(rows){
+  const q=($("ddSearch")?$("ddSearch").value:"").trim().toLowerCase();
+  const tb=$("ddTbl"); if(!tb) return;
+  let list=rows.filter(x=>dStatusKey(x)==="unpaid");
+  if(q) list=list.filter(x=>((x.billNo||"")+" "+(x.docNo||"")+" "+(x.sender||"")+" "+(x.receiver||"")).toLowerCase().includes(q));
+  if(!list.length){ tb.innerHTML=`<tr><td colspan="11" style="text-align:center;color:var(--ink-faint);padding:16px">ไม่มีรายการค้างชำระ</td></tr>`; return; }
+  tb.innerHTML="";
+  list.sort((a,b)=>dNum(b.total)-dNum(a.total)).forEach(x=>{
+    const tr=document.createElement("tr");
+    tr.innerHTML=
+      `<td><span class="badge ${x.old?"src-old":"src-new"}">${x.old?"เก่า":"ใหม่"}</span></td>`+
+      `<td>${thDateSafe(x.date)}</td><td>${esc(x.docNo||"–")}</td>`+
+      `<td style="font-weight:600">${esc(x.billNo||"–")}</td><td>${esc(x.goodsType||"–")}</td>`+
+      `<td>${shortId(x.sender)}</td><td>${shortId(x.receiver)}</td>`+
+      `<td>${esc(x.payType||"–")}</td><td class="n">${fmt(dNum(x.total),0)}</td>`+
+      `<td class="n">${x.aging==null?"–":x.aging}</td>`+
+      `<td>${x.old?'<span class="locknote">แก้ในชีต</span>':'<button class="btn-mini">บันทึกจ่าย</button>'}</td>`;
+    const btn=tr.querySelector(".btn-mini");
+    if(btn) btn.onclick=()=>openPayModal(x.ri,x.bi);
+    tb.appendChild(tr);
+  });
+}
+
+let dashTab="main";
+function renderDash(){
+  populateMainFilters(); populateDebtFilters();
+  if(dashTab==="main") renderDashMain(); else renderDashDebt();
+}
+(function initDashUI(){
+  document.querySelectorAll(".dtab").forEach(t=>t.onclick=()=>{
+    dashTab=t.dataset.dtab;
+    document.querySelectorAll(".dtab").forEach(x=>x.classList.toggle("active",x===t));
+    $("dpane-main").style.display=dashTab==="main"?"":"none";
+    $("dpane-debt").style.display=dashTab==="debt"?"":"none";
+    renderDash();
+  });
+  const MAIN_F=["fMain_src","fMain_year","fMain_branch","fMain_fleet","fMain_veh","fMain_plate","fMain_rectype","fMain_origin","fMain_dest"];
+  const DEBT_F=["fDebt_src","fDebt_status","fDebt_sender","fDebt_receiver","fDebt_pay","fDebt_prod"];
+  MAIN_F.forEach(id=>{ const e=$(id); if(e) e.onchange=()=>{ populateMainFilters(); renderDashMain(); }; });
+  DEBT_F.forEach(id=>{ const e=$(id); if(e) e.onchange=renderDashDebt; });
+  const ds=$("ddSearch"); if(ds) ds.oninput=renderDashDebt;
+  const mr=$("fMain_reset"); if(mr) mr.onclick=()=>{ MAIN_F.forEach(id=>{if($(id))$(id).value="";}); populateMainFilters(); renderDashMain(); };
+  const dr=$("fDebt_reset"); if(dr) dr.onclick=()=>{ DEBT_F.forEach(id=>{if($(id))$(id).value="";}); if($("ddSearch"))$("ddSearch").value=""; renderDashDebt(); };
+})();
 
 // ================= init =================
 $("gsUrl").value=getUrl();
