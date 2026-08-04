@@ -1,5 +1,5 @@
 /**
- * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 7)
+ * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 8)
  * ใช้คู่กับไฟล์ โมเดลเดินรถ-gsheet.html
  *
  * ── วิธีติดตั้ง ──────────────────────────────────────────────
@@ -11,7 +11,7 @@
  *      - กด Deploy → กดอนุญาตสิทธิ์ (Authorize) ให้เรียบร้อย
  * 3) คัดลอก "URL ของเว็บแอป" ที่ลงท้ายด้วย /exec
  * 4) เปิดหน้าเว็บโมเดล → แท็บ "รายการทั้งหมด" → ⚙ ตั้งค่าการเชื่อม Google Sheet
- *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v7")
+ *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v8")
  *
  * ── แก้โค้ดภายหลัง ─────────────────────────────────────────
  * บันทึก → Deploy → จัดการการทำให้ใช้งานได้ (Manage deployments) → กดดินสอ ✏
@@ -23,7 +23,7 @@
  * เป็นระบบ upsert — ส่งใบรายการเดิมซ้ำจะทับแถวเดิม ไม่เพิ่มแถวใหม่
  */
 
-var VERSION = 7;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
+var VERSION = 8;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
 
 // ★ ชีตปลายทางที่จะเขียนข้อมูลลง
 //   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
@@ -194,19 +194,59 @@ function writeBills_(bills, owners) {
 
 function pad2_(n) { return (n < 10 ? '0' : '') + n; }
 
-/** แปลงวันที่จากชีตเป็น YYYY-MM-DD (รับได้ทั้ง Date และข้อความ dd/mm/yyyy พ.ศ.) */
+var TH_MONTH_ABBR = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+/**
+ * แปลงวันที่จากชีตเป็น YYYY-MM-DD (ค.ศ.)
+ * ★ ชีตเขียนวันที่แบบ วัน/เดือน/ปี พ.ศ. เสมอ
+ *   แต่ Google Sheets มักแปลงข้อความนั้นเป็นชนิด "วันที่" เอง โดยอ่านสลับเป็น เดือน/วัน
+ *   และตีปี พ.ศ. เป็น ค.ศ. ตรง ๆ  →  ค่าที่ได้จาก getValues() จึงเชื่อไม่ได้
+ *   วิธีที่ถูกคือดู "ข้อความตามที่แสดงในเซลล์" (getDisplayValues) แล้วตีความเป็น วัน/เดือน/ปี เอง
+ */
 function toIsoDate_(v) {
-  if (v instanceof Date) return v.getFullYear() + '-' + pad2_(v.getMonth() + 1) + '-' + pad2_(v.getDate());
-  var s = String(v || '').trim();
-  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);          // dd/mm/yyyy
+  var s = String(v == null ? '' : v).trim();
+  if (!s) return '';
+
+  var m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);   // วัน/เดือน/ปี  ← รูปแบบหลักของชีต
   if (m) {
-    var y = +m[3];
-    if (y > 2400) y -= 543;                                     // พ.ศ. → ค.ศ.
-    return y + '-' + pad2_(+m[2]) + '-' + pad2_(+m[1]);
+    var d = +m[1], mo = +m[2], y = +m[3];
+    if (mo > 12 && d <= 12) { var t = d; d = mo; mo = t; }        // เผื่อกรณีสลับมาแล้วจริง ๆ
+    if (y > 2400) y -= 543;                                        // พ.ศ. → ค.ศ.
+    return y + '-' + pad2_(mo) + '-' + pad2_(d);
   }
-  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);                 // ISO อยู่แล้ว
-  if (m) return m[1] + '-' + pad2_(+m[2]) + '-' + pad2_(+m[3]);
+
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);                     // ISO อยู่แล้ว
+  if (m) {
+    var y2 = +m[1];
+    if (y2 > 2400) y2 -= 543;
+    return y2 + '-' + pad2_(+m[2]) + '-' + pad2_(+m[3]);
+  }
+
+  m = s.match(/^(\d{1,2})\s+([^\s]+)\s+(\d{4})$/);                 // "2 ม.ค. 2567"
+  if (m) {
+    var mi = TH_MONTH_ABBR.indexOf(m[2]);
+    if (mi >= 0) {
+      var y3 = +m[3];
+      if (y3 > 2400) y3 -= 543;
+      return y3 + '-' + pad2_(mi + 1) + '-' + pad2_(+m[1]);
+    }
+  }
   return '';
+}
+
+/**
+ * เลือกวันที่จากข้อความที่แสดงในเซลล์ก่อน ถ้าอ่านไม่ออกค่อยใช้ค่าดิบ
+ * (ค่าดิบที่เป็น Date ต้องหักปี พ.ศ. ออกด้วย เพราะ Sheets เก็บ 2567 เป็นปี ค.ศ. ตรง ๆ)
+ */
+function pickDate_(raw, disp) {
+  var iso = toIsoDate_(disp);
+  if (iso) return iso;
+  if (raw instanceof Date) {
+    var y = raw.getFullYear();
+    if (y > 2400) y -= 543;
+    return y + '-' + pad2_(raw.getMonth() + 1) + '-' + pad2_(raw.getDate());
+  }
+  return toIsoDate_(raw);
 }
 
 /** ทำแผนที่ ชื่อหัวคอลัมน์ → เลขคอลัมน์ (ผ่านตารางชื่อพ้อง) */
@@ -222,12 +262,13 @@ function headerIndex_(headerRow) {
 }
 
 /** แปลง 1 แถวในชีต → ออบเจ็กต์รายการ (คืน null ถ้าเป็นแถวที่ต้องตัดทิ้ง) */
-function rowToRecord_(row, idx, source, sheetName, rowNo) {
+function rowToRecord_(row, idx, source, sheetName, rowNo, dispRow) {
   function g(k) { var i = idx[k]; return (i === undefined) ? '' : row[i]; }
+  function gd(k) { var i = idx[k]; return (i === undefined || !dispRow) ? '' : dispRow[i]; }
   function n(k) {
     var v = g(k);
     if (typeof v === 'number') return v;
-    var f = parseFloat(String(v || '').replace(/,/g, '').trim());
+    var f = parseFloat(String(v || '').replace(/[^0-9.\-]/g, '').trim());
     return isNaN(f) ? 0 : f;
   }
 
@@ -256,7 +297,7 @@ function rowToRecord_(row, idx, source, sheetName, rowNo) {
     id: (source === 'เก่า') ? ('OLD:' + sheetName + ':' + rowNo) : String(g('ID') || ''),
     source: source,
     sheetName: sheetName,
-    date: toIsoDate_(g('วันที่')),
+    date: pickDate_(g('วันที่'), gd('วันที่')),
     docNo: docNo,
     branch: String(g('สาขา') || ''),
     docType: String(g('ประเภทใบรายการ') || ''),
@@ -287,11 +328,12 @@ function readOldRecords_() {
     if (name.indexOf(OLD_DEBT_PREFIX) === 0) continue;      // แท็บลูกหนี้เก่า — อ่านที่อื่น
     var last = sh.getLastRow(), lastCol = sh.getLastColumn();
     if (last < 2 || lastCol < 1) continue;
-    var vals = sh.getRange(1, 1, last, lastCol).getValues();
+    var rng = sh.getRange(1, 1, last, lastCol);
+    var vals = rng.getValues(), disp = rng.getDisplayValues();
     var idx = headerIndex_(vals[0]);
     for (var r = 1; r < vals.length; r++) {
       if (vals[r].join('').toString().trim() === '') continue;
-      var rec = rowToRecord_(vals[r], idx, 'เก่า', name, r + 1);
+      var rec = rowToRecord_(vals[r], idx, 'เก่า', name, r + 1, disp[r]);
       if (rec) out.push(rec);
     }
   }
@@ -308,21 +350,25 @@ function readOldDebtors_() {
     if (name.indexOf(OLD_DEBT_PREFIX) !== 0) continue;
     var last = sh.getLastRow(), lastCol = sh.getLastColumn();
     if (last < 2 || lastCol < 1) continue;
-    var vals = sh.getRange(1, 1, last, lastCol).getValues();
+    var rng = sh.getRange(1, 1, last, lastCol);
+    var vals = rng.getValues(), disp = rng.getDisplayValues();
     var idx = headerIndex_(vals[0]);
 
     for (var r = 1; r < vals.length; r++) {
-      var row = vals[r];
+      var row = vals[r], drow = disp[r];
       if (row.join('').toString().trim() === '') continue;
 
       var g = (function (rr) {
         return function (k) { var i = idx[k]; return (i === undefined) ? '' : rr[i]; };
       })(row);
+      var gd = (function (dd) {
+        return function (k) { var i = idx[k]; return (i === undefined) ? '' : dd[i]; };
+      })(drow);
       var n = (function (gg) {
         return function (k) {
           var v = gg(k);
           if (typeof v === 'number') return v;
-          var f = parseFloat(String(v || '').replace(/,/g, '').trim());
+          var f = parseFloat(String(v || '').replace(/[^0-9.\-]/g, '').trim());
           return isNaN(f) ? 0 : f;
         };
       })(g);
@@ -336,7 +382,7 @@ function readOldDebtors_() {
         id: 'OLDB:' + name + ':' + (r + 1),
         source: 'เก่า',
         sheetName: name,
-        date: toIsoDate_(g('วันที่')),
+        date: pickDate_(g('วันที่'), gd('วันที่')),
         docNo: docNo,
         billNo: billNo,
         goodsType: String(g('ประเภทสินค้า') || ''),
@@ -350,7 +396,7 @@ function readOldDebtors_() {
         qty: n('จำนวน'),
         total: n('ราคารวม'),
         agingDays: n('จำนวนวันค้างชำระ'),
-        payDate: toIsoDate_(g('วันที่ชำระ')),
+        payDate: pickDate_(g('วันที่ชำระ'), gd('วันที่ชำระ')),
         daysToPay: n('จำนวนวันชำระ')
       });
     }
@@ -365,12 +411,13 @@ function readNewRecords_() {
   if (!sh) return [];
   var last = sh.getLastRow(), lastCol = sh.getLastColumn();
   if (last < 2 || lastCol < 1) return [];
-  var vals = sh.getRange(1, 1, last, lastCol).getValues();
+  var rng = sh.getRange(1, 1, last, lastCol);
+  var vals = rng.getValues(), disp = rng.getDisplayValues();
   var idx = headerIndex_(vals[0]);
   var out = [];
   for (var r = 1; r < vals.length; r++) {
     if (vals[r].join('').toString().trim() === '') continue;
-    var rec = rowToRecord_(vals[r], idx, 'ใหม่', SHEET_NAME, r + 1);
+    var rec = rowToRecord_(vals[r], idx, 'ใหม่', SHEET_NAME, r + 1, disp[r]);
     if (rec) {
       rec.payStatus = String(vals[r][idx['สถานะชำระ']] || '');
       out.push(rec);

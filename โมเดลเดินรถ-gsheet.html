@@ -431,7 +431,7 @@
             <b style="color:var(--red)">เคย Deploy ไว้แล้วแต่ข้อมูลไม่ขึ้นชีต?</b> = โค้ดในชีตเป็นเวอร์ชันเก่า<br>
             วางโค้ดใหม่ทับ → บันทึก → <b>Deploy → Manage deployments</b> → กดดินสอ <b>✏</b> ที่ deployment เดิม →
             ช่อง <b>Version</b> เลือก <b>New version</b> → <b>Deploy</b> · URL เดิมใช้ต่อได้ไม่ต้องเปลี่ยน<br>
-            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v7</code> จึงจะบันทึกได้)<br>
+            (กด “ทดสอบการเชื่อมต่อ” แล้วต้องขึ้น <code>โค้ด v8</code> จึงจะบันทึกได้)<br>
             <br>ระบบจะสร้าง 2 ชีต: <code>บันทึกเดินรถ</code> (1 แถว = 1 ใบรายการ) และ <code>รายการลูกหนี้</code> (1 แถว = ลูกหนี้ 1 ราย)
           </div>
         </div>
@@ -767,7 +767,7 @@ function updateConnBadge(){
   const on=!!getUrl();
   const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
 }
-const GS_VERSION=7;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
+const GS_VERSION=8;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
 async function postToSheet(payload){
   const url=getUrl();
   if(!url) throw new Error("ยังไม่ได้ตั้งค่า URL (กด ⚙ ตั้งค่า)");
