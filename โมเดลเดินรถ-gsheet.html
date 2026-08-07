@@ -423,7 +423,8 @@
           <div class="field"><label for="gas">1) ค่าแก๊ส</label>
             <div class="input-suffix"><input id="gas" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
         </div>
-        <h3 class="grp"><span class="dot"></span>2) ค่าน้ำมัน — ต้นทุนปกติ <span style="font-weight:400;color:var(--ink-faint)">(แยกตามวิธีจ่าย ตามรูปแบบชีต)</span></h3>
+        <h3 class="grp"><span class="dot"></span>2) ค่าน้ำมัน — ต้นทุนปกติ <span style="font-weight:400;color:var(--ink-faint)">(แยกตามวิธีจ่าย ตามรูปแบบชีต + รวมค่าคำนวณอัตโนมัติ)</span></h3>
+        <label class="chk"><input id="fuelNoAuto" type="checkbox"><span>ไม่ต้องคำนวณค่าน้ำมันอัตโนมัติ (ไม่ติ๊ก = บวกค่าน้ำมันอัตโนมัติเข้ากับช่องด้านล่างให้เอง)</span></label>
         <div class="grid3">
           <div class="field"><label for="fuelCash">ค่าน้ำมันเดินทาง (เงินสด)</label>
             <div class="input-suffix"><input id="fuelCash" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
@@ -809,10 +810,11 @@ function updateRepNote(){
 ["fleetType","vehicle","distance"].forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateRepNote)));
 
 // ================= น้ำมันเดินทาง =================
-// ค่าใช้จ่ายจริง = ผลรวม 6 ช่องที่กรอกเอง (ตามรูปแบบชีต)
-// ตัวเลขคำนวณอัตโนมัติ (ระยะทาง × อัตราสิ้นเปลือง × ราคาน้ำมัน) เก็บไว้เป็น "ตัวเทียบ" เท่านั้น
+// ค่าน้ำมันเดินทางรวม = ผลรวม 6 ช่องที่กรอกเอง (ตามรูปแบบชีต) + ค่าคำนวณอัตโนมัติ (ระยะทาง × อัตราสิ้นเปลือง × ราคาน้ำมัน)
+// ไม่ติ๊ก "ไม่ต้องคำนวณอัตโนมัติ" = บวกค่าอัตโนมัติเข้าไปด้วย · ติ๊ก = ใช้เฉพาะช่องที่กรอกเอง
 const FUEL_IDS=["fuelCash","fuelDownBill","fuelFleet","fuelPickup","fuelUpBill","fuelCallTruck"];
-function fuelActual(){ return FUEL_IDS.reduce((s,id)=>s+num(id),0); }   // = ค่าน้ำมันเหมา (คอลัมน์ 33)
+const fuelNoAutoCb=$("fuelNoAuto");
+function fuelActual(){ return FUEL_IDS.reduce((s,id)=>s+num(id),0); }
 function autoFuelInfo(){
   const vi=parseInt(veh.value,10);
   const rate=(!isNaN(vi)&&RATES[vi])?RATES[vi][1]:0;
@@ -822,24 +824,24 @@ function autoFuelInfo(){
   return {rate,dist,price,effDate,liters,cost};
 }
 function updateFuelNote(){
-  const a=autoFuelInfo(), actual=fuelActual();
+  const a=autoFuelInfo(), manual=fuelActual(), useAuto=!fuelNoAutoCb.checked;
+  const total=manual+(useAuto?a.cost:0);
   let html;
-  if(a.rate>0&&a.dist>0){
-    html=`ตัวเทียบอัตโนมัติ: ${fmt(a.dist,0)} กม. × ${a.rate.toFixed(5)} × <b>${a.price.toFixed(2)}</b> บาท/ลิตร (เรท ${thDate(a.effDate)}) = <b>${fmt(a.cost,2)}</b> บาท (${fmt(a.liters,2)} ลิตร)`;
+  if(!useAuto){
+    html=`คำนวณอัตโนมัติ: ปิดอยู่ — ใช้เฉพาะค่าน้ำมันที่กรอกเอง`;
+  }else if(a.rate>0&&a.dist>0){
+    html=`คำนวณอัตโนมัติ: ${fmt(a.dist,0)} กม. × ${a.rate.toFixed(5)} × <b>${a.price.toFixed(2)}</b> บาท/ลิตร (เรท ${thDate(a.effDate)}) = <b>${fmt(a.cost,2)}</b> บาท (${fmt(a.liters,2)} ลิตร)`;
   }else{
-    html=`ตัวเทียบอัตโนมัติ: เลือกชนิดรถ + ระยะทางก่อน (ราคาปัจจุบัน ${a.price.toFixed(2)} บาท/ลิตร)`;
+    html=`คำนวณอัตโนมัติ: เลือกชนิดรถ + ระยะทางก่อน (ราคาปัจจุบัน ${a.price.toFixed(2)} บาท/ลิตร)`;
   }
-  html+=`<br>ค่าน้ำมันจริงที่กรอก (ค่าน้ำมันเหมา): <b>${fmt(actual,2)}</b> บาท`;
-  if(a.cost>0&&actual>0){
-    const diff=actual-a.cost;
-    html+=` · ต่างจากตัวเทียบ <b style="color:${Math.abs(diff)>a.cost*0.15?"var(--red)":"var(--green)"}">${diff>=0?"+":""}${fmt(diff,2)}</b> บาท`;
-  }else if(a.cost>0&&actual===0){
-    html+=` <b style="color:var(--red)">— ยังไม่ได้กรอกค่าน้ำมันสักช่อง ต้นทุนจะไม่รวมค่าน้ำมัน</b>`;
-  }
+  html+=`<br>ค่าน้ำมันที่กรอกเอง: <b>${fmt(manual,2)}</b> บาท`+
+    (useAuto?` + อัตโนมัติ <b>${fmt(a.cost,2)}</b> บาท`:``)+
+    ` = รวมค่าน้ำมันเดินทาง <b>${fmt(total,2)}</b> บาท`;
   $("fuelNote").innerHTML=html;
 }
 org.addEventListener("change",()=>{fillDests();applyRouteDistance();refreshRoute();updateFuelNote();});
 dst.addEventListener("change",()=>{applyRouteDistance();refreshRoute();updateFuelNote();});
+fuelNoAutoCb.addEventListener("change",updateFuelNote);
 function refreshRoute(){ $("routeText").textContent=(org.value&&dst.value)?`${org.value} → ${dst.value}`:"–"; }
 ["vehicle","distance","dd","mm","yy"].concat(FUEL_IDS)
   .forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateFuelNote)));
@@ -848,10 +850,12 @@ function refreshRoute(){ $("routeText").textContent=(org.value&&dst.value)?`${or
 let lastCalc=null;
 function doCalc(){
   const a=autoFuelInfo();
+  const useAuto=!fuelNoAutoCb.checked;
   const gas=num("gas");
   const fuelCash=num("fuelCash"), fuelDownBill=num("fuelDownBill"), fuelFleet=num("fuelFleet");
   const fuelPickup=num("fuelPickup"), fuelUpBill=num("fuelUpBill"), fuelCallTruck=num("fuelCallTruck");
-  const fuelSum=fuelCash+fuelDownBill+fuelFleet+fuelPickup+fuelUpBill+fuelCallTruck;   // = ค่าน้ำมันเหมา
+  const fuelAutoAmt=useAuto?a.cost:0;
+  const fuelSum=fuelCash+fuelDownBill+fuelFleet+fuelPickup+fuelUpBill+fuelCallTruck+fuelAutoAmt;   // = ค่าน้ำมันเหมา (รวมอัตโนมัติ)
   const fuelOff=num("fuelOff"), fuelDetour=num("fuelDetour"), fuelOffFleet=num("fuelOffFleet");
   const drv=num("drv"), spare=num("spare"), snd=num("snd"), laborOff=num("laborOff");
   const fees=num("feeTarp")+num("feePolice")+num("feeCont")+num("feePort")+num("feeDoc")+num("feeToll");
@@ -861,16 +865,17 @@ function doCalc(){
   const waste=fuelDetour+fuelOffFleet+laborOff+fuelOff;
   const sheetTotal=gas+fuelSum+labor+waste+fees;   // "รวมค่าใช้จ่าย" ของชีต = คอลัมน์ 9–28 (ไม่รวมค่าซ่อม)
   lastCalc={gas,fuelCash,fuelDownBill,fuelFleet,fuelPickup,fuelUpBill,fuelCallTruck,fuelSum,
+    fuelAutoOn:useAuto,
     fuelOff,fuelDetour,fuelOffFleet,drv,spare,snd,laborOff,
     feeTarp:num("feeTarp"),feePolice:num("feePolice"),feeCont:num("feeCont"),feePort:num("feePort"),feeDoc:num("feeDoc"),feeToll:num("feeToll"),
     repVeh:rep.veh,repFix:rep.fixed,repRate:rep.rate,repVar:rep.varCost,repTotal:rep.total,
     fees,labor,normal,waste,sheetTotal,
-    fuelAuto:a.cost,liters:a.liters,price:a.price};
+    fuelAuto:a.cost,liters:useAuto?a.liters:0,price:a.price};
   renderSummary();
   updateFuelNote();
   $("detailBox").style.display="";
   $("dGas").textContent=fmt(gas,2)+" บาท";
-  $("dFuelSum").textContent=fmt(fuelSum,2)+" บาท"+(a.cost>0?` (ตัวเทียบอัตโนมัติ ${fmt(a.cost,2)})`:"");
+  $("dFuelSum").textContent=fmt(fuelSum,2)+" บาท"+(fuelAutoAmt>0?` (รวมอัตโนมัติ ${fmt(fuelAutoAmt,2)})`:"");
   $("dLabor").textContent=fmt(labor,2)+" บาท";
   $("dFees").textContent=fmt(fees,2)+" บาท";
   $("dRepFix").textContent=fmt(rep.fixed,2)+" บาท"+(rep.veh?` · ${rep.veh}`:"");
@@ -1096,6 +1101,7 @@ function resetDefaults(){
   ["dd","docNo","plate","distance","gas","fuelCash","fuelDownBill","fuelFleet","fuelPickup","fuelUpBill","fuelCallTruck",
    "fuelOff","fuelDetour","fuelOffFleet","drv","spare","snd","laborOff",
    "feeTarp","feePolice","feeCont","feePort","feeDoc","feeToll","revenue"].forEach(id=>$(id).value="");
+  fuelNoAutoCb.checked=false;
   mmS.value=""; yyS.value=""; $("routeType").value=""; $("branch").value=""; $("docType").value=""; $("fleetType").value="";
   org.value=""; fillDests(); dst.value=""; veh.value=""; updateRepNote();
   lastCalc=null; $("detailBox").style.display="none";
@@ -1154,6 +1160,8 @@ function loadRecordToForm(idx){
   $("gas").value=r.gas||"";
   ["fuelCash","fuelDownBill","fuelFleet","fuelPickup","fuelUpBill","fuelCallTruck",
    "fuelOff","fuelDetour","fuelOffFleet"].forEach(k=>$(k).value=r[k]||"");
+  // รายการเก่าก่อนมีสวิตช์นี้ไม่เคยรวมค่าอัตโนมัติไว้ในยอด — ค่าเริ่มต้นจึงเป็น "ไม่รวม" ไว้ก่อน กันยอดเปลี่ยนโดยไม่ตั้งใจ
+  fuelNoAutoCb.checked=!(r.fuelAutoOn===true);
   $("drv").value=r.drv||""; $("spare").value=r.spare||""; $("snd").value=r.snd||""; $("laborOff").value=r.laborOff||"";
   $("feeTarp").value=r.feeTarp||""; $("feePolice").value=r.feePolice||""; $("feeCont").value=r.feeCont||"";
   $("feePort").value=r.feePort||""; $("feeDoc").value=r.feeDoc||""; $("feeToll").value=r.feeToll||"";
