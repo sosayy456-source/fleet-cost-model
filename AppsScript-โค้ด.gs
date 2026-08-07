@@ -497,11 +497,56 @@ function อัปเดตแท็บรวมทั้งหมด() {
   return msg;
 }
 
+/**
+ * ★ ตรวจว่าอ่านวันที่จากชีตถูกต้องไหม — เลือกฟังก์ชันนี้แล้วกดเรียกใช้
+ *   จะโชว์ทีละแถวว่า ในเซลล์เขียนว่าอะไร → โมเดลอ่านได้เป็นวันไหน
+ */
+function ตรวจสอบวันที่() {
+  var ss = getSpreadsheet_();
+  var sheets = ss.getSheets();
+  var lines = [];
+  for (var s = 0; s < sheets.length; s++) {
+    var sh = sheets[s], name = sh.getName();
+    var isTrip = (name.indexOf(OLD_SHEET_PREFIX) === 0 && name.indexOf(OLD_DEBT_PREFIX) !== 0) || name === SHEET_NAME;
+    var isDebt = name.indexOf(OLD_DEBT_PREFIX) === 0;
+    if (!isTrip && !isDebt) continue;
+
+    var last = Math.min(sh.getLastRow(), 9), lastCol = sh.getLastColumn();
+    if (last < 2 || lastCol < 1) continue;
+    var rng = sh.getRange(1, 1, last, lastCol);
+    var vals = rng.getValues(), disp = rng.getDisplayValues();
+    var idx = headerIndex_(vals[0]);
+    var c = idx['วันที่'];
+    lines.push('── แท็บ "' + name + '" ' + (c === undefined ? '(ไม่พบคอลัมน์วันที่)' : ''));
+    if (c === undefined) continue;
+
+    for (var r = 1; r < vals.length; r++) {
+      if (vals[r].join('').toString().trim() === '') continue;
+      var raw = vals[r][c], d = disp[r][c];
+      var iso = pickDate_(raw, d);
+      var thai = '';
+      if (iso) {
+        var p = iso.split('-');
+        thai = (+p[2]) + ' ' + TH_MONTH_ABBR[(+p[1]) - 1] + ' ' + ((+p[0]) + 543);
+      } else {
+        thai = '!! อ่านไม่ออก';
+      }
+      lines.push('   แถว ' + (r + 1) + ' | ในเซลล์แสดง "' + d + '"' +
+        (raw instanceof Date ? ' (Sheets เก็บเป็นวันที่ ' + raw.getFullYear() + '-' + pad2_(raw.getMonth() + 1) + '-' + pad2_(raw.getDate()) + ')' : '') +
+        '  →  โมเดลอ่านได้ ' + thai);
+    }
+  }
+  var msg = lines.join('\n') || 'ไม่พบแท็บที่มีคอลัมน์วันที่';
+  Logger.log(msg);
+  return msg;
+}
+
 function onOpen() {
   try {
     SpreadsheetApp.getUi()
       .createMenu('โมเดลเดินรถ')
       .addItem('อัปเดตแท็บรวมทั้งหมด', 'อัปเดตแท็บรวมทั้งหมด')
+      .addItem('ตรวจสอบวันที่', 'ตรวจสอบวันที่')
       .addItem('ตรวจสอบชีตปลายทาง', 'ตรวจสอบชีตปลายทาง')
       .addToUi();
   } catch (e) {}
