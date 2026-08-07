@@ -172,13 +172,15 @@
   .nav-count{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:20px;padding:1px 7px;margin-left:2px}
   .nav-count:empty{display:none}
   /* bill rows */
-  .bill-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.05fr .65fr .85fr 26px;gap:8px;align-items:center;margin-bottom:8px}
+  .bill-row{display:grid;grid-template-columns:.9fr .9fr .85fr .85fr 1fr 1fr 1fr .6fr .8fr 26px;gap:8px;align-items:center;margin-bottom:8px}
+  @media(max-width:1340px){.bill-row{grid-template-columns:repeat(5,1fr) 26px}}
+  @media(max-width:900px){.bill-row{grid-template-columns:repeat(3,1fr) 26px}}
   @media(max-width:820px){.bill-row{grid-template-columns:1fr 1fr;}}
   .bill-row input,.bill-row select{padding:9px 11px;font-size:13.5px}
   .bill-x{color:var(--red);cursor:pointer;font-weight:700;font-size:16px;padding:0 4px;text-align:center}
   .bill-x:hover{color:#B62E2E}
-  .bill-head{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.05fr .65fr .85fr 26px;gap:8px;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
-  @media(max-width:820px){.bill-head{display:none}}
+  .bill-head{display:grid;grid-template-columns:.9fr .9fr .85fr .85fr 1fr 1fr 1fr .6fr .8fr 26px;gap:8px;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
+  @media(max-width:1340px){.bill-head{display:none}}
   .btn-pay{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12.5px;font-weight:600;color:#fff;background:var(--green);border:none;border-radius:8px;padding:6px 13px;cursor:pointer}
   .btn-pay:hover{background:#18915F}
   /* modal */
@@ -198,6 +200,30 @@
   .scroll{overflow-x:auto}
   .rec-empty{color:var(--ink-faint);font-size:13.5px;padding:26px;text-align:center}
   .msg{font-size:12.5px;min-height:18px;font-weight:600}
+
+  /* ================= ตารางค่าซ่อมแซม ================= */
+  .rep-wrap{margin-top:12px}
+  .rep-weights{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#FAFBFC;
+    border:1px solid var(--border-strong);border-radius:10px;padding:10px 13px;margin-bottom:12px;font-size:13px}
+  .rep-weights input{width:78px;padding:6px 8px;font-size:13px;text-align:right}
+  .rep-weights .wlab{font-size:12px;color:var(--ink-soft);margin-right:2px}
+  .rep-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+  .rtab{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink-soft);background:#fff;
+    border:1px solid var(--border-strong);border-radius:9px;padding:8px 14px;cursor:pointer}
+  .rtab:hover{background:#F6F7F9}
+  .rtab.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .rep-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .rep-tbl th{background:var(--navy);color:#fff;font-weight:600;font-size:11.5px;padding:9px 10px;
+    text-align:right;white-space:nowrap;position:sticky;top:0;z-index:1}
+  .rep-tbl th:first-child{text-align:left}
+  .rep-tbl td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}
+  .rep-tbl td:first-child{text-align:left;font-weight:600}
+  .rep-tbl tbody tr:hover td{background:#FBFAF8}
+  .rep-tbl input{width:96px;padding:6px 8px;font-size:12.5px;text-align:right;
+    font-variant-numeric:tabular-nums;border-radius:7px}
+  .rep-tbl input.edited{border-color:var(--orange);background:var(--orange-soft)}
+  .rep-total{font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+  .rep-dot{color:var(--orange);font-size:14px;line-height:1}
 
   /* ================= แดชบอร์ด ================= */
   .dz-t{font-size:14px;font-weight:800;color:var(--navy);margin:22px 0 12px;padding-left:10px;border-left:4px solid var(--orange)}
@@ -508,7 +534,7 @@
             ประเภท <b>สดต้นทาง</b> = ถือว่าชำระแล้ว · <b>เชื่อต้นทาง / เชื่อปลายทาง / สดปลายทาง</b> = ยังไม่ได้ชำระ
           </div>
           <div class="bill-head">
-            <span>เลขที่บิล</span><span>ประเภทสินค้า</span><span>ผู้ส่ง</span><span>ผู้รับ</span><span>ประเภทการชำระ</span><span>จำนวน</span><span>ราคารวม</span><span></span>
+            <span>เลขที่บิล</span><span>ประเภทสินค้า</span><span>ผู้ส่ง</span><span>ผู้รับ</span><span>ต้นทาง</span><span>ปลายทาง</span><span>ประเภทการชำระ</span><span>จำนวน</span><span>ราคารวม</span><span></span>
           </div>
           <datalist id="goodsTypes"></datalist>
           <div id="billRows"></div>
@@ -535,6 +561,41 @@
             <table><thead><tr><th>วันที่มีผล</th><th class="num">ราคา (บาท/ลิตร)</th><th></th></tr></thead><tbody id="priceBody"></tbody></table>
           </div>
           <p style="font-size:11.5px;color:var(--ink-faint);margin-top:8px"><span id="npReset" style="color:var(--orange-dark);cursor:pointer;text-decoration:underline">ล้างราคาที่เพิ่มเอง</span></p>
+        </details>
+      </div>
+
+      <div class="card">
+        <details class="prices" id="repairPanel">
+          <summary>🔧 การคำนวณค่าซ่อมแซม (แก้อัตราและน้ำหนักรายปีได้) · กดเพื่อดู/แก้ไข
+            <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
+
+          <div class="price-note" style="margin-top:12px">
+            <b>สูตร:</b> ค่าซ่อม = ผลรวมของ (อัตราปีนั้น × น้ำหนักปีนั้น) ทั้ง 3 ปี<br>
+            <b>ตามเวลา</b> = บาท/เที่ยว · แยกอัตรา <b>รถบริษัท</b> กับ <b>รถร่วม</b> ·
+            <b>ตามระยะทาง</b> = บาท/กม. · รถบริษัทกับรถร่วมใช้อัตราเดียวกัน<br>
+            แก้ตัวเลขในช่องได้เลย ระบบคำนวณและบันทึกให้อัตโนมัติ · ช่องที่แก้เองจะมีจุดส้ม <span style="color:var(--orange)">●</span> กำกับ
+          </div>
+
+          <div class="rep-wrap">
+            <div class="rep-weights">
+              <b>น้ำหนักถ่วงรายปี</b>
+              <span id="repWeightBoxes"></span>
+              <span id="repWeightSum" class="locknote"></span>
+            </div>
+            <div class="rep-tabs" id="repTabs">
+              <button type="button" class="rtab on" data-rt="รถบริษัท">ตามเวลา · รถบริษัท</button>
+              <button type="button" class="rtab" data-rt="รถร่วม">ตามเวลา · รถร่วม</button>
+              <button type="button" class="rtab" data-rt="dist">ตามระยะทาง (ใช้ร่วมกัน)</button>
+            </div>
+            <div class="scroll" style="max-height:420px;overflow-y:auto">
+              <table class="rep-tbl"><thead id="repHead"></thead><tbody id="repBody"></tbody></table>
+            </div>
+            <div class="msg" id="repMsg" style="margin-top:8px"></div>
+            <p style="font-size:11.5px;color:var(--ink-faint);margin-top:8px">
+              <span id="repReset" style="color:var(--orange-dark);cursor:pointer;text-decoration:underline">↺ ย้อนกลับไปใช้ค่าเดิมทั้งหมด</span>
+              · <span id="repResetTab" style="color:var(--orange-dark);cursor:pointer;text-decoration:underline">ย้อนเฉพาะแท็บนี้</span>
+            </p>
+          </div>
         </details>
       </div>
     </section>
@@ -607,12 +668,18 @@
       <div class="page-h"><h1>รายการลูกหนี้</h1><p>แยกเป็นรายบิล (ลูกหนี้แต่ละราย) · กดปุ่ม “ชำระ” เมื่อลูกหนี้มาจ่าย · ต้องจ่ายครบทุกรายในใบรายการเดียวกัน สถานะในหน้า “รายการทั้งหมด” จึงเปลี่ยนเป็น ชำระแล้ว</p></div>
 
       <div class="rec-bar">
-        <div class="srcfilter" id="debtFilter">
-          <button type="button" data-src="all" class="on">ทั้งหมด</button>
-          <button type="button" data-src="new">ข้อมูลใหม่</button>
-          <button type="button" data-src="old">ข้อมูลเก่า</button>
+        <div class="searchbox">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="debtSearch" type="text" placeholder="ค้นหา ผู้ส่ง / ผู้รับ / เลขที่บิล / ใบรายการ / ต้นทาง / ปลายทาง / ประเภทสินค้า...">
         </div>
-        <button id="btnLoadOldDebt" class="btn btn-green" type="button">↻ อัปเดตข้อมูลลูกหนี้เก่า</button>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <div class="srcfilter" id="debtFilter">
+            <button type="button" data-src="all" class="on">ทั้งหมด</button>
+            <button type="button" data-src="new">ข้อมูลใหม่</button>
+            <button type="button" data-src="old">ข้อมูลเก่า</button>
+          </div>
+          <button id="btnLoadOldDebt" class="btn btn-green" type="button">↻ อัปเดตข้อมูลลูกหนี้เก่า</button>
+        </div>
       </div>
 
       <div class="rec-card" style="margin-bottom:18px">
@@ -681,7 +748,8 @@ const BASE_PRICES = [
   ["2026-05-19",42.73],["2026-05-26",41.73],["2026-05-30",41.23],["2026-06-04",42.03]
 ];
 // สาขา (เรียงตามตัวอักษรไทย)
-const DOC_TYPES = ["ของย่อย","ของสด","รถว่างไปสาขา"];
+const DOC_TYPES = ["ของย่อย","ของย่อย+เหมา","ของสด","ของเหมา","ของเหมาตีเปล่า",
+  "ของเหมายานยนต์","ของเหมาระยะสั้น","รถว่างไปสาขา"];
 const BRANCHES = ["เชียงราย","เชียงใหม่","ตลาดไท","ท่าลี่","ฝาง","พะเยา","พุทธมณฑลสาย 2","พุทธมณฑลสาย 5",
   "แพร่","มหาชัย","แม่สาย","ร่มเกล้า","ราชบุรี","ลำปาง","เวียงป่าเป้า","สี่แยกมหานาค"];
 const RATES = [
@@ -692,16 +760,94 @@ const RATES = [
 ];
 const ROUTES = {"เชียงใหม่":{"สี่แยกมหานาค":720,"ปากคลองตลาด":720,"สี่มุมเมือง":720,"ตลาดไท":720,"มหาชัย":760,"พุทธมณฑลสาย 2":720,"พุทธมณฑลสาย 5":720,"ราชบุรี":790,"ปากคลองตลาดใหม่":720,"ร่มเกล้า":720},"ฝาง":{"สี่แยกมหานาค":844,"ปากคลองตลาด":844,"สี่มุมเมือง":844,"ตลาดไท":844,"พุทธมณฑลสาย 2":844,"พุทธมณฑลสาย 5":844,"ราชบุรี":914,"ปากคลองตลาดใหม่":844,"ร่มเกล้า":844},"ลำพูน":{"สี่แยกมหานาค":690,"ปากคลองตลาด":690,"สี่มุมเมือง":690,"ตลาดไท":690,"มหาชัย":730,"พุทธมณฑลสาย 2":690,"พุทธมณฑลสาย 5":690,"ราชบุรี":760,"ปากคลองตลาดใหม่":690,"ร่มเกล้า":690},"ท่าลี่":{"สี่แยกมหานาค":720,"ปากคลองตลาด":720,"สี่มุมเมือง":720,"ตลาดไท":720,"มหาชัย":760,"พุทธมณฑลสาย 2":720,"พุทธมณฑลสาย 5":720,"ราชบุรี":790,"ปากคลองตลาดใหม่":720,"ร่มเกล้า":720},"ลำปาง":{"สี่แยกมหานาค":620,"ปากคลองตลาด":620,"สี่มุมเมือง":620,"ตลาดไท":620,"มหาชัย":660,"พุทธมณฑลสาย 2":620,"พุทธมณฑลสาย 5":620,"ราชบุรี":690,"ปากคลองตลาดใหม่":620,"ร่มเกล้า":620},"กองลอย":{"สี่แยกมหานาค":747,"ปากคลองตลาด":747,"สี่มุมเมือง":747,"ตลาดไท":747,"พุทธมณฑลสาย 2":747,"พุทธมณฑลสาย 5":747,"ราชบุรี":817,"ปากคลองตลาดใหม่":747,"ร่มเกล้า":747},"สันกำแพง":{"สี่แยกมหานาค":720,"ปากคลองตลาด":720,"สี่มุมเมือง":720,"ตลาดไท":720,"พุทธมณฑลสาย 2":720,"พุทธมณฑลสาย 5":720,"ปากคลองตลาดใหม่":720,"ร่มเกล้า":720},"พะเยา":{"สี่แยกมหานาค":706,"ปากคลองตลาด":706,"สี่มุมเมือง":706,"ตลาดไท":706,"มหาชัย":746,"พุทธมณฑลสาย 2":706,"พุทธมณฑลสาย 5":706,"ราชบุรี":776,"ปากคลองตลาดใหม่":706,"ร่มเกล้า":706},"ตลาดไท":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"สี่แยกมหานาค":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"พุทธมณฑลสาย 2":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"พุทธมณฑลสาย 5":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"แพร่":{"สี่แยกมหานาค":572,"ปากคลองตลาด":572,"สี่มุมเมือง":572,"ตลาดไท":572,"พุทธมณฑลสาย 2":572,"พุทธมณฑลสาย 5":572,"มหาชัย":612,"ราชบุรี":620,"ปากคลองตลาดใหม่":572,"ร่มเกล้า":572},"เวียงป่าเป้า":{"สี่แยกมหานาค":797,"ปากคลองตลาด":797,"สี่มุมเมือง":797,"ตลาดไท":797,"พุทธมณฑลสาย 2":797,"พุทธมณฑลสาย 5":797,"ราชบุรี":867,"ปากคลองตลาดใหม่":797,"ร่มเกล้า":797},"เชียงราย":{"สี่แยกมหานาค":800,"ปากคลองตลาด":800,"สี่มุมเมือง":800,"ตลาดไท":800,"มหาชัย":840,"พุทธมณฑลสาย 2":800,"พุทธมณฑลสาย 5":800,"ราชบุรี":870,"ปากคลองตลาดใหม่":800,"ร่มเกล้า":800},"แม่สาย":{"สี่แยกมหานาค":860,"ปากคลองตลาด":860,"สี่มุมเมือง":860,"ตลาดไท":860,"มหาชัย":900,"พุทธมณฑลสาย 2":860,"พุทธมณฑลสาย 5":860,"ปากคลองตลาดใหม่":860,"ร่มเกล้า":860},"เชียงคำ":{"สี่แยกมหานาค":793,"ปากคลองตลาด":793,"สี่มุมเมือง":793,"ตลาดไท":793,"พุทธมณฑลสาย 2":793,"พุทธมณฑลสาย 5":793,"ปากคลองตลาดใหม่":793,"ร่มเกล้า":793},"ป่าซาง":{"สี่แยกมหานาค":689,"ปากคลองตลาด":689,"สี่มุมเมือง":689,"ตลาดไท":689,"พุทธมณฑลสาย 2":689,"พุทธมณฑลสาย 5":689,"ราชบุรี":759,"ปากคลองตลาดใหม่":689,"ร่มเกล้า":689},"มหาชัย":{"เชียงใหม่":760,"ลำพูน":730,"ท่าลี่":760,"ลำปาง":660,"พะเยา":746,"เชียงราย":840,"แม่สาย":900,"น่าน":713,"แพร่":612,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"ราชบุรี":{"เชียงใหม่":790,"ฝาง":914,"ลำพูน":760,"ท่าลี่":790,"ลำปาง":690,"กองลอย":817,"พะเยา":776,"เชียงราย":870,"ป่าซาง":759,"เวียงป่าเป้า":867,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"น่าน":{"สี่แยกมหานาค":673,"ปากคลองตลาด":673,"สี่มุมเมือง":673,"ตลาดไท":673,"พุทธมณฑลสาย 2":673,"พุทธมณฑลสาย 5":673,"ปากคลองตลาดใหม่":673,"ร่มเกล้า":673,"มหาชัย":713},"บ้านโฮ่ง":{"สี่แยกมหานาค":690,"ปากคลองตลาด":690,"สี่มุมเมือง":690,"ตลาดไท":690,"มหาชัย":730,"พุทธมณฑลสาย 2":690,"พุทธมณฑลสาย 5":690,"ราชบุรี":760,"ปากคลองตลาดใหม่":690,"ร่มเกล้า":690},"นิ่มโลจิสติกส์":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"ร่มเกล้า":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420},"บ้านกาด":{"สี่แยกมหานาค":746,"ปากคลองตลาด":746,"สี่มุมเมือง":746,"ตลาดไท":746,"มหาชัย":786,"พุทธมณฑลสาย 2":746,"พุทธมณฑลสาย 5":746,"ราชบุรี":816,"ปากคลองตลาดใหม่":746,"ร่มเกล้า":746},"เชียงดาว":{"สี่แยกมหานาค":782,"ปากคลองตลาด":782,"สี่มุมเมือง":782,"ตลาดไท":782,"พุทธมณฑลสาย 2":782,"พุทธมณฑลสาย 5":782,"ปากคลองตลาดใหม่":782,"ร่มเกล้า":782},"สี่มุมเมือง":{"เชียงใหม่":720,"ฝาง":844,"ลำพูน":690,"ท่าลี่":720,"ลำปาง":620,"กองลอย":747,"สันกำแพง":720,"พะเยา":706,"เชียงราย":800,"แม่สาย":860,"เชียงคำ":793,"ป่าซาง":689,"เวียงป่าเป้า":797,"น่าน":673,"แพร่":572,"เชียงดาว":782,"กำแพงเพชร":400,"ตาก":460,"พิษณุโลก":420}};
 
-// ===== ค่าซ่อมแซม (จากไฟล์ วิธีคิดค่าเดินทาง.xlsx) =====
-// ตามระยะเวลา = คงที่ (บาท/เที่ยว) แยกตามประเภทรถ + ชนิดรถ
-const REPAIR_FIXED = {
-  "รถบริษัท":{"รถ 10 ล้อตู้เย็น":564.82,"รถ 10 ล้อตู้แห้ง":1557.06,"รถ 12 ล้อคอก":797.42,"รถ 12 ล้อตู้เย็น":550.88,"รถ 6 ล้อ(ตู้แห้ง)":17.49,"รถ 6 ล้อใหญ่":320.95,"รถเทรเล่อร์ (แม่)":2127.14,"หางเทรเลอร์":0,"หางพ่วงคอก":734.87,"หางพ่วงตู้เย็น":562.37,"หางพ่วงตู้แห้ง":321.77},
-  "รถร่วม":{"รถ 10 ล้อ":131.77,"รถ 10 ล้อช่วงยาว":106.26,"รถ 10 ล้อตู้แห้ง":104.71,"รถ 6 ล้อ FC4":106.16,"รถ 6 ล้อ(ตู้แห้ง)":100.65,"รถ 6 ล้อเล็ก":31.17,"รถ 6 ล้อใหญ่":71.02,"รถเทรเล่อร์ (แม่)":122.09,"หางเทรเลอร์":0,"หางพ่วงตู้แห้ง":0}
+// ===== ฐานค่าซ่อมแซม (จากไฟล์ วิธีคิดค่าซ่อม.xlsx) =====
+// ค่าซ่อม = ผลรวมของ (อัตราปีนั้น × น้ำหนักปีนั้น) ทั้ง 3 ปี
+//   ตามเวลา    = บาท/เที่ยว · แยกอัตรา รถบริษัท / รถร่วม
+//   ตามระยะทาง = บาท/กม. · รถบริษัทกับรถร่วมใช้อัตราเดียวกัน
+const REPAIR_YEARS = ["24","25","26"];      // พ.ศ. 25xx
+const REPAIR_BASE = {
+  weights: [0.2,0.3,0.5],
+  time: {
+    "รถบริษัท": {
+      "รถ 10 ล้อตู้เย็น":[440.79,404.92,710.3754],
+      "รถ 10 ล้อตู้แห้ง":[1746,1725.5667,1380.378],
+      "รถ 12 ล้อคอก":[751.7,795.3333,816.9688],
+      "รถ 12 ล้อตู้เย็น":[565.55,474.4,590.9004],
+      "รถ 6 ล้อ(ตู้แห้ง)":[87.445,0,0],
+      "รถ 6 ล้อใหญ่":[513.6,394.9,199.5236],
+      "รถเทรเล่อร์ (แม่)":[2078.2,2240.603,2078.6412],
+      "หางพ่วงคอก":[1334.75,742.9667,490.0634],
+      "หางพ่วงตู้เย็น":[417.65,549.3333,628.067],
+      "หางพ่วงตู้แห้ง":[192.25,188.7,453.4178],
+      "หางเทรเลอร์":[0,0,0]
+    },
+    "รถร่วม": {
+      "รถ 10 ล้อ":[135.12,130.8227,130.9886],
+      "รถ 10 ล้อช่วงยาว":[107.537,109.819,103.6094],
+      "รถ 10 ล้อตู้แห้ง":[91.402,87.156,120.5752],
+      "รถ 6 ล้อ FC4":[82.6655,80.4977,130.9546],
+      "รถ 6 ล้อ(ตู้แห้ง)":[82.7015,280.352,0],
+      "รถ 6 ล้อเล็ก":[155.845,0,0],
+      "รถ 6 ล้อใหญ่":[61.8675,80.5023,69.001],
+      "รถเทรเล่อร์ (แม่)":[142.05,151.237,96.617],
+      "หางพ่วงตู้แห้ง":[0,0,0],
+      "หางเทรเลอร์":[0,0,0]
+    }
+  },
+  dist: {
+    "รถ 10 ล้อ":[0,0.004333,0],
+    "รถ 10 ล้อช่วงยาว":[0,0,0],
+    "รถ 10 ล้อตู้เย็น":[2.461,3.19867,3.1624],
+    "รถ 10 ล้อตู้แห้ง":[0.157,0.202667,0.1316],
+    "รถ 12 ล้อคอก":[2.2065,1.98667,2.3104],
+    "รถ 12 ล้อตู้เย็น":[2.4525,2.40867,2.8132],
+    "รถ 6 ล้อ(ตู้แห้ง)":[0.426,0,0],
+    "รถ 6 ล้อใหญ่":[0.083,0.175333,0.1184],
+    "รถปิ๊กอัพตู้เย็น":[0,0,1.4098],
+    "รถเทรเล่อร์ (แม่)":[2.074,1.93667,1.9994],
+    "หางพ่วงคอก":[2.1335,2.22367,0.8666],
+    "หางพ่วงตู้เย็น":[0.7965,1.284,0.9554],
+    "หางพ่วงตู้แห้ง":[0.443,0.404,0.952],
+    "หางเทรเลอร์":[0,0,0]
+  }
 };
-// ตามระยะทาง = อัตราต่อกม. (บริษัท/ร่วม ใช้อัตราเดียวกัน)
-const REPAIR_VAR = {"รถ 10 ล้อ":0.0013,"รถ 10 ล้อช่วงยาว":0,"รถ 10 ล้อตู้เย็น":3.033,"รถ 10 ล้อตู้แห้ง":0.158,"รถ 12 ล้อคอก":2.1926,"รถ 12 ล้อตู้เย็น":2.6197,"รถ 6 ล้อ(ตู้แห้ง)":0.0852,"รถ 6 ล้อใหญ่":0.1284,"รถเทรเล่อร์ (แม่)":1.9955,"รถปิ๊กอัพตู้เย็น":0.7049,"หางเทรเลอร์":0,"หางพ่วงคอก":1.5272,"หางพ่วงตู้เย็น":1.0222,"หางพ่วงตู้แห้ง":0.6858};
 // จับคู่ชื่อชนิดรถ (ข้อ 1) → ชื่อในตารางค่าซ่อม (คันเดียวกันแต่สะกดต่าง)
 const REPAIR_ALIAS = {"รถเทรเลอร์":"รถเทรเล่อร์ (แม่)","รถ 10 ล้อยาว":"รถ 10 ล้อช่วงยาว"};
+
+// ---- ค่าที่ผู้ใช้แก้เอง (เก็บในเครื่อง) ทับลงบนฐานด้านบน ----
+const LS_REPAIR="repairOverrides";
+let REPAIR_OVR=(()=>{ try{ return JSON.parse(localStorage.getItem(LS_REPAIR))||{}; }catch(e){ return {}; } })();
+function saveRepairOvr(){ try{ localStorage.setItem(LS_REPAIR,JSON.stringify(REPAIR_OVR)); }catch(e){} }
+const repDeep=o=>JSON.parse(JSON.stringify(o));
+
+// รวมฐาน + ค่าที่แก้เอง ออกมาเป็นตารางที่ใช้งานจริง
+function repairTables(){
+  const t=repDeep(REPAIR_BASE);
+  const o=REPAIR_OVR||{};
+  if(Array.isArray(o.weights)) o.weights.forEach((v,i)=>{ if(v!=null&&isFinite(v)) t.weights[i]=+v; });
+  ["รถบริษัท","รถร่วม"].forEach(f=>{
+    const src=(o.time||{})[f]||{};
+    Object.keys(src).forEach(v=>{
+      if(!t.time[f][v]) t.time[f][v]=[0,0,0];
+      src[v].forEach((x,i)=>{ if(x!=null&&isFinite(x)) t.time[f][v][i]=+x; });
+    });
+  });
+  Object.keys(o.dist||{}).forEach(v=>{
+    if(!t.dist[v]) t.dist[v]=[0,0,0];
+    o.dist[v].forEach((x,i)=>{ if(x!=null&&isFinite(x)) t.dist[v][i]=+x; });
+  });
+  return t;
+}
+const repSum=(rates,w)=>rates.reduce((s,r,i)=>s+(+r||0)*(+w[i]||0),0);
+// ค่าซ่อมสรุปต่อชนิดรถ (ผลลัพธ์เหมือน REPAIR_FIXED/REPAIR_VAR เดิม แต่คำนวณสด)
+function repairFixedFor(fleet,veh){
+  const t=repairTables(), row=(t.time[fleet]||{})[veh];
+  return row?repSum(row,t.weights):null;         // null = ไม่มีในตาราง
+}
+function repairVarFor(veh){
+  const t=repairTables(), row=t.dist[veh];
+  return row?repSum(row,t.weights):null;
+}
 
 // ================= helpers =================
 const $=id=>document.getElementById(id);
@@ -792,10 +938,12 @@ function repairInfo(){
   const vname=(!isNaN(vi)&&RATES[vi])?RATES[vi][0]:"";
   const key=REPAIR_ALIAS[vname]||vname;   // จับคู่ชื่อกับตารางค่าซ่อม
   // --- คิดแยกอิสระ 2 ส่วน: มีส่วนไหนคิดส่วนนั้น, ไม่มีเฉพาะส่วนนั้น = 0 ---
-  const hasFix=!!(ft&&REPAIR_FIXED[ft]&&Object.prototype.hasOwnProperty.call(REPAIR_FIXED[ft],key));
-  const fixed=hasFix?REPAIR_FIXED[ft][key]:0;                 // ตามระยะเวลา (ไม่มี = 0)
-  const hasVar=Object.prototype.hasOwnProperty.call(REPAIR_VAR,key);
-  const rate=hasVar?REPAIR_VAR[key]:0;
+  const fx=ft?repairFixedFor(ft,key):null;
+  const hasFix=fx!==null;
+  const fixed=hasFix?fx:0;                                    // ตามระยะเวลา (ไม่มี = 0)
+  const vr=repairVarFor(key);
+  const hasVar=vr!==null;
+  const rate=hasVar?vr:0;
   const dist=num("distance");
   const varCost=rate*dist;                                    // ตามระยะทาง (ไม่มี = 0)
   return {fixed,rate,varCost,dist,total:fixed+varCost,veh:vname,ft,hasFix,hasVar};
@@ -805,7 +953,9 @@ function updateRepNote(){
   if(!r.ft || !r.veh){ $("repNote").innerHTML="อิงชนิดรถจากข้อ 1 — เลือก <b>ประเภทรถ + ชนิดรถ + ระยะทาง</b> ก่อน"; return; }
   const fixTxt=r.hasFix?`<b>${fmt(r.fixed,2)}</b>`:`<b>0</b> <span style="color:var(--ink-faint)">(ไม่มีในตาราง)</span>`;
   const varTxt=r.hasVar?`${r.rate.toFixed(4)}×${fmt(r.dist,0)} = <b>${fmt(r.varCost,2)}</b>`:`<b>0</b> <span style="color:var(--ink-faint)">(ไม่มีในตาราง)</span>`;
-  $("repNote").innerHTML=`${r.ft} · ${r.veh} → ตามเวลา ${fixTxt} + ตามระยะทาง ${varTxt} = รวม <b>${fmt(r.total,2)}</b> บาท`;
+  const edits=repCountEdits();
+  $("repNote").innerHTML=`${r.ft} · ${r.veh} → ตามเวลา ${fixTxt} + ตามระยะทาง ${varTxt} = รวม <b>${fmt(r.total,2)}</b> บาท`+
+    (edits?`<br><span style="color:var(--orange-dark)">ใช้อัตราที่แก้เอง ${edits} ช่อง — ดู/แก้ได้ที่ “การคำนวณค่าซ่อมแซม” ด้านล่าง</span>`:"");
 }
 ["fleetType","vehicle","distance"].forEach(id=>["change","input"].forEach(ev=>$(id).addEventListener(ev,updateRepNote)));
 
@@ -1007,8 +1157,8 @@ function recordBillRows(r){
       /* 2  เลขที่ใบรายการ       */ r.docNo||"",
       /* 3  เลขที่บิล            */ b.no||"",
       /* 4  ประเภทสินค้า         */ b.goodsType||"",
-      /* 5  ต้นทาง               */ r.origin||"",
-      /* 6  ปลายทาง              */ r.dest||"",
+      /* 5  ต้นทาง               */ b.origin||r.origin||"",    // ลูกหนี้แต่ละรายมีเส้นทางของตัวเองได้
+      /* 6  ปลายทาง              */ b.dest||r.dest||"",
       /* 7  ผู้ส่ง               */ b.sender||"",
       /* 8  ผู้รับ               */ b.receiver||"",
       /* 9  ประเภทการชำระเงิน    */ b.payType||"",
@@ -1274,19 +1424,31 @@ function addBillRow(b){
   b=b||{};
   const row=document.createElement("div");
   row.className="bill-row";
+  const originOpts='<option value="">— ต้นทาง —</option>'+ORIGINS.map(o=>`<option>${esc(o)}</option>`).join("");
   row.innerHTML=
     `<input class="b-no" placeholder="เลขที่บิล">`+
     `<input class="b-goods" list="goodsTypes" placeholder="ประเภทสินค้า">`+
     `<input class="b-sender" placeholder="ผู้ส่ง">`+
     `<input class="b-receiver" placeholder="ผู้รับ">`+
+    `<select class="b-origin">${originOpts}</select>`+
+    `<select class="b-dest"><option value="">— ปลายทาง —</option></select>`+
     `<select class="b-type"><option value="">เลือกประเภท</option>${PAY_TYPES.map(t=>`<option>${t}</option>`).join("")}</select>`+
     `<input class="b-qty" type="number" min="0" placeholder="จำนวน">`+
     `<input class="b-total" type="number" min="0" placeholder="ราคารวม">`+
     `<span class="bill-x" title="ลบลูกหนี้รายนี้">✕</span>`;
+  // ปลายทางขึ้นกับต้นทางที่เลือก — ใช้ตารางเส้นทางชุดเดียวกับส่วนที่ 1
+  const oSel=row.querySelector(".b-origin"), dSel=row.querySelector(".b-dest");
+  function fillBillDests(keep){
+    const ds=Object.keys(ROUTES[oSel.value]||{}).sort((a,b)=>a.localeCompare(b,"th"));
+    dSel.innerHTML='<option value="">— ปลายทาง —</option>'+ds.map(x=>`<option>${esc(x)}</option>`).join("");
+    if(keep && ds.includes(keep)) dSel.value=keep;
+  }
+  oSel.addEventListener("change",()=>{ fillBillDests(); updatePayStatusNote(); });
   row.querySelector(".b-goods").value=b.goodsType||"";
   row.querySelector(".b-no").value=b.no||"";
   row.querySelector(".b-sender").value=b.sender||"";
   row.querySelector(".b-receiver").value=b.receiver||"";
+  oSel.value=b.origin||""; fillBillDests(b.dest||"");
   row.querySelector(".b-qty").value=(b.qty??"")===0?"":(b.qty??"");
   row.querySelector(".b-total").value=(b.total??"")===0?"":(b.total??"");
   row.querySelector(".b-type").value=b.payType||"";
@@ -1315,13 +1477,13 @@ function readBills(){
   [...billsWrap.children].forEach(row=>{
     const v=c=>row.querySelector("."+c).value.trim();
     const no=v("b-no"), sender=v("b-sender"), receiver=v("b-receiver"), payType=v("b-type");
-    const goodsType=v("b-goods");
+    const goodsType=v("b-goods"), bOrigin=v("b-origin"), bDest=v("b-dest");
     const qty=parseFloat(v("b-qty"))||0, total=parseFloat(v("b-total"))||0;
-    if(!(no||sender||receiver||qty||total||payType||goodsType)) return;
-    out.push({ no:no||docNo, goodsType, sender, receiver, qty, total, payType,
-      paid:!!row._paid, payDate:row._payDate||null });
+    if(!(no||sender||receiver||qty||total||payType||goodsType||bOrigin||bDest)) return;
+    out.push({ no:no||docNo, goodsType, sender, receiver, origin:bOrigin, dest:bDest,
+      qty, total, payType, paid:!!row._paid, payDate:row._payDate||null });
   });
-  if(!out.length && docNo) out.push({no:docNo,goodsType:"",sender:"",receiver:"",qty:0,total:0,payType:"",paid:false,payDate:null});
+  if(!out.length && docNo) out.push({no:docNo,goodsType:"",sender:"",receiver:"",origin:"",dest:"",qty:0,total:0,payType:"",paid:false,payDate:null});
   return out;
 }
 function updatePayStatusNote(){
@@ -1354,12 +1516,14 @@ function buildDetailRow(r,recIdx){
              :`<button class="btn-undo" data-b="${bi}">ยกเลิก</button>`)
       : `<button class="btn-mini" data-p="${bi}">บันทึกจ่าย</button>`;
     return `<tr><td style="font-weight:700">${esc(b.no||"–")}</td><td>${esc(b.sender||"–")}</td><td>${esc(b.receiver||"–")}</td>`+
+      `<td>${esc(b.origin||r.origin||"–")}</td><td>${esc(b.dest||r.dest||"–")}</td>`+
       `<td class="num">${b.qty?fmt(b.qty,0):"–"}</td><td class="num">${b.total?fmt(b.total,0):"–"}</td>`+
       `<td>${esc(b.payType||"–")}</td><td>${cell}</td></tr>`;
   }).join("");
   td.innerHTML=`<div class="detail-title">รายละเอียดลูกหนี้ (ใบ ${esc(r.docNo||"–")})</div>`+
     `<div class="scroll"><table class="subtable"><thead><tr>`+
-    `<th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th class="num">จำนวน</th><th class="num">ราคารวม</th>`+
+    `<th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>ต้นทาง</th><th>ปลายทาง</th>`+
+    `<th class="num">จำนวน</th><th class="num">ราคารวม</th>`+
     `<th>ประเภทการชำระ</th><th>สถานะ / บันทึกการจ่าย</th></tr></thead><tbody>${rows}</tbody></table></div>`;
   td.querySelectorAll(".btn-mini").forEach(btn=>btn.onclick=()=>openPayModal(recIdx,+btn.dataset.p));
   td.querySelectorAll(".btn-undo").forEach(btn=>btn.onclick=()=>undoPay(recIdx,+btn.dataset.b));
@@ -1397,7 +1561,7 @@ function unifyDebtRows(filter){
       const pd=billPayDate(b,r), paid=billIsPaid(b);
       out.push({ old:false, ri, bi,
         date:r.date, docNo:r.docNo, billNo:b.no, goodsType:b.goodsType,
-        origin:r.origin, dest:r.dest, sender:b.sender, receiver:b.receiver,
+        origin:b.origin||r.origin, dest:b.dest||r.dest, sender:b.sender, receiver:b.receiver,
         payType:b.payType, paid, status:paid?"ชำระแล้ว":"ยังไม่ได้ชำระ",
         qty:b.qty, total:b.total,
         aging:paid?null:daysBetween(r.date,todayISO()),
@@ -1434,7 +1598,10 @@ function debtCommonCells(x){
     `<td class="num">${x.total?fmt(x.total,0):"–"}</td>`;
 }
 function renderDebtors(){
-  const rows=unifyDebtRows(DEBT_FILTER);
+  const q=($("debtSearch")?$("debtSearch").value:"").trim().toLowerCase();
+  let rows=unifyDebtRows(DEBT_FILTER);
+  if(q) rows=rows.filter(x=>[x.sender,x.receiver,x.billNo,x.docNo,x.origin,x.dest,x.goodsType,x.payType]
+    .some(v=>String(v||"").toLowerCase().includes(q)));
   const active=rows.filter(x=>!x.paid);
   const paid=rows.filter(x=>x.paid);
 
@@ -1466,8 +1633,10 @@ function renderDebtors(){
   const newUnpaid=allBillRows().filter(x=>!billIsPaid(x.b)).length;
   $("debtCount").textContent=newUnpaid?newUnpaid:"";
   $("debtCountLine").textContent=
-    `ค้างชำระ ${active.length} · ชำระแล้ว ${paid.length} · ลูกหนี้เก่าจากชีต ${OLD_DEBTORS.length} ราย`;
+    `ค้างชำระ ${active.length} · ชำระแล้ว ${paid.length} · ลูกหนี้เก่าจากชีต ${OLD_DEBTORS.length} ราย`+
+    (q?` · กรองด้วยคำค้น “${q}”`:"");
 }
+$("debtSearch").addEventListener("input",renderDebtors);
 document.querySelectorAll("#debtFilter button").forEach(b=>b.addEventListener("click",()=>{
   DEBT_FILTER=b.dataset.src;
   document.querySelectorAll("#debtFilter button").forEach(x=>x.classList.toggle("on",x===b));
@@ -1559,6 +1728,108 @@ $("npReset").onclick=()=>{
   if(!Object.keys(USER_UPDATES).length){ msg("npMsg","ยังไม่มีราคาที่เพิ่มเอง","var(--ink-faint)"); return; }
   USER_UPDATES={}; saveUpdates(USER_UPDATES); PRICES=buildPrices(); renderPrices(); updateFuelNote();
   msg("npMsg","ล้างราคาที่เพิ่มเองทั้งหมดแล้ว");
+};
+
+// ================= ตารางค่าซ่อมแซม (แก้อัตรา/น้ำหนักรายปีได้) =================
+let repTab="รถบริษัท";                       // "รถบริษัท" | "รถร่วม" | "dist"
+const repIsDist=()=>repTab==="dist";
+const repYearLabel=y=>"พ.ศ. "+(2000+(+y)+543);   // "24" = ค.ศ. 2024 = พ.ศ. 2567
+
+// ค่าฐานของช่องหนึ่ง (ใช้เทียบว่าถูกแก้หรือยัง)
+function repBaseVal(tab,veh,i){
+  const src=tab==="dist"?REPAIR_BASE.dist:REPAIR_BASE.time[tab];
+  return (src&&src[veh])?src[veh][i]:0;
+}
+function repIsEdited(tab,veh,i){
+  const o=REPAIR_OVR||{};
+  const src=tab==="dist"?(o.dist||{}):((o.time||{})[tab]||{});
+  const v=src[veh]?src[veh][i]:null;
+  return v!=null && isFinite(v) && Math.abs(+v-repBaseVal(tab,veh,i))>1e-9;
+}
+function repSetOvr(tab,veh,i,val){
+  REPAIR_OVR=REPAIR_OVR||{};
+  if(tab==="dist"){ REPAIR_OVR.dist=REPAIR_OVR.dist||{};
+    REPAIR_OVR.dist[veh]=REPAIR_OVR.dist[veh]||[null,null,null];
+    REPAIR_OVR.dist[veh][i]=val;
+  }else{ REPAIR_OVR.time=REPAIR_OVR.time||{}; REPAIR_OVR.time[tab]=REPAIR_OVR.time[tab]||{};
+    REPAIR_OVR.time[tab][veh]=REPAIR_OVR.time[tab][veh]||[null,null,null];
+    REPAIR_OVR.time[tab][veh][i]=val;
+  }
+  saveRepairOvr();
+}
+function repCountEdits(){
+  const o=REPAIR_OVR||{}; let n=0;
+  (o.weights||[]).forEach((v,i)=>{ if(v!=null&&Math.abs(+v-REPAIR_BASE.weights[i])>1e-9) n++; });
+  ["รถบริษัท","รถร่วม"].forEach(f=>{
+    const s=(o.time||{})[f]||{};
+    Object.keys(s).forEach(v=>s[v].forEach((_,i)=>{ if(repIsEdited(f,v,i)) n++; }));
+  });
+  Object.keys(o.dist||{}).forEach(v=>o.dist[v].forEach((_,i)=>{ if(repIsEdited("dist",v,i)) n++; }));
+  return n;
+}
+function renderRepairWeights(){
+  const t=repairTables(), box=$("repWeightBoxes");
+  if(!box) return;
+  box.innerHTML=REPAIR_YEARS.map((y,i)=>
+    `<span class="wlab">${repYearLabel(y)}</span><input class="rw" data-i="${i}" type="number" step="0.05" min="0" value="${t.weights[i]}">`
+  ).join(" ");
+  const sum=t.weights.reduce((s,v)=>s+(+v||0),0);
+  $("repWeightSum").innerHTML=`รวม ${sum.toFixed(2)}`+
+    (Math.abs(sum-1)>1e-6?` <b style="color:var(--red)">— ปกติควรรวมได้ 1.00</b>`:` ✓`);
+  box.querySelectorAll(".rw").forEach(inp=>{
+    if(Math.abs((+inp.value||0)-REPAIR_BASE.weights[+inp.dataset.i])>1e-9) inp.classList.add("edited");
+    inp.onchange=()=>{
+      const i=+inp.dataset.i, v=parseFloat(inp.value);
+      REPAIR_OVR=REPAIR_OVR||{}; REPAIR_OVR.weights=REPAIR_OVR.weights||[null,null,null];
+      REPAIR_OVR.weights[i]=isFinite(v)?v:null;
+      saveRepairOvr(); renderRepair(); updateRepNote(); if(lastCalc) doCalc();
+      msg("repMsg",`ปรับน้ำหนัก ${repYearLabel(REPAIR_YEARS[i])} เป็น ${isFinite(v)?v:REPAIR_BASE.weights[i]} แล้ว ✓`);
+    };
+  });
+}
+function renderRepairTable(){
+  const t=repairTables();
+  const rows=repIsDist()?t.dist:t.time[repTab];
+  const unit=repIsDist()?"บาท/กม.":"บาท/เที่ยว";
+  $("repHead").innerHTML=`<tr><th>ชนิดรถ</th>`+
+    REPAIR_YEARS.map(y=>`<th>อัตรา ${repYearLabel(y)}</th>`).join("")+
+    `<th>รวม (${unit})</th></tr>`;
+  const names=Object.keys(rows).sort((a,b)=>a.localeCompare(b,"th"));
+  $("repBody").innerHTML=names.map(v=>{
+    const cells=REPAIR_YEARS.map((y,i)=>{
+      const ed=repIsEdited(repTab,v,i);
+      return `<td><input class="rc${ed?" edited":""}" data-v="${esc(v)}" data-i="${i}" type="number" step="any" value="${rows[v][i]}">`+
+             (ed?` <span class="rep-dot" title="แก้เอง (เดิม ${repBaseVal(repTab,v,i)})">●</span>`:"")+`</td>`;
+    }).join("");
+    return `<tr><td>${esc(v)}</td>${cells}<td class="rep-total">${fmt(repSum(rows[v],t.weights),repIsDist()?4:2)}</td></tr>`;
+  }).join("");
+  $("repBody").querySelectorAll(".rc").forEach(inp=>{
+    inp.onchange=()=>{
+      const v=inp.dataset.v, i=+inp.dataset.i, val=parseFloat(inp.value);
+      repSetOvr(repTab,v,i,isFinite(val)?val:null);
+      renderRepair(); updateRepNote(); if(lastCalc) doCalc();
+      msg("repMsg",`ปรับอัตรา ${v} · ${repYearLabel(REPAIR_YEARS[i])} แล้ว ✓ (ค่าที่ใช้คำนวณอัปเดตทันที)`);
+    };
+  });
+}
+function renderRepair(){ renderRepairWeights(); renderRepairTable(); }
+document.querySelectorAll(".rtab").forEach(b=>b.onclick=()=>{
+  repTab=b.dataset.rt;
+  document.querySelectorAll(".rtab").forEach(x=>x.classList.toggle("on",x===b));
+  renderRepair();
+});
+$("repReset").onclick=()=>{
+  const n=repCountEdits();
+  if(!n){ msg("repMsg","ยังไม่มีค่าที่แก้เอง","var(--ink-faint)"); return; }
+  if(!confirm(`ย้อนค่าซ่อมทั้งหมดกลับไปใช้ค่าเดิมจากไฟล์ Excel? (มีที่แก้เองอยู่ ${n} ช่อง)`)) return;
+  REPAIR_OVR={}; saveRepairOvr(); renderRepair(); updateRepNote(); if(lastCalc) doCalc();
+  msg("repMsg","ย้อนกลับไปใช้ค่าเดิมทั้งหมดแล้ว ✓","var(--orange-dark)");
+};
+$("repResetTab").onclick=()=>{
+  if(repIsDist()) delete (REPAIR_OVR||{}).dist;
+  else if(REPAIR_OVR&&REPAIR_OVR.time) delete REPAIR_OVR.time[repTab];
+  saveRepairOvr(); renderRepair(); updateRepNote(); if(lastCalc) doCalc();
+  msg("repMsg","ย้อนแท็บนี้กลับไปใช้ค่าเดิมแล้ว ✓","var(--orange-dark)");
 };
 
 // ================= แดชบอร์ด =================
@@ -1822,6 +2093,7 @@ function renderDash(){
 $("gsUrl").value=getUrl();
 updateConnBadge();
 renderPrices();
+renderRepair();
 resetDefaults();
 renderRecords();
 // ดึงข้อมูลเก่าจากชีตมาแสดงตั้งแต่เปิดหน้า (ถ้าเชื่อมต่อไว้แล้ว) — เงียบ ๆ ไม่รบกวนถ้าพลาด
