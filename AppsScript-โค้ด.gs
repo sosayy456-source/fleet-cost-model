@@ -1,5 +1,5 @@
 /**
- * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 9)
+ * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 10)
  * ใช้คู่กับไฟล์ โมเดลเดินรถ-gsheet.html
  *
  * ── วิธีติดตั้ง ──────────────────────────────────────────────
@@ -11,7 +11,7 @@
  *      - กด Deploy → กดอนุญาตสิทธิ์ (Authorize) ให้เรียบร้อย
  * 3) คัดลอก "URL ของเว็บแอป" ที่ลงท้ายด้วย /exec
  * 4) เปิดหน้าเว็บโมเดล → แท็บ "รายการทั้งหมด" → ⚙ ตั้งค่าการเชื่อม Google Sheet
- *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v9")
+ *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v10")
  *
  * ── แก้โค้ดภายหลัง ─────────────────────────────────────────
  * บันทึก → Deploy → จัดการการทำให้ใช้งานได้ (Manage deployments) → กดดินสอ ✏
@@ -23,7 +23,7 @@
  * เป็นระบบ upsert — ส่งใบรายการเดิมซ้ำจะทับแถวเดิม ไม่เพิ่มแถวใหม่
  */
 
-var VERSION = 9;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
+var VERSION = 10;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
 
 // ★ ชีตปลายทางที่จะเขียนข้อมูลลง
 //   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
@@ -38,6 +38,10 @@ var DEBT_SHEET_NAME = 'ลูกหนี้';
 // ── ข้อมูลเก่า ──────────────────────────────────────────────
 // ทุกแท็บที่ "ชื่อขึ้นต้นด้วย" คำนี้ จะถูกอ่านเข้ามาแสดงในโมเดลเป็นข้อมูลเก่า (อ่านอย่างเดียว)
 // เพิ่มแท็บใหม่ได้เรื่อย ๆ เช่น "ข้อมูลเก่า 2567", "ข้อมูลเก่า เชียงราย" — ไม่ต้องแก้โค้ด
+// คอลัมน์ซ่อนที่เก็บ JSON เต็มของใบรายการ — ให้หน้าเว็บโหลดใบกลับมาแก้ต่อได้
+// ★ ห้ามลบหรือแก้ด้วยมือ (แก้ผ่านหน้าเว็บเท่านั้น)
+var DATA_COL_NAME = '_DATA';
+
 var OLD_SHEET_PREFIX = 'ข้อมูลเก่า';        // แท็บเที่ยววิ่งเก่า
 var OLD_DEBT_PREFIX  = 'ข้อมูลเก่าลูกหนี้';  // แท็บลูกหนี้เก่า (ขึ้นต้นเหมือนกัน — ต้องเช็คตัวนี้ก่อนเสมอ)
 var MERGED_SHEET_NAME = 'รวมทั้งหมด';     // แท็บสำหรับ Dashboard (เก่า + ใหม่)
@@ -66,17 +70,26 @@ var HEADERS = [
   // ───── ส่วนเสริมของโมเดล ─────
   "ID","ประเภทเส้นทาง","ระยะทาง(กม.)","ราคาน้ำมัน(บาท/ลิตร)","น้ำมัน(ลิตร)","น้ำมันเดินทาง(คำนวณอัตโนมัติ)",
   "ค่าซ่อมตามเวลา","ค่าซ่อมตามระยะทาง","ต้นทุนปกติรวม","ต้นทุนสูญเปล่า","กำไร/ขาดทุน",
-  "สถานะชำระ","จำนวนลูกหนี้","ชำระแล้ว(ราย)","ยอดรวมบิล","วันที่ชำระครบ","จำนวนวันชำระ","รายการลูกหนี้"];
+  "สถานะชำระ","จำนวนลูกหนี้","ชำระแล้ว(ราย)","ยอดรวมบิล","วันที่ชำระครบ","จำนวนวันชำระ","รายการลูกหนี้",
+  // ───── ระบบ 3 ฝ่ายช่วยกันกรอก ─────
+  "วันที่ปล่อยรถ",
+  "สถานะฝ่ายบริการลูกค้า","เวลาบริการลูกค้ากรอก",
+  "สถานะฝ่ายจัดรถ","เวลาจัดรถกรอก",
+  "สถานะฝ่ายบัญชี","เวลาบัญชีกรอก",
+  "ความครบถ้วน",
+  DATA_COL_NAME];
 
 // คอลัมน์ 1–13 ตรงรูปแบบแท็บ "ข้อมูลเก่าลูกหนี้" · 14+ เป็นข้อมูลเสริมของโมเดล
 var DEBT_HEADERS = [
   "วันที่","เลขที่ใบรายการ","เลขที่บิล","ประเภทสินค้า","ต้นทาง","ปลายทาง","ผู้ส่ง","ผู้รับ",
   "ประเภทการชำระเงิน","สถานะการชำระเงิน","จำนวน","ราคารวม","จำนวนวันค้างชำระ",
   // ───── ส่วนเสริมของโมเดล ─────
-  "BillID","ID ใบรายการ","สาขา","วันที่ชำระ","จำนวนวันชำระ"];
+  "BillID","ID ใบรายการ","สาขา","วันที่ชำระ","จำนวนวันชำระ",
+  "ราคา/หน่วย","เกณฑ์คิดราคา"];
 
 var SEQ_COL   = 1;                                  // คอลัมน์ "ลำดับ" — ระบบใส่ให้เอง
 var ID_COL    = HEADERS.indexOf('ID') + 1;          // คีย์สำหรับ upsert
+var DATA_COL  = HEADERS.indexOf(DATA_COL_NAME) + 1; // เก็บ JSON เต็มของใบ ไว้ให้หน้าเว็บอ่านกลับ
 var OWNER_COL = DEBT_HEADERS.indexOf('ID ใบรายการ') + 1;
 
 function doGet() {
@@ -96,6 +109,15 @@ function doPost(e) {
     try {
       var ssPing = getSpreadsheet_();
       return json({ ok: true, pong: true, version: VERSION, sheet: ssPing.getName(), url: ssPing.getUrl() });
+    } catch (err) {
+      return json({ ok: false, version: VERSION, error: String(err) });
+    }
+  }
+
+  // โหลดใบรายการทั้งหมดจากชีต (รวมใบร่างที่ยังกรอกไม่ครบ) — ให้ทุกฝ่ายเห็นของกันและกัน
+  if (body.loadTrips) {
+    try {
+      return json({ ok: true, version: VERSION, records: readTripRecords_() });
     } catch (err) {
       return json({ ok: false, version: VERSION, error: String(err) });
     }
@@ -129,9 +151,11 @@ function doPost(e) {
     var idMap = buildIdMap_(sh);
     var added = 0, updated = 0;
 
+    var recs = body.records || [];      // JSON เต็มของแต่ละใบ (เรียงตรงกับ rows)
     for (var i = 0; i < rows.length; i++) {
       var r = padRow_(rows[i], HEADERS.length);
       var id = String(r[ID_COL - 1]);
+      if (recs[i]) r[DATA_COL - 1] = JSON.stringify(recs[i]);
       if (idMap[id]) {
         sh.getRange(idMap[id], 1, 1, r.length).setValues([r]);
         updated++;
@@ -363,6 +387,28 @@ function readOldRecords_() {
   return out;
 }
 
+/**
+ * อ่านใบรายการทั้งหมดจากแท็บ "ค่าเดินทาง" — คืนเป็นออบเจ็กต์เต็มจากคอลัมน์ _DATA
+ * ใช้ให้แต่ละฝ่ายโหลดใบล่าสุดมาก่อนแก้ ข้อมูลของฝ่ายอื่นจึงไม่หาย
+ */
+function readTripRecords_() {
+  var sh = getSheet_(SHEET_NAME, HEADERS);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var vals = sh.getRange(2, 1, last - 1, HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < vals.length; i++) {
+    var raw = String(vals[i][DATA_COL - 1] || '').trim();
+    if (!raw) continue;                        // แถวเก่าที่บันทึกก่อนมีคอลัมน์ _DATA
+    try {
+      var rec = JSON.parse(raw);
+      if (!rec.id) rec.id = String(vals[i][ID_COL - 1] || '');
+      out.push(rec);
+    } catch (e) { /* แถวเสีย ข้ามไป ไม่ให้ทั้งระบบพัง */ }
+  }
+  return out;
+}
+
 /** อ่านแท็บลูกหนี้เก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่าลูกหนี้" */
 function readOldDebtors_() {
   var ss = getSpreadsheet_();
@@ -589,6 +635,9 @@ function getSheet_(name, headers) {
     if (sh.getMaxColumns() < width) sh.insertColumnsAfter(sh.getMaxColumns(), width - sh.getMaxColumns());
     sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
   }
+  // ซ่อนคอลัมน์ _DATA ไม่ให้เกะกะ (ยังอยู่ครบ แค่ไม่แสดง)
+  var di = headers.indexOf(DATA_COL_NAME);
+  if (di >= 0) { try { sh.hideColumns(di + 1); } catch (e) {} }
   return sh;
 }
 
