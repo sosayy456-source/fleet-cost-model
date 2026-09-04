@@ -7,9 +7,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root{
+    /* โทเคนหน้าเลือกหน้าที่ (จากไฟล์ดีไซน์) */
+    --rs-bg:#F5F1EC; --rs-surface:#FFFFFF; --rs-ink:#17131A;
+    --rs-muted:#6B6169; --rs-subtle:#8A8189; --rs-accent:#7A1F3D;
+    --rs-line:rgba(23,19,26,.10);
     --bg:#F3F4F6; --card:#FFFFFF; --border:#E7E9ED; --border-strong:#DADDE2;
     --ink:#232833; --ink-soft:#6B7280; --ink-faint:#9AA1AC;
     --orange:#F5821F; --orange-dark:#DC6E11; --orange-soft:#FFF2E6; --orange-line:#F6D3B0;
@@ -336,16 +341,48 @@
   .pchip.wait{background:#FCE9E9;color:var(--red)}
   .pchip.mine{outline:2px solid var(--orange);outline-offset:1px}
 
-  .picker-ov{position:fixed;inset:0;background:rgba(20,22,28,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
-  .picker-bx{background:#fff;border-radius:18px;padding:26px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)}
-  .picker-bx h2{font-size:18px;font-weight:800;margin-bottom:4px}
-  .picker-bx>p{font-size:13px;color:var(--ink-soft);margin-bottom:16px}
-  .ropt{display:flex;align-items:center;gap:12px;width:100%;font-family:inherit;text-align:left;
-    background:#FAFBFC;border:1.5px solid var(--border-strong);border-radius:12px;padding:13px 15px;margin-bottom:9px;cursor:pointer}
-  .ropt:hover{border-color:var(--orange);background:var(--orange-soft)}
-  .ropt .ic{font-size:22px}
-  .ropt .t{font-weight:700;font-size:14px}
-  .ropt .d{font-size:11.5px;color:var(--ink-soft);margin-top:1px}
+  /* ===== หน้าเลือกหน้าที่ (ตามไฟล์ดีไซน์ Role Selection) ===== */
+  .picker-ov{position:fixed;inset:0;z-index:200;overflow-y:auto;
+    background:var(--rs-bg);color:var(--rs-ink);font-family:Anuphan,"Noto Sans Thai",system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:64px 24px;box-sizing:border-box}
+  .picker-bx{width:100%;max-width:992px;display:flex;flex-direction:column}
+  .rs-head{max-width:520px}
+  .rs-head h1{margin:0;font:600 52px/1.05 Anuphan,sans-serif;letter-spacing:-.02em;color:var(--rs-ink)}
+  .rs-head p{margin:14px 0 0;font:400 16px/1.6 Anuphan,sans-serif;color:var(--rs-muted)}
+  .rs-grid{margin-top:34px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .ropt{position:relative;cursor:pointer;background:var(--rs-surface);border:1px solid var(--rs-line);
+    border-radius:14px;padding:22px 24px;display:flex;gap:18px;align-items:flex-start;
+    width:100%;text-align:left;font-family:inherit;
+    transition:transform .18s,box-shadow .18s}
+  .ropt:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(23,19,26,.10)}
+  .ropt:focus-visible{outline:2px solid var(--rs-accent);outline-offset:2px}
+  .ropt .ix{font:500 13px/1 Anuphan,sans-serif;color:var(--rs-accent);padding-top:5px}
+  .ropt>span:last-of-type{flex:1}
+  .ropt .t{display:block;font:600 21px/1.2 Anuphan,sans-serif;color:var(--rs-ink)}
+  .ropt .d{display:block;margin-top:6px;font:400 13.5px/1.5 Anuphan,sans-serif;color:var(--rs-muted)}
+  .ropt .tabs{display:block;margin-top:9px;font:400 12px/1.5 Anuphan,sans-serif;color:var(--rs-subtle)}
+  .ropt .ring{position:absolute;inset:0;border-radius:14px;pointer-events:none;
+    box-shadow:inset 0 0 0 2px var(--rs-accent);opacity:0;transition:opacity .2s}
+  .ropt[aria-checked="true"] .ring{opacity:1}
+  .ropt.wide{grid-column:1/-1}
+  .rs-foot{margin-top:40px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+  .rs-note{font:400 12.5px/1.5 Anuphan,sans-serif;color:var(--rs-subtle)}
+  .rs-cta{display:flex;align-items:center;gap:10px;padding:14px 26px;border-radius:999px;
+    border:none;font:600 15px/1 Anuphan,sans-serif;white-space:nowrap;
+    background:rgba(23,19,26,.08);color:var(--rs-subtle);cursor:not-allowed;
+    transition:background .2s,color .2s}
+  .rs-cta.on{background:var(--rs-accent);color:var(--rs-bg);cursor:pointer}
+  .rs-remember{display:flex;align-items:center;gap:8px;margin-top:18px;
+    font:400 12.5px/1.5 Anuphan,sans-serif;color:var(--rs-subtle)}
+  .rs-remember input{width:auto;accent-color:var(--rs-accent)}
+  @media(max-width:720px){
+    .picker-ov{padding:40px 20px}
+    .rs-head h1{font-size:36px}
+    .rs-grid{grid-template-columns:1fr}
+    .rs-foot{flex-direction:column;align-items:stretch}
+    .rs-cta{justify-content:center;width:100%}
+  }
 
   .draftbar{background:var(--orange-soft);border:1px solid var(--orange-line);border-radius:12px;padding:14px 16px;margin-bottom:16px}
   .draftbar .dt{font-size:12.5px;font-weight:700;color:var(--orange-dark);margin-bottom:9px}
@@ -1132,12 +1169,17 @@
   <!-- เลือกหน้าที่ -->
   <div class="picker-ov" id="rolePicker" style="display:none">
     <div class="picker-bx">
-      <h2>คุณทำหน้าที่อะไร?</h2>
-      <p>เลือกครั้งเดียว ระบบจะจำไว้ในเครื่องนี้ · สลับได้ทีหลังจากปุ่มในหน้าบันทึกข้อมูล</p>
-      <div id="roleOpts"></div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin-top:12px">
-        <input type="checkbox" id="rememberRole" checked style="width:auto">
-        <label style="margin:0" for="rememberRole">จำหน้าที่นี้ไว้ในเครื่องนี้</label>
+      <div class="rs-head">
+        <h1>Select your role</h1>
+        <p>เลือกตำแหน่งของคุณเพื่อเข้าสู่หน้าจอการทำงานที่ตรงกับหน้าที่</p>
+      </div>
+      <div class="rs-grid" id="roleOpts" role="radiogroup" aria-label="Select your role"></div>
+      <label class="rs-remember"><input type="checkbox" id="rememberRole" checked>
+        จำตำแหน่งนี้ไว้ในเครื่องนี้</label>
+      <div class="rs-foot">
+        <span class="rs-note">สลับตำแหน่งได้ภายหลังจากปุ่มเปลี่ยนหน้าที่</span>
+        <button class="rs-cta" id="roleGo" type="button" disabled aria-disabled="true">
+          <span id="roleGoTxt">Continue</span><span style="font-size:15px">&rarr;</span></button>
       </div>
     </div>
   </div>
@@ -1868,7 +1910,28 @@ const ROLES={
   account: {label:"ฝ่ายบัญชีการเงิน", ic:"🧾", desc:"ค่าใช้จ่ายทั้งหมด · ดูแลรายการลูกหนี้",
             fields:["cost"]},
 };
+// หน้าที่ที่ "ดูอย่างเดียว" — ไม่ต้องกรอก จึงไม่นับในความครบถ้วนของใบ
+ROLES.manager={label:"ผู้จัดการ", en:"Manager", ic:"📊",
+  desc:"ภาพรวมทั้งหมด รายงาน และการอนุมัติ", fields:[]};
+ROLES.admin  ={label:"ผู้ดูแลระบบ", en:"Admin", ic:"🛠️",
+  desc:"เข้าถึงได้ทุกหน้า และกรอกแทนได้ทุกฝ่าย", fields:[]};
+ROLES.cs.en="Customer Service";       ROLES.cs.desc="รับงาน ติดต่อลูกค้า และบันทึกการจอง";
+ROLES.dispatch.en="Fleet Coordinator";ROLES.dispatch.desc="จัดรถ จัดคนขับ และติดตามเส้นทาง";
+ROLES.account.en="Accounting Department"; ROLES.account.desc="ต้นทุน บิลน้ำมัน และใบแจ้งหนี้";
+
+// แท็บที่แต่ละหน้าที่เข้าได้ (เรียงตามที่อยากให้เปิดหน้าแรก)
+const ROLE_VIEWS={
+  cs:       ["form"],
+  dispatch: ["form"],
+  account:  ["form","records","drafts","debtors"],
+  manager:  ["dash","records"],
+  admin:    ["dash","form","records","drafts","debtors","custcode"],
+};
+// ลำดับการ์ดในหน้าเลือกหน้าที่
+const ROLE_PICK=["cs","dispatch","account","manager","admin"];
+// ฝ่ายที่ต้องกรอกให้ครบก่อนใบจะเข้า "รายการทั้งหมด" (manager/admin ไม่นับ)
 const ROLE_ORDER=["cs","dispatch","account"];
+const isEntryRole=r=>ROLE_ORDER.includes(r);
 const LS_ROLE="modelRole";
 let ROLE=localStorage.getItem(LS_ROLE)||null;
 
@@ -1893,7 +1956,7 @@ function renumberSteps(){
 }
 function applyRoleZones(){
   document.querySelectorAll("[data-zone]").forEach(z=>{
-    const mine=z.dataset.zone===ROLE;
+    const mine=(ROLE==="admin")||z.dataset.zone===ROLE;   // admin กรอกแทนได้ทุกฝ่าย
     z.classList.toggle("zone-locked",!mine);
     z.classList.toggle("zone-mine",mine);
     z.querySelectorAll("input,select,button,textarea").forEach(el=>{
@@ -1908,37 +1971,78 @@ function applyRoleZones(){
     if(c.id==="sec-summary") return;             // การ์ดสรุป + ปุ่มบันทึก ต้องเห็นทุกฝ่าย
     const zones=[...c.querySelectorAll("[data-zone]")];
     if(!zones.length) return;                    // การ์ดที่ไม่เกี่ยวกับการแบ่งฝ่าย ปล่อยไว้
-    c.classList.toggle("card-hidden", !zones.some(z=>z.dataset.zone===ROLE));
+    c.classList.toggle("card-hidden", ROLE!=="admin" && !zones.some(z=>z.dataset.zone===ROLE));
   });
   renumberSteps();
-  const add=$("addBill"); if(add) add.disabled=(ROLE!=="cs");
+  const add=$("addBill"); if(add) add.disabled=!(ROLE==="cs"||ROLE==="admin");
   // ช่อง "น้ำหนักบรรทุกจริง" ปิดเองเมื่อเป็นเที่ยวเปล่า
-  const el=$("loadActual"); if(el && ROLE==="dispatch") el.disabled=$("emptyLeg").checked;
-  // แท็บรายการลูกหนี้ — เฉพาะฝ่ายบัญชี
-  const nav=$("navDebtors");
-  if(nav){ nav.style.display=(ROLE==="account")?"":"none"; }
-  if(ROLE!=="account" && $("view-debtors").classList.contains("active")) showView("form");
+  const el=$("loadActual"); if(el && (ROLE==="dispatch"||ROLE==="admin")) el.disabled=$("emptyLeg").checked;
+  applyRoleViews();
+}
+// ---- แสดงเฉพาะแท็บที่หน้าที่นี้เข้าได้ ----
+function allowedViews(){ return ROLE_VIEWS[ROLE]||["form"]; }
+function applyRoleViews(){
+  const allow=allowedViews();
+  document.querySelectorAll(".navitem").forEach(b=>{
+    b.style.display=allow.includes(b.dataset.view)?"":"none";
+  });
+  // ถ้าอยู่ในแท็บที่เข้าไม่ได้แล้ว ให้เด้งไปแท็บแรกที่เข้าได้
+  const cur=document.querySelector(".view.active");
+  const curName=cur?cur.id.replace("view-",""):null;
+  if(!allow.includes(curName)) showView(allow[0]);
 }
 function renderRoleBar(){
   const r=ROLES[ROLE];
-  $("roleWho").innerHTML=`${r.ic} ${esc(r.label)}`;
+  $("roleWho").innerHTML=`${r.ic} ${esc(r.en||r.label)}`;
   $("roleHint").textContent="กรอกได้เฉพาะ: "+r.desc;
   applyRoleZones();
 }
 function renderRolePicker(){
-  $("roleOpts").innerHTML=ROLE_ORDER.map(k=>{
+  let sel=null;
+  const goBtn=$("roleGo"), goTxt=$("roleGoTxt");
+  const tabName={dash:"แดชบอร์ด",form:"บันทึกข้อมูล",records:"รายการทั้งหมด",
+                 drafts:"ใบที่ยังไม่ครบ",debtors:"รายการลูกหนี้",custcode:"ค้นหารหัสลูกค้า"};
+  $("roleOpts").innerHTML=ROLE_PICK.map((k,i)=>{
     const r=ROLES[k];
-    return `<button type="button" class="ropt" data-role="${k}">
-      <span class="ic">${r.ic}</span>
-      <span><span class="t">${esc(r.label)}</span><br><span class="d">${esc(r.desc)}</span></span></button>`;
+    const tabs=(ROLE_VIEWS[k]||[]).map(v=>tabName[v]||v).join(" · ");
+    return `<button type="button" class="ropt${k==="admin"?" wide":""}" role="radio"
+        aria-checked="false" data-role="${k}">
+      <span class="ix">${String(i+1).padStart(2,"0")}</span>
+      <span><span class="t">${esc(r.en||r.label)}</span>
+        <span class="d">${esc(r.desc)}</span>
+        <span class="tabs">แท็บที่ใช้: ${esc(tabs)}</span></span>
+      <span class="ring"></span></button>`;
   }).join("");
-  $("roleOpts").querySelectorAll(".ropt").forEach(b=>b.onclick=()=>{
-    ROLE=b.dataset.role;
+  const cards=[...$("roleOpts").querySelectorAll(".ropt")];
+  const choose=b=>{
+    sel=b.dataset.role;
+    cards.forEach(c=>c.setAttribute("aria-checked", c===b?"true":"false"));
+    goBtn.disabled=false; goBtn.setAttribute("aria-disabled","false");
+    goBtn.classList.add("on");
+    goTxt.textContent="Continue as "+(ROLES[sel].en||ROLES[sel].label);
+  };
+  cards.forEach((b,i)=>{
+    b.onclick=()=>choose(b);
+    b.onkeydown=e=>{
+      if(e.key===" "||e.key==="Enter"){ e.preventDefault(); choose(b); return; }
+      const d=(e.key==="ArrowDown"||e.key==="ArrowRight")?1:
+              (e.key==="ArrowUp"||e.key==="ArrowLeft")?-1:0;
+      if(d){ e.preventDefault(); const t=cards[(i+d+cards.length)%cards.length]; t.focus(); choose(t); }
+    };
+  });
+  goBtn.onclick=()=>{
+    if(!sel) return;
+    ROLE=sel;
     if($("rememberRole").checked) localStorage.setItem(LS_ROLE,ROLE);
     else localStorage.removeItem(LS_ROLE);
     $("rolePicker").style.display="none";
     resetDefaults(); renderRoleBar(); renderRecords(); renderDrafts();
-  });
+    showView((ROLE_VIEWS[ROLE]||["form"])[0]);
+  };
+  // เริ่มใหม่ทุกครั้งที่เปิดหน้านี้
+  goBtn.disabled=true; goBtn.setAttribute("aria-disabled","true");
+  goBtn.classList.remove("on"); goTxt.textContent="Continue";
+  if(cards[0]) cards[0].tabIndex=0;
 }
 function openRolePicker(){ renderRolePicker(); $("rolePicker").style.display="flex"; }
 $("btnSwitchRole").onclick=openRolePicker;
@@ -2003,7 +2107,8 @@ function fillFormFromRecord(r){
 function renderDraftBar(){
   const waiting=RECORDS.filter(r=>!roleAllDone(r)&&!roleDone(r,ROLE));
   const bar=$("draftBar");
-  if(ROLE==="cs"){ bar.style.display="none"; return; }   // ฝ่ายบริการลูกค้าเป็นคนเปิดใบเอง
+  // ฝ่ายบริการลูกค้าเปิดใบเอง · manager ไม่กรอก · admin เห็นทุกใบจากแท็บ "ใบที่ยังไม่ครบ" อยู่แล้ว
+  if(ROLE==="cs"||ROLE==="manager"||ROLE==="admin"){ bar.style.display="none"; return; }
   if(!waiting.length){ bar.style.display="none"; return; }
   bar.style.display="";
   $("draftTitle").textContent=`ใบที่ยังรอ${ROLES[ROLE].label}กรอก (${waiting.length})`;
@@ -2148,6 +2253,9 @@ function buildRecord(){
 }
 // ---- อ่านเฉพาะช่องของฝ่ายที่กำหนด ออกมาเป็นออบเจ็กต์ย่อย ----
 function readRolePart(role){
+  // admin กรอกแทนได้ทุกฝ่าย → รวมทุกส่วนเข้าด้วยกัน
+  if(role==="admin") return {...readRolePart("cs"),...readRolePart("dispatch"),...readRolePart("account")};
+  if(role==="manager") return {};
   if(role==="cs"){
     return { date:getDateStr(), docNo:$("docNo").value.trim(), routeType:$("routeType").value,
       branch:$("branch").value, docType:$("docType").value,
@@ -2195,11 +2303,12 @@ $("saveBtn").addEventListener("click",async()=>{
   if(!ROLE || !ROLES[ROLE]){ openRolePicker(); return; }
   const part=readRolePart(ROLE);
 
-  if(ROLE==="cs" && !part.docNo){ msg("saveMsg","กรุณากรอก “เลขที่ใบรายการ” ก่อนบันทึก","var(--red)"); return; }
-  if(ROLE!=="cs" && !curDocNo){ msg("saveMsg","กรุณาเลือกใบรายการที่จะกรอกก่อน (กดจากหน้า “ใบที่ยังไม่ครบ”)","var(--red)"); return; }
-  if(ROLE==="account" && !lastCalc){ msg("saveMsg","กรุณากด “คำนวณ” ก่อนบันทึก","var(--orange-dark)"); return; }
+  const opensDoc=(ROLE==="cs"||ROLE==="admin");    // ผู้ที่เปิดใบใหม่เองได้
+  if(opensDoc && !part.docNo){ msg("saveMsg","กรุณากรอก “เลขที่ใบรายการ” ก่อนบันทึก","var(--red)"); return; }
+  if(!opensDoc && !curDocNo){ msg("saveMsg","กรุณาเลือกใบรายการที่จะกรอกก่อน (กดจากหน้า “ใบที่ยังไม่ครบ”)","var(--red)"); return; }
+  if((ROLE==="account"||ROLE==="admin") && !lastCalc){ msg("saveMsg","กรุณากด “คำนวณ” ก่อนบันทึก","var(--orange-dark)"); return; }
 
-  const docNo=(ROLE==="cs")?part.docNo:curDocNo;
+  const docNo=opensDoc?part.docNo:curDocNo;
   msg("saveMsg","กำลังโหลดใบล่าสุดจากชีตเพื่อรวมข้อมูล...","var(--ink-soft)");
 
   let base=null;
@@ -2217,12 +2326,14 @@ $("saveBtn").addEventListener("click",async()=>{
   let rec = base ? {...base} : {_v2:true,_v3:true,_v4done:true,id:genId(),docNo};
   Object.assign(rec,part);
   if(!rec.id) rec.id=genId();
-  stampRole(rec,ROLE);
+  // admin กรอกแทนทุกฝ่าย → ปิดครบทั้ง 3 ฝ่ายในครั้งเดียว
+  if(ROLE==="admin") ROLE_ORDER.forEach(k=>stampRole(rec,k));
+  else stampRole(rec,ROLE);
   recomputeTotals(rec);
   rec.synced=false;
 
   // ออกรหัสย่อให้ลูกค้าทุกรายในใบรายการ — รายที่ไม่มีในไฟล์แปลงรหัสจะได้เลขรันถัดไป
-  if(ROLE==="cs"){ await custEnsure(); custRegisterBills(rec.bills); }
+  if(ROLE==="cs"||ROLE==="admin"){ await custEnsure(); custRegisterBills(rec.bills); }
 
   const i=RECORDS.findIndex(r=>String(r.docNo)===String(docNo));
   if(i>=0) RECORDS[i]=rec; else RECORDS.unshift(rec);
@@ -2235,6 +2346,7 @@ $("saveBtn").addEventListener("click",async()=>{
       const left=ROLE_ORDER.filter(k=>!roleDone(rec,k));
       msg("saveMsg", left.length
         ? `บันทึกส่วนของ${ROLES[ROLE].label}แล้ว ✓ · ยังรอ ${left.map(k=>ROLES[k].label).join(" และ ")}`
+        : ROLE==="admin" ? "บันทึกครบทุกฝ่ายแล้ว ✓ ใบนี้เข้า “รายการทั้งหมด” เรียบร้อย" 
         : "บันทึกครบทั้ง 3 ฝ่ายแล้ว ✓ ใบนี้เข้า “รายการทั้งหมด” เรียบร้อย");
     }catch(e){
       msg("saveMsg","บันทึกในเครื่องแล้ว แต่ขึ้นชีตไม่สำเร็จ: "+e.message,"var(--red)");
