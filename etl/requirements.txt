@@ -1,0 +1,5 @@
+# ตรึงเวอร์ชันขั้นต่ำเท่าที่ทดสอบแล้ว (ทดสอบจริงบน pandas 3.0.5 / numpy 2.5.2)
+pandas>=2.0
+numpy>=1.24
+openpyxl>=3.1
+python-calamine>=0.2.3

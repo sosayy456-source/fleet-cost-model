@@ -47,7 +47,14 @@ app/dist/
 app/public/data/real/
 
 # ── ETL ────────────────────────────────────────────────
-etl/data/
+# กันข้อมูลจริงใต้ etl/data/ แต่ยอมให้ README ขึ้น repo ได้
+# (ห้ามใช้ "etl/data/" เฉย ๆ เพราะ git จะไม่เข้าไปในโฟลเดอร์ที่ถูกกันทั้งดุ้น
+#  แล้วจะ !re-include ไฟล์ข้างในไม่ได้เลย)
+etl/data/*
+!etl/data/README.md
+!etl/data/*/
+etl/data/*/*
+!etl/data/*/README.md
 etl/.venv/
 etl/**/__pycache__/
 # ไฟล์ตัวอย่างที่ anonymize แล้ว commit ได้ (ยกเว้นจากกฎ *.xlsx ด้านบน)
