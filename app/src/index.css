@@ -116,3 +116,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
              border-color: var(--green); color: var(--green); }
 
 summary::-webkit-details-marker { color: var(--ink-faint); }
+
+/* ช่องวันที่แบบ พ.ศ. — วัน / เดือน / ปี
+   ต้องกินพื้นที่ 2 ช่องของ grid ไม่งั้นสามช่องอัดกันจนอ่านไม่ออก */
+.field-wide { grid-column: span 2; }
+@media (max-width: 520px) { .field-wide { grid-column: span 1; } }
+
+.thdate { display: flex; gap: 5px; }
+.thdate input { width: 3.6em; flex: none; }
+.thdate select { flex: 1 1 0; min-width: 5.5em; }

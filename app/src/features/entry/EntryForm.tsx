@@ -13,6 +13,7 @@ import { recPayInfo } from "../../lib/record/payment";
 import { SaveAbortedError, saveRecord } from "../../lib/store/save";
 import { getUrl } from "../../lib/sheet/client";
 import { emptyBill, emptyRecord } from "./emptyRecord";
+import ThaiDateInput from "./ThaiDateInput";
 import type { Bill, PayType, RoleKey, TripRecord } from "../../types/record";
 import { PAY_TYPES } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
@@ -126,8 +127,8 @@ export default function EntryForm({ role }: { role: RoleKey }) {
       <fieldset className={"card zone" + (canEdit("cs") ? " zone-mine" : "")} disabled={!canEdit("cs")}>
         <h2>👤 ข้อมูลการเดินทาง <span className="muted">· ฝ่ายบริการลูกค้า</span></h2>
         <div className="grid">
-          <Field label="วันที่">
-            <input type="date" value={rec.date} onChange={(e) => set("date", e.target.value)} />
+          <Field label="วันที่" wide>
+            <ThaiDateInput value={rec.date} onChange={(v) => set("date", v)} />
           </Field>
           <Field label="เลขที่ใบรายการ">
             <input value={rec.docNo} onChange={(e) => set("docNo", e.target.value)} />
@@ -192,8 +193,8 @@ export default function EntryForm({ role }: { role: RoleKey }) {
                 }))}
             />
           </Field>
-          <Field label="วันที่ปล่อยรถ">
-            <input type="date" value={rec.releaseDate} onChange={(e) => set("releaseDate", e.target.value)} />
+          <Field label="วันที่ปล่อยรถ" wide>
+            <ThaiDateInput value={rec.releaseDate} onChange={(v) => set("releaseDate", v)} />
           </Field>
           <Field label="ความจุ (กก.)">
             <input type="number" value={rec.capacity || ""} onChange={num("capacity")} />
@@ -354,9 +355,11 @@ export default function EntryForm({ role }: { role: RoleKey }) {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, wide }: {
+  label: string; children: React.ReactNode; wide?: boolean;
+}) {
   return (
-    <label className="field">
+    <label className={"field" + (wide ? " field-wide" : "")}>
       <span className="field-label">{label}</span>
       {children}
     </label>
