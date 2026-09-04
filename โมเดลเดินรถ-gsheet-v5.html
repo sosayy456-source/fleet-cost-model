@@ -312,6 +312,47 @@
   .del-x{color:var(--red);cursor:pointer;font-weight:700;padding:2px 6px;font-size:13px}
   .foot{margin-top:22px;color:var(--ink-faint);font-size:11.5px;line-height:1.7}
   @media(max-width:680px){:root{--sidew:0px}.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;align-items:center}.brand{border:none;margin:0;padding:0 12px 0 4px}.nav{flex-direction:row;flex:1}.app{padding:18px 16px 50px}}
+
+  /* ================= ระบบ 3 ฝ่ายช่วยกันกรอก ================= */
+  .zone-tag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;
+    background:var(--blue-soft);color:var(--blue);padding:3px 11px;border-radius:20px;margin-bottom:12px}
+  /* โซนของฝ่ายอื่น = ซ่อนทิ้งไปเลย เหลือเฉพาะช่องที่ฝ่ายนี้กรอกได้ */
+  [data-zone].zone-locked{display:none!important}
+  .card.card-hidden{display:none!important}
+  [data-zone].zone-mine .zone-tag{background:var(--orange-soft);color:var(--orange-dark)}
+
+  .rolebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--navy);color:#fff;
+    border-radius:12px;padding:11px 16px;margin-bottom:16px}
+  .rolebar .who{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800}
+  .rolebar .hint{font-size:12px;color:#B9C3DA}
+  .rolebar .sw{margin-left:auto;font-family:inherit;font-size:12.5px;font-weight:700;color:#fff;
+    background:var(--orange);border:none;border-radius:8px;padding:8px 14px;cursor:pointer}
+  .rolebar .sw:hover{background:var(--orange-dark)}
+
+  .prog{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .pchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px}
+  .pchip.done{background:var(--green-soft);color:var(--green)}
+  .pchip.wait{background:#FCE9E9;color:var(--red)}
+  .pchip.mine{outline:2px solid var(--orange);outline-offset:1px}
+
+  .picker-ov{position:fixed;inset:0;background:rgba(20,22,28,.55);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px}
+  .picker-bx{background:#fff;border-radius:18px;padding:26px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .picker-bx h2{font-size:18px;font-weight:800;margin-bottom:4px}
+  .picker-bx>p{font-size:13px;color:var(--ink-soft);margin-bottom:16px}
+  .ropt{display:flex;align-items:center;gap:12px;width:100%;font-family:inherit;text-align:left;
+    background:#FAFBFC;border:1.5px solid var(--border-strong);border-radius:12px;padding:13px 15px;margin-bottom:9px;cursor:pointer}
+  .ropt:hover{border-color:var(--orange);background:var(--orange-soft)}
+  .ropt .ic{font-size:22px}
+  .ropt .t{font-weight:700;font-size:14px}
+  .ropt .d{font-size:11.5px;color:var(--ink-soft);margin-top:1px}
+
+  .draftbar{background:var(--orange-soft);border:1px solid var(--orange-line);border-radius:12px;padding:14px 16px;margin-bottom:16px}
+  .draftbar .dt{font-size:12.5px;font-weight:700;color:var(--orange-dark);margin-bottom:9px}
+  .draftlist{display:flex;gap:8px;flex-wrap:wrap}
+  .dchip{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink);background:#fff;
+    border:1px solid var(--border-strong);border-radius:9px;padding:8px 13px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .dchip:hover{border-color:var(--orange);background:#fff}
+  .dchip .age{font-size:11px;color:var(--red);font-weight:700}
 </style>
 </head>
 <body>
@@ -333,7 +374,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
         รายการทั้งหมด
       </button>
-      <button class="navitem" data-view="debtors">
+      <button class="navitem" data-view="drafts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        ใบที่ยังไม่ครบ <span id="draftCount" class="nav-count"></span>
+      </button>
+      <button class="navitem" data-view="debtors" id="navDebtors">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         รายการลูกหนี้ <span id="debtCount" class="nav-count"></span>
       </button>
@@ -627,48 +672,74 @@
 
     <!-- ============ VIEW: บันทึกข้อมูล ============ -->
     <section class="view active" id="view-form">
-      <div class="page-h"><h1>บันทึกข้อมูล</h1><p>กรอกข้อมูล → คำนวณ → บันทึก (บันทึกในเครื่อง + ส่งขึ้น Google Sheet ถ้าเชื่อมต่อแล้ว)</p></div>
+      <div class="page-h"><h1>บันทึกข้อมูล</h1><p id="formSub">หน้านี้แสดงเฉพาะช่องที่ฝ่ายคุณกรอกได้ → บันทึก · ใบจะเข้า “รายการทั้งหมด” เมื่อครบทั้ง 3 ฝ่าย</p></div>
+
+      <div class="rolebar">
+        <span class="who" id="roleWho">—</span>
+        <span class="hint" id="roleHint"></span>
+        <button class="sw" id="btnSwitchRole" type="button">🔁 เปลี่ยนหน้าที่</button>
+      </div>
+
+      <div class="draftbar" id="draftBar" style="display:none">
+        <div class="dt" id="draftTitle"></div>
+        <div class="draftlist" id="draftList"></div>
+      </div>
+
+      <div class="prog" id="progBar"></div>
 
       <div class="card" id="sec-trip">
         <div class="card-h"><span class="step">1</span><h2>ข้อมูลการเดินทาง</h2></div>
-        <div class="grid3">
-          <div class="field"><label>วันที่ · วัน / เดือน / ปี (พ.ศ.)</label>
-            <div class="dmy"><input id="dd" type="number" min="1" max="31" placeholder="วัน"><select id="mm"></select><select id="yy"></select></div></div>
-          <div class="field"><label for="docNo">เลขที่ใบรายการ</label><input id="docNo" type="text" placeholder="เช่น INV-2569-001"></div>
-          <div class="field"><label for="routeType">ประเภทเส้นทาง</label>
-            <select id="routeType"><option value="">— เลือก —</option><option>ขาขึ้น</option><option>ขาล่อง</option></select></div>
-        </div>
-        <div class="grid3">
-          <div class="field"><label for="branch">สาขา</label><select id="branch"></select></div>
-          <div class="field"><label for="plate">เลขทะเบียนรถ</label><input id="plate" type="text" list="plateList" placeholder="เช่น ชม.70-0820"><datalist id="plateList"></datalist></div>
-          <div class="field"><label for="docType">ประเภทใบรายการ</label><select id="docType"></select></div>
-        </div>
-        <div class="grid3">
-          <div class="field"><label for="origin">เส้นทาง · ต้นทาง</label><select id="origin"></select></div>
-          <div class="field"><label for="dest">ปลายทาง</label><select id="dest"></select></div>
-          <div class="field"><label for="distance">ระยะทาง <span style="color:var(--ink-faint);font-weight:400">· เติมอัตโนมัติ/แก้เองได้</span></label>
-            <div class="input-suffix"><input id="distance" type="number" min="0" step="1" placeholder="0"><span class="unit">กม.</span></div></div>
-        </div>
-        <div class="route-line"><span class="pin from"></span><span id="routeText">–</span><span class="pin to"></span></div>
-        <div class="grid2">
-          <div class="field" style="margin-bottom:0"><label for="fleetType">ประเภทรถ</label>
-            <select id="fleetType"><option value="">— เลือก —</option><option>รถบริษัท</option><option>รถร่วม</option></select></div>
-          <div class="field" style="margin-bottom:0"><label for="vehicle">ชนิดรถ</label><select id="vehicle"></select></div>
+        <!-- ===== โซนของฝ่ายบริการลูกค้า ===== -->
+        <div data-zone="cs">
+          <div class="zone-tag">👤 ฝ่ายบริการลูกค้า</div>
+          <div class="grid3">
+            <div class="field"><label>วันที่ · วัน / เดือน / ปี (พ.ศ.)</label>
+              <div class="dmy"><input id="dd" type="number" min="1" max="31" placeholder="วัน"><select id="mm"></select><select id="yy"></select></div></div>
+            <div class="field"><label for="docNo">เลขที่ใบรายการ</label><input id="docNo" type="text" placeholder="เช่น INV-2569-001"></div>
+            <div class="field"><label for="routeType">ประเภทเส้นทาง</label>
+              <select id="routeType"><option value="">— เลือก —</option><option>ขาขึ้น</option><option>ขาล่อง</option></select></div>
+          </div>
+          <div class="grid3">
+            <div class="field"><label for="branch">สาขา</label><select id="branch"></select></div>
+            <div class="field"><label for="docType">ประเภทใบรายการ</label><select id="docType"></select></div>
+            <div class="field"><label for="distance">ระยะทาง <span style="color:var(--ink-faint);font-weight:400">· เติมอัตโนมัติ/แก้เองได้</span></label>
+              <div class="input-suffix"><input id="distance" type="number" min="0" step="1" placeholder="0"><span class="unit">กม.</span></div></div>
+          </div>
+          <div class="grid3">
+            <div class="field"><label for="origin">เส้นทาง · ต้นทาง</label><select id="origin"></select></div>
+            <div class="field"><label for="dest">ปลายทาง</label><select id="dest"></select></div>
+            <div class="field"><label for="serviceGroup">กลุ่มบริการ / ประเภทงานขนส่ง</label><select id="serviceGroup"></select></div>
+          </div>
+          <div class="route-line"><span class="pin from"></span><span id="routeText">–</span><span class="pin to"></span></div>
         </div>
 
-        <h3 class="grp"><span class="dot"></span>6) การใช้ประโยชน์กองรถ &amp; อัตราการบรรทุก <span style="font-weight:400;color:var(--ink-faint)">(ใช้คำนวณ Fleet Utilization และ Load Factor)</span></h3>
-        <div class="grid3">
-          <div class="field"><label for="serviceGroup">กลุ่มบริการ / ประเภทงานขนส่ง</label><select id="serviceGroup"></select></div>
-          <div class="field"><label for="capacity">ความจุรถสูงสุด <span style="color:var(--ink-faint);font-weight:400">· เติมอัตโนมัติ/แก้เองได้</span></label>
-            <div class="input-suffix"><input id="capacity" type="number" min="0" step="1" placeholder="0"><span class="unit">กก.</span></div></div>
-          <div class="field"><label for="loadActual">น้ำหนัก/ปริมาณบรรทุกจริง</label>
-            <div class="input-suffix"><input id="loadActual" type="number" min="0" step="1" placeholder="0"><span class="unit">กก.</span></div></div>
+        <!-- ===== โซนของฝ่ายเจ้าหน้าที่จัดรถ ===== -->
+        <div data-zone="dispatch">
+          <div class="zone-tag">🚚 ฝ่ายเจ้าหน้าที่จัดรถ</div>
+          <div class="grid3">
+            <div class="field"><label for="plate">เลขทะเบียนรถ</label><input id="plate" type="text" list="plateList" placeholder="เช่น ชม.70-0820"><datalist id="plateList"></datalist></div>
+            <div class="field"><label for="fleetType">ประเภทรถ</label>
+              <select id="fleetType"><option value="">— เลือก —</option><option>รถบริษัท</option><option>รถร่วม</option></select></div>
+            <div class="field"><label for="vehicle">ชนิดรถ</label><select id="vehicle"></select></div>
+          </div>
+          <div class="grid3">
+            <div class="field"><label>วันที่ปล่อยรถ · วัน / เดือน / ปี (พ.ศ.)</label>
+              <div class="dmy"><input id="rdd" type="number" min="1" max="31" placeholder="วัน"><select id="rmm"></select><select id="ryy"></select></div></div>
+          </div>
+
+          <h3 class="grp"><span class="dot"></span>6) การใช้ประโยชน์กองรถ &amp; อัตราการบรรทุก <span style="font-weight:400;color:var(--ink-faint)">(ใช้คำนวณ Fleet Utilization และ Load Factor)</span></h3>
+          <div class="grid2">
+            <div class="field"><label for="capacity">ความจุรถสูงสุด <span style="color:var(--ink-faint);font-weight:400">· เติมอัตโนมัติ/แก้เองได้</span></label>
+              <div class="input-suffix"><input id="capacity" type="number" min="0" step="1" placeholder="0"><span class="unit">กก.</span></div></div>
+            <div class="field"><label for="loadActual">น้ำหนัก/ปริมาณบรรทุกจริง</label>
+              <div class="input-suffix"><input id="loadActual" type="number" min="0" step="1" placeholder="0"><span class="unit">กก.</span></div></div>
+          </div>
+          <label class="chk"><input id="emptyLeg" type="checkbox"><span>เที่ยวนี้เป็นเที่ยวเปล่า (Empty Leg) — วิ่งโดยไม่มีสินค้า/ไม่ได้บรรทุก</span></label>
+          <div class="price-note" id="loadNote" style="margin-top:0">เลือกชนิดรถ + กรอกน้ำหนักบรรทุกจริง เพื่อคำนวณ Load Factor (% การใช้ประโยชน์ความจุ)</div>
         </div>
-        <label class="chk"><input id="emptyLeg" type="checkbox"><span>เที่ยวนี้เป็นเที่ยวเปล่า (Empty Leg) — วิ่งโดยไม่มีสินค้า/ไม่ได้บรรทุก</span></label>
-        <div class="price-note" id="loadNote" style="margin-top:0">เลือกชนิดรถ + กรอกน้ำหนักบรรทุกจริง เพื่อคำนวณ Load Factor (% การใช้ประโยชน์ความจุ)</div>
       </div>
 
-      <div class="card">
+      <div class="card" data-zone="dispatch">
         <details class="prices" id="fleetPanel">
           <summary>🚚 ทะเบียนรถในกองรถ (Fleet Roster) · ใช้คำนวณการใช้ประโยชน์กองรถ (Utilization) · กดเพื่อดู/แก้ไข
             <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -690,7 +761,10 @@
           </div>
         </details>
       </div>
+
+      <div class="card" id="sec-cost" data-zone="account">
         <div class="card-h"><span class="step">2</span><h2>ค่าใช้จ่าย</h2><span class="hint">ทุกช่องเลือกกรอกหรือเว้นว่างได้ (ว่าง = 0)</span></div>
+        <div class="zone-tag">🧾 ฝ่ายบัญชีการเงิน</div>
         <div class="grid3">
           <div class="field"><label for="gas">1) ค่าแก๊ส</label>
             <div class="input-suffix"><input id="gas" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
@@ -753,8 +827,11 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           <span id="editBannerText">กำลังแก้ไขรายการ</span><span class="x" id="cancelEdit">ยกเลิกการแก้ไข</span>
         </div>
-        <div class="grid3">
-          <div class="field"><label for="revenue">รายได้</label><div class="input-suffix"><input id="revenue" type="number" min="0" step="100" placeholder="0"><span class="unit">บาท</span></div></div>
+        <div data-zone="cs">
+          <div class="zone-tag">👤 ฝ่ายบริการลูกค้า</div>
+          <div class="grid3">
+            <div class="field"><label for="revenue">รายได้</label><div class="input-suffix"><input id="revenue" type="number" min="0" step="100" placeholder="0"><span class="unit">บาท</span></div></div>
+          </div>
         </div>
         <div class="kpis">
           <div class="kpi rev"><div class="lab">รายได้</div><div class="big"><span id="kRev">–</span><small>บาท</small></div></div>
@@ -773,7 +850,7 @@
           <div class="result-row"><span class="k" style="color:#B0641F">สูญเปล่า: เบี้ยเลี้ยงนอกเส้นทาง</span><span class="v" id="dLaborOff">–</span></div>
           <div class="result-row"><span class="k" style="font-weight:700">รวมค่าใช้จ่าย <span style="font-weight:400;color:var(--ink-faint)">(ตามสูตรชีต · ไม่รวมค่าซ่อม)</span></span><span class="v" id="dSheetTotal">–</span></div>
         </div>
-        <div id="debtorBox">
+        <div id="debtorBox" data-zone="cs">
           <h3 class="grp"><span class="dot"></span>รายการลูกหนี้ / บิล</h3>
           <div class="price-note" style="margin-top:0;margin-bottom:12px">
             เว้น “เลขที่บิล” ว่าง = ใช้เลขที่ใบรายการ (ส่วนที่ 1) อัตโนมัติ ·
@@ -797,7 +874,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" data-zone="account">
         <details class="prices">
           <summary>⛽ ตารางราคาน้ำมัน (ใช้คำนวณน้ำมันเดินทางอัตโนมัติ) · กดเพื่อดู/อัปเดต
             <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -814,7 +891,7 @@
         </details>
       </div>
 
-      <div class="card">
+      <div class="card" data-zone="account">
         <details class="prices" id="repairPanel">
           <summary>🔧 การคำนวณค่าซ่อมแซม (แก้อัตราและน้ำหนักรายปีได้) · กดเพื่อดู/แก้ไข
             <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -848,6 +925,33 @@
           </div>
         </details>
       </div>
+    </section>
+
+    <!-- ============ VIEW: รายการทั้งหมด ============ -->
+    <!-- ============ VIEW: ใบที่ยังไม่ครบ ============ -->
+    <section class="view" id="view-drafts">
+      <div class="page-h"><h1>ใบที่ยังไม่ครบ</h1><p>ใบที่ยังกรอกไม่ครบทั้ง 3 ฝ่าย · กดที่แถวเพื่อเปิดใบนั้นมากรอกส่วนของคุณ</p></div>
+      <div class="rec-bar">
+        <div class="searchbox">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="draftSearch" type="text" placeholder="ค้นหาเลขที่ใบรายการ / สาขา / เส้นทาง...">
+        </div>
+        <button id="btnReloadDrafts" class="btn btn-green" type="button">↻ โหลดใบจากชีต</button>
+      </div>
+      <div class="rec-card">
+        <div class="scroll">
+          <table class="rec-table">
+            <thead><tr>
+              <th>เลขที่ใบรายการ</th><th>วันที่</th><th>สาขา</th><th>เส้นทาง</th>
+              <th style="text-align:center">👤 บริการลูกค้า</th><th style="text-align:center">🚚 จัดรถ</th><th style="text-align:center">🧾 บัญชี</th>
+              <th class="num">ค้างมา (วัน)</th><th>สถานะ</th>
+            </tr></thead>
+            <tbody id="draftBody"></tbody>
+          </table>
+        </div>
+        <div id="draftEmpty" class="rec-empty">ไม่มีใบที่กรอกค้างอยู่ 🎉</div>
+      </div>
+      <div class="msg" id="draftMsg" style="color:var(--green);margin-top:10px"></div>
     </section>
 
     <!-- ============ VIEW: รายการทั้งหมด ============ -->
@@ -1022,6 +1126,19 @@
 
     <p class="foot">ต่อยอดจากโมเดลเดิม · บันทึกลง Google Sheet ผ่าน Apps Script Web App · ข้อมูลสำรองในเครื่อง (localStorage) · ธีมส้ม</p>
   </main>
+
+  <!-- เลือกหน้าที่ -->
+  <div class="picker-ov" id="rolePicker" style="display:none">
+    <div class="picker-bx">
+      <h2>คุณทำหน้าที่อะไร?</h2>
+      <p>เลือกครั้งเดียว ระบบจะจำไว้ในเครื่องนี้ · สลับได้ทีหลังจากปุ่มในหน้าบันทึกข้อมูล</p>
+      <div id="roleOpts"></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft);margin-top:12px">
+        <input type="checkbox" id="rememberRole" checked style="width:auto">
+        <label style="margin:0" for="rememberRole">จำหน้าที่นี้ไว้ในเครื่องนี้</label>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal กรอกวันที่ชำระ -->
   <div id="payModal" class="modal-bg" style="display:none">
@@ -1204,6 +1321,7 @@ function showView(name){
   $("view-"+name).classList.add("active");
   document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("active",n.dataset.view===name));
   if(name==="debtors" && typeof renderDebtors==="function") renderDebtors();
+  if(name==="drafts"  && typeof renderDrafts==="function")  renderDrafts();
   if(name==="dash" && typeof renderDash==="function") renderDash();
   if(name==="custcode" && typeof renderCustCode==="function") renderCustCode();
   window.scrollTo({top:0,behavior:"smooth"});
@@ -1373,6 +1491,17 @@ mmS.innerHTML='<option value="">เดือน</option>'+TH_MONTHS.map((m,i)=>`
 yyS.innerHTML='<option value="">ปี</option>'+[2024,2025,2026,2027].map(y=>`<option value="${y}">${y+543}</option>`).join("");
 function getDateStr(){ const d=parseInt(ddI.value,10),m=+mmS.value,y=+yyS.value;
   if(!d||d<1||d>31||!m||!y) return ""; return `${y}-${pad(m)}-${pad(d)}`; }
+
+// วันที่ปล่อยรถ (ของฝ่ายจัดรถ) — ใช้ชุดเลือกวัน/เดือน/ปี แบบเดียวกับวันที่ตัดจ่าย
+const rddI=$("rdd"), rmmS=$("rmm"), ryyS=$("ryy");
+rmmS.innerHTML='<option value="">เดือน</option>'+TH_MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+ryyS.innerHTML='<option value="">ปี</option>'+[2024,2025,2026,2027].map(y=>`<option value="${y}">${y+543}</option>`).join("");
+function getReleaseDateStr(){ const d=parseInt(rddI.value,10),m=+rmmS.value,y=+ryyS.value;
+  if(!d||d<1||d>31||!m||!y) return ""; return `${y}-${pad(m)}-${pad(d)}`; }
+function setReleaseDate(iso){
+  if(iso){ const [y,m,d]=iso.split("-"); rddI.value=+d; rmmS.value=+m; ryyS.value=+y; }
+  else { rddI.value=""; rmmS.value=""; ryyS.value=""; }
+}
 
 const veh=$("vehicle"), org=$("origin"), dst=$("dest");
 $("branch").innerHTML='<option value="">— เลือกสาขา —</option>'+BRANCHES.map(b=>`<option>${b}</option>`).join("");
@@ -1554,7 +1683,7 @@ function updateConnBadge(){
   const on=!!getUrl();
   const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
 }
-const GS_VERSION=9;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
+const GS_VERSION=10;   // ต้องตรงกับ VERSION ในไฟล์ AppsScript-โค้ด.gs
 async function postToSheet(payload){
   const url=getUrl();
   if(!url) throw new Error("ยังไม่ได้ตั้งค่า URL (กด ⚙ ตั้งค่า)");
@@ -1642,7 +1771,17 @@ function recordToRow(r){
     /* 50 วันที่ชำระครบ                     */ thSlashSafe(p.payDate),
     /* 51 จำนวนวันชำระ                     */ (p.daysToPay!=null?p.daysToPay:""),
     /* 52 รายการลูกหนี้                     */
-      bs.map(b=>`${b.no||"-"}|${b.sender||""}→${b.receiver||""}|${b.qty||0}|${b.total||0}|${b.payType||"-"}|${billIsPaid(b)?"จ่ายแล้ว "+thDateSafe(billPayDate(b,r)):"ค้างชำระ"}`).join(" ; ")
+      bs.map(b=>`${b.no||"-"}|${b.sender||""}→${b.receiver||""}|${b.qty||0}|${b.total||0}|${b.payType||"-"}|${billIsPaid(b)?"จ่ายแล้ว "+thDateSafe(billPayDate(b,r)):"ค้างชำระ"}`).join(" ; "),
+    // ───── ระบบ 3 ฝ่ายช่วยกันกรอก ─────
+    /* 53 วันที่ปล่อยรถ                     */ thSlashSafe(r.releaseDate),
+    /* 54 สถานะฝ่ายบริการลูกค้า             */ roleDone(r,"cs")?"กรอกแล้ว":"ยังไม่กรอก",
+    /* 55 เวลาบริการลูกค้ากรอก              */ r._csAt||"",
+    /* 56 สถานะฝ่ายจัดรถ                    */ roleDone(r,"dispatch")?"กรอกแล้ว":"ยังไม่กรอก",
+    /* 57 เวลาจัดรถกรอก                     */ r._dispatchAt||"",
+    /* 58 สถานะฝ่ายบัญชี                    */ roleDone(r,"account")?"กรอกแล้ว":"ยังไม่กรอก",
+    /* 59 เวลาบัญชีกรอก                     */ r._accountAt||"",
+    /* 60 ความครบถ้วน                       */ roleAllDone(r)?"ครบทั้ง 3 ฝ่าย":"ยังไม่ครบ"
+    /* 61 _DATA — ฝั่ง Apps Script เติมให้เอง */
   ];
 }
 // ---- แถวชีต "ลูกหนี้" : คอลัมน์ 1–9 ตรงรูปแบบเดิม, 10+ เป็นข้อมูลเสริม ----
@@ -1674,6 +1813,12 @@ function recordBillRows(r){
     ];
   });
 }
+// ---- โหลดใบรายการ "ใหม่" ทั้งหมดจากชีต (ใช้รวมงานข้ามฝ่าย) ----
+async function loadTripsFromSheet(){
+  if(!getUrl()) return [];
+  const res=await postToSheet({loadTrips:true});
+  return res.records||[];
+}
 // ---- โหลดข้อมูลเก่าจากชีต (ทุกแท็บที่ชื่อขึ้นต้นด้วย "ข้อมูลเก่า") ----
 async function loadOldRecords(){
   if(!getUrl()) return false;
@@ -1704,6 +1849,194 @@ $("gsTest").addEventListener("click",async()=>{
   catch(e){ gstat("เชื่อมต่อไม่สำเร็จ: "+e.message,"var(--red)"); }
 });
 function gstat(t,c){ const e=$("gsStatus"); e.textContent=t; e.style.color=c||"var(--ink-soft)"; }
+
+// ================= ระบบ 3 ฝ่ายช่วยกันกรอก =================
+// แต่ละฝ่ายกรอกเฉพาะโซนของตัวเอง · ใบจะเข้า "รายการทั้งหมด" เมื่อครบทั้ง 3 ฝ่าย
+// วิธีกันข้อมูลทับกัน: ก่อนบันทึกจะ "โหลดใบล่าสุดจากชีตมาก่อน → รวมส่วนของฝ่ายตัวเอง → เขียนกลับ"
+const ROLES={
+  cs:      {label:"ฝ่ายบริการลูกค้า", ic:"👤", desc:"เปิดใบ · เส้นทาง · รายได้ · ลูกหนี้",
+            fields:["date","docNo","routeType","branch","docType","origin","dest","dist","serviceGroup","revenue","bills"]},
+  dispatch:{label:"ฝ่ายเจ้าหน้าที่จัดรถ", ic:"🚚", desc:"ทะเบียนรถ · ประเภท/ชนิดรถ · วันที่ปล่อยรถ",
+            fields:["plate","fleetType","vehicle","releaseDate","capacity","loadActual","emptyLeg"]},
+  account: {label:"ฝ่ายบัญชีการเงิน", ic:"🧾", desc:"ค่าใช้จ่ายทั้งหมด · ดูแลรายการลูกหนี้",
+            fields:["cost"]},
+};
+const ROLE_ORDER=["cs","dispatch","account"];
+const LS_ROLE="modelRole";
+let ROLE=localStorage.getItem(LS_ROLE)||null;
+
+const roleDone=(r,k)=>!!(r&&r["_"+k+"Done"]);
+const roleAllDone=r=>ROLE_ORDER.every(k=>roleDone(r,k));
+function stampRole(rec,k){
+  rec["_"+k+"Done"]=true;
+  rec["_"+k+"At"]=new Date().toISOString().slice(0,16).replace("T"," ");
+  return rec;
+}
+
+// ---- เปิด/ปิดสิทธิ์แก้ไขในแต่ละโซน ----
+function applyRoleZones(){
+  document.querySelectorAll("[data-zone]").forEach(z=>{
+    const mine=z.dataset.zone===ROLE;
+    z.classList.toggle("zone-locked",!mine);
+    z.classList.toggle("zone-mine",mine);
+    z.querySelectorAll("input,select,button,textarea").forEach(el=>{
+      if(el.closest(".bill-x")) return;
+      el.disabled=!mine;
+    });
+    z.querySelectorAll(".bill-x").forEach(x=>{ x.style.pointerEvents=mine?"":"none"; x.style.opacity=mine?"":".35"; });
+  });
+  // การ์ดที่มีแต่โซนของฝ่ายอื่น (เช่น "ข้อมูลการเดินทาง" เมื่อเป็นฝ่ายบัญชี) → ซ่อนทั้งใบ
+  document.querySelectorAll("#view-form .card").forEach(c=>{
+    if(c.hasAttribute("data-zone")) return;      // การ์ดที่เป็นโซนอยู่แล้ว CSS จัดการให้
+    if(c.id==="sec-summary") return;             // การ์ดสรุป + ปุ่มบันทึก ต้องเห็นทุกฝ่าย
+    const zones=[...c.querySelectorAll("[data-zone]")];
+    if(!zones.length) return;                    // การ์ดที่ไม่เกี่ยวกับการแบ่งฝ่าย ปล่อยไว้
+    c.classList.toggle("card-hidden", !zones.some(z=>z.dataset.zone===ROLE));
+  });
+  const add=$("addBill"); if(add) add.disabled=(ROLE!=="cs");
+  // ช่อง "น้ำหนักบรรทุกจริง" ปิดเองเมื่อเป็นเที่ยวเปล่า
+  const el=$("loadActual"); if(el && ROLE==="dispatch") el.disabled=$("emptyLeg").checked;
+  // แท็บรายการลูกหนี้ — เฉพาะฝ่ายบัญชี
+  const nav=$("navDebtors");
+  if(nav){ nav.style.display=(ROLE==="account")?"":"none"; }
+  if(ROLE!=="account" && $("view-debtors").classList.contains("active")) showView("form");
+}
+function renderRoleBar(){
+  const r=ROLES[ROLE];
+  $("roleWho").innerHTML=`${r.ic} ${esc(r.label)}`;
+  $("roleHint").textContent="กรอกได้เฉพาะ: "+r.desc;
+  applyRoleZones();
+}
+function renderRolePicker(){
+  $("roleOpts").innerHTML=ROLE_ORDER.map(k=>{
+    const r=ROLES[k];
+    return `<button type="button" class="ropt" data-role="${k}">
+      <span class="ic">${r.ic}</span>
+      <span><span class="t">${esc(r.label)}</span><br><span class="d">${esc(r.desc)}</span></span></button>`;
+  }).join("");
+  $("roleOpts").querySelectorAll(".ropt").forEach(b=>b.onclick=()=>{
+    ROLE=b.dataset.role;
+    if($("rememberRole").checked) localStorage.setItem(LS_ROLE,ROLE);
+    else localStorage.removeItem(LS_ROLE);
+    $("rolePicker").style.display="none";
+    resetDefaults(); renderRoleBar(); renderRecords(); renderDrafts();
+  });
+}
+function openRolePicker(){ renderRolePicker(); $("rolePicker").style.display="flex"; }
+$("btnSwitchRole").onclick=openRolePicker;
+
+// ---- แถบความคืบหน้า 3 ฝ่ายของใบที่กำลังเปิดอยู่ ----
+let curDocNo=null;
+function renderProgress(rec){
+  if(!rec){ $("progBar").innerHTML=""; return; }
+  // ช่องของฝ่ายอื่นถูกซ่อนไปแล้ว — สรุปบริบทของใบไว้ตรงนี้แทน
+  const ctx=[
+    rec.date?thDateSafe(rec.date):"",
+    (rec.origin&&rec.dest)?`${rec.origin}→${rec.dest}`:"",
+    rec.plate||"",
+    rec.vehicle||""
+  ].filter(Boolean).join(" · ");
+  $("progBar").innerHTML=`<span class="pchip done" style="background:var(--blue-soft);color:var(--blue)">📄 ใบ ${esc(rec.docNo||"–")}</span>`+
+    (ctx?`<span class="pchip" style="background:#F1F2F4;color:var(--ink-soft)">${esc(ctx)}</span>`:"")+
+    ROLE_ORDER.map(k=>{
+      const done=roleDone(rec,k), mine=k===ROLE;
+      return `<span class="pchip ${done?"done":"wait"} ${mine?"mine":""}">${ROLES[k].ic} ${esc(ROLES[k].label)} ${done?"✓ กรอกแล้ว":"— ยังไม่กรอก"}</span>`;
+    }).join("");
+}
+
+// ---- เปิดใบมากรอกส่วนของฝ่ายตัวเอง ----
+function openDoc(docNo){
+  const rec=RECORDS.find(r=>String(r.docNo)===String(docNo));
+  if(!rec){ msg("saveMsg","ไม่พบใบรายการ "+docNo+" — ลองกด “โหลดใบจากชีต”","var(--red)"); return; }
+  curDocNo=String(docNo);
+  fillFormFromRecord(rec);
+  renderProgress(rec);
+  showView("form");
+}
+// เติมทุกช่องจากใบ (รวมช่องของฝ่ายอื่นด้วย เพื่อให้เห็นบริบท — แต่แก้ไม่ได้)
+function fillFormFromRecord(r){
+  if(r.date){ const [y,m,d]=r.date.split("-"); ddI.value=+d; mmS.value=+m; yyS.value=+y; }
+  else { ddI.value=""; mmS.value=""; yyS.value=""; }
+  $("docNo").value=r.docNo||""; $("branch").value=r.branch||""; $("plate").value=r.plate||"";
+  $("docType").value=r.docType||""; $("routeType").value=r.routeType||"";
+  $("fleetType").value=r.fleetType||"";
+  const vi=RATES.findIndex(x=>x[0]===r.vehicle); veh.value=vi>=0?vi:"";
+  org.value=r.origin||""; fillDests(); dst.value=r.dest||"";
+  $("distance").value=r.dist||"";
+  setReleaseDate(r.releaseDate||"");
+  $("serviceGroup").value=r.serviceGroup||""; $("capacity").value=r.capacity||"";
+  $("emptyLeg").checked=!!r.emptyLeg; $("loadActual").value=r.loadActual||"";
+  $("gas").value=r.gas||"";
+  ["fuelCash","fuelDownBill","fuelFleet","fuelPickup","fuelUpBill","fuelCallTruck",
+   "fuelOff","fuelDetour","fuelOffFleet"].forEach(k=>$(k).value=r[k]||"");
+  fuelNoAutoCb.checked=!(r.fuelAutoOn===true);
+  $("drv").value=r.drv||""; $("spare").value=r.spare||""; $("snd").value=r.snd||""; $("laborOff").value=r.laborOff||"";
+  $("feeTarp").value=r.feeTarp||""; $("feePolice").value=r.feePolice||""; $("feeCont").value=r.feeCont||"";
+  $("feePort").value=r.feePort||""; $("feeDoc").value=r.feeDoc||""; $("feeToll").value=r.feeToll||"";
+  $("revenue").value=r.revenue||"";
+  fillBills(r.bills);
+  editingIndex=null; updateEditUI();
+  refreshRoute(); updateFuelNote(); updateRepNote(); updateLoadNote();
+  if(r.normal!=null) doCalc();
+  applyRoleZones();
+}
+
+// ---- ใบที่ยังรอฝ่ายเรากรอก (แสดงเป็น chip ในหน้าบันทึกข้อมูล) ----
+function renderDraftBar(){
+  const waiting=RECORDS.filter(r=>!roleAllDone(r)&&!roleDone(r,ROLE));
+  const bar=$("draftBar");
+  if(ROLE==="cs"){ bar.style.display="none"; return; }   // ฝ่ายบริการลูกค้าเป็นคนเปิดใบเอง
+  if(!waiting.length){ bar.style.display="none"; return; }
+  bar.style.display="";
+  $("draftTitle").textContent=`ใบที่ยังรอ${ROLES[ROLE].label}กรอก (${waiting.length})`;
+  $("draftList").innerHTML=waiting.map(r=>{
+    const age=r.date?Math.max(0,daysBetween(r.date,todayISO())):0;
+    return `<button type="button" class="dchip" data-doc="${esc(r.docNo)}">📄 ${esc(r.docNo||"–")}`+
+      (age>0?` <span class="age">ค้าง ${age} วัน</span>`:"")+`</button>`;
+  }).join("");
+  $("draftList").querySelectorAll(".dchip").forEach(b=>b.onclick=()=>openDoc(b.dataset.doc));
+}
+
+// ---- หน้า "ใบที่ยังไม่ครบ" ----
+function renderDrafts(){
+  renderDraftBar();
+  const q=($("draftSearch")?$("draftSearch").value:"").trim().toLowerCase();
+  let list=RECORDS.filter(r=>!roleAllDone(r));
+  if(q) list=list.filter(r=>[r.docNo,r.branch,r.origin,r.dest].some(v=>String(v||"").toLowerCase().includes(q)));
+  list.sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  const tb=$("draftBody"); tb.innerHTML="";
+  list.forEach(r=>{
+    const age=r.date?Math.max(0,daysBetween(r.date,todayISO())):0;
+    const tr=document.createElement("tr");
+    tr.style.cursor="pointer";
+    tr.innerHTML=`<td class="doc">${esc(r.docNo||"–")}</td><td>${thDateSafe(r.date)}</td>`+
+      `<td>${esc(r.branch||"–")}</td>`+
+      `<td>${(r.origin&&r.dest)?esc(r.origin+"→"+r.dest):"–"}</td>`+
+      ROLE_ORDER.map(k=>`<td style="text-align:center"><span class="badge ${roleDone(r,k)?"paid":"unpaid"}">${roleDone(r,k)?"✓":"–"}</span></td>`).join("")+
+      `<td class="num">${age}</td>`+
+      `<td><span class="badge unpaid">ยังไม่ครบ</span></td>`;
+    tr.onclick=()=>openDoc(r.docNo);
+    tb.appendChild(tr);
+  });
+  $("draftEmpty").style.display=list.length?"none":"";
+  const mine=RECORDS.filter(r=>!roleAllDone(r)&&!roleDone(r,ROLE)).length;
+  $("draftCount").textContent=mine?mine:"";
+}
+$("draftSearch").addEventListener("input",renderDrafts);
+$("btnReloadDrafts").addEventListener("click",async()=>{
+  if(!getUrl()){ msg("draftMsg","ยังไม่ได้ตั้งค่า Google Sheet — ตั้งที่หน้ารายการทั้งหมด","var(--red)"); return; }
+  msg("draftMsg","กำลังโหลดใบจากชีต...","var(--ink-soft)");
+  try{
+    const fresh=await loadTripsFromSheet();
+    // รวมของจากชีตทับของในเครื่อง (ชีตคือแหล่งความจริง)
+    fresh.forEach(f=>{
+      const i=RECORDS.findIndex(r=>String(r.docNo)===String(f.docNo));
+      if(i>=0) RECORDS[i]={...f,synced:true}; else RECORDS.push({...f,synced:true});
+    });
+    saveRecords(); renderRecords(); renderDrafts();
+    msg("draftMsg",`โหลดใบจากชีตแล้ว ${fresh.length} ใบ ✓`);
+  }catch(e){ msg("draftMsg","โหลดไม่สำเร็จ: "+e.message,"var(--red)"); }
+});
 
 // ================= บันทึก + แก้ไข + รายการ =================
 const LS_REC="tripRecords";
@@ -1741,6 +2074,14 @@ function saveRecords(){ try{ localStorage.setItem(LS_REC,JSON.stringify(RECORDS)
     delete r.fuelTravel; delete r.fuelSrc;
     r._v3=true; r.synced=false; changed=true;
   });
+  // ---- ใบที่บันทึกไว้ก่อนมีระบบ 3 ฝ่าย = ถือว่ากรอกครบแล้ว (ไม่งั้นจะไปโผล่ในหน้า "ยังไม่ครบ") ----
+  RECORDS.forEach(r=>{
+    if(r._v4done) return;
+    ["cs","dispatch","account"].forEach(k=>{
+      if(r["_"+k+"Done"]===undefined){ r["_"+k+"Done"]=true; r["_"+k+"At"]="(ก่อนแบ่งหน้าที่)"; }
+    });
+    r._v4done=true; changed=true;
+  });
   if(changed) saveRecords();
 })();
 function msg(el,text,color){ const e=$(el); e.textContent=text; e.style.color=color||"var(--green)";
@@ -1759,7 +2100,11 @@ function resetDefaults(){
   $("kProfitCard").classList.remove("loss");
   editingIndex=null; updateEditUI();
   fillBills([]);
+  setReleaseDate("");
+  curDocNo=null;
+  renderProgress(null);
   refreshRoute(); updateFuelNote();
+  if(typeof applyRoleZones==="function") applyRoleZones();
 }
 function updateEditUI(){
   const editing=editingIndex!==null;
@@ -1783,24 +2128,104 @@ function buildRecord(){
     bills:readBills(), _v2:true, _v3:true, _v4:true
   };
 }
-$("saveBtn").addEventListener("click",async()=>{
-  if(!lastCalc){ msg("saveMsg","กรุณากด “คำนวณ” ก่อนบันทึก","var(--orange-dark)"); return; }
-  const rec=buildRecord();
-  // ออกรหัสย่อให้ลูกค้าทุกรายในใบรายการ — รายที่ไม่มีในไฟล์แปลงรหัสจะได้เลขรันถัดไป
-  await custEnsure();
-  custRegisterBills(rec.bills);
-  if(editingIndex!==null){ rec.id=RECORDS[editingIndex].id||genId(); rec.synced=false; RECORDS[editingIndex]=rec; }
-  else { rec.id=genId(); rec.synced=false; RECORDS.unshift(rec); }
-  saveRecords(); renderRecords(); resetDefaults();
-  // ส่งขึ้น Google Sheet (ถ้าเชื่อมต่อ)
-  if(getUrl()){
-    msg("saveMsg","บันทึกในเครื่องแล้ว · กำลังส่งขึ้น Google Sheet...","var(--ink-soft)");
-    try{ await pushRecords([rec]); rec.synced=true; saveRecords(); renderRecords();
-      msg("saveMsg","บันทึก + ขึ้น Google Sheet แล้ว ✓"); }
-    catch(e){ msg("saveMsg","บันทึกในเครื่องแล้ว แต่ขึ้น Sheet ไม่สำเร็จ: "+e.message+" (กด ‘ซิงก์’ ภายหลังได้)","var(--red)"); }
-  }else{
-    msg("saveMsg","บันทึกในเครื่องแล้ว ✓ (ยังไม่เชื่อม Google Sheet — ตั้งค่าที่หน้ารายการทั้งหมด)");
+// ---- อ่านเฉพาะช่องของฝ่ายที่กำหนด ออกมาเป็นออบเจ็กต์ย่อย ----
+function readRolePart(role){
+  if(role==="cs"){
+    return { date:getDateStr(), docNo:$("docNo").value.trim(), routeType:$("routeType").value,
+      branch:$("branch").value, docType:$("docType").value,
+      origin:org.value, dest:dst.value, dist:num("distance"),
+      serviceGroup:$("serviceGroup").value,
+      revenue:num("revenue"), bills:readBills() };
   }
+  if(role==="dispatch"){
+    const vi=parseInt(veh.value,10);
+    const emptyLeg=$("emptyLeg").checked;
+    return { plate:$("plate").value.trim(), fleetType:$("fleetType").value,
+      vehicle:(!isNaN(vi)&&RATES[vi])?RATES[vi][0]:"", releaseDate:getReleaseDateStr(),
+      capacity:num("capacity"), loadActual:emptyLeg?0:num("loadActual"), emptyLeg };
+  }
+  // account = ค่าใช้จ่ายทั้งหมด (ผลจาก doCalc)
+  return lastCalc?{...lastCalc}:{};
+}
+
+// ---- คำนวณตัวเลขสรุปใหม่จากข้อมูลรวมของทุกฝ่าย ----
+function recomputeTotals(rec){
+  const n=v=>(+v||0);
+  const fuelSum=n(rec.fuelCash)+n(rec.fuelDownBill)+n(rec.fuelFleet)+n(rec.fuelPickup)+
+                n(rec.fuelUpBill)+n(rec.fuelCallTruck)+(rec.fuelAutoOn?n(rec.fuelAuto):0);
+  const labor=n(rec.drv)+n(rec.spare)+n(rec.snd);
+  const fees=n(rec.feeTarp)+n(rec.feePolice)+n(rec.feeCont)+n(rec.feePort)+n(rec.feeDoc)+n(rec.feeToll);
+  const waste=n(rec.fuelDetour)+n(rec.fuelOffFleet)+n(rec.laborOff)+n(rec.fuelOff);
+  // ค่าซ่อมอิงประเภทรถ+ชนิดรถ (ของฝ่ายจัดรถ) × ระยะทาง (ของฝ่ายบริการลูกค้า)
+  const key=REPAIR_ALIAS[rec.vehicle]||rec.vehicle;
+  const fx=rec.fleetType?repairFixedFor(rec.fleetType,key):null;
+  const vr=repairVarFor(key);
+  rec.repFix=fx||0; rec.repVar=(vr||0)*n(rec.dist); rec.repTotal=rec.repFix+rec.repVar;
+  rec.repVeh=rec.vehicle||"";
+  rec.fuelSum=fuelSum; rec.labor=labor; rec.fees=fees; rec.waste=waste;
+  rec.normal=n(rec.gas)+fuelSum+labor+fees+rec.repTotal;
+  rec.sheetTotal=n(rec.gas)+fuelSum+labor+waste+fees;
+  rec.profit=n(rec.revenue)-rec.normal-waste;
+  return rec;
+}
+
+/**
+ * บันทึกส่วนของฝ่ายตัวเอง
+ * ★ กันข้อมูลฝ่ายอื่นหาย: โหลดใบล่าสุดจากชีตก่อนเสมอ แล้วค่อยรวมส่วนของเราทับลงไป
+ */
+$("saveBtn").addEventListener("click",async()=>{
+  if(!ROLE || !ROLES[ROLE]){ openRolePicker(); return; }
+  const part=readRolePart(ROLE);
+
+  if(ROLE==="cs" && !part.docNo){ msg("saveMsg","กรุณากรอก “เลขที่ใบรายการ” ก่อนบันทึก","var(--red)"); return; }
+  if(ROLE!=="cs" && !curDocNo){ msg("saveMsg","กรุณาเลือกใบรายการที่จะกรอกก่อน (กดจากหน้า “ใบที่ยังไม่ครบ”)","var(--red)"); return; }
+  if(ROLE==="account" && !lastCalc){ msg("saveMsg","กรุณากด “คำนวณ” ก่อนบันทึก","var(--orange-dark)"); return; }
+
+  const docNo=(ROLE==="cs")?part.docNo:curDocNo;
+  msg("saveMsg","กำลังโหลดใบล่าสุดจากชีตเพื่อรวมข้อมูล...","var(--ink-soft)");
+
+  let base=null;
+  if(getUrl()){
+    try{
+      const fresh=await loadTripsFromSheet();
+      base=fresh.find(r=>String(r.docNo)===String(docNo))||null;
+    }catch(e){
+      msg("saveMsg","โหลดใบจากชีตไม่สำเร็จ: "+e.message+" — ยังไม่บันทึก เพื่อกันข้อมูลฝ่ายอื่นหาย","var(--red)");
+      return;
+    }
+  }
+  if(!base) base=RECORDS.find(r=>String(r.docNo)===String(docNo))||null;
+
+  let rec = base ? {...base} : {_v2:true,_v3:true,_v4done:true,id:genId(),docNo};
+  Object.assign(rec,part);
+  if(!rec.id) rec.id=genId();
+  stampRole(rec,ROLE);
+  recomputeTotals(rec);
+  rec.synced=false;
+
+  // ออกรหัสย่อให้ลูกค้าทุกรายในใบรายการ — รายที่ไม่มีในไฟล์แปลงรหัสจะได้เลขรันถัดไป
+  if(ROLE==="cs"){ await custEnsure(); custRegisterBills(rec.bills); }
+
+  const i=RECORDS.findIndex(r=>String(r.docNo)===String(docNo));
+  if(i>=0) RECORDS[i]=rec; else RECORDS.unshift(rec);
+  saveRecords();
+
+  if(getUrl()){
+    try{
+      await pushRecords([rec]);
+      rec.synced=true; saveRecords();
+      const left=ROLE_ORDER.filter(k=>!roleDone(rec,k));
+      msg("saveMsg", left.length
+        ? `บันทึกส่วนของ${ROLES[ROLE].label}แล้ว ✓ · ยังรอ ${left.map(k=>ROLES[k].label).join(" และ ")}`
+        : "บันทึกครบทั้ง 3 ฝ่ายแล้ว ✓ ใบนี้เข้า “รายการทั้งหมด” เรียบร้อย");
+    }catch(e){
+      msg("saveMsg","บันทึกในเครื่องแล้ว แต่ขึ้นชีตไม่สำเร็จ: "+e.message,"var(--red)");
+    }
+  }else{
+    msg("saveMsg","บันทึกในเครื่องแล้ว ✓ (ยังไม่เชื่อม Google Sheet — ฝ่ายอื่นจะยังไม่เห็น)","var(--orange-dark)");
+  }
+  renderRecords(); renderDrafts(); renderProgress(rec);
+  curDocNo=docNo;
 });
 
 function loadRecordToForm(idx){
@@ -1826,8 +2251,12 @@ function loadRecordToForm(idx){
   $("emptyLeg").checked=!!r.emptyLeg; $("loadActual").disabled=!!r.emptyLeg; $("loadActual").value=r.loadActual||"";
   updateLoadNote();
   fillBills(r.bills);
+  setReleaseDate(r.releaseDate||"");
   editingIndex=idx;
+  curDocNo=String(r.docNo||"")||null;
   refreshRoute(); updateFuelNote(); updateRepNote(); doCalc(); updateEditUI();
+  renderProgress(r);
+  applyRoleZones();
   showView("form");
 }
 $("cancelEdit").addEventListener("click",resetDefaults);
@@ -1838,7 +2267,8 @@ function renderRecords(){
 
   // รวมข้อมูลใหม่ (แก้ไขได้) + ข้อมูลเก่าจากชีต (อ่านอย่างเดียว) แล้วเรียงตามวันที่ล่าสุดก่อน
   const list=[];
-  if(SRC_FILTER!=="old") RECORDS.forEach((r,i)=>list.push({r,i,old:false}));
+  // ★ แสดงเฉพาะใบที่กรอกครบทั้ง 3 ฝ่ายแล้ว — ใบร่างอยู่ที่หน้า "ใบที่ยังไม่ครบ"
+  if(SRC_FILTER!=="old") RECORDS.forEach((r,i)=>{ if(roleAllDone(r)) list.push({r,i,old:false}); });
   if(SRC_FILTER!=="new") OLD_RECORDS.forEach(r=>list.push({r,i:-1,old:true}));
   list.sort((a,b)=>(b.r.date||"").localeCompare(a.r.date||""));
 
@@ -2026,12 +2456,14 @@ function updateBillCustNotes(){
     note.innerHTML=cell("ผู้ส่ง",g("b-sender"))+cell("ผู้รับ",g("b-receiver"));
   });
 }
-$("addBill").addEventListener("click",()=>{ addBillRow(); updatePayStatusNote(); });
+$("addBill").addEventListener("click",()=>{ addBillRow(); updatePayStatusNote();
+  if(typeof applyRoleZones==="function") applyRoleZones(); });
 function fillBills(bills){
   billsWrap.innerHTML="";
   const list=(bills&&bills.length)?bills:[{}];
   list.forEach(b=>addBillRow(b));
   updatePayStatusNote(); updateBillCustNotes();
+  if(typeof applyRoleZones==="function") applyRoleZones();
 }
 function readBills(){
   const docNo=$("docNo").value.trim(), out=[];
@@ -3169,6 +3601,22 @@ renderPrices();
 renderRepair();
 resetDefaults();
 renderRecords();
+// ---- ระบบ 3 ฝ่าย: ถามหน้าที่ครั้งแรก แล้วจำไว้ในเครื่อง ----
+if(ROLE && ROLES[ROLE]){ renderRoleBar(); }
+else { openRolePicker(); }
+renderDrafts();
+// ดึงใบรายการใหม่จากชีต เพื่อให้เห็นใบที่ฝ่ายอื่นเปิดค้างไว้
+if(getUrl()){
+  loadTripsFromSheet()
+    .then(fresh=>{
+      fresh.forEach(f=>{
+        const i=RECORDS.findIndex(r=>String(r.docNo)===String(f.docNo));
+        if(i>=0) RECORDS[i]={...f,synced:true}; else RECORDS.push({...f,synced:true});
+      });
+      saveRecords(); renderRecords(); renderDrafts();
+    })
+    .catch(()=>{});
+}
 // ดึงข้อมูลเก่าจากชีตมาแสดงตั้งแต่เปิดหน้า (ถ้าเชื่อมต่อไว้แล้ว) — เงียบ ๆ ไม่รบกวนถ้าพลาด
 if(getUrl()){
   loadOldRecords()
