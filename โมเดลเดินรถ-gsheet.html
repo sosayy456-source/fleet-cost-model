@@ -317,7 +317,7 @@
   tr.userrow td:first-child::after{content:" •";color:var(--orange)}
   .del-x{color:var(--red);cursor:pointer;font-weight:700;padding:2px 6px;font-size:13px}
   .foot{margin-top:22px;color:var(--ink-faint);font-size:11.5px;line-height:1.7}
-  @media(max-width:680px){:root{--sidew:0px}.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;align-items:center}.brand{border:none;margin:0;padding:0 12px 0 4px}.nav{flex-direction:row;flex:1}.app{padding:18px 16px 50px}}
+  @media(max-width:680px){:root{--sidew:0px}.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;align-items:center}.brand{border:none;margin:0;padding:0 12px 0 4px}.nav{flex-direction:row;flex:1}.app{padding:18px 16px 50px}.rolebar{margin:0;padding:0 4px;border:none;display:flex;align-items:center;gap:10px}.rolebar .hint{display:none}.rolebar .sw{margin:0;width:auto;white-space:nowrap}}
 
   /* ================= ระบบ 3 ฝ่ายช่วยกันกรอก ================= */
   .zone-tag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;
@@ -327,12 +327,12 @@
   .card.card-hidden{display:none!important}
   [data-zone].zone-mine .zone-tag{background:var(--orange-soft);color:var(--orange-dark)}
 
-  .rolebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--navy);color:#fff;
-    border-radius:12px;padding:11px 16px;margin-bottom:16px}
-  .rolebar .who{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800}
-  .rolebar .hint{font-size:12px;color:#B9C3DA}
-  .rolebar .sw{margin-left:auto;font-family:inherit;font-size:12.5px;font-weight:700;color:#fff;
-    background:var(--orange);border:none;border-radius:8px;padding:8px 14px;cursor:pointer}
+  /* หน้าที่ปัจจุบัน — ปักไว้ล่างสุดของแถบเมนูซ้าย */
+  .rolebar{margin-top:auto;padding:14px 16px 2px;border-top:1px solid var(--navy-line)}
+  .rolebar .who{color:#fff;font-size:13.5px;font-weight:800;line-height:1.35}
+  .rolebar .hint{color:#9AA6C4;font-size:11.5px;line-height:1.45;margin-top:2px}
+  .rolebar .sw{margin-top:10px;width:100%;font-family:inherit;font-size:12.5px;font-weight:700;
+    color:#fff;background:var(--orange);border:none;border-radius:9px;padding:8px 12px;cursor:pointer}
   .rolebar .sw:hover{background:var(--orange-dark)}
 
   .prog{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
@@ -425,6 +425,13 @@
         ค้นหารหัสลูกค้า
       </button>
     </nav>
+
+    <!-- หน้าที่ปัจจุบัน + ปุ่มเปลี่ยน (มุมล่างซ้าย เห็นได้ทุกหน้า) -->
+    <div class="rolebar">
+      <div class="who" id="roleWho">—</div>
+      <div class="hint" id="roleHint"></div>
+      <button class="sw" id="btnSwitchRole" type="button">🔁 เปลี่ยนหน้าที่</button>
+    </div>
   </aside>
 
   <main class="app">
@@ -712,11 +719,6 @@
     <section class="view active" id="view-form">
       <div class="page-h"><h1>บันทึกข้อมูล</h1><p id="formSub">หน้านี้แสดงเฉพาะช่องที่ฝ่ายคุณกรอกได้ → บันทึก · ใบจะเข้า “รายการทั้งหมด” เมื่อครบทั้ง 3 ฝ่าย</p></div>
 
-      <div class="rolebar">
-        <span class="who" id="roleWho">—</span>
-        <span class="hint" id="roleHint"></span>
-        <button class="sw" id="btnSwitchRole" type="button">🔁 เปลี่ยนหน้าที่</button>
-      </div>
 
       <div class="draftbar" id="draftBar" style="display:none">
         <div class="dt" id="draftTitle"></div>
