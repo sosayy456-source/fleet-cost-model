@@ -183,11 +183,6 @@
   @media(max-width:820px){.bill-row{grid-template-columns:1fr 1fr;}}
   .bill-row input,.bill-row select{padding:9px 11px;font-size:13.5px}
   .bill-block{border:1px dashed var(--border-strong);border-radius:10px;padding:10px 10px 4px;margin-bottom:10px;background:#FAFBFC}
-  .bill-sp{display:grid;grid-template-columns:1fr 1fr 1.1fr .8fr;gap:8px;align-items:center;margin-bottom:8px}
-  @media(max-width:900px){.bill-sp{grid-template-columns:1fr 1fr}}
-  .bill-sp label{font-size:10.5px;color:var(--ink-faint);font-weight:600;margin:0 0 3px}
-  .bill-sp input,.bill-sp select{padding:7px 9px;font-size:12.5px}
-  .bill-sp .spf{display:flex;flex-direction:column}
   .bill-x{color:var(--red);cursor:pointer;font-weight:700;font-size:16px;padding:0 4px;text-align:center}
   .bill-x:hover{color:#B62E2E}
   .b-total-auto{background:#F4F5F7;color:var(--ink-soft);cursor:not-allowed}
@@ -340,6 +335,10 @@
   .pchip.done{background:var(--green-soft);color:var(--green)}
   .pchip.wait{background:#FCE9E9;color:var(--red)}
   .pchip.mine{outline:2px solid var(--orange);outline-offset:1px}
+  button.pchip{font-family:inherit;border:none;cursor:pointer}
+  button.pchip:hover{filter:brightness(.95)}
+  .pchip.editing{background:var(--orange);color:#fff}
+  .pchip .pen{font-size:10.5px;opacity:.75;font-weight:600}
 
   /* ===== หน้าเลือกหน้าที่ (ตามไฟล์ดีไซน์ Role Selection) ===== */
   .picker-ov{position:fixed;inset:0;z-index:200;overflow-y:auto;
@@ -1949,6 +1948,17 @@ const ROLE_ORDER=["cs","dispatch","account"];
 const isEntryRole=r=>ROLE_ORDER.includes(r);
 let ROLE=null;   // เปิดเว็บทุกครั้งต้องเลือกตำแหน่งใหม่เสมอ (ไม่จำไว้ในเครื่อง)
 
+// โซนของฝ่ายอื่นที่ "ฝ่ายบัญชี" ขอเปิดแก้ชั่วคราว (กดจากชิปสถานะด้านบนฟอร์ม)
+let EDIT_ZONES=new Set();
+const canEditOthers=()=>ROLE==="account"||ROLE==="admin";
+const zoneOpen=k=>ROLE==="admin"||EDIT_ZONES.has(k);
+function toggleZone(k){
+  if(!canEditOthers()||k===ROLE) return;
+  if(EDIT_ZONES.has(k)) EDIT_ZONES.delete(k); else EDIT_ZONES.add(k);
+  applyRoleZones();
+  const rec=RECORDS.find(r=>String(r.docNo)===String(curDocNo));
+  renderProgress(rec||null);
+}
 const roleDone=(r,k)=>!!(r&&r["_"+k+"Done"]);
 const roleAllDone=r=>ROLE_ORDER.every(k=>roleDone(r,k));
 function stampRole(rec,k){
@@ -1970,7 +1980,8 @@ function renumberSteps(){
 }
 function applyRoleZones(){
   document.querySelectorAll("[data-zone]").forEach(z=>{
-    const mine=(ROLE==="admin")||z.dataset.zone===ROLE;   // admin กรอกแทนได้ทุกฝ่าย
+    // admin กรอกแทนได้ทุกฝ่าย · ฝ่ายบัญชีเปิดแก้ของฝ่ายอื่นได้เป็นราย ๆ
+    const mine=(ROLE==="admin")||z.dataset.zone===ROLE||zoneOpen(z.dataset.zone);
     z.classList.toggle("zone-locked",!mine);
     z.classList.toggle("zone-mine",mine);
     z.querySelectorAll("input,select,button,textarea").forEach(el=>{
@@ -1985,12 +1996,13 @@ function applyRoleZones(){
     if(c.id==="sec-summary") return;             // การ์ดสรุป + ปุ่มบันทึก ต้องเห็นทุกฝ่าย
     const zones=[...c.querySelectorAll("[data-zone]")];
     if(!zones.length) return;                    // การ์ดที่ไม่เกี่ยวกับการแบ่งฝ่าย ปล่อยไว้
-    c.classList.toggle("card-hidden", ROLE!=="admin" && !zones.some(z=>z.dataset.zone===ROLE));
+    c.classList.toggle("card-hidden", ROLE!=="admin" &&
+      !zones.some(z=>z.dataset.zone===ROLE||zoneOpen(z.dataset.zone)));
   });
   renumberSteps();
-  const add=$("addBill"); if(add) add.disabled=!(ROLE==="cs"||ROLE==="admin");
+  const add=$("addBill"); if(add) add.disabled=!(ROLE==="cs"||ROLE==="admin"||zoneOpen("cs"));
   // ช่อง "น้ำหนักบรรทุกจริง" ปิดเองเมื่อเป็นเที่ยวเปล่า
-  const el=$("loadActual"); if(el && (ROLE==="dispatch"||ROLE==="admin")) el.disabled=$("emptyLeg").checked;
+  const el=$("loadActual"); if(el && (ROLE==="dispatch"||ROLE==="admin"||zoneOpen("dispatch"))) el.disabled=$("emptyLeg").checked;
   applyRoleViews();
 }
 // ---- แสดงเฉพาะแท็บที่หน้าที่นี้เข้าได้ ----
@@ -2006,6 +2018,7 @@ function applyRoleViews(){
   if(!allow.includes(curName)) showView(allow[0]);
 }
 function renderRoleBar(){
+  EDIT_ZONES.clear();
   const r=ROLES[ROLE];
   $("roleWho").innerHTML=`${r.ic} ${esc(r.en||r.label)}`;
   $("roleHint").textContent="กรอกได้เฉพาะ: "+r.desc;
@@ -2073,13 +2086,22 @@ function renderProgress(rec){
   $("progBar").innerHTML=`<span class="pchip done" style="background:var(--blue-soft);color:var(--blue)">📄 ใบ ${esc(rec.docNo||"–")}</span>`+
     (ctx?`<span class="pchip" style="background:#F1F2F4;color:var(--ink-soft)">${esc(ctx)}</span>`:"")+
     ROLE_ORDER.map(k=>{
-      const done=roleDone(rec,k), mine=k===ROLE;
-      return `<span class="pchip ${done?"done":"wait"} ${mine?"mine":""}">${ROLES[k].ic} ${esc(ROLES[k].label)} ${done?"✓ กรอกแล้ว":"— ยังไม่กรอก"}</span>`;
+      const done=roleDone(rec,k), mine=k===ROLE, editing=EDIT_ZONES.has(k);
+      const txt=`${ROLES[k].ic} ${esc(ROLES[k].label)} ${done?"✓ กรอกแล้ว":"— ยังไม่กรอก"}`;
+      // ฝ่ายบัญชีกดชิปของฝ่ายอื่น เพื่อเปิด/ปิดการแก้ไขส่วนนั้น
+      if(canEditOthers() && !mine && ROLE!=="admin")
+        return `<button type="button" class="pchip ${editing?"editing":(done?"done":"wait")}" data-zonetoggle="${k}">`+
+               `${txt} <span class="pen">${editing?"✕ ปิดการแก้ไข":"✎ แก้ไข"}</span></button>`;
+      return `<span class="pchip ${done?"done":"wait"} ${mine?"mine":""}">${txt}</span>`;
     }).join("");
+  $("progBar").querySelectorAll("[data-zonetoggle]").forEach(b=>{
+    b.onclick=()=>toggleZone(b.dataset.zonetoggle);
+  });
 }
 
 // ---- เปิดใบมากรอกส่วนของฝ่ายตัวเอง ----
 function openDoc(docNo){
+  EDIT_ZONES.clear();   // เปิดใบใหม่ = เริ่มจากดูอย่างเดียวเสมอ
   const rec=RECORDS.find(r=>String(r.docNo)===String(docNo));
   if(!rec){ msg("saveMsg","ไม่พบใบรายการ "+docNo+" — ลองกด “โหลดใบจากชีต”","var(--red)"); return; }
   curDocNo=String(docNo);
@@ -2313,7 +2335,9 @@ function recomputeTotals(rec){
  */
 $("saveBtn").addEventListener("click",async()=>{
   if(!ROLE || !ROLES[ROLE]){ openRolePicker(); return; }
-  const part=readRolePart(ROLE);
+  let part=readRolePart(ROLE);
+  // ฝ่ายบัญชีที่เปิดแก้ของฝ่ายอื่นไว้ → ส่งส่วนนั้นไปด้วย
+  EDIT_ZONES.forEach(k=>{ part={...part,...readRolePart(k)}; });
 
   const opensDoc=(ROLE==="cs"||ROLE==="admin");    // ผู้ที่เปิดใบใหม่เองได้
   if(opensDoc && !part.docNo){ msg("saveMsg","กรุณากรอก “เลขที่ใบรายการ” ก่อนบันทึก","var(--red)"); return; }
@@ -2345,7 +2369,7 @@ $("saveBtn").addEventListener("click",async()=>{
   rec.synced=false;
 
   // ออกรหัสย่อให้ลูกค้าทุกรายในใบรายการ — รายที่ไม่มีในไฟล์แปลงรหัสจะได้เลขรันถัดไป
-  if(ROLE==="cs"||ROLE==="admin"){ await custEnsure(); custRegisterBills(rec.bills); }
+  if(ROLE==="cs"||ROLE==="admin"||EDIT_ZONES.has("cs")){ await custEnsure(); custRegisterBills(rec.bills); }
 
   const i=RECORDS.findIndex(r=>String(r.docNo)===String(docNo));
   if(i>=0) RECORDS[i]=rec; else RECORDS.unshift(rec);
@@ -2521,14 +2545,6 @@ function addBillRow(b){
     `<select class="b-basis">${PRICE_BASIS.map(t=>`<option>${t}</option>`).join("")}</select>`+
     `<input class="b-total b-total-auto" type="number" placeholder="อัตโนมัติ" readonly tabindex="-1">`+
     `<span class="bill-x" title="ลบลูกหนี้รายนี้">✕</span>`;
-  // ---- Service Performance ต่อบิล (ใช้คำนวณ On-time delivery % / Damage rate %) ----
-  const sp=document.createElement("div");
-  sp.className="bill-sp";
-  sp.innerHTML=
-    `<div class="spf"><label>กำหนดส่ง</label><input class="b-planned" type="date"></div>`+
-    `<div class="spf"><label>เวลาส่งจริง</label><input class="b-actual" type="date"></div>`+
-    `<div class="spf"><label>สถานะสินค้า</label><select class="b-damage"><option value="ปกติ">ปกติ (ไม่เสียหาย)</option><option value="เสียหายบางส่วน">เสียหายบางส่วน</option><option value="เสียหายทั้งหมด">เสียหายทั้งหมด</option></select></div>`+
-    `<div class="spf"><label>จำนวนชิ้นเสียหาย</label><input class="b-damageQty" type="number" min="0" placeholder="0"></div>`;
   // ปลายทางขึ้นกับต้นทางที่เลือก — ใช้ตารางเส้นทางชุดเดียวกับส่วนที่ 1
   const oSel=row.querySelector(".b-origin"), dSel=row.querySelector(".b-dest");
   function fillBillDests(keep){
@@ -2559,11 +2575,10 @@ function addBillRow(b){
   // ใบเก่าที่เคยกรอกราคารวมเองไว้ (ยังไม่มีราคาต่อหน่วย) — คงยอดเดิมไว้ ไม่ให้หายไป
   if(b.unitPrice==null && b.total) row.querySelector(".b-total").value=b.total;
   else recalcTotal();
-  sp.querySelector(".b-planned").value=b.plannedDate||"";
-  sp.querySelector(".b-actual").value=b.actualDate||"";
-  sp.querySelector(".b-damage").value=b.damageStatus||"ปกติ";
-  sp.querySelector(".b-damageQty").value=(b.damageQty??"")===0?"":(b.damageQty??"");
   row._paid=!!b.paid; row._payDate=b.payDate||null;
+  // Service Performance ไม่มีช่องกรอกแล้ว — พกค่าเดิมของใบไว้กับแถว เพื่อเขียนกลับตอนบันทึก
+  row._sp={ plannedDate:b.plannedDate||"", actualDate:b.actualDate||"",
+            damageStatus:b.damageStatus||"", damageQty:+b.damageQty||0 };
   row.querySelector(".bill-x").onclick=()=>{
     block.remove();
     if(!billsWrap.children.length) addBillRow();
@@ -2581,7 +2596,7 @@ function addBillRow(b){
     el.addEventListener("input",updateBillCustNotes);
     el.addEventListener("change",updateBillCustNotes);
   });
-  block.appendChild(row); block.appendChild(cnote); block.appendChild(sp);
+  block.appendChild(row); block.appendChild(cnote);
   billsWrap.appendChild(block);
   updateBillCustNotes();
   return block;
@@ -2634,15 +2649,17 @@ function readBills(){
     const unitPrice=parseFloat(v("b-unit"))||0;
     const priceBasis=v("b-basis")||PRICE_BASIS[0];
     const total=parseFloat(v("b-total"))||0;      // มาจากช่องอัตโนมัติ (หรือยอดเดิมของใบเก่า)
-    const plannedDate=v("b-planned")||"", actualDate=v("b-actual")||"";
-    const damageStatus=v("b-damage")||"ปกติ", damageQty=parseFloat(v("b-damageQty"))||0;
+    // ช่อง Service Performance ถูกเอาออกจากฟอร์มแล้ว — คงค่าเดิมของใบเก่าไว้ ไม่ให้หาย
+    const sp0=(row&&row._sp)||{};
+    const plannedDate=sp0.plannedDate||"", actualDate=sp0.actualDate||"";
+    const damageStatus=sp0.damageStatus||"", damageQty=+sp0.damageQty||0;
     if(!(no||sender||receiver||qty||unitPrice||total||payType||goodsType||bOrigin||bDest)) return;
     out.push({ no:no||docNo, goodsType, sender, receiver, origin:bOrigin, dest:bDest,
       qty, unitPrice, priceBasis, total, payType, paid:!!(row&&row._paid), payDate:(row&&row._payDate)||null,
       plannedDate, actualDate, damageStatus, damageQty });
   });
   if(!out.length && docNo) out.push({no:docNo,goodsType:"",sender:"",receiver:"",origin:"",dest:"",qty:0,unitPrice:0,priceBasis:PRICE_BASIS[0],total:0,payType:"",paid:false,payDate:null,
-    plannedDate:"",actualDate:"",damageStatus:"ปกติ",damageQty:0});
+    plannedDate:"",actualDate:"",damageStatus:"",damageQty:0});
   return out;
 }
 function updatePayStatusNote(){
