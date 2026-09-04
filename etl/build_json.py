@@ -107,6 +107,17 @@ def build(dataset: str, out_dir: str | None = None) -> int:
     pareto = kpi.pareto_analysis(customer)
     dq = kpi.data_quality_report(df)
 
+    # ── เส้นทางรายเดือน ── กุญแจสำหรับ join รายได้เข้ากับต้นทุนฝั่งโมเดลเดินรถ
+    # ตรวจแล้วว่า "ต้นทาง → ปลายทาง" ตรงกับตารางระยะทางฝั่งต้นทุน 20/20 เส้นทางแรก
+    # ส่วน "สายกระจาย" ตรงแค่ 0.8% เพราะเป็นสายส่งย่อยในเมือง คนละระดับกับเส้นทางวิ่งไกล
+    route_month = (
+        df.groupby(["route", "month"], dropna=False, observed=True)
+        .agg(revenue=("ราคารวม", "sum"), bills=("เลขที่บิล", "nunique"),
+             lines=("เลขที่บิล", "count"))
+        .reset_index()
+        .sort_values("revenue", ascending=False)
+    ) if "route" in df.columns else None
+
     # ---- cube สำหรับกรองในเบราว์เซอร์ ----
     cube = build_cube(df)
     stats = cube_stats(df, cube)
@@ -158,6 +169,10 @@ def build(dataset: str, out_dir: str | None = None) -> int:
     total += write_json(out_dir, "pareto.json", pareto)
     total += write_json(out_dir, "insights.json", all_insights)
     total += write_json(out_dir, "cube.json", cube)
+    if route_month is not None:
+        log.info("เส้นทางรายเดือน: %s แถว (%s เส้นทาง)",
+                 f"{len(route_month):,}", f"{route_month['route'].nunique():,}")
+        total += write_json(out_dir, "route_month.json", route_month)
     total += write_json(out_dir, "dimensions.json", dimension_values(cube))
     total += write_json(out_dir, "dq.json", {
         **dq,

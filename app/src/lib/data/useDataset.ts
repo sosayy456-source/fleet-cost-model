@@ -40,6 +40,11 @@ export interface CubeRow {
 
 export interface Insight { level: string; text: string }
 
+/** รายได้รายเส้นทางรายเดือน — ใช้ join กับต้นทุนฝั่งโมเดลเดินรถ */
+export interface RouteMonthRow {
+  route: string; month: string; revenue: number; bills: number; lines: number;
+}
+
 export interface Dataset {
   manifest: Manifest;
   overview: Overview;
@@ -56,6 +61,7 @@ export interface Dataset {
   insights: Record<string, Insight[]>;
   cube: CubeRow[];
   dimensions: Record<string, string[]>;
+  route_month: RouteMonthRow[];
 }
 
 const FILES: Record<keyof Dataset, string> = {
@@ -63,7 +69,7 @@ const FILES: Record<keyof Dataset, string> = {
   payment: "payment.json", product: "product.json", pricing: "pricing.json",
   routes: "routes.json", distline: "distline.json", billStatus: "bill_status.json",
   dow: "dow.json", pareto: "pareto.json", dq: "dq.json", insights: "insights.json",
-  cube: "cube.json", dimensions: "dimensions.json",
+  cube: "cube.json", dimensions: "dimensions.json", route_month: "route_month.json",
 };
 
 let cache: Promise<Dataset> | null = null;

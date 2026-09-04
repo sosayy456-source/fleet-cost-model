@@ -15,6 +15,7 @@ import CustCode from "./features/custcode/CustCode";
 // คนที่เข้ามาแค่กรอกข้อมูลจะได้ไม่ต้องโหลดตาม
 const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
 const RevenueDash = lazy(() => import("./features/dash-revenue/RevenueDash"));
+const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
 import { ROLES, ROLE_ORDER } from "./lib/record/roles";
 import { migrateFromLocalStorage } from "./lib/store/records";
 import { useRecords } from "./lib/store/useRecords";
@@ -30,6 +31,7 @@ const PAGES = [
   { id: "debtors", label: "ลูกหนี้" },
   { id: "dash-fleet", label: "แดชบอร์ดต้นทุน" },
   { id: "dash-revenue", label: "แดชบอร์ดรายได้" },
+  { id: "route-profit", label: "กำไรรายเส้นทาง" },
   { id: "custcode", label: "รหัสลูกค้า" },
 ] as const;
 
@@ -130,6 +132,7 @@ export default function App() {
       <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
         {page === "dash-fleet" && <FleetDash state={state} />}
         {page === "dash-revenue" && <RevenueDash />}
+        {page === "route-profit" && <RouteProfit state={state} />}
       </Suspense>
       {page === "custcode" && <CustCode />}
     </div>
