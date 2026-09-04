@@ -19,9 +19,15 @@ export interface CostBreakdown {
   total: number;
 }
 
-export type CostSource = Record<string, unknown>;
+/**
+ * รับได้ทั้ง TripRecord และแถวดิบจากชีตเก่า
+ * ใช้ object แทน Record<string, unknown> เพราะ interface ใน TS ไม่มี index signature
+ * จึงไม่เข้ากับ Record โดยตรง
+ */
+export type CostSource = object;
 
-export function recCost(r: CostSource): CostBreakdown {
+export function recCost(rec: CostSource): CostBreakdown {
+  const r = rec as Record<string, unknown>;
   const fuel = n(r.gas) + n(r.fuelSum);
   const driver = n(r.drv) + n(r.spare) + n(r.snd);
   const repair = r.repTotal != null ? n(r.repTotal) : n(r.repFix) + n(r.repVar);
@@ -37,12 +43,13 @@ export function recCost(r: CostSource): CostBreakdown {
 export const CLEARED_GOODS = "บิลเคลียร์";
 
 /** ยอดตัดหนี้สูญของใบ — แดชบอร์ดหักออกจากกำไรเป็นค่าใช้จ่ายบริหาร */
-export function adminWriteOff(r: CostSource): number {
+export function adminWriteOff(rec: CostSource): number {
+  const r = rec as Record<string, unknown>;
   const bills = Array.isArray(r.bills) ? (r.bills as Record<string, unknown>[]) : [];
   return bills
     .filter((b) => b.goodsType === CLEARED_GOODS)
     .reduce((s, b) => s + n(b.total), 0);
 }
 
-export const recProfit = (r: CostSource): number =>
-  n(r.revenue) - recCost(r).total - adminWriteOff(r);
+export const recProfit = (rec: CostSource): number =>
+  n((rec as Record<string, unknown>).revenue) - recCost(rec).total - adminWriteOff(rec);

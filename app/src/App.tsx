@@ -4,13 +4,17 @@
  * ใช้ hash routing (#/records) แทน history API เพราะ GitHub Pages เป็น static host
  * ถ้าใช้ path จริงแล้วผู้ใช้กด refresh หน้ากลางทาง เซิร์ฟเวอร์จะหา path นั้นไม่เจอ → 404
  */
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import EntryForm from "./features/entry/EntryForm";
 import SheetSettings from "./features/settings/SheetSettings";
 import RecordsList from "./features/records/RecordsList";
 import Drafts from "./features/drafts/Drafts";
 import Debtors from "./features/debtors/Debtors";
 import CustCode from "./features/custcode/CustCode";
+// แดชบอร์ดลากไลบรารีกราฟมาด้วยราว 400 KB แยกเป็นก้อนต่างหาก
+// คนที่เข้ามาแค่กรอกข้อมูลจะได้ไม่ต้องโหลดตาม
+const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
+const RevenueDash = lazy(() => import("./features/dash-revenue/RevenueDash"));
 import { ROLES, ROLE_ORDER } from "./lib/record/roles";
 import { migrateFromLocalStorage } from "./lib/store/records";
 import { useRecords } from "./lib/store/useRecords";
@@ -24,6 +28,8 @@ const PAGES = [
   { id: "drafts", label: "ใบที่ยังไม่ครบ" },
   { id: "records", label: "รายการทั้งหมด" },
   { id: "debtors", label: "ลูกหนี้" },
+  { id: "dash-fleet", label: "แดชบอร์ดต้นทุน" },
+  { id: "dash-revenue", label: "แดชบอร์ดรายได้" },
   { id: "custcode", label: "รหัสลูกค้า" },
 ] as const;
 
@@ -121,6 +127,10 @@ export default function App() {
       {page === "drafts" && <Drafts state={state} />}
       {page === "records" && <RecordsList state={state} />}
       {page === "debtors" && <Debtors state={state} />}
+      <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
+        {page === "dash-fleet" && <FleetDash state={state} />}
+        {page === "dash-revenue" && <RevenueDash />}
+      </Suspense>
       {page === "custcode" && <CustCode />}
     </div>
   );

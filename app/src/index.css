@@ -154,3 +154,18 @@ code {
   background: color-mix(in srgb, var(--amber) 20%, transparent);
   border-color: var(--amber); color: var(--amber);
 }
+
+/* ---------- การ์ดข้อสังเกต ---------- */
+.insight {
+  display: flex; gap: 8px; align-items: baseline;
+  border-left: 3px solid var(--line);
+  background: var(--bg);
+  padding: 9px 12px; border-radius: 0 7px 7px 0;
+  margin-bottom: 8px; font-size: 13.5px; line-height: 1.55;
+}
+.insight-icon { font-weight: 800; flex: none; }
+/* ป้ายกำกับระดับ — สถานะต้องไม่สื่อความหมายด้วยสีอย่างเดียว */
+.sr-label { flex: none; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.insight b { font-weight: 700; }
+
+.recharts-surface { overflow: visible; }
