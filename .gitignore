@@ -2,3 +2,9 @@ _*.html
 *.tmp
 .DS_Store
 Thumbs.db
+
+# ไฟล์ข้อมูล ไม่เอาขึ้น repo (repo เป็น public)
+# แปลงรหัสลูกหนี้รวม.xlsx = ตารางแมป CUS -> SHA-256 ครบทุกแถว
+*.xlsx
+*.xls
+*.csv
