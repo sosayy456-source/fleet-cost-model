@@ -72,3 +72,47 @@ th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--lin
 th { color: var(--ink-faint); font-weight: 600; }
 td.n { text-align: right; font-variant-numeric: tabular-nums; }
 .muted { color: var(--ink-faint); }
+
+/* ---------- ฟอร์ม ---------- */
+h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; }
+h3 { font-weight: 600; }
+
+fieldset { border: 1px solid var(--line); }
+fieldset:disabled { opacity: 0.55; }
+
+/* โซนของฝ่ายที่กำลังกรอกอยู่ ทำให้เห็นชัดว่าแก้ได้ตรงไหน */
+.zone-mine { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber) inset; }
+
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field-label { font-size: 12px; color: var(--ink-faint); }
+
+input, select, button {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--ink);
+}
+input:focus, select:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
+input[type="checkbox"] { width: auto; padding: 0; }
+
+button { background: var(--card); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--amber); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.link {
+  border: none; background: none; padding: 0;
+  color: var(--blue); text-decoration: underline; cursor: pointer;
+}
+
+.chip {
+  font-size: 12px; font-weight: 600;
+  padding: 4px 11px; border-radius: 20px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--ink-faint);
+}
+.chip-done { background: color-mix(in srgb, var(--green) 15%, transparent);
+             border-color: var(--green); color: var(--green); }
+
+summary::-webkit-details-marker { color: var(--ink-faint); }
