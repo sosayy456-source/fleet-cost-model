@@ -1,0 +1,63 @@
+# Deploy หน้าเว็บขึ้น GitHub Pages
+#
+# ★ บังคับ VITE_DATASET=sample เสมอ — Pages เป็นเว็บสาธารณะ ข้อมูลจริงขึ้นไม่ได้
+#   (ข้อมูลจริงอยู่ใน app/public/data/real/ ซึ่ง .gitignore กันไว้ ไม่มีทางมาถึงที่นี่)
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: ["โมเดล-Anda"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - run: npm ci
+
+      - name: ตรวจว่าไม่มีข้อมูลจริงหลุดเข้ามาใน build
+        run: |
+          if [ -d public/data/real ] && [ -n "$(ls -A public/data/real 2>/dev/null)" ]; then
+            echo "::error::พบไฟล์ใน public/data/real/ — ข้อมูลจริงต้องไม่อยู่ใน repo"
+            exit 1
+          fi
+
+      - run: npm test
+
+      - run: npm run build
+        env:
+          VITE_DATASET: sample
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

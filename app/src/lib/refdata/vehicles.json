@@ -1,0 +1,74 @@
+[
+  {
+    "name": "รถเทรเลอร์",
+    "litrePerKm": 0.34602,
+    "capacityKg": 25000,
+    "repairKey": "รถเทรเล่อร์ (แม่)"
+  },
+  {
+    "name": "รถ 10 ล้อตู้เย็น",
+    "litrePerKm": 0.27027,
+    "capacityKg": 12000,
+    "repairKey": "รถ 10 ล้อตู้เย็น"
+  },
+  {
+    "name": "รถ 12 ล้อตู้เย็น",
+    "litrePerKm": 0.27027,
+    "capacityKg": 15000,
+    "repairKey": "รถ 12 ล้อตู้เย็น"
+  },
+  {
+    "name": "รถ 10 ล้อตู้แห้ง",
+    "litrePerKm": 0.25,
+    "capacityKg": 12000,
+    "repairKey": "รถ 10 ล้อตู้แห้ง"
+  },
+  {
+    "name": "รถ 10 ล้อสั้น",
+    "litrePerKm": 0.25,
+    "capacityKg": 9000,
+    "repairKey": "รถ 10 ล้อสั้น"
+  },
+  {
+    "name": "รถ 10 ล้อยาว",
+    "litrePerKm": 0.25,
+    "capacityKg": 12000,
+    "repairKey": "รถ 10 ล้อช่วงยาว"
+  },
+  {
+    "name": "รถ 12 ล้อตู้แห้ง",
+    "litrePerKm": 0.25,
+    "capacityKg": 15000,
+    "repairKey": "รถ 12 ล้อตู้แห้ง"
+  },
+  {
+    "name": "รถ 12 ล้อคอก",
+    "litrePerKm": 0.25,
+    "capacityKg": 15000,
+    "repairKey": "รถ 12 ล้อคอก"
+  },
+  {
+    "name": "รถ 6 ล้อใหญ่",
+    "litrePerKm": 0.17986,
+    "capacityKg": 6000,
+    "repairKey": "รถ 6 ล้อใหญ่"
+  },
+  {
+    "name": "รถ 6 ล้อตู้เย็น",
+    "litrePerKm": 0.17986,
+    "capacityKg": 5000,
+    "repairKey": "รถ 6 ล้อตู้เย็น"
+  },
+  {
+    "name": "รถ 6 ล้อกลาง",
+    "litrePerKm": 0.16474,
+    "capacityKg": 4000,
+    "repairKey": "รถ 6 ล้อกลาง"
+  },
+  {
+    "name": "รถ 6 ล้อเล็ก",
+    "litrePerKm": 0.13793,
+    "capacityKg": 3000,
+    "repairKey": "รถ 6 ล้อเล็ก"
+  }
+]

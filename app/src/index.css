@@ -1,0 +1,74 @@
+/* โทนสีเดียวกับของเดิม (v5 + .streamlit/config.toml) เพื่อให้หน้าตาต่อเนื่องกัน */
+:root {
+  --amber: #e8a93c;
+  --blue: #5a8fbe;
+  --red: #c1483f;
+  --green: #6fa98a;
+
+  --bg: #f7f6f3;
+  --card: #ffffff;
+  --line: #e4e1db;
+  --ink: #23201c;
+  --ink-soft: #5c564e;
+  --ink-faint: #918a80;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1815;
+    --card: #232019;
+    --line: #3a352d;
+    --ink: #f0ece5;
+    --ink-soft: #b8b1a6;
+    --ink-faint: #8a8378;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Noto Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 64px; }
+
+h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 4px; }
+.sub { color: var(--ink-soft); margin: 0 0 28px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+
+.stat .label { color: var(--ink-faint); font-size: 0.8rem; }
+.stat .value { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.banner {
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--red) 40%, transparent);
+  color: var(--red);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+th { color: var(--ink-faint); font-weight: 600; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-faint); }

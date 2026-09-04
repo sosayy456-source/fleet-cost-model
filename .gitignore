@@ -39,3 +39,17 @@ skills-lock.json
 
 # ── build / dependency ─────────────────────────────────
 node_modules/
+
+# ── React app ──────────────────────────────────────────
+app/node_modules/
+app/dist/
+# ข้อมูลจริงที่ ETL สร้าง ห้ามขึ้น repo (GitHub Pages เป็นเว็บสาธารณะ)
+app/public/data/real/
+
+# ── ETL ────────────────────────────────────────────────
+etl/data/
+etl/.venv/
+etl/**/__pycache__/
+# ไฟล์ตัวอย่างที่ anonymize แล้ว commit ได้ (ยกเว้นจากกฎ *.xlsx ด้านบน)
+!etl/sample_data/
+!etl/sample_data/*.xlsx
