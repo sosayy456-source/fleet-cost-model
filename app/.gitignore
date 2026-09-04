@@ -25,3 +25,7 @@ dist-ssr
 
 # TypeScript build mode
 *.tsbuildinfo
+
+# ตารางรหัสลูกค้า 3.3 MB สร้างจาก v5.html ด้วย tools/extract-custmap.mjs
+# ไม่ commit เพราะเป็นข้อมูลที่มาจากลูกค้าจริง (แม้จะ hash แล้ว)
+public/custmap.bin

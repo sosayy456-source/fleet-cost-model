@@ -1,48 +1,114 @@
 /**
- * โครงแอป — Phase 4
- * ตอนนี้มีหน้ากรอกข้อมูลที่ต่อ Google Sheet ได้จริงแล้ว
- * หน้ารายการ/ลูกหนี้/แดชบอร์ด จะตามมาใน Phase 5-7
+ * โครงแอปและเมนู
+ *
+ * ใช้ hash routing (#/records) แทน history API เพราะ GitHub Pages เป็น static host
+ * ถ้าใช้ path จริงแล้วผู้ใช้กด refresh หน้ากลางทาง เซิร์ฟเวอร์จะหา path นั้นไม่เจอ → 404
  */
 import { useEffect, useState } from "react";
 import EntryForm from "./features/entry/EntryForm";
 import SheetSettings from "./features/settings/SheetSettings";
+import RecordsList from "./features/records/RecordsList";
+import Drafts from "./features/drafts/Drafts";
+import Debtors from "./features/debtors/Debtors";
+import CustCode from "./features/custcode/CustCode";
 import { ROLES, ROLE_ORDER } from "./lib/record/roles";
 import { migrateFromLocalStorage } from "./lib/store/records";
+import { useRecords } from "./lib/store/useRecords";
 import { DATASET, IS_SAMPLE } from "./lib/dataset";
 import type { RoleKey } from "./types/record";
 
 const LS_ROLE = "modelRole";
 
+const PAGES = [
+  { id: "entry", label: "กรอกข้อมูล" },
+  { id: "drafts", label: "ใบที่ยังไม่ครบ" },
+  { id: "records", label: "รายการทั้งหมด" },
+  { id: "debtors", label: "ลูกหนี้" },
+  { id: "custcode", label: "รหัสลูกค้า" },
+] as const;
+
+type PageId = (typeof PAGES)[number]["id"];
+
+function useHashPage(): [PageId, (p: PageId) => void] {
+  const read = (): PageId => {
+    const h = location.hash.replace(/^#\/?/, "");
+    return (PAGES.some((p) => p.id === h) ? h : "entry") as PageId;
+  };
+  const [page, setPage] = useState<PageId>(read);
+  useEffect(() => {
+    const on = () => setPage(read());
+    addEventListener("hashchange", on);
+    return () => removeEventListener("hashchange", on);
+  }, []);
+  return [page, (p) => { location.hash = `#/${p}`; setPage(p); }];
+}
+
 export default function App() {
   const [role, setRole] = useState<RoleKey | null>(
     () => (localStorage.getItem(LS_ROLE) as RoleKey | null) ?? null,
   );
+  const [page, goto] = useHashPage();
   const [migrated, setMigrated] = useState<number | null>(null);
+  const state = useRecords();
 
   useEffect(() => {
-    // ย้ายใบที่เคยกรอกไว้ใน v5 เข้า IndexedDB ครั้งเดียว
     migrateFromLocalStorage()
       .then((r) => { if (!r.alreadyDone && r.migrated) setMigrated(r.migrated); })
-      .catch(() => { /* เปิดใน private mode อาจใช้ IndexedDB ไม่ได้ ไม่ถือว่าพัง */ });
+      .catch(() => { /* private mode อาจใช้ IndexedDB ไม่ได้ ไม่ถือว่าพัง */ });
   }, []);
 
   const pick = (k: RoleKey) => { localStorage.setItem(LS_ROLE, k); setRole(k); };
 
+  if (!role) {
+    return (
+      <div className="wrap">
+        {IS_SAMPLE && <div className="banner">ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท (dataset: {DATASET})</div>}
+        <h1>โมเดลต้นทุนการเดินรถ</h1>
+        <p className="sub">เลือกฝ่ายของคุณก่อนเริ่มใช้งาน</p>
+        <div className="card">
+          <h2>คุณอยู่ฝ่ายไหน</h2>
+          <p className="muted" style={{ marginTop: 0 }}>
+            แต่ละฝ่ายกรอกเฉพาะส่วนของตัวเอง ใบจะสมบูรณ์เมื่อครบทั้ง 3 ฝ่าย เปลี่ยนทีหลังได้ตลอด
+          </p>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {ROLE_ORDER.map((k) => (
+              <button key={k} type="button" onClick={() => pick(k)} style={{ textAlign: "left" }}>
+                <b>{ROLES[k].icon} {ROLES[k].label}</b><br />
+                <span className="muted" style={{ fontSize: 12 }}>{ROLES[k].desc}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="wrap">
-      {IS_SAMPLE && (
-        <div className="banner">
-          ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท (dataset: {DATASET})
-        </div>
-      )}
+      {IS_SAMPLE && <div className="banner">ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท (dataset: {DATASET})</div>}
 
       <h1>โมเดลต้นทุนการเดินรถ</h1>
       <p className="sub">
-        {role
-          ? <>กำลังกรอกในฐานะ <b>{ROLES[role].icon} {ROLES[role].label}</b> · {ROLES[role].desc}{" "}
-              <button type="button" className="link" onClick={() => setRole(null)}>เปลี่ยนฝ่าย</button></>
-          : "เลือกฝ่ายของคุณก่อนเริ่มกรอก"}
+        กำลังใช้งานในฐานะ <b>{ROLES[role].icon} {ROLES[role].label}</b>{" "}
+        <button type="button" className="link" onClick={() => setRole(null)}>เปลี่ยนฝ่าย</button>
       </p>
+
+      <nav className="nav">
+        {PAGES.map((p) => (
+          <button
+            key={p.id} type="button"
+            className={"nav-item" + (page === p.id ? " nav-active" : "")}
+            onClick={() => goto(p.id)}
+          >
+            {p.label}
+            {p.id === "drafts" && state.records.filter((r) => !r._csDone || !r._dispatchDone || !r._accountDone).length > 0 && (
+              <span className="nav-badge">
+                {state.records.filter((r) => !r._csDone || !r._dispatchDone || !r._accountDone).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
 
       {migrated != null && (
         <div className="card" style={{ borderColor: "var(--green)" }}>
@@ -51,29 +117,11 @@ export default function App() {
         </div>
       )}
 
-      {!role ? (
-        <div className="card">
-          <h2>คุณอยู่ฝ่ายไหน</h2>
-          <p className="muted" style={{ marginTop: 0 }}>
-            แต่ละฝ่ายกรอกเฉพาะส่วนของตัวเอง ใบจะสมบูรณ์เมื่อครบทั้ง 3 ฝ่าย
-            เปลี่ยนทีหลังได้ตลอด
-          </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {ROLE_ORDER.map((k) => (
-              <button key={k} type="button" onClick={() => pick(k)} style={{ textAlign: "left" }}>
-                <b>{ROLES[k].icon} {ROLES[k].label}</b>
-                <br />
-                <span className="muted" style={{ fontSize: 12 }}>{ROLES[k].desc}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <>
-          <SheetSettings />
-          <EntryForm role={role} />
-        </>
-      )}
+      {page === "entry" && <><SheetSettings /><EntryForm role={role} /></>}
+      {page === "drafts" && <Drafts state={state} />}
+      {page === "records" && <RecordsList state={state} />}
+      {page === "debtors" && <Debtors state={state} />}
+      {page === "custcode" && <CustCode />}
     </div>
   );
 }

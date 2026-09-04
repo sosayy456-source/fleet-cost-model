@@ -125,3 +125,32 @@ summary::-webkit-details-marker { color: var(--ink-faint); }
 .thdate { display: flex; gap: 5px; }
 .thdate input { width: 3.6em; flex: none; }
 .thdate select { flex: 1 1 0; min-width: 5.5em; }
+
+/* ---------- เมนู ---------- */
+.nav { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.nav-item {
+  background: var(--card); border: 1px solid var(--line);
+  padding: 7px 14px; border-radius: 8px; font-size: 13.5px; font-weight: 600;
+  color: var(--ink-soft);
+}
+.nav-item:hover { border-color: var(--amber); color: var(--ink); }
+.nav-active { background: var(--amber); border-color: var(--amber); color: #23201c; }
+.nav-badge {
+  display: inline-block; margin-left: 6px; padding: 0 6px;
+  border-radius: 10px; background: var(--red); color: #fff;
+  font-size: 11px; font-weight: 700;
+}
+
+/* ตารางกว้างเกินจอต้องเลื่อนในกล่องตัวเอง ไม่ใช่ทำให้ทั้งหน้าเลื่อนแนวนอน */
+.scroll-x { overflow-x: auto; }
+.scroll-x table { min-width: 720px; }
+
+tfoot td { border-top: 2px solid var(--line); border-bottom: none; }
+code {
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: 4px; padding: 1px 5px; font-size: 12px;
+}
+.chip-warn {
+  background: color-mix(in srgb, var(--amber) 20%, transparent);
+  border-color: var(--amber); color: var(--amber);
+}
