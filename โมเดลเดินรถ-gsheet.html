@@ -373,9 +373,6 @@
     background:rgba(23,19,26,.08);color:var(--rs-subtle);cursor:not-allowed;
     transition:background .2s,color .2s}
   .rs-cta.on{background:var(--rs-accent);color:var(--rs-bg);cursor:pointer}
-  .rs-remember{display:flex;align-items:center;gap:8px;margin-top:18px;
-    font:400 12.5px/1.5 Anuphan,sans-serif;color:var(--rs-subtle)}
-  .rs-remember input{width:auto;accent-color:var(--rs-accent)}
   @media(max-width:720px){
     .picker-ov{padding:40px 20px}
     .rs-head h1{font-size:36px}
@@ -1176,8 +1173,6 @@
         <p>เลือกตำแหน่งของคุณเพื่อเข้าสู่หน้าจอการทำงานที่ตรงกับหน้าที่</p>
       </div>
       <div class="rs-grid" id="roleOpts" role="radiogroup" aria-label="Select your role"></div>
-      <label class="rs-remember"><input type="checkbox" id="rememberRole" checked>
-        จำตำแหน่งนี้ไว้ในเครื่องนี้</label>
       <div class="rs-foot">
         <span class="rs-note">สลับตำแหน่งได้ภายหลังจากปุ่มเปลี่ยนหน้าที่</span>
         <button class="rs-cta" id="roleGo" type="button" disabled aria-disabled="true">
@@ -1952,8 +1947,7 @@ const ROLE_PICK=["cs","dispatch","account","manager","admin"];
 // ฝ่ายที่ต้องกรอกให้ครบก่อนใบจะเข้า "รายการทั้งหมด" (manager/admin ไม่นับ)
 const ROLE_ORDER=["cs","dispatch","account"];
 const isEntryRole=r=>ROLE_ORDER.includes(r);
-const LS_ROLE="modelRole";
-let ROLE=LS.getItem(LS_ROLE)||null;
+let ROLE=null;   // เปิดเว็บทุกครั้งต้องเลือกตำแหน่งใหม่เสมอ (ไม่จำไว้ในเครื่อง)
 
 const roleDone=(r,k)=>!!(r&&r["_"+k+"Done"]);
 const roleAllDone=r=>ROLE_ORDER.every(k=>roleDone(r,k));
@@ -2053,8 +2047,6 @@ function renderRolePicker(){
   goBtn.onclick=()=>{
     if(!sel) return;
     ROLE=sel;
-    if($("rememberRole").checked) LS.setItem(LS_ROLE,ROLE);
-    else LS.removeItem(LS_ROLE);
     $("rolePicker").style.display="none";
     resetDefaults(); renderRoleBar(); renderRecords(); renderDrafts();
     showView((ROLE_VIEWS[ROLE]||["form"])[0]);
@@ -3770,9 +3762,8 @@ renderPrices();
 renderRepair();
 resetDefaults();
 renderRecords();
-// ---- ระบบ 3 ฝ่าย: ถามหน้าที่ครั้งแรก แล้วจำไว้ในเครื่อง ----
-if(ROLE && ROLES[ROLE]){ renderRoleBar(); }
-else { openRolePicker(); }
+// ---- เปิดเว็บมา ให้ขึ้นหน้าเลือกตำแหน่งก่อนเสมอ ----
+openRolePicker();
 renderDrafts();
 // ดึงใบรายการใหม่จากชีต เพื่อให้เห็นใบที่ฝ่ายอื่นเปิดค้างไว้
 if(getUrl()){
