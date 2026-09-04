@@ -204,11 +204,20 @@
   /* ================= ระบบ 3 ฝ่ายช่วยกันกรอก ================= */
   .zone-tag{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;
     background:var(--blue-soft);color:var(--blue);padding:3px 11px;border-radius:20px;margin-bottom:12px}
-  [data-zone].zone-locked{position:relative;opacity:.62}
-  [data-zone].zone-locked .zone-tag{background:#F1F2F4;color:var(--ink-faint)}
-  [data-zone].zone-locked::after{content:"🔒 ฝ่ายอื่นเป็นคนกรอก — คุณดูได้อย่างเดียว";
-    display:block;font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-top:6px}
+  /* โซนของฝ่ายอื่น — ซ่อนทิ้งไปเลย ไม่ต้องแสดงแบบเบลอ */
+  [data-zone].zone-locked{display:none!important}
   [data-zone].zone-mine .zone-tag{background:var(--orange-soft);color:var(--orange-dark)}
+  .card.card-hidden{display:none!important}
+
+  /* แถบสรุปข้อมูลของฝ่ายอื่น (อ่านอย่างเดียว) */
+  .ctxbar{background:#F7F8FA;border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:16px}
+  .ctxbar .ct{font-size:11.5px;font-weight:800;color:var(--ink-faint);margin-bottom:8px;
+    letter-spacing:.02em}
+  .ctxbar .cgrid{display:flex;flex-wrap:wrap;gap:8px}
+  .ctxbar .ci{background:#fff;border:1px solid var(--line);border-radius:9px;padding:6px 11px;font-size:12.5px}
+  .ctxbar .ci b{color:var(--ink);font-weight:700}
+  .ctxbar .ci span{color:var(--ink-faint);margin-right:5px}
 
   .rolebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--navy);color:#fff;
     border-radius:12px;padding:11px 16px;margin-bottom:16px}
@@ -475,7 +484,12 @@
 
       <div class="prog" id="progBar"></div>
 
-      <div class="card" id="sec-trip">
+      <div class="ctxbar" id="ctxBar" style="display:none">
+        <div class="ct" id="ctxTitle"></div>
+        <div class="cgrid" id="ctxList"></div>
+      </div>
+
+      <div class="card" id="sec-trip" data-zoneonly>
         <div class="card-h"><span class="step">1</span><h2>ข้อมูลการเดินทาง</h2></div>
 
         <!-- ===== โซนของฝ่ายบริการลูกค้า ===== -->
@@ -517,7 +531,7 @@
         </div>
       </div>
 
-      <div class="card" id="sec-cost" data-zone="account">
+      <div class="card" id="sec-cost" data-zone="account" data-zoneonly>
         <div class="card-h"><span class="step">2</span><h2>ค่าใช้จ่าย</h2><span class="hint">ทุกช่องเลือกกรอกหรือเว้นว่างได้ (ว่าง = 0)</span></div>
         <div class="zone-tag">🧾 ฝ่ายบัญชีการเงิน</div>
         <div class="grid3">
@@ -1380,6 +1394,46 @@ function stampRole(rec,k){
   return rec;
 }
 
+// ---- เรียงเลขหัวข้อใหม่ตามการ์ดที่แสดงจริง ----
+function renumberSteps(){
+  let n=0;
+  document.querySelectorAll("#view-form .card").forEach(c=>{
+    const st=c.querySelector(".card-h .step"); if(!st) return;
+    if(c.classList.contains("card-hidden")) return;
+    st.textContent=String(++n);
+  });
+}
+
+// ---- แถบสรุปข้อมูลของฝ่ายอื่น (อ่านอย่างเดียว) ----
+// ฝ่ายที่ไม่ได้กรอกช่องนั้น จะไม่เห็นช่องกรอก แต่ยังต้องเห็น "ค่าที่ฝ่ายอื่นกรอกไว้" เป็นบริบท
+function renderContextBar(){
+  const bar=$("ctxBar"); if(!bar) return;
+  const vTxt=el=>{ const e=$(el); if(!e) return "";
+    if(e.tagName==="SELECT"){ const o=e.selectedOptions[0]; return (e.value===""?"":(o?o.textContent.trim():e.value)); }
+    return e.value.trim(); };
+  const dmy=(d,m,y)=>{ const dd=vTxt(d),mm=$(m)&&$(m).value,yy=$(y)&&$(y).value;
+    return (dd&&mm&&yy)?`${dd} ${$(m).selectedOptions[0].textContent.trim()} ${(+yy)+543}`:""; };
+  // ช่องที่จะโชว์ให้แต่ละฝ่ายเห็น (ของฝ่ายอื่นทั้งนั้น)
+  const CTX={
+    cs:      [],
+    dispatch:[["เลขที่ใบรายการ",vTxt("docNo")],["วันที่",dmy("dd","mm","yy")],["สาขา",vTxt("branch")],
+              ["ประเภทเส้นทาง",vTxt("routeType")],["ประเภทใบรายการ",vTxt("docType")],
+              ["เส้นทาง",(vTxt("origin")&&vTxt("dest"))?vTxt("origin")+" → "+vTxt("dest"):""],
+              ["ระยะทาง",vTxt("distance")?vTxt("distance")+" กม.":""]],
+    account: [["เลขที่ใบรายการ",vTxt("docNo")],["วันที่",dmy("dd","mm","yy")],["สาขา",vTxt("branch")],
+              ["เส้นทาง",(vTxt("origin")&&vTxt("dest"))?vTxt("origin")+" → "+vTxt("dest"):""],
+              ["ระยะทาง",vTxt("distance")?vTxt("distance")+" กม.":""],
+              ["ทะเบียนรถ",vTxt("plate")],["ประเภทรถ",vTxt("fleetType")],["ชนิดรถ",vTxt("vehicle")],
+              ["วันที่ปล่อยรถ",dmy("rdd","rmm","ryy")],
+              ["รายได้",vTxt("revenue")?fmt(+vTxt("revenue"),0)+" บาท":""]],
+  };
+  const items=(CTX[ROLE]||[]).filter(x=>x[1]);
+  if(!items.length){ bar.style.display="none"; return; }
+  bar.style.display="";
+  $("ctxTitle").textContent="ข้อมูลที่ฝ่ายอื่นกรอกไว้ (ดูอย่างเดียว)";
+  $("ctxList").innerHTML=items.map(x=>`<div class="ci"><span>${esc(x[0])}</span><b>${esc(x[1])}</b></div>`).join("");
+}
+
 // ---- เปิด/ปิดสิทธิ์แก้ไขในแต่ละโซน ----
 function applyRoleZones(){
   document.querySelectorAll("[data-zone]").forEach(z=>{
@@ -1392,6 +1446,15 @@ function applyRoleZones(){
     });
     z.querySelectorAll(".bill-x").forEach(x=>{ x.style.pointerEvents=mine?"":"none"; x.style.opacity=mine?"":".35"; });
   });
+  // ซ่อนทั้งการ์ดถ้าในการ์ดนั้นไม่เหลืออะไรให้ฝ่ายนี้กรอกเลย
+  // (เฉพาะการ์ดที่มีแต่ช่องกรอก — การ์ดสรุปผล/ปุ่มบันทึกยังแสดงเสมอ)
+  document.querySelectorAll("#view-form .card[data-zoneonly]").forEach(c=>{
+    const zones=[...c.querySelectorAll("[data-zone]")];
+    const anyMine=(c.dataset.zone===ROLE)||zones.some(z=>z.dataset.zone===ROLE);
+    c.classList.toggle("card-hidden",!anyMine);
+  });
+  renumberSteps();
+  renderContextBar();
   const add=$("addBill"); if(add) add.disabled=(ROLE!=="cs");
   // แท็บรายการลูกหนี้ — เฉพาะฝ่ายบัญชี
   const nav=$("navDebtors");
