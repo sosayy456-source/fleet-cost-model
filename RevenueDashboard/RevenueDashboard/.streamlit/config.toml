@@ -1,0 +1,18 @@
+[theme]
+base = "dark"
+primaryColor = "#E8A93C"
+backgroundColor = "#0D131E"
+secondaryBackgroundColor = "#161F2E"
+textColor = "#F1EEE6"
+font = "sans serif"
+
+[server]
+# จำกัดให้เข้าถึงแอปได้เฉพาะจากเครื่องนี้เท่านั้น (ปิด Network URL / External URL)
+# สำคัญมากเพราะข้อมูลบิลเป็นความลับ ไม่ควรให้เครื่องอื่นใน Wi-Fi/LAN เดียวกันเข้าถึงได้
+address = "localhost"
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
