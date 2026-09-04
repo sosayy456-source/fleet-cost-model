@@ -1202,6 +1202,24 @@
   </div>
 
 <script>
+// ---- localStorage ที่ปลอดภัย ----
+// บางเบราว์เซอร์โยน SecurityError เมื่อเปิดไฟล์ตรง ๆ (file://) หรืออยู่ในโหมดส่วนตัว
+// ถ้าปล่อยให้ throw สคริปต์จะตายทั้งหน้า — จึงถอยไปใช้ที่เก็บชั่วคราวในหน่วยความจำแทน
+const LS=(function(){
+  const mem={};
+  const fallback={ getItem:k=>(k in mem?mem[k]:null),
+                   setItem:(k,v)=>{mem[k]=String(v)},
+                   removeItem:k=>{delete mem[k]} };
+  try{
+    const t='__probe__'; window.localStorage.setItem(t,'1'); window.localStorage.removeItem(t);
+    return window.localStorage;
+  }catch(e){
+    console.warn('เบราว์เซอร์นี้ใช้ localStorage ไม่ได้ — ข้อมูลจะไม่ถูกจำไว้หลังปิดหน้า', e);
+    window.__lsBlocked=true;
+    return fallback;
+  }
+})();
+
 // ================= ข้อมูลจากโมเดลเดิม =================
 const BASE_PRICES = [
   ["2024-01-01",30.47],["2024-04-06",30.97],["2024-04-20",31.47],["2024-05-10",31.97],
@@ -1292,8 +1310,8 @@ const REPAIR_ALIAS = {"รถเทรเลอร์":"รถเทรเล่
 
 // ---- ค่าที่ผู้ใช้แก้เอง (เก็บในเครื่อง) ทับลงบนฐานด้านบน ----
 const LS_REPAIR="repairOverrides";
-let REPAIR_OVR=(()=>{ try{ return JSON.parse(localStorage.getItem(LS_REPAIR))||{}; }catch(e){ return {}; } })();
-function saveRepairOvr(){ try{ localStorage.setItem(LS_REPAIR,JSON.stringify(REPAIR_OVR)); }catch(e){} }
+let REPAIR_OVR=(()=>{ try{ return JSON.parse(LS.getItem(LS_REPAIR))||{}; }catch(e){ return {}; } })();
+function saveRepairOvr(){ try{ LS.setItem(LS_REPAIR,JSON.stringify(REPAIR_OVR)); }catch(e){} }
 const repDeep=o=>JSON.parse(JSON.stringify(o));
 
 // รวมฐาน + ค่าที่แก้เอง ออกมาเป็นตารางที่ใช้งานจริง
@@ -1377,8 +1395,8 @@ document.querySelectorAll(".navitem").forEach(b=>b.addEventListener("click",()=>
 
 // ================= ราคาน้ำมัน =================
 const LS_KEY="fuelPriceUpdates";
-function loadUpdates(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||{}; }catch(e){ return {}; } }
-function saveUpdates(o){ try{ localStorage.setItem(LS_KEY,JSON.stringify(o)); }catch(e){} }
+function loadUpdates(){ try{ return JSON.parse(LS.getItem(LS_KEY))||{}; }catch(e){ return {}; } }
+function saveUpdates(o){ try{ LS.setItem(LS_KEY,JSON.stringify(o)); }catch(e){} }
 let USER_UPDATES=loadUpdates();
 function buildPrices(){
   const map=new Map(BASE_PRICES.map(([d,p])=>[d,p]));
@@ -1451,8 +1469,8 @@ function custIndexOf(val) {
 
 // ---- รหัสที่ออกใหม่เอง (ลูกค้าที่ไม่มีในไฟล์) — เก็บในเครื่อง ----
 const LS_CUSTNEW = "custNewCodes";
-let CUST_NEW = (() => { try { return JSON.parse(localStorage.getItem(LS_CUSTNEW)) || {}; } catch (e) { return {}; } })();
-function saveCustNew() { try { localStorage.setItem(LS_CUSTNEW, JSON.stringify(CUST_NEW)); } catch (e) {} }
+let CUST_NEW = (() => { try { return JSON.parse(LS.getItem(LS_CUSTNEW)) || {}; } catch (e) { return {}; } })();
+function saveCustNew() { try { LS.setItem(LS_CUSTNEW, JSON.stringify(CUST_NEW)); } catch (e) {} }
 function custNextNumber() {
   let mx = CUST_TOTAL;
   Object.values(CUST_NEW).forEach(n => { if (+n > mx) mx = +n; });
@@ -1508,8 +1526,8 @@ const FLEET_SAMPLE=[   // ข้อมูลตัวอย่าง — ลบ/
   {plate:"ชม.55-9931", fleetType:"รถร่วม",   vehicle:"รถ 6 ล้อใหญ่",    start:"2024-03-10", status:"ใช้งาน"},
   {plate:"ชม.62-4471", fleetType:"รถบริษัท", vehicle:"รถ 12 ล้อคอก",    start:"2021-11-20", status:"ซ่อมบำรุง"}
 ];
-let FLEET_ROSTER=(()=>{ try{ const s=JSON.parse(localStorage.getItem(LS_FLEET)); return (s&&s.length)?s:FLEET_SAMPLE.slice(); }catch(e){ return FLEET_SAMPLE.slice(); } })();
-function saveFleet(){ try{ localStorage.setItem(LS_FLEET,JSON.stringify(FLEET_ROSTER)); }catch(e){} }
+let FLEET_ROSTER=(()=>{ try{ const s=JSON.parse(LS.getItem(LS_FLEET)); return (s&&s.length)?s:FLEET_SAMPLE.slice(); }catch(e){ return FLEET_SAMPLE.slice(); } })();
+function saveFleet(){ try{ LS.setItem(LS_FLEET,JSON.stringify(FLEET_ROSTER)); }catch(e){} }
 function fleetOf(plate){ return FLEET_ROSTER.find(f=>f.plate===plate)||null; }
 function renderFleetRoster(){
   const tb=$("fleetBody"); if(!tb) return;
@@ -1724,8 +1742,8 @@ $("revenue").addEventListener("input",renderSummary);
 
 // ================= Google Sheet เชื่อมต่อ =================
 const LS_URL="gsWebAppUrl";
-function getUrl(){ return (localStorage.getItem(LS_URL)||"").trim(); }
-function setUrl(u){ localStorage.setItem(LS_URL,u.trim()); }
+function getUrl(){ return (LS.getItem(LS_URL)||"").trim(); }
+function setUrl(u){ LS.setItem(LS_URL,u.trim()); }
 function updateConnBadge(){
   const on=!!getUrl();
   const b=$("connBadge"); b.textContent=on?"เชื่อมแล้ว":"ยังไม่เชื่อม"; b.className="badge-conn "+(on?"on":"off");
@@ -1935,7 +1953,7 @@ const ROLE_PICK=["cs","dispatch","account","manager","admin"];
 const ROLE_ORDER=["cs","dispatch","account"];
 const isEntryRole=r=>ROLE_ORDER.includes(r);
 const LS_ROLE="modelRole";
-let ROLE=localStorage.getItem(LS_ROLE)||null;
+let ROLE=LS.getItem(LS_ROLE)||null;
 
 const roleDone=(r,k)=>!!(r&&r["_"+k+"Done"]);
 const roleAllDone=r=>ROLE_ORDER.every(k=>roleDone(r,k));
@@ -2035,8 +2053,8 @@ function renderRolePicker(){
   goBtn.onclick=()=>{
     if(!sel) return;
     ROLE=sel;
-    if($("rememberRole").checked) localStorage.setItem(LS_ROLE,ROLE);
-    else localStorage.removeItem(LS_ROLE);
+    if($("rememberRole").checked) LS.setItem(LS_ROLE,ROLE);
+    else LS.removeItem(LS_ROLE);
     $("rolePicker").style.display="none";
     resetDefaults(); renderRoleBar(); renderRecords(); renderDrafts();
     showView((ROLE_VIEWS[ROLE]||["form"])[0]);
@@ -2165,13 +2183,13 @@ $("btnReloadDrafts").addEventListener("click",async()=>{
 
 // ================= บันทึก + แก้ไข + รายการ =================
 const LS_REC="tripRecords";
-let RECORDS=(()=>{ try{ return JSON.parse(localStorage.getItem(LS_REC))||[]; }catch(e){ return []; } })();
+let RECORDS=(()=>{ try{ return JSON.parse(LS.getItem(LS_REC))||[]; }catch(e){ return []; } })();
 let OLD_RECORDS=[];              // เที่ยววิ่งเก่าจากชีต — อ่านอย่างเดียว ไม่เก็บลงเครื่อง
 let OLD_DEBTORS=[];              // ลูกหนี้เก่าจากชีต — อ่านอย่างเดียว
 let SRC_FILTER="all";            // ตัวกรองหน้ารายการทั้งหมด : all | new | old
 let DEBT_FILTER="all";           // ตัวกรองหน้ารายการลูกหนี้  : all | new | old
 let editingIndex=null;
-function saveRecords(){ try{ localStorage.setItem(LS_REC,JSON.stringify(RECORDS)); }catch(e){} }
+function saveRecords(){ try{ LS.setItem(LS_REC,JSON.stringify(RECORDS)); }catch(e){} }
 
 // ---- ย้ายข้อมูลเก่า (บิลเดียว + payStatus) มาเป็นลูกหนี้หลายราย ----
 (function migrateRecords(){
