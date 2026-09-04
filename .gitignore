@@ -1,10 +1,41 @@
+# ── ไฟล์ชั่วคราว / ของเดิม ──────────────────────────────
 _*.html
 *.tmp
+*.bak
 .DS_Store
 Thumbs.db
+~$*
 
-# ไฟล์ข้อมูล ไม่เอาขึ้น repo (repo เป็น public)
+# ── ไฟล์ข้อมูล ไม่เอาขึ้น repo (repo นี้เป็น public) ──────
 # แปลงรหัสลูกหนี้รวม.xlsx = ตารางแมป CUS -> SHA-256 ครบทุกแถว
 *.xlsx
 *.xls
 *.csv
+
+# ── ความลับ ห้ามขึ้น GitHub เด็ดขาด ─────────────────────
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+credentials*.json
+client_secret*.json
+service-account*.json
+*-service-account.json
+secrets.json
+
+# Google Apps Script CLI (.clasprc.json เก็บ OAuth token ของบัญชี)
+.clasp.json
+.clasprc.json
+
+# ── ตั้งค่าเฉพาะเครื่อง / AI agent ──────────────────────
+.agents/
+.claude/
+.codex/
+skills-lock.json
+.vscode/
+.idea/
+
+# ── build / dependency ─────────────────────────────────
+node_modules/
