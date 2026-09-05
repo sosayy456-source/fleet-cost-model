@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   :root{
@@ -285,74 +286,135 @@
   .rep-total{font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
   .rep-dot{color:var(--orange);font-size:14px;line-height:1}
 
-  /* ================= แดชบอร์ด ================= */
-  .dz-t{font-size:15px;font-weight:700;color:var(--ink);margin:24px 0 14px;padding-left:12px;border-left:3px solid var(--accent)}
-  .dz-cards{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:6px}
-  .dz-cards.four{grid-template-columns:repeat(4,1fr)}
-  @media(max-width:900px){.dz-cards,.dz-cards.four{grid-template-columns:repeat(2,1fr)}}
-  .dash-tabs{display:flex;gap:28px;margin-bottom:20px;border-bottom:1px solid #E2DCD4;flex-wrap:wrap}
-  .dtab{font-family:inherit;font-size:15px;font-weight:400;color:var(--ink-soft);background:none;border:none;
-    border-bottom:2px solid transparent;padding:0 0 12px;margin-bottom:-1px;cursor:pointer;
-    transition:color .18s var(--ease)}
-  .dtab:hover{color:var(--accent)}
-  .dtab.active{color:var(--accent);font-weight:700;border-bottom-color:var(--accent)}
-  .dz-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px;align-items:end;
-    background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:none}
-  .dz-filters .ff{display:flex;flex-direction:column;gap:4px}
-  .dz-filters label{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin:0}
-  .dz-filters select,.dz-filters input{font-family:inherit;font-size:14.5px;padding:10px 12px;border:1.5px solid var(--field-border);
-    border-radius:11px;background:var(--field-bg);width:100%;box-sizing:border-box;text-align:left}
-  .dz-fbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft);background:#fff;
-    border:1px solid var(--border);border-radius:999px;padding:10px 16px;cursor:pointer;height:40px;
-    transition:border-color .18s var(--ease),color .18s var(--ease)}
-  .dz-fbtn:hover{background:#fff;border-color:var(--sidebar-num-active);color:var(--accent)}
-  .dz-kc{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:none}
-  .dz-kc .l{font-size:13.5px;color:var(--ink-soft)}
-  .dz-kc .v{font-size:26px;font-weight:800;color:var(--ink);margin-top:6px;letter-spacing:-.02em}
-  .dz-kc .s{font-size:12.5px;color:var(--ink-faint);margin-top:3px}
+  /* ================= แดชบอร์ด (ดีไซน์ใหม่) ================= */
+  #view-dash{
+    --d-bg:#F7F6F3; --d-card:#FFFFFF; --d-soft:#FBFAF8; --d-rail:#EFEDE7;
+    --d-line:#EAE6DF; --d-line2:#DFDBD3; --d-div:#E6E2DA; --d-row:#F2EFEA; --d-hover:#C7C2B8;
+    --d-ink:#17161A; --d-ink2:#4A463F; --d-ink3:#6E6960; --d-ink4:#8A857C; --d-ink5:#A29C92;
+    --d-indigo:#4F46E5; --d-violet:#7C3AED; --d-rose:#E11D48; --d-rose-d:#BE123C;
+    --d-amber:#F59E0B; --d-amber-d:#B45309; --d-emerald:#059669; --d-emerald-d:#047857;
+    --d-teal:#0D9488; --d-orange:#EA580C; --d-orange-d:#C2410C;
+    --d-ease:cubic-bezier(.22,1,.36,1);
+    --d-num:'Space Grotesk','Plus Jakarta Sans',system-ui,sans-serif;
+    font-family:Anuphan,'Noto Sans Thai',system-ui,sans-serif;
+  }
+  @keyframes dFadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+  @keyframes dDrawLine{from{stroke-dashoffset:420}to{stroke-dashoffset:0}}
+  @keyframes dBarGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+  /* ---- แท็บ ---- */
+  .dash-tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--d-div);
+    position:relative;flex-wrap:wrap}
+  .dtab{font-family:inherit;font-size:15px;font-weight:500;color:var(--d-ink4);background:none;border:none;
+    border-bottom:none;padding:9px 14px;margin:0 0 8px;border-radius:10px;cursor:pointer;
+    transition:background-color .18s var(--d-ease),color .18s var(--d-ease)}
+  .dtab:hover{color:var(--d-ink)}
+  .dtab.active{color:var(--d-ink);font-weight:600;background:var(--d-rail)}
+  .dash-tabs .dink{position:absolute;left:0;bottom:-1px;height:2.5px;width:0;border-radius:2px;
+    background:var(--d-indigo);transform:translateX(0);
+    transition:transform .38s var(--d-ease),width .38s var(--d-ease)}
+
+  /* ---- ตัวกรองแบบชิป ---- */
+  .dz-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    background:none;border:none;border-radius:0;padding:0;margin-bottom:18px;box-shadow:none}
+  .dz-filters .ff{display:flex;align-items:center;gap:7px;background:var(--d-card);
+    border:1px solid var(--d-line2);border-radius:999px;padding:7px 14px;
+    transition:border-color .18s var(--d-ease)}
+  .dz-filters .ff:hover{border-color:var(--d-ink)}
+  .dz-filters label{font-size:12.5px;color:var(--d-ink4);font-weight:500;margin:0;white-space:nowrap}
+  .dz-filters select,.dz-filters input{font-family:inherit;font-size:13.5px;color:var(--d-ink);
+    padding:0 18px 0 0;border:none;border-radius:0;background:transparent;width:auto;min-width:64px;
+    max-width:170px;cursor:pointer;background-position:right 2px center}
+  .dz-filters select:focus,.dz-filters input:focus{border:none;box-shadow:none;padding:0 18px 0 0}
+  .dz-fbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--d-ink4);background:none;
+    border:none;border-radius:999px;padding:7px 10px;cursor:pointer;height:auto;
+    transition:color .18s var(--d-ease)}
+  .dz-fbtn:hover{background:none;color:var(--d-rose)}
+
+  /* ---- การ์ดเด่น ---- */
+  .dz-heroes{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;margin-bottom:14px}
+  .dz-kc.hero{position:relative;overflow:hidden;border:none;border-radius:20px;padding:22px 24px 20px;
+    color:#fff;animation:dFadeUp .55s var(--d-ease) both;
+    transition:transform .3s var(--d-ease),box-shadow .3s var(--d-ease)}
+  .dz-kc.hero:hover{transform:translateY(-4px)}
+  .dz-kc.hero .l{font-size:13.5px;color:#fff;opacity:.85;position:relative;z-index:1}
+  .dz-kc.hero .v{font-size:36px;font-weight:700;letter-spacing:-.03em;color:#fff;margin-top:8px;
+    font-family:var(--d-num);font-variant-numeric:tabular-nums;position:relative;z-index:1}
+  .dz-kc.hero .s{font-size:12.5px;color:#fff;opacity:.85;margin-top:10px;position:relative;z-index:1;
+    display:inline-block;background:rgba(255,255,255,.22);border-radius:999px;padding:3px 11px}
+  .dz-kc.hero .spark{position:absolute;right:0;bottom:0;width:62%;height:54px;opacity:.5;z-index:0}
+  .dz-kc.hero .spark polyline{fill:none;stroke:#fff;stroke-width:2.5;vector-effect:non-scaling-stroke;
+    stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:420;animation:dDrawLine 1.5s var(--d-ease) both}
+  .dz-kc.hero.rev{background:linear-gradient(140deg,#4F46E5,#7C3AED 60%,#9333EA);
+    box-shadow:0 10px 26px -14px rgba(79,70,229,.65)}
+  .dz-kc.hero.rev:hover{box-shadow:0 20px 38px -16px rgba(79,70,229,.7)}
+  .dz-kc.hero.cost{background:linear-gradient(140deg,#E11D48,#F43F5E 55%,#EA580C);
+    box-shadow:0 10px 26px -14px rgba(225,29,72,.6)}
+  .dz-kc.hero.cost:hover{box-shadow:0 20px 38px -16px rgba(225,29,72,.68)}
+  .dz-kc.hero.profit{background:linear-gradient(140deg,#047857,#0D9488 60%,#0891B2);
+    box-shadow:0 10px 26px -14px rgba(4,120,87,.6)}
+  .dz-kc.hero.profit:hover{box-shadow:0 20px 38px -16px rgba(4,120,87,.68)}
+  .dz-kc.hero.loss{background:linear-gradient(140deg,#BE123C,#E11D48 55%,#EA580C);
+    box-shadow:0 10px 26px -14px rgba(190,18,60,.6)}
+  .dz-kc.hero.cust{background:linear-gradient(140deg,#6D28D9,#9333EA 55%,#C026D3);
+    box-shadow:0 10px 26px -14px rgba(109,40,217,.6)}
+  .dz-kc.hero.fleet{background:linear-gradient(140deg,#0E7490,#0891B2 55%,#0D9488);
+    box-shadow:0 10px 26px -14px rgba(14,116,144,.6)}
+  .dz-kc.hero.svc{background:linear-gradient(140deg,#3F6212,#65A30D 55%,#0D9488);
+    box-shadow:0 10px 26px -14px rgba(63,98,18,.6)}
+  .dz-kc.hero.svc .v{font-size:34px}
+
+  /* ---- การ์ดย่อย ---- */
+  .dz-cards,.dz-cards.four{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:12px;margin-bottom:6px}
+  .dz-kc{background:var(--d-card);border:1px solid var(--d-line);border-radius:16px;padding:16px 18px;
+    box-shadow:none;animation:dFadeUp .5s var(--d-ease) both;
+    transition:transform .22s var(--d-ease),border-color .22s var(--d-ease)}
+  .dz-kc:hover{transform:translateY(-3px);border-color:var(--d-hover)}
+  .dz-kc .l{font-size:13px;color:var(--d-ink3);display:flex;align-items:center;gap:8px}
+  .dz-kc .l .d{width:8px;height:8px;border-radius:3px;background:var(--dot,var(--d-ink5));flex:none}
+  .dz-kc .v{font-size:25px;font-weight:700;color:var(--d-ink);margin-top:7px;letter-spacing:-.02em;
+    font-family:var(--d-num);font-variant-numeric:tabular-nums;line-height:1.2}
+  .dz-kc .s{font-size:12.5px;color:var(--d-ink5);margin-top:4px}
+  .dz-kc.t-bad{border-color:#F0D5DA} .dz-kc.t-bad .v{color:var(--d-rose-d)}
+  .dz-kc.t-bad:hover{border-color:var(--d-rose)}
+  .dz-kc.t-good{border-color:#D8EDE4} .dz-kc.t-good .v{color:var(--d-emerald-d)}
+  .dz-kc.t-good:hover{border-color:var(--d-emerald)}
+  .dz-kc.t-warn{border-color:#F6E3C4} .dz-kc.t-warn .v{color:var(--d-amber-d)}
+  .dz-kc.t-warn:hover{border-color:var(--d-amber)}
+  .dz-kc .kbar{height:6px;border-radius:999px;background:var(--d-rail);margin-top:10px;overflow:hidden}
+  .dz-kc .kbar i{display:block;height:100%;width:100%;border-radius:999px;
+    transform-origin:left;animation:dBarGrow .9s var(--d-ease) both}
+
+  /* ---- หัวข้อกลุ่ม ---- */
+  .dz-t{display:flex;align-items:center;gap:14px;font-size:19px;font-weight:700;color:var(--d-ink);
+    letter-spacing:-.01em;margin:30px 0 14px;padding:0;border:none;font-family:var(--d-num)}
+  .dz-t::after{content:"";flex:1;height:1px;background:var(--d-div)}
+
+  /* ---- การ์ดกราฟ / ตาราง ---- */
   .dz-row{display:grid;gap:14px;margin-bottom:4px}
-  .dz-2{grid-template-columns:1.4fr 1fr} .dz-11{grid-template-columns:1fr 1fr}
+  .dz-2{grid-template-columns:1.45fr 1fr} .dz-11{grid-template-columns:1fr 1fr}
   @media(max-width:900px){.dz-2,.dz-11{grid-template-columns:1fr}}
-  .dz-cc{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 24px;box-shadow:none}
-  .dz-cc h4{font-size:17px;color:var(--ink);margin:0 0 14px;font-weight:700;font-family:var(--font-num)}
-  .dz-box{position:relative;height:250px} .dz-box.tall{height:440px}
-  .dz-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
-  .dz-tbl th,.dz-tbl td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border)}
-  .dz-tbl th{background:var(--table-head);color:var(--ink-faint);font-size:12.5px;font-weight:700;
-    letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
-  .dz-tbl td.n,.dz-tbl th.n{text-align:right;font-variant-numeric:tabular-nums}
-  .dz-note{font-size:11.5px;color:var(--ink-faint);margin-top:10px;line-height:1.7}
+  .dz-cc{background:var(--d-card);border:1px solid var(--d-line);border-radius:20px;padding:22px 24px;
+    box-shadow:none;animation:dFadeUp .5s var(--d-ease) both}
+  .dz-cc h4{font-size:16.5px;color:var(--d-ink);margin:0 0 16px;font-weight:700;font-family:var(--d-num)}
+  .dz-box{position:relative;height:270px} .dz-box.tall{height:420px}
+  .dz-tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  .dz-tbl th,.dz-tbl td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--d-row)}
+  .dz-tbl th{background:none;color:var(--d-ink5);font-size:12px;font-weight:700;white-space:nowrap;
+    text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--d-line)}
+  .dz-tbl tbody tr{transition:background-color .16s var(--d-ease)}
+  .dz-tbl tbody tr:hover{background:var(--d-soft)}
+  .dz-tbl td.n,.dz-tbl th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--d-num)}
+  .dz-note{font-size:12.5px;color:var(--d-ink5);margin-top:12px;line-height:1.8}
+  #view-dash .searchbox input{border-radius:999px;background:var(--d-soft);border:1px solid var(--d-line2)}
+  #view-dash .searchbox input:focus{border-color:var(--d-indigo);background:#fff}
 
-  /* Google Sheet config */
-  .gs-config{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);margin-bottom:16px}
-  .gs-config summary{cursor:pointer;list-style:none;padding:14px 18px;font-weight:700;font-size:14.5px;display:flex;align-items:center;gap:9px}
-  .gs-config summary::-webkit-details-marker{display:none}
-  .gs-config summary .chev{margin-left:auto;transition:.2s;color:var(--ink-faint)}
-  .gs-config[open] summary .chev{transform:rotate(180deg)}
-  .gs-inner{padding:0 18px 18px}
-  .gs-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .gs-row input{flex:1;min-width:220px}
-  .gs-status{font-size:12.5px;font-weight:600;margin-top:10px;min-height:16px}
-  .gs-steps{font-size:12px;color:var(--ink-soft);margin-top:14px;line-height:1.8;background:#FBFAF8;border:1px solid var(--border);border-radius:8px;padding:13px 15px}
-  .gs-steps b{color:var(--ink)} .gs-steps code{background:#F2EFEA;padding:1px 6px;border-radius:4px;font-size:11.5px}
-  .badge-conn{font-size:11.5px;font-weight:700;padding:4px 11px;border-radius:20px;white-space:nowrap}
-  .badge-conn.on{background:var(--green-soft);color:var(--green)} .badge-conn.off{background:#F2EFEA;color:var(--ink-faint)}
-
-  details.prices summary{cursor:pointer;list-style:none;font-weight:700;font-size:15px;display:flex;align-items:center;gap:9px}
-  details.prices summary::-webkit-details-marker{display:none}
-  details.prices summary .chev{margin-left:auto;transition:.2s;color:var(--ink-faint)}
-  details.prices[open] summary .chev{transform:rotate(180deg)}
-  .price-add{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#FBFAF8;
-    border:1px solid var(--border-strong);border-radius:10px;padding:10px;margin:14px 0 10px}
-  .price-add input,.price-add select{padding:8px 10px;font-size:13px}
-  .price-add #npDd{width:58px;flex:none}.price-add #npMm{width:88px;flex:none}.price-add #npYy{width:78px;flex:none}
-  .price-add .np-price{flex:1;min-width:96px}
-  .btn-add{font-family:inherit;font-size:13px;font-weight:600;color:#fff;background:var(--orange);border:none;border-radius:8px;padding:9px 14px;cursor:pointer}
-  .btn-add:hover{background:var(--orange-dark)}
-  tr.userrow td:first-child::after{content:" •";color:var(--orange)}
-  .del-x{color:var(--red);cursor:pointer;font-weight:700;padding:2px 6px;font-size:13px}
-  .foot{margin-top:22px;color:var(--ink-faint);font-size:11.5px;line-height:1.7}
-  @media(max-width:680px){:root{--sidew:0px}.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;align-items:center}.nav{flex-direction:row;flex:1}.app{padding:18px 16px 50px}.rolebar{margin:0;padding:0 4px;border:none;display:flex;align-items:center;gap:10px}.rolebar .hint{display:none}.rolebar .sw{margin:0;width:auto;white-space:nowrap}}
+  @media (prefers-reduced-motion: reduce){
+    #view-dash *,#view-dash *::before,#view-dash *::after{
+      animation-duration:.001ms!important;animation-iteration-count:1!important;
+      transition-duration:.001ms!important}
+  }
 
   /* ================= ระบบ 3 ฝ่ายช่วยกันกรอก ================= */
   .zone-tag{display:none}   /* ตัดป้ายบอกฝ่ายออกตามที่ขอ */
@@ -475,7 +537,7 @@
     <!-- ============ VIEW: แดชบอร์ด ============ -->
     <section class="view" id="view-dash">
       <div class="page-h"><h1>แดชบอร์ด</h1></div>
-      <div class="dash-tabs">
+      <div class="dash-tabs"><span class="dink" id="dInk"></span>
         <button class="dtab active" data-dtab="main">หลัก</button>
         <button class="dtab" data-dtab="trip">กำไรรายเที่ยว</button>
         <button class="dtab" data-dtab="customer">กำไรลูกค้า</button>
@@ -499,20 +561,8 @@
           <div class="ff"><label>จุดลง (ปลายทาง)</label><select id="fMain_dest"></select></div>
           <button class="dz-fbtn" id="fMain_reset">↺ ล้างตัวกรอง</button>
         </div>
-        <div class="dz-cards">
-          <div class="dz-kc"><div class="l">ค่าใช้จ่ายรวม</div><div class="v" id="dk_cost">0</div><div class="s">บาท · ปกติ + สูญเปล่า</div></div>
-          <div class="dz-kc"><div class="l">จำนวนเที่ยววิ่ง</div><div class="v" id="dk_trips">0</div><div class="s">เที่ยว</div></div>
-          <div class="dz-kc"><div class="l">ค่าน้ำมันรวม</div><div class="v" id="dk_fuel">0</div><div class="s">บาท · ค่าน้ำมันเหมา + แก๊ส</div></div>
-          <div class="dz-kc"><div class="l">ค่าเบี้ยเลี้ยงคนขับรวม</div><div class="v" id="dk_driver">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">ค่าธรรมเนียมอื่นๆ</div><div class="v" id="dk_other">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">ค่าซ่อมแซม</div><div class="v" id="dk_repair">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">ต้นทุนสูญเปล่า</div><div class="v" id="dk_waste">0</div><div class="s">บาท · นอกเส้นทาง + วิ่งอ้อม</div></div>
-          <div class="dz-kc"><div class="l">ค่าบริหาร (บิลเคลียร์)</div><div class="v" id="dk_admin">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">ลูกหนี้ค้างชำระ</div><div class="v" id="dk_ar">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">รายได้รวม</div><div class="v" id="dk_rev">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">กำไรสุทธิ</div><div class="v" id="dk_profit">0</div><div class="s">บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร</div></div>
-          <div class="dz-kc"><div class="l">กำไรเฉลี่ย/เที่ยว</div><div class="v" id="dk_avgprofit">0</div><div class="s">บาท · อัตรากำไร <span id="dk_margin">0</span>%</div></div>
-        </div>
+        <div class="dz-heroes"><div class="dz-kc hero cost"><div class="l">ค่าใช้จ่ายรวม</div><div class="v" id="dk_cost">0</div><div class="s">บาท · ปกติ + สูญเปล่า</div><svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9"/></svg></div><div class="dz-kc hero rev"><div class="l">รายได้รวม</div><div class="v" id="dk_rev">0</div><div class="s">บาท</div><svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9"/></svg></div><div class="dz-kc hero profit"><div class="l">กำไรสุทธิ</div><div class="v" id="dk_profit">0</div><div class="s">บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร</div><svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9"/></svg></div></div>
+        <div class="dz-cards"><div class="dz-kc" style="--dot:#4F46E5"><div class="l"><i class="d"></i>จำนวนเที่ยววิ่ง</div><div class="v" id="dk_trips">0</div><div class="s">เที่ยว</div></div><div class="dz-kc" style="--dot:#F59E0B"><div class="l"><i class="d"></i>ค่าน้ำมันรวม</div><div class="v" id="dk_fuel">0</div><div class="s">บาท · ค่าน้ำมันเหมา + แก๊ส</div></div><div class="dz-kc" style="--dot:#0D9488"><div class="l"><i class="d"></i>ค่าเบี้ยเลี้ยงคนขับรวม</div><div class="v" id="dk_driver">0</div><div class="s">บาท</div></div><div class="dz-kc" style="--dot:#7C3AED"><div class="l"><i class="d"></i>ค่าธรรมเนียมอื่นๆ</div><div class="v" id="dk_other">0</div><div class="s">บาท</div></div><div class="dz-kc" style="--dot:#EA580C"><div class="l"><i class="d"></i>ค่าซ่อมแซม</div><div class="v" id="dk_repair">0</div><div class="s">บาท</div></div><div class="dz-kc t-bad" style="--dot:#E11D48"><div class="l"><i class="d"></i>ต้นทุนสูญเปล่า</div><div class="v" id="dk_waste">0</div><div class="s">บาท · นอกเส้นทาง + วิ่งอ้อม</div></div><div class="dz-kc" style="--dot:#475569"><div class="l"><i class="d"></i>ค่าบริหาร (บิลเคลียร์)</div><div class="v" id="dk_admin">0</div><div class="s">บาท</div></div><div class="dz-kc" style="--dot:#DB2777"><div class="l"><i class="d"></i>ลูกหนี้ค้างชำระ</div><div class="v" id="dk_ar">0</div><div class="s">บาท</div></div><div class="dz-kc t-good" style="--dot:#059669"><div class="l"><i class="d"></i>กำไรเฉลี่ย/เที่ยว</div><div class="v" id="dk_avgprofit">0</div><div class="s">บาท · อัตรากำไร <span id="dk_margin">0</span>%</div></div></div>
 
         <div class="dz-t">แนวโน้ม &amp; โครงสร้างต้นทุน</div>
         <div class="dz-row dz-2">
@@ -544,12 +594,7 @@
           <div class="ff"><label>ประเภทสินค้า</label><select id="fDebt_prod"></select></div>
           <button class="dz-fbtn" id="fDebt_reset">↺ ล้างตัวกรอง</button>
         </div>
-        <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">ยอดค้างชำระรวม</div><div class="v" id="dd_out">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">ยอดรับชำระแล้ว</div><div class="v" id="dd_paid">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">จำนวนรายการค้างชำระ</div><div class="v" id="dd_cnt">0</div><div class="s">ราย</div></div>
-          <div class="dz-kc"><div class="l">% สัดส่วนค้างชำระ</div><div class="v" id="dd_ratio">0%</div><div class="s">ของยอดออกบิลทั้งหมด</div></div>
-        </div>
+        <div class="dz-cards"><div class="dz-kc t-bad" style="--dot:#E11D48"><div class="l"><i class="d"></i>ยอดค้างชำระรวม</div><div class="v" id="dd_out">0</div><div class="s">บาท</div></div><div class="dz-kc t-good" style="--dot:#059669"><div class="l"><i class="d"></i>ยอดรับชำระแล้ว</div><div class="v" id="dd_paid">0</div><div class="s">บาท</div></div><div class="dz-kc" style="--dot:#7C3AED"><div class="l"><i class="d"></i>จำนวนรายการค้างชำระ</div><div class="v" id="dd_cnt">0</div><div class="s">ราย</div></div><div class="dz-kc" style="--dot:#F59E0B"><div class="l"><i class="d"></i>% สัดส่วนค้างชำระ</div><div class="v" id="dd_ratio">0%</div><div class="s">ของยอดออกบิลทั้งหมด</div></div></div>
         <div class="dz-row dz-11">
           <div class="dz-cc"><h4>ลูกหนี้ค้างชำระ (Top 10)</h4><div class="dz-box"><canvas id="ddc_top"></canvas></div></div>
           <div class="dz-cc"><h4>สัดส่วนชำระแล้ว vs ค้างชำระ</h4><div class="dz-box"><canvas id="ddc_pie"></canvas></div></div>
@@ -593,12 +638,8 @@
           <div class="ff"><label>เส้นทาง</label><select id="fTrip_route"></select></div>
           <button class="dz-fbtn" id="fTrip_reset">↺ ล้างตัวกรอง</button>
         </div>
-        <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">เที่ยวขาดทุน</div><div class="v" id="dt_lossN">0</div><div class="s">เที่ยว จากทั้งหมด <span id="dt_totN">0</span></div></div>
-          <div class="dz-kc"><div class="l">ขาดทุนรวม (เที่ยวที่ขาดทุน)</div><div class="v" id="dt_lossSum">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">อัตรากำไรเฉลี่ย/เที่ยว</div><div class="v" id="dt_avgMargin">0%</div><div class="s">ของรายได้ต่อเที่ยว</div></div>
-          <div class="dz-kc"><div class="l">กำไรสูงสุดต่อเที่ยว</div><div class="v" id="dt_bestProfit">0</div><div class="s">บาท</div></div>
-        </div>
+        <div class="dz-heroes"><div class="dz-kc hero loss"><div class="l">เที่ยวขาดทุน</div><div class="v" id="dt_lossN">0</div><div class="s">เที่ยว จากทั้งหมด <span id="dt_totN">0</span></div><svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9"/></svg></div></div>
+        <div class="dz-cards"><div class="dz-kc t-bad" style="--dot:#E11D48"><div class="l"><i class="d"></i>ขาดทุนรวม (เที่ยวที่ขาดทุน)</div><div class="v" id="dt_lossSum">0</div><div class="s">บาท</div></div><div class="dz-kc" style="--dot:#4F46E5"><div class="l"><i class="d"></i>อัตรากำไรเฉลี่ย/เที่ยว</div><div class="v" id="dt_avgMargin">0%</div><div class="s">ของรายได้ต่อเที่ยว</div></div><div class="dz-kc t-good" style="--dot:#059669"><div class="l"><i class="d"></i>กำไรสูงสุดต่อเที่ยว</div><div class="v" id="dt_bestProfit">0</div><div class="s">บาท</div></div></div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>กระจายตัวอัตรากำไรต่อเที่ยว</h4><div class="dz-box"><canvas id="dtc_hist"></canvas></div></div>
           <div class="dz-cc"><h4>กำไรเฉลี่ย/เที่ยว ตามเส้นทาง (Top 10)</h4><div class="dz-box"><canvas id="dtc_route"></canvas></div></div>
@@ -636,12 +677,8 @@
             <option value="desc">กำไรมากก่อน</option><option value="asc">กำไรน้อย/ขาดทุนก่อน</option></select></div>
           <button class="dz-fbtn" id="fCust_reset">↺ ล้างตัวกรอง</button>
         </div>
-        <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">จำนวนลูกค้า</div><div class="v" id="dcu_n">0</div><div class="s">ราย (มีบิลอย่างน้อย 1 รายการ)</div></div>
-          <div class="dz-kc"><div class="l">ลูกค้าที่สร้างกำไรสูงสุด</div><div class="v" id="dcu_topName" style="font-size:14px">–</div><div class="s" id="dcu_topVal">–</div></div>
-          <div class="dz-kc"><div class="l">ลูกค้าที่กัดกำไรมากสุด</div><div class="v" id="dcu_botName" style="font-size:14px">–</div><div class="s" id="dcu_botVal">–</div></div>
-          <div class="dz-kc"><div class="l">ลูกค้าที่ขาดทุน</div><div class="v" id="dcu_lossN">0</div><div class="s">ราย จากทั้งหมด</div></div>
-        </div>
+        <div class="dz-heroes"><div class="dz-kc hero cust"><div class="l">จำนวนลูกค้า</div><div class="v" id="dcu_n">0</div><div class="s">ราย (มีบิลอย่างน้อย 1 รายการ)</div><svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9"/></svg></div></div>
+        <div class="dz-cards"><div class="dz-kc t-good" style="--dot:#059669"><div class="l"><i class="d"></i>ลูกค้าที่สร้างกำไรสูงสุด</div><div class="v" id="dcu_topName" style="font-size:14px">–</div><div class="s" id="dcu_topVal">–</div></div><div class="dz-kc t-bad" style="--dot:#E11D48"><div class="l"><i class="d"></i>ลูกค้าที่กัดกำไรมากสุด</div><div class="v" id="dcu_botName" style="font-size:14px">–</div><div class="s" id="dcu_botVal">–</div></div><div class="dz-kc" style="--dot:#EA580C"><div class="l"><i class="d"></i>ลูกค้าที่ขาดทุน</div><div class="v" id="dcu_lossN">0</div><div class="s">ราย จากทั้งหมด</div></div></div>
         <div class="dz-cc" style="margin-top:14px"><h4>กำไร/ขาดทุนต่อลูกค้า (Top 15)</h4><div class="dz-box tall"><canvas id="dcuc_bar"></canvas></div></div>
         <div class="dz-cc" style="margin-top:14px">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
@@ -671,12 +708,8 @@
         </div>
 
         <div class="dz-t">การใช้ประโยชน์กองรถ (Fleet Utilization)</div>
-        <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">รถในกองรถทั้งหมด</div><div class="v" id="df_fleetN">0</div><div class="s"><span id="df_fleetActiveN">0</span> คัน สถานะ “ใช้งาน”</div></div>
-          <div class="dz-kc"><div class="l">รถที่มีเที่ยววิ่งในช่วงนี้</div><div class="v" id="df_usedN">0</div><div class="s">จาก <span id="df_rosterN">0</span> คันในกองรถ</div></div>
-          <div class="dz-kc"><div class="l">%การใช้งานเฉลี่ยต่อคัน</div><div class="v" id="df_avgUtil">0%</div><div class="s">วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน</div></div>
-          <div class="dz-kc"><div class="l">ระยะทางรวมทุกเที่ยว</div><div class="v" id="df_km">0</div><div class="s">กม.</div></div>
-        </div>
+        <div class="dz-heroes"><div class="dz-kc hero fleet"><div class="l">รถในกองรถทั้งหมด</div><div class="v" id="df_fleetN">0</div><div class="s"><span id="df_fleetActiveN">0</span> คัน สถานะ “ใช้งาน”</div><svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9"/></svg></div></div>
+        <div class="dz-cards"><div class="dz-kc" style="--dot:#4F46E5"><div class="l"><i class="d"></i>รถที่มีเที่ยววิ่งในช่วงนี้</div><div class="v" id="df_usedN">0</div><div class="s">จาก <span id="df_rosterN">0</span> คันในกองรถ</div></div><div class="dz-kc" style="--dot:#0D9488"><div class="l"><i class="d"></i>%การใช้งานเฉลี่ยต่อคัน</div><div class="v" id="df_avgUtil">0%</div><div class="s">วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน</div><div class="kbar"><i style="background:#0D9488"></i></div></div><div class="dz-kc" style="--dot:#7C3AED"><div class="l"><i class="d"></i>ระยะทางรวมทุกเที่ยว</div><div class="v" id="df_km">0</div><div class="s">กม.</div></div></div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>จำนวนเที่ยว ตามเส้นทาง (Top 10)</h4><div class="dz-box"><canvas id="dfc_route"></canvas></div></div>
           <div class="dz-cc"><h4>จำนวนเที่ยว ตามกลุ่มบริการ</h4><div class="dz-box"><canvas id="dfc_group"></canvas></div></div>
@@ -693,12 +726,7 @@
         <div class="dz-note">%การใช้งาน = จำนวนวันที่มีเที่ยววิ่งจริง (นับวันไม่ซ้ำ) ÷ จำนวนวันตั้งแต่ “วันที่เริ่มใช้งาน” ในทะเบียนรถ ถึงวันนี้ (หรือถึงวันสุดท้ายของตัวกรองปีที่เลือก) × 100 · รถที่ไม่มีเที่ยวเลยจะแสดง 0% · เพิ่ม/แก้ทะเบียนรถได้ที่หน้า “บันทึกข้อมูล”</div>
 
         <div class="dz-t">มูลค่าที่สูญเสียจากอัตราบรรทุกต่ำ / เที่ยวเปล่า / รถใช้ไม่คุ้มค่า</div>
-        <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">Load Factor เฉลี่ย</div><div class="v" id="df_avgLoad">0%</div><div class="s">เฉพาะเที่ยวที่มีสินค้า + มีข้อมูลความจุ</div></div>
-          <div class="dz-kc"><div class="l">เที่ยวเปล่า (Empty Leg)</div><div class="v" id="df_emptyN">0</div><div class="s"><span id="df_emptyPct">0%</span> ของเที่ยวที่มีข้อมูล</div></div>
-          <div class="dz-kc"><div class="l">ต้นทุนที่เสียไปจากเที่ยวเปล่า</div><div class="v" id="df_emptyCost">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">มูลค่าเสียโอกาสจากบรรทุกไม่เต็ม</div><div class="v" id="df_lostVal">0</div><div class="s">บาท · โดยประมาณ</div></div>
-        </div>
+        <div class="dz-cards"><div class="dz-kc" style="--dot:#0891B2"><div class="l"><i class="d"></i>Load Factor เฉลี่ย</div><div class="v" id="df_avgLoad">0%</div><div class="s">เฉพาะเที่ยวที่มีสินค้า + มีข้อมูลความจุ</div><div class="kbar"><i style="background:#0891B2"></i></div></div><div class="dz-kc" style="--dot:#7C3AED"><div class="l"><i class="d"></i>เที่ยวเปล่า (Empty Leg)</div><div class="v" id="df_emptyN">0</div><div class="s"><span id="df_emptyPct">0%</span> ของเที่ยวที่มีข้อมูล</div></div><div class="dz-kc t-bad" style="--dot:#E11D48"><div class="l"><i class="d"></i>ต้นทุนที่เสียไปจากเที่ยวเปล่า</div><div class="v" id="df_emptyCost">0</div><div class="s">บาท</div></div><div class="dz-kc t-warn" style="--dot:#F59E0B"><div class="l"><i class="d"></i>มูลค่าเสียโอกาสจากบรรทุกไม่เต็ม</div><div class="v" id="df_lostVal">0</div><div class="s">บาท · โดยประมาณ</div></div></div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>กระจายตัว Load Factor</h4><div class="dz-box"><canvas id="dfc_loadhist"></canvas></div></div>
           <div class="dz-cc"><h4>มูลค่าเสียโอกาส ตามชนิดรถ (Top 10)</h4><div class="dz-box"><canvas id="dfc_lostveh"></canvas></div></div>
@@ -725,12 +753,8 @@
           <div class="ff"><label>ผู้รับ (ลูกค้า)</label><select id="fSvc_receiver"></select></div>
           <button class="dz-fbtn" id="fSvc_reset">↺ ล้างตัวกรอง</button>
         </div>
-        <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">จำนวนชิ้นสินค้ารวม</div><div class="v" id="dsv_qty">0</div><div class="s">ชิ้น จาก <span id="dsv_n">0</span> บิลที่มีข้อมูล</div></div>
-          <div class="dz-kc"><div class="l">On-time Delivery</div><div class="v" id="dsv_onTime">0%</div><div class="s">ของบิลที่มีทั้งกำหนดส่งและเวลาส่งจริง</div></div>
-          <div class="dz-kc"><div class="l">Damage Rate</div><div class="v" id="dsv_damageRate">0%</div><div class="s">ของบิลที่มีข้อมูลสถานะสินค้า</div></div>
-          <div class="dz-kc"><div class="l">จำนวนชิ้นเสียหายรวม</div><div class="v" id="dsv_damageQty">0</div><div class="s">ชิ้น</div></div>
-        </div>
+        <div class="dz-heroes"><div class="dz-kc hero svc"><div class="l">On-time Delivery</div><div class="v" id="dsv_onTime">0%</div><div class="s">ของบิลที่มีทั้งกำหนดส่งและเวลาส่งจริง</div><svg class="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true"><polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9"/></svg></div></div>
+        <div class="dz-cards"><div class="dz-kc" style="--dot:#4F46E5"><div class="l"><i class="d"></i>จำนวนชิ้นสินค้ารวม</div><div class="v" id="dsv_qty">0</div><div class="s">ชิ้น จาก <span id="dsv_n">0</span> บิลที่มีข้อมูล</div></div><div class="dz-kc t-bad" style="--dot:#E11D48"><div class="l"><i class="d"></i>Damage Rate</div><div class="v" id="dsv_damageRate">0%</div><div class="s">ของบิลที่มีข้อมูลสถานะสินค้า</div></div><div class="dz-kc t-warn" style="--dot:#EA580C"><div class="l"><i class="d"></i>จำนวนชิ้นเสียหายรวม</div><div class="v" id="dsv_damageQty">0</div><div class="s">ชิ้น</div></div></div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>On-time Delivery % ตามลูกค้า (Top 10 ที่แย่ที่สุด)</h4><div class="dz-box"><canvas id="dsvc_ontime"></canvas></div></div>
           <div class="dz-cc"><h4>Damage Rate % ตามลูกค้า (Top 10 ที่แย่ที่สุด)</h4><div class="dz-box"><canvas id="dsvc_damage"></canvas></div></div>
@@ -3103,21 +3127,79 @@ const COST_ITEMS=[
 const CLEARED="บิลเคลียร์";
 const billCleared=b=>(b.goodsType||"")===CLEARED;
 
-function setTxt(id,v){ const e=$(id); if(e) e.textContent=v; }
+function setTxt(id,v){ const e=$(id); if(!e) return; e.dataset.real=v; e.textContent=v; }
+
+/* ---------- ลูกเล่นของแดชบอร์ด: เส้นใต้แท็บ + ตัวเลขนับขึ้น ---------- */
+function moveDashInk(){
+  const ink=$("dInk"), on=document.querySelector(".dtab.active");
+  if(!ink||!on) return;
+  ink.style.width=on.offsetWidth+"px";
+  ink.style.transform="translateX("+on.offsetLeft+"px)";
+}
+// นับตัวเลขจาก 0 ขึ้นไปหาค่าจริง แล้วคืนข้อความเดิมเป๊ะ ๆ (คงรูปแบบ comma/ทศนิยม/หน่วย)
+const dReduce=()=>window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function countUpDash(pane){
+  // ไม่เล่นอนิเมชันถ้าผู้ใช้ปิดไว้ หรือแท็บถูกซ่อน (เฟรมไม่ทำงาน ตัวเลขจะค้างเป็น 0)
+  if(dReduce()||document.hidden) return;
+  const box=pane?$("dpane-"+pane):null; if(!box) return;
+  [...box.querySelectorAll(".dz-kc .v")].forEach((el,i)=>{
+    const txt=(el.dataset.real!==undefined)?el.dataset.real:el.textContent;
+    const m=txt.match(/-?[\d,]*\.?\d+/);
+    if(!m) return;                                  // ข้อความล้วน เช่น ชื่อลูกค้า
+    const target=parseFloat(m[0].replace(/,/g,""));
+    if(!isFinite(target)||target===0) return;
+    const dec=(m[0].split(".")[1]||"").length;
+    const run=String(+(el.dataset.run||0)+1); el.dataset.run=run;
+    const dur=900, delay=120+i*55;
+    let t0=null;
+    const finish=()=>{ if(el.dataset.run===run) el.textContent=txt; };
+    const step=now=>{
+      if(el.dataset.run!==run) return;              // มีรอบใหม่แล้ว หยุดรอบนี้
+      if(t0===null){ t0=now; el.textContent=txt.replace(m[0],(0).toFixed(dec)); }
+      const p=Math.min(1,Math.max(0,(now-t0-delay)/dur));
+      if(p>=1){ finish(); return; }
+      const v=target*(1-Math.pow(1-p,3));
+      el.textContent=txt.replace(m[0],v.toLocaleString("en-US",{minimumFractionDigits:dec,maximumFractionDigits:dec}));
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    setTimeout(finish, delay+dur+400);              // กันตัวเลขค้าง ถ้าเฟรมไม่ทำงาน
+  });
+}
 function duniq(a){ return [...new Set(a.filter(v=>v!=null&&v!==""))].sort((x,y)=>String(x).localeCompare(String(y),"th")); }
 function fillSel(id,vals,allLabel){ const s=$(id); if(!s)return; const cur=s.value;
   s.innerHTML=`<option value="">${allLabel}</option>`+vals.map(v=>`<option value="${esc(String(v))}">${esc(String(v))}</option>`).join("");
   if([...s.options].some(o=>o.value===cur)) s.value=cur; }
-function dOpts(horiz,showLeg){ return {responsive:true,maintainAspectRatio:false,animation:{duration:300},
-  plugins:{legend:{display:showLeg!==false,position:"bottom",labels:{font:{family:"Noto Sans Thai",size:11},boxWidth:12}}},
-  scales:{x:{ticks:{font:{family:"Noto Sans Thai",size:10}}},y:{ticks:{font:{family:"Noto Sans Thai",size:10}}}},
+const DFONT="Anuphan, 'Noto Sans Thai', system-ui, sans-serif";
+function dOpts(horiz,showLeg){ return {responsive:true,maintainAspectRatio:false,
+  animation:{duration:950,easing:"easeOutQuart"},
+  plugins:{
+    legend:{display:showLeg!==false,position:"bottom",
+      labels:{font:{family:DFONT,size:12},color:"#4A463F",usePointStyle:true,pointStyle:"circle",boxWidth:10,padding:16}},
+    tooltip:{backgroundColor:"#17161A",cornerRadius:10,padding:11,titleFont:{family:DFONT,size:12.5},
+      bodyFont:{family:DFONT,size:12.5},displayColors:true,boxPadding:4}
+  },
+  scales:{
+    x:{ticks:{font:{family:DFONT,size:11},color:"#8A857C"},grid:{color:"#F2EFEA"},border:{color:"#EAE6DF"}},
+    y:{ticks:{font:{family:DFONT,size:11},color:"#8A857C"},grid:{color:"#F2EFEA"},border:{color:"#EAE6DF"}}
+  },
   indexAxis:horiz?"y":"x"}; }
 function dHas(id){ return typeof Chart!=="undefined" && $(id); }
+// สีพื้นใต้เส้นกราฟ (โปร่งบาง ๆ ตามสเปก)
+function dFade(hex){
+  const h=String(hex||"").replace("#","");
+  if(h.length!==6) return "rgba(79,70,229,.09)";
+  const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},.09)`;
+}
 function dBar(id,labels,ds,horiz,showLeg){ if(!dHas(id))return; if(dCharts[id])dCharts[id].destroy();
-  dCharts[id]=new Chart($(id),{type:"bar",data:{labels,datasets:ds},options:dOpts(horiz,showLeg)}); }
+  dCharts[id]=new Chart($(id),{type:"bar",
+    data:{labels,datasets:ds.map(d=>({borderRadius:7,borderSkipped:false,...d}))},
+    options:dOpts(horiz,showLeg)}); }
 function dLine(id,labels,ds){ if(!dHas(id))return; if(dCharts[id])dCharts[id].destroy();
   dCharts[id]=new Chart($(id),{type:"line",data:{labels,datasets:ds.map(d=>({label:d.label,data:d.data,
-    borderColor:d.color,backgroundColor:d.color,borderWidth:2,tension:.3,fill:false,pointRadius:2}))},options:dOpts(false,ds.length>1)}); }
+    borderColor:d.color,backgroundColor:dFade(d.color),borderWidth:2.2,tension:.35,fill:true,
+    pointRadius:0,pointHoverRadius:4}))},options:dOpts(false,ds.length>1)}); }
 function dMixed(id,labels,bars,line){ if(!dHas(id))return; if(dCharts[id])dCharts[id].destroy();
   const ds=bars.map(b=>({type:"bar",label:b.label,data:b.data,backgroundColor:b.color}));
   if(line) ds.push({type:"line",label:line.label,data:line.data,borderColor:line.color,backgroundColor:line.color,borderWidth:2,tension:.3,fill:false,pointRadius:2});
@@ -3199,10 +3281,10 @@ function renderDashMain(){
   const inMonth=m=>recs.filter(r=>String(r.date||"").slice(0,7)===m);
 
   const mcost=months.map(m=>sumBy(inMonth(m),r=>recCost(r).total));
-  dLine("dch_costtrend",months.map(mlabel),[{label:"ต้นทุนรวม",data:mcost,color:"#6E1837"}]);
+  dLine("dch_costtrend",months.map(mlabel),[{label:"ต้นทุนรวม",data:mcost,color:"#4F46E5"}]);
 
   dPie("dch_break",["ค่าน้ำมัน","เบี้ยเลี้ยงคนขับ","ค่าซ่อมแซม","ค่าธรรมเนียมอื่นๆ","สูญเปล่า"],
-    [fuel,driver,repair,other,waste],["#C58F9F","#6E1837","#6E1837","#A39C93","#4A453F"]);
+    [fuel,driver,repair,other,waste],["#7C3AED","#4F46E5","#4F46E5","#94A3B8","#475569"]);
 
   // รายปี — ใช้ตัวกรองอื่นทั้งหมด ยกเว้นปี
   const yrecs=base.filter(r=>passMain(r,true));
@@ -3212,14 +3294,14 @@ function renderDashMain(){
   const ycost=years.map(y=>sumBy(inYear(y),r=>recCost(r).total));
   const yadmin=years.map(y=>sumBy(inYear(y),adminOf));
   dMixed("dch_yearcmp",years.map(y=>"พ.ศ. "+((+y)+543)),
-    [{label:"รายได้",data:yrev,color:"#6E1837"},{label:"ต้นทุน",data:ycost,color:"#6E1837"}],
-    {label:"กำไร",data:years.map((y,i)=>yrev[i]-ycost[i]-yadmin[i]),color:"#2C6B44"});
+    [{label:"รายได้",data:yrev,color:"#4F46E5"},{label:"ต้นทุน",data:ycost,color:"#4F46E5"}],
+    {label:"กำไร",data:years.map((y,i)=>yrev[i]-ycost[i]-yadmin[i]),color:"#047857"});
 
   const mrev=months.map(m=>sumBy(inMonth(m),r=>dNum(r.revenue)));
   const madmin=months.map(m=>sumBy(inMonth(m),adminOf));
   dLine("dch_month3",months.map(mlabel),[
-    {label:"รายได้",data:mrev,color:"#6E1837"},{label:"ต้นทุน",data:mcost,color:"#6E1837"},
-    {label:"กำไร",data:months.map((m,i)=>mrev[i]-mcost[i]-madmin[i]),color:"#2C6B44"}]);
+    {label:"รายได้",data:mrev,color:"#4F46E5"},{label:"ต้นทุน",data:mcost,color:"#4F46E5"},
+    {label:"กำไร",data:months.map((m,i)=>mrev[i]-mcost[i]-madmin[i]),color:"#047857"}]);
 
   const vehs=duniq(recs.map(r=>r.vehicle));
   const inVeh=v=>recs.filter(r=>r.vehicle===v);
@@ -3227,15 +3309,15 @@ function renderDashMain(){
   const vcost=vehs.map(v=>sumBy(inVeh(v),r=>recCost(r).total));
   const vadmin=vehs.map(v=>sumBy(inVeh(v),adminOf));
   dMixed("dch_bytype",vehs,
-    [{label:"รายได้",data:vrev,color:"#6E1837"},{label:"ต้นทุน",data:vcost,color:"#6E1837"}],
-    {label:"กำไร",data:vehs.map((v,i)=>vrev[i]-vcost[i]-vadmin[i]),color:"#2C6B44"});
+    [{label:"รายได้",data:vrev,color:"#4F46E5"},{label:"ต้นทุน",data:vcost,color:"#4F46E5"}],
+    {label:"กำไร",data:vehs.map((v,i)=>vrev[i]-vcost[i]-vadmin[i]),color:"#047857"});
 
   const bmap={}; recs.forEach(r=>{ const k=r.branch||"(ไม่ระบุสาขา)"; bmap[k]=(bmap[k]||0)+recCost(r).total; });
   const br=Object.entries(bmap).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  dBar("dch_branch",br.map(x=>x[0]),[{label:"ต้นทุน",data:br.map(x=>x[1]),backgroundColor:"#C58F9F"}],true,false);
+  dBar("dch_branch",br.map(x=>x[0]),[{label:"ต้นทุน",data:br.map(x=>x[1]),backgroundColor:"#7C3AED"}],true,false);
 
   const items=COST_ITEMS.map(([lab,key])=>[lab,sumBy(recs,r=>dNum(r[key]))]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
-  dBar("dch_allcost",items.map(x=>x[0]),[{label:"ต้นทุน",data:items.map(x=>x[1]),backgroundColor:"#A87083"}],true,false);
+  dBar("dch_allcost",items.map(x=>x[0]),[{label:"ต้นทุน",data:items.map(x=>x[1]),backgroundColor:"#DB2777"}],true,false);
 }
 
 // ---------- แดชบอร์ด กำไรรายเที่ยว ----------
@@ -3290,12 +3372,12 @@ function renderDashTrip(){
   const cnt=buckets.map(()=>0);
   marginRows.forEach(x=>{ const i=buckets.findIndex(b=>x.margin>=b[0]&&x.margin<b[1]); if(i>=0) cnt[i]++; });
   dBar("dtc_hist",buckets.map(b=>b[2]),
-    [{label:"จำนวนเที่ยว",data:cnt,backgroundColor:["#A63A3A","#DDBCC4","#D6E0D8","#BBD0C1","#7FA890","#2C6B44"]}],false,false);
+    [{label:"จำนวนเที่ยว",data:cnt,backgroundColor:["#E11D48","#F59E0B","#BBF7D0","#6EE7B7","#34D399","#047857"]}],false,false);
 
   const rm={};
   rows.forEach(x=>{ const k=routeLabel(x.r); if(!rm[k]) rm[k]={sum:0,n:0}; rm[k].sum+=x.profit; rm[k].n++; });
   const routeList=Object.entries(rm).map(([k,v])=>[k,v.sum/v.n]).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  dBar("dtc_route",routeList.map(x=>x[0]),[{label:"กำไรเฉลี่ย/เที่ยว",data:routeList.map(x=>x[1]),backgroundColor:"#6E1837"}],true,false);
+  dBar("dtc_route",routeList.map(x=>x[0]),[{label:"กำไรเฉลี่ย/เที่ยว",data:routeList.map(x=>x[1]),backgroundColor:"#4F46E5"}],true,false);
 
   renderTripTable(rows);
 }
@@ -3375,7 +3457,7 @@ function renderDashCustomer(){
   const top15=sorted.slice(0,15);
   dBar("dcuc_bar", top15.map(x=>custLabel(x.name)),
     [{label:"กำไร/ขาดทุน",data:top15.map(x=>x.profit),
-      backgroundColor:top15.map(x=>x.profit<0?"#A63A3A":"#2C6B44")}], true, false);
+      backgroundColor:top15.map(x=>x.profit<0?"#E11D48":"#047857")}], true, false);
 
   renderCustTable(sorted);
 }
@@ -3433,15 +3515,15 @@ function renderDashFleet(){
 
   const rm={}; recs.forEach(r=>{ const k=routeLabel(r); rm[k]=(rm[k]||0)+1; });
   const routeTop=Object.entries(rm).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  dBar("dfc_route",routeTop.map(x=>x[0]),[{label:"จำนวนเที่ยว",data:routeTop.map(x=>x[1]),backgroundColor:"#6E1837"}],true,false);
+  dBar("dfc_route",routeTop.map(x=>x[0]),[{label:"จำนวนเที่ยว",data:routeTop.map(x=>x[1]),backgroundColor:"#4F46E5"}],true,false);
 
   const gm={}; recs.forEach(r=>{ const k=r.serviceGroup||"(ไม่ระบุ)"; gm[k]=(gm[k]||0)+1; });
   const groupList=Object.entries(gm).sort((a,b)=>b[1]-a[1]);
-  dBar("dfc_group",groupList.map(x=>x[0]),[{label:"จำนวนเที่ยว",data:groupList.map(x=>x[1]),backgroundColor:"#C58F9F"}],false,false);
+  dBar("dfc_group",groupList.map(x=>x[0]),[{label:"จำนวนเที่ยว",data:groupList.map(x=>x[1]),backgroundColor:"#7C3AED"}],false,false);
 
   const vm={}; recs.forEach(r=>{ const k=r.vehicle||"(ไม่ระบุ)"; vm[k]=(vm[k]||0)+1; });
   const vehList=Object.entries(vm).sort((a,b)=>b[1]-a[1]);
-  dBar("dfc_veh",vehList.map(x=>x[0]),[{label:"จำนวนเที่ยว",data:vehList.map(x=>x[1]),backgroundColor:"#6E1837"}],false,false);
+  dBar("dfc_veh",vehList.map(x=>x[0]),[{label:"จำนวนเที่ยว",data:vehList.map(x=>x[1]),backgroundColor:"#4F46E5"}],false,false);
 
   // %การใช้งานรายคัน เทียบกับทะเบียนในกองรถ
   const year=$("fFleet_year")?$("fFleet_year").value:"";
@@ -3495,11 +3577,11 @@ function renderDashFleet(){
   const buckets=[[0,20,"0–20%"],[20,40,"20–40%"],[40,60,"40–60%"],[60,80,"60–80%"],[80,100.01,"80–100%"]];
   const cnt=buckets.map(()=>0);
   factors.forEach(f=>{ const i=buckets.findIndex(b=>f>=b[0]&&f<b[1]); if(i>=0) cnt[i]++; });
-  dBar("dfc_loadhist",buckets.map(b=>b[2]),[{label:"จำนวนเที่ยว",data:cnt,backgroundColor:["#A63A3A","#DDBCC4","#D6E0D8","#7FA890","#2C6B44"]}],false,false);
+  dBar("dfc_loadhist",buckets.map(b=>b[2]),[{label:"จำนวนเที่ยว",data:cnt,backgroundColor:["#E11D48","#F59E0B","#BBF7D0","#34D399","#047857"]}],false,false);
 
   const lvm={}; lostRows.forEach(x=>{ const k=x.r.vehicle||"(ไม่ระบุ)"; lvm[k]=(lvm[k]||0)+x.lost; });
   const lvTop=Object.entries(lvm).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  dBar("dfc_lostveh",lvTop.map(x=>x[0]),[{label:"มูลค่าเสียโอกาส (บาท)",data:lvTop.map(x=>x[1]),backgroundColor:"#591028"}],true,false);
+  dBar("dfc_lostveh",lvTop.map(x=>x[0]),[{label:"มูลค่าเสียโอกาส (บาท)",data:lvTop.map(x=>x[1]),backgroundColor:"#3730A3"}],true,false);
 
   const lostTb=$("dfLostTbl");
   if(lostTb){
@@ -3565,10 +3647,10 @@ function renderDashService(){
     cm[k].dmN++; if(b.damageStatus!=="ปกติ") cm[k].dm++; });
   const otWorst=Object.entries(cm).filter(([,v])=>v.otN>0).map(([k,v])=>[k,Math.round(v.ot/v.otN*100)])
     .sort((a,b)=>a[1]-b[1]).slice(0,10);
-  dBar("dsvc_ontime",otWorst.map(x=>custLabel(x[0])),[{label:"On-time %",data:otWorst.map(x=>x[1]),backgroundColor:"#C58F9F"}],true,false);
+  dBar("dsvc_ontime",otWorst.map(x=>custLabel(x[0])),[{label:"On-time %",data:otWorst.map(x=>x[1]),backgroundColor:"#7C3AED"}],true,false);
   const dmWorst=Object.entries(cm).filter(([,v])=>v.dmN>0).map(([k,v])=>[k,Math.round(v.dm/v.dmN*100)])
     .sort((a,b)=>b[1]-a[1]).slice(0,10);
-  dBar("dsvc_damage",dmWorst.map(x=>custLabel(x[0])),[{label:"Damage Rate %",data:dmWorst.map(x=>x[1]),backgroundColor:"#A63A3A"}],true,false);
+  dBar("dsvc_damage",dmWorst.map(x=>custLabel(x[0])),[{label:"Damage Rate %",data:dmWorst.map(x=>x[1]),backgroundColor:"#E11D48"}],true,false);
 
   // แนวโน้มรายเดือน
   const months=duniq(bills.map(b=>String(b.date||"").slice(0,7))).sort();
@@ -3578,7 +3660,7 @@ function renderDashService(){
   const dmM=months.map(m=>{ const bs=dmgBills.filter(b=>String(b.date||"").slice(0,7)===m);
     return bs.length?Math.round(bs.filter(b=>b.damageStatus!=="ปกติ").length/bs.length*100):null; });
   dLine("dsvc_trend",months.map(mlabel),[
-    {label:"On-time %",data:otM,color:"#C58F9F"},{label:"Damage Rate %",data:dmM,color:"#A63A3A"}]);
+    {label:"On-time %",data:otM,color:"#7C3AED"},{label:"Damage Rate %",data:dmM,color:"#E11D48"}]);
 
   renderSvcTable(bills);
 }
@@ -3636,8 +3718,8 @@ function renderDashDebt(){
     const lab=custLabel(x.sender)+" → "+custLabel(x.receiver);
     cm[lab]=(cm[lab]||0)+dNum(x.total); } });
   const top=Object.entries(cm).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  dBar("ddc_top",top.map(x=>x[0]),[{label:"ค้างชำระ",data:top.map(x=>x[1]),backgroundColor:"#A63A3A"}],true,false);
-  dPie("ddc_pie",["ชำระแล้ว","ค้างชำระ","บิลเคลียร์"],[paidT,outT,clrT],["#2C6B44","#A63A3A","#C58F9F"]);
+  dBar("ddc_top",top.map(x=>x[0]),[{label:"ค้างชำระ",data:top.map(x=>x[1]),backgroundColor:"#E11D48"}],true,false);
+  dPie("ddc_pie",["ชำระแล้ว","ค้างชำระ","บิลเคลียร์"],[paidT,outT,clrT],["#047857","#E11D48","#7C3AED"]);
   renderDdAging(rows);
   renderDdLate(rows);
   renderDdTable(rows);
@@ -3652,7 +3734,7 @@ function renderDdAging(rows){
     if(i>=0) sums[i]+=dNum(x.total);
   });
   dBar("ddc_aging",buckets.map(b=>b[2]),
-    [{label:"ยอดค้างชำระ (บาท)",data:sums,backgroundColor:["#DDBCC4","#6E1837","#591028","#A63A3A"]}],false,false);
+    [{label:"ยอดค้างชำระ (บาท)",data:sums,backgroundColor:["#F59E0B","#4F46E5","#3730A3","#E11D48"]}],false,false);
 }
 // ลูกค้าที่จ่ายช้ากว่าเกณฑ์ซ้ำ ๆ (นับจากบิลที่จ่ายแล้ว และใช้เวลาจ่ายเกินเกณฑ์ที่ตั้งไว้)
 function renderDdLate(rows){
@@ -3705,7 +3787,10 @@ function renderDash(){
   else if(dashTab==="fleet") renderDashFleet();
   else if(dashTab==="service") renderDashService();
   else renderDashDebt();
+  moveDashInk();
+  countUpDash(dashTab);
 }
+window.addEventListener("resize",()=>{ if(typeof moveDashInk==="function") moveDashInk(); });
 (function initDashUI(){
   document.querySelectorAll(".dtab").forEach(t=>t.onclick=()=>{
     dashTab=t.dataset.dtab;
