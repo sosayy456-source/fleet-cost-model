@@ -403,13 +403,11 @@
   .ropt>span:last-of-type{flex:1}
   .ropt .t{display:block;font:600 21px/1.2 Anuphan,sans-serif;color:var(--rs-ink)}
   .ropt .d{display:block;margin-top:6px;font:400 13.5px/1.5 Anuphan,sans-serif;color:var(--rs-muted)}
-  .ropt .tabs{display:block;margin-top:9px;font:400 12px/1.5 Anuphan,sans-serif;color:var(--rs-subtle)}
   .ropt .ring{position:absolute;inset:0;border-radius:14px;pointer-events:none;
     box-shadow:inset 0 0 0 2px var(--rs-accent);opacity:0;transition:opacity .2s}
   .ropt[aria-checked="true"] .ring{opacity:1}
   .ropt.wide{grid-column:1/-1}
-  .rs-foot{margin-top:40px;display:flex;align-items:center;justify-content:space-between;gap:24px}
-  .rs-note{font:400 12.5px/1.5 Anuphan,sans-serif;color:var(--rs-subtle)}
+  .rs-foot{margin-top:40px;display:flex;align-items:center;justify-content:flex-end;gap:24px}
   .rs-cta{display:flex;align-items:center;gap:10px;padding:14px 26px;border-radius:999px;
     border:none;font:600 15px/1 Anuphan,sans-serif;white-space:nowrap;
     background:rgba(23,19,26,.08);color:var(--rs-subtle);cursor:not-allowed;
@@ -1217,7 +1215,6 @@
       </div>
       <div class="rs-grid" id="roleOpts" role="radiogroup" aria-label="Select your role"></div>
       <div class="rs-foot">
-        <span class="rs-note">สลับตำแหน่งได้ภายหลังจากปุ่มเปลี่ยนหน้าที่</span>
         <button class="rs-cta" id="roleGo" type="button" disabled aria-disabled="true">
           <span id="roleGoTxt">Continue</span><span style="font-size:15px">&rarr;</span></button>
       </div>
@@ -2075,17 +2072,13 @@ function renderRoleBar(){
 function renderRolePicker(){
   let sel=null;
   const goBtn=$("roleGo"), goTxt=$("roleGoTxt");
-  const tabName={dash:"แดชบอร์ด",form:"บันทึกข้อมูล",records:"รายการทั้งหมด",
-                 drafts:"ใบที่ยังไม่ครบ",debtors:"รายการลูกหนี้",custcode:"ค้นหารหัสลูกค้า"};
   $("roleOpts").innerHTML=ROLE_PICK.map((k,i)=>{
     const r=ROLES[k];
-    const tabs=(ROLE_VIEWS[k]||[]).map(v=>tabName[v]||v).join(" · ");
     return `<button type="button" class="ropt${k==="admin"?" wide":""}" role="radio"
         aria-checked="false" data-role="${k}">
       <span class="ix">${String(i+1).padStart(2,"0")}</span>
       <span><span class="t">${esc(r.en||r.label)}</span>
-        <span class="d">${esc(r.desc)}</span>
-        <span class="tabs">แท็บที่ใช้: ${esc(tabs)}</span></span>
+        <span class="d">${esc(r.desc)}</span></span>
       <span class="ring"></span></button>`;
   }).join("");
   const cards=[...$("roleOpts").querySelectorAll(".ropt")];
