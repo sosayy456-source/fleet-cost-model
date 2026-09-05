@@ -50,12 +50,6 @@
 
   .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidew);z-index:30;background:var(--sidebar-bg);
     display:flex;flex-direction:column;padding:28px 18px;overflow-y:auto}
-  .brand{padding:0 4px 18px}
-  .brand .row{display:flex;align-items:center;gap:9px}
-  .brand .nm{color:var(--accent);font-size:17px;font-weight:800;letter-spacing:-.2px;font-family:var(--font-num)}
-  .brand .demo{background:#fff;color:var(--accent);font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px}
-  .brand .sub{color:var(--sidebar-num);font-size:12px;font-weight:700;margin-top:8px;
-    text-transform:uppercase;letter-spacing:.08em}
   .nav{display:flex;flex-direction:column;gap:4px}
   .navitem{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;cursor:pointer;
     color:var(--sidebar-text);font-size:15px;font-weight:400;border:none;background:transparent;
@@ -358,7 +352,7 @@
   tr.userrow td:first-child::after{content:" •";color:var(--orange)}
   .del-x{color:var(--red);cursor:pointer;font-weight:700;padding:2px 6px;font-size:13px}
   .foot{margin-top:22px;color:var(--ink-faint);font-size:11.5px;line-height:1.7}
-  @media(max-width:680px){:root{--sidew:0px}.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;align-items:center}.brand{border:none;margin:0;padding:0 12px 0 4px}.nav{flex-direction:row;flex:1}.app{padding:18px 16px 50px}.rolebar{margin:0;padding:0 4px;border:none;display:flex;align-items:center;gap:10px}.rolebar .hint{display:none}.rolebar .sw{margin:0;width:auto;white-space:nowrap}}
+  @media(max-width:680px){:root{--sidew:0px}.sidebar{position:static;width:100%;flex-direction:row;flex-wrap:wrap;padding:12px;align-items:center}.nav{flex-direction:row;flex:1}.app{padding:18px 16px 50px}.rolebar{margin:0;padding:0 4px;border:none;display:flex;align-items:center;gap:10px}.rolebar .hint{display:none}.rolebar .sw{margin:0;width:auto;white-space:nowrap}}
 
   /* ================= ระบบ 3 ฝ่ายช่วยกันกรอก ================= */
   .zone-tag{display:none}   /* ตัดป้ายบอกฝ่ายออกตามที่ขอ */
@@ -440,10 +434,6 @@
 </head>
 <body>
   <aside class="sidebar">
-    <div class="brand">
-      <div class="row"><span class="nm">โมเดลต้นทุน</span><span class="demo">เดโม</span></div>
-      <div class="sub">ต้นทุนต่อเที่ยววิ่ง</div>
-    </div>
     <nav class="nav">
       <button class="navitem" data-view="dash">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></svg>
@@ -512,18 +502,18 @@
           <button class="dz-fbtn" id="fMain_reset">↺ ล้างตัวกรอง</button>
         </div>
         <div class="dz-cards">
-          <div class="dz-kc"><div class="l">🧾 ค่าใช้จ่ายรวม</div><div class="v" id="dk_cost">0</div><div class="s">บาท · ปกติ + สูญเปล่า</div></div>
-          <div class="dz-kc"><div class="l">🚚 จำนวนเที่ยววิ่ง</div><div class="v" id="dk_trips">0</div><div class="s">เที่ยว</div></div>
-          <div class="dz-kc"><div class="l">⛽ ค่าน้ำมันรวม</div><div class="v" id="dk_fuel">0</div><div class="s">บาท · ค่าน้ำมันเหมา + แก๊ส</div></div>
-          <div class="dz-kc"><div class="l">🧍 ค่าเบี้ยเลี้ยงคนขับรวม</div><div class="v" id="dk_driver">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">📦 ค่าธรรมเนียมอื่นๆ</div><div class="v" id="dk_other">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">🔧 ค่าซ่อมแซม</div><div class="v" id="dk_repair">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">💨 ต้นทุนสูญเปล่า</div><div class="v" id="dk_waste">0</div><div class="s">บาท · นอกเส้นทาง + วิ่งอ้อม</div></div>
-          <div class="dz-kc"><div class="l">🗂️ ค่าบริหาร (บิลเคลียร์)</div><div class="v" id="dk_admin">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">💳 ลูกหนี้ค้างชำระ</div><div class="v" id="dk_ar">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">💰 รายได้รวม</div><div class="v" id="dk_rev">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">📈 กำไรสุทธิ</div><div class="v" id="dk_profit">0</div><div class="s">บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร</div></div>
-          <div class="dz-kc"><div class="l">📊 กำไรเฉลี่ย/เที่ยว</div><div class="v" id="dk_avgprofit">0</div><div class="s">บาท · อัตรากำไร <span id="dk_margin">0</span>%</div></div>
+          <div class="dz-kc"><div class="l">ค่าใช้จ่ายรวม</div><div class="v" id="dk_cost">0</div><div class="s">บาท · ปกติ + สูญเปล่า</div></div>
+          <div class="dz-kc"><div class="l">จำนวนเที่ยววิ่ง</div><div class="v" id="dk_trips">0</div><div class="s">เที่ยว</div></div>
+          <div class="dz-kc"><div class="l">ค่าน้ำมันรวม</div><div class="v" id="dk_fuel">0</div><div class="s">บาท · ค่าน้ำมันเหมา + แก๊ส</div></div>
+          <div class="dz-kc"><div class="l">ค่าเบี้ยเลี้ยงคนขับรวม</div><div class="v" id="dk_driver">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">ค่าธรรมเนียมอื่นๆ</div><div class="v" id="dk_other">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">ค่าซ่อมแซม</div><div class="v" id="dk_repair">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">ต้นทุนสูญเปล่า</div><div class="v" id="dk_waste">0</div><div class="s">บาท · นอกเส้นทาง + วิ่งอ้อม</div></div>
+          <div class="dz-kc"><div class="l">ค่าบริหาร (บิลเคลียร์)</div><div class="v" id="dk_admin">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">ลูกหนี้ค้างชำระ</div><div class="v" id="dk_ar">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">รายได้รวม</div><div class="v" id="dk_rev">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">กำไรสุทธิ</div><div class="v" id="dk_profit">0</div><div class="s">บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร</div></div>
+          <div class="dz-kc"><div class="l">กำไรเฉลี่ย/เที่ยว</div><div class="v" id="dk_avgprofit">0</div><div class="s">บาท · อัตรากำไร <span id="dk_margin">0</span>%</div></div>
         </div>
 
         <div class="dz-t">แนวโน้ม &amp; โครงสร้างต้นทุน</div>
@@ -557,9 +547,9 @@
           <button class="dz-fbtn" id="fDebt_reset">↺ ล้างตัวกรอง</button>
         </div>
         <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">💳 ยอดค้างชำระรวม</div><div class="v" id="dd_out">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">✅ ยอดรับชำระแล้ว</div><div class="v" id="dd_paid">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">📋 จำนวนรายการค้างชำระ</div><div class="v" id="dd_cnt">0</div><div class="s">ราย</div></div>
+          <div class="dz-kc"><div class="l">ยอดค้างชำระรวม</div><div class="v" id="dd_out">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">ยอดรับชำระแล้ว</div><div class="v" id="dd_paid">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">จำนวนรายการค้างชำระ</div><div class="v" id="dd_cnt">0</div><div class="s">ราย</div></div>
           <div class="dz-kc"><div class="l">% สัดส่วนค้างชำระ</div><div class="v" id="dd_ratio">0%</div><div class="s">ของยอดออกบิลทั้งหมด</div></div>
         </div>
         <div class="dz-row dz-11">
@@ -606,10 +596,10 @@
           <button class="dz-fbtn" id="fTrip_reset">↺ ล้างตัวกรอง</button>
         </div>
         <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">🚨 เที่ยวขาดทุน</div><div class="v" id="dt_lossN">0</div><div class="s">เที่ยว จากทั้งหมด <span id="dt_totN">0</span></div></div>
-          <div class="dz-kc"><div class="l">📉 ขาดทุนรวม (เที่ยวที่ขาดทุน)</div><div class="v" id="dt_lossSum">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">📈 อัตรากำไรเฉลี่ย/เที่ยว</div><div class="v" id="dt_avgMargin">0%</div><div class="s">ของรายได้ต่อเที่ยว</div></div>
-          <div class="dz-kc"><div class="l">🏆 กำไรสูงสุดต่อเที่ยว</div><div class="v" id="dt_bestProfit">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">เที่ยวขาดทุน</div><div class="v" id="dt_lossN">0</div><div class="s">เที่ยว จากทั้งหมด <span id="dt_totN">0</span></div></div>
+          <div class="dz-kc"><div class="l">ขาดทุนรวม (เที่ยวที่ขาดทุน)</div><div class="v" id="dt_lossSum">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">อัตรากำไรเฉลี่ย/เที่ยว</div><div class="v" id="dt_avgMargin">0%</div><div class="s">ของรายได้ต่อเที่ยว</div></div>
+          <div class="dz-kc"><div class="l">กำไรสูงสุดต่อเที่ยว</div><div class="v" id="dt_bestProfit">0</div><div class="s">บาท</div></div>
         </div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>กระจายตัวอัตรากำไรต่อเที่ยว</h4><div class="dz-box"><canvas id="dtc_hist"></canvas></div></div>
@@ -649,10 +639,10 @@
           <button class="dz-fbtn" id="fCust_reset">↺ ล้างตัวกรอง</button>
         </div>
         <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">👥 จำนวนลูกค้า</div><div class="v" id="dcu_n">0</div><div class="s">ราย (มีบิลอย่างน้อย 1 รายการ)</div></div>
-          <div class="dz-kc"><div class="l">💚 ลูกค้าที่สร้างกำไรสูงสุด</div><div class="v" id="dcu_topName" style="font-size:14px">–</div><div class="s" id="dcu_topVal">–</div></div>
-          <div class="dz-kc"><div class="l">🔻 ลูกค้าที่กัดกำไรมากสุด</div><div class="v" id="dcu_botName" style="font-size:14px">–</div><div class="s" id="dcu_botVal">–</div></div>
-          <div class="dz-kc"><div class="l">⚠️ ลูกค้าที่ขาดทุน</div><div class="v" id="dcu_lossN">0</div><div class="s">ราย จากทั้งหมด</div></div>
+          <div class="dz-kc"><div class="l">จำนวนลูกค้า</div><div class="v" id="dcu_n">0</div><div class="s">ราย (มีบิลอย่างน้อย 1 รายการ)</div></div>
+          <div class="dz-kc"><div class="l">ลูกค้าที่สร้างกำไรสูงสุด</div><div class="v" id="dcu_topName" style="font-size:14px">–</div><div class="s" id="dcu_topVal">–</div></div>
+          <div class="dz-kc"><div class="l">ลูกค้าที่กัดกำไรมากสุด</div><div class="v" id="dcu_botName" style="font-size:14px">–</div><div class="s" id="dcu_botVal">–</div></div>
+          <div class="dz-kc"><div class="l">ลูกค้าที่ขาดทุน</div><div class="v" id="dcu_lossN">0</div><div class="s">ราย จากทั้งหมด</div></div>
         </div>
         <div class="dz-cc" style="margin-top:14px"><h4>กำไร/ขาดทุนต่อลูกค้า (Top 15)</h4><div class="dz-box tall"><canvas id="dcuc_bar"></canvas></div></div>
         <div class="dz-cc" style="margin-top:14px">
@@ -684,10 +674,10 @@
 
         <div class="dz-t">การใช้ประโยชน์กองรถ (Fleet Utilization)</div>
         <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">🚚 รถในกองรถทั้งหมด</div><div class="v" id="df_fleetN">0</div><div class="s"><span id="df_fleetActiveN">0</span> คัน สถานะ “ใช้งาน”</div></div>
-          <div class="dz-kc"><div class="l">✅ รถที่มีเที่ยววิ่งในช่วงนี้</div><div class="v" id="df_usedN">0</div><div class="s">จาก <span id="df_rosterN">0</span> คันในกองรถ</div></div>
-          <div class="dz-kc"><div class="l">📊 %การใช้งานเฉลี่ยต่อคัน</div><div class="v" id="df_avgUtil">0%</div><div class="s">วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน</div></div>
-          <div class="dz-kc"><div class="l">🛣️ ระยะทางรวมทุกเที่ยว</div><div class="v" id="df_km">0</div><div class="s">กม.</div></div>
+          <div class="dz-kc"><div class="l">รถในกองรถทั้งหมด</div><div class="v" id="df_fleetN">0</div><div class="s"><span id="df_fleetActiveN">0</span> คัน สถานะ “ใช้งาน”</div></div>
+          <div class="dz-kc"><div class="l">รถที่มีเที่ยววิ่งในช่วงนี้</div><div class="v" id="df_usedN">0</div><div class="s">จาก <span id="df_rosterN">0</span> คันในกองรถ</div></div>
+          <div class="dz-kc"><div class="l">%การใช้งานเฉลี่ยต่อคัน</div><div class="v" id="df_avgUtil">0%</div><div class="s">วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน</div></div>
+          <div class="dz-kc"><div class="l">ระยะทางรวมทุกเที่ยว</div><div class="v" id="df_km">0</div><div class="s">กม.</div></div>
         </div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>จำนวนเที่ยว ตามเส้นทาง (Top 10)</h4><div class="dz-box"><canvas id="dfc_route"></canvas></div></div>
@@ -706,10 +696,10 @@
 
         <div class="dz-t">มูลค่าที่สูญเสียจากอัตราบรรทุกต่ำ / เที่ยวเปล่า / รถใช้ไม่คุ้มค่า</div>
         <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">📦 Load Factor เฉลี่ย</div><div class="v" id="df_avgLoad">0%</div><div class="s">เฉพาะเที่ยวที่มีสินค้า + มีข้อมูลความจุ</div></div>
-          <div class="dz-kc"><div class="l">🚛 เที่ยวเปล่า (Empty Leg)</div><div class="v" id="df_emptyN">0</div><div class="s"><span id="df_emptyPct">0%</span> ของเที่ยวที่มีข้อมูล</div></div>
-          <div class="dz-kc"><div class="l">💸 ต้นทุนที่เสียไปจากเที่ยวเปล่า</div><div class="v" id="df_emptyCost">0</div><div class="s">บาท</div></div>
-          <div class="dz-kc"><div class="l">📉 มูลค่าเสียโอกาสจากบรรทุกไม่เต็ม</div><div class="v" id="df_lostVal">0</div><div class="s">บาท · โดยประมาณ</div></div>
+          <div class="dz-kc"><div class="l">Load Factor เฉลี่ย</div><div class="v" id="df_avgLoad">0%</div><div class="s">เฉพาะเที่ยวที่มีสินค้า + มีข้อมูลความจุ</div></div>
+          <div class="dz-kc"><div class="l">เที่ยวเปล่า (Empty Leg)</div><div class="v" id="df_emptyN">0</div><div class="s"><span id="df_emptyPct">0%</span> ของเที่ยวที่มีข้อมูล</div></div>
+          <div class="dz-kc"><div class="l">ต้นทุนที่เสียไปจากเที่ยวเปล่า</div><div class="v" id="df_emptyCost">0</div><div class="s">บาท</div></div>
+          <div class="dz-kc"><div class="l">มูลค่าเสียโอกาสจากบรรทุกไม่เต็ม</div><div class="v" id="df_lostVal">0</div><div class="s">บาท · โดยประมาณ</div></div>
         </div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>กระจายตัว Load Factor</h4><div class="dz-box"><canvas id="dfc_loadhist"></canvas></div></div>
@@ -738,10 +728,10 @@
           <button class="dz-fbtn" id="fSvc_reset">↺ ล้างตัวกรอง</button>
         </div>
         <div class="dz-cards four">
-          <div class="dz-kc"><div class="l">📦 จำนวนชิ้นสินค้ารวม</div><div class="v" id="dsv_qty">0</div><div class="s">ชิ้น จาก <span id="dsv_n">0</span> บิลที่มีข้อมูล</div></div>
-          <div class="dz-kc"><div class="l">⏱️ On-time Delivery</div><div class="v" id="dsv_onTime">0%</div><div class="s">ของบิลที่มีทั้งกำหนดส่งและเวลาส่งจริง</div></div>
-          <div class="dz-kc"><div class="l">💥 Damage Rate</div><div class="v" id="dsv_damageRate">0%</div><div class="s">ของบิลที่มีข้อมูลสถานะสินค้า</div></div>
-          <div class="dz-kc"><div class="l">🧯 จำนวนชิ้นเสียหายรวม</div><div class="v" id="dsv_damageQty">0</div><div class="s">ชิ้น</div></div>
+          <div class="dz-kc"><div class="l">จำนวนชิ้นสินค้ารวม</div><div class="v" id="dsv_qty">0</div><div class="s">ชิ้น จาก <span id="dsv_n">0</span> บิลที่มีข้อมูล</div></div>
+          <div class="dz-kc"><div class="l">On-time Delivery</div><div class="v" id="dsv_onTime">0%</div><div class="s">ของบิลที่มีทั้งกำหนดส่งและเวลาส่งจริง</div></div>
+          <div class="dz-kc"><div class="l">Damage Rate</div><div class="v" id="dsv_damageRate">0%</div><div class="s">ของบิลที่มีข้อมูลสถานะสินค้า</div></div>
+          <div class="dz-kc"><div class="l">จำนวนชิ้นเสียหายรวม</div><div class="v" id="dsv_damageQty">0</div><div class="s">ชิ้น</div></div>
         </div>
         <div class="dz-row dz-11" style="margin-top:14px">
           <div class="dz-cc"><h4>On-time Delivery % ตามลูกค้า (Top 10 ที่แย่ที่สุด)</h4><div class="dz-box"><canvas id="dsvc_ontime"></canvas></div></div>
