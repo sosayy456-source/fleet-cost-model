@@ -60,7 +60,7 @@
   .navitem .plus{color:currentColor}
 
   .app{margin-left:var(--sidew);padding:28px 30px 60px;max-width:1400px}
-  .page-h{margin-bottom:22px}
+  .page-h{margin-bottom:20px}
   .page-h h1{font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
   .page-h p{color:var(--ink-soft);font-size:15px;margin-top:6px}
   .view{display:none} .view.active{display:block}
@@ -476,7 +476,7 @@
     </div>
     <!-- ============ VIEW: แดชบอร์ด ============ -->
     <section class="view" id="view-dash">
-      <div class="page-h"><h1>แดชบอร์ด</h1><p>ภาพรวมการเงิน · ต้นทุน · ลูกหนี้ · รวมข้อมูลใหม่กับข้อมูลเก่าจากชีต</p></div>
+      <div class="page-h"><h1>แดชบอร์ด</h1></div>
       <div class="dash-tabs">
         <button class="dtab active" data-dtab="main">หลัก</button>
         <button class="dtab" data-dtab="trip">กำไรรายเที่ยว</button>
@@ -756,7 +756,7 @@
 
     <!-- ============ VIEW: บันทึกข้อมูล ============ -->
     <section class="view active" id="view-form">
-      <div class="page-h"><h1>บันทึกข้อมูล</h1><p id="formSub">หน้านี้แสดงเฉพาะช่องที่ฝ่ายคุณกรอกได้ → บันทึก · ใบจะเข้า “รายการทั้งหมด” เมื่อครบทั้ง 3 ฝ่าย</p></div>
+      <div class="page-h"><h1>บันทึกข้อมูล</h1></div>
 
 
       <div class="draftbar" id="draftBar" style="display:none">
@@ -955,7 +955,7 @@
     <!-- ============ VIEW: รายการทั้งหมด ============ -->
     <!-- ============ VIEW: ใบที่ยังไม่ครบ ============ -->
     <section class="view" id="view-drafts">
-      <div class="page-h"><h1>ใบที่ยังไม่ครบ</h1><p>ใบที่ยังกรอกไม่ครบทั้ง 3 ฝ่าย · กดที่แถวเพื่อเปิดใบนั้นมากรอกส่วนของคุณ</p></div>
+      <div class="page-h"><h1>ใบที่ยังไม่ครบ</h1></div>
       <div class="rec-bar">
         <div class="searchbox">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -981,7 +981,7 @@
 
     <!-- ============ VIEW: รายการทั้งหมด ============ -->
     <section class="view" id="view-records">
-      <div class="page-h"><h1>รายการทั้งหมด</h1><p>รายการที่บันทึกไว้ · บันทึกลง Google Sheet ของคุณ (จุดเขียว = ซิงก์แล้ว)</p></div>
+      <div class="page-h"><h1>รายการทั้งหมด</h1></div>
 
       <details class="gs-config" id="gsConfig">
         <summary>⚙ ตั้งค่าการเชื่อม Google Sheet <span id="connBadge" class="badge-conn off">ยังไม่เชื่อม</span>
@@ -1044,7 +1044,7 @@
 
     <!-- ============ VIEW: รายการลูกหนี้ ============ -->
     <section class="view" id="view-debtors">
-      <div class="page-h"><h1>รายการลูกหนี้</h1><p>แยกเป็นรายบิล (ลูกหนี้แต่ละราย) · กดปุ่ม “ชำระ” เมื่อลูกหนี้มาจ่าย · ต้องจ่ายครบทุกรายในใบรายการเดียวกัน สถานะในหน้า “รายการทั้งหมด” จึงเปลี่ยนเป็น ชำระแล้ว</p></div>
+      <div class="page-h"><h1>รายการลูกหนี้</h1></div>
 
       <div class="rec-bar">
         <div class="searchbox">
@@ -1098,7 +1098,7 @@
 
     <!-- ============ VIEW: ค้นหารหัสลูกค้า ============ -->
     <section class="view" id="view-custcode">
-      <div class="page-h"><h1>ค้นหารหัสลูกค้า</h1><p>เทียบรหัสย่อ (CUSxxxxxxx) กับรหัสต้นฉบับ · ค้นหาได้ทั้งสองทาง</p></div>
+      <div class="page-h"><h1>ค้นหารหัสลูกค้า</h1></div>
 
       <div class="card">
         <div class="card-h"><span class="step">?</span><h2>ค้นหา</h2><span class="hint" id="ccStatus">กำลังเตรียมฐานข้อมูลรหัส…</span></div>
@@ -1151,7 +1151,7 @@
 
     <!-- ============ VIEW: การตั้งค่า ============ -->
     <section class="view" id="view-settings">
-      <div class="page-h"><h1>การตั้งค่า</h1><p>ตารางอ้างอิงที่ใช้คำนวณต้นทุน · แก้ที่นี่แล้วมีผลกับทุกใบที่คำนวณใหม่</p></div>
+      <div class="page-h"><h1>การตั้งค่า</h1></div>
       <div class="card">
         <details class="prices" open>
           <summary>⛽ ตารางราคาน้ำมัน (ใช้คำนวณน้ำมันเดินทางอัตโนมัติ) · กดเพื่อดู/อัปเดต
