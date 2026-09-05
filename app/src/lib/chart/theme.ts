@@ -1,21 +1,15 @@
 /**
- * ธีมกราฟ — สีชุดข้อมูลผ่านการตรวจด้วย validator แล้ว ไม่ได้เลือกด้วยสายตา
+ * ธีมกราฟ — ใช้สีชุดเดียวกับกราฟใน โมเดลเดินรถ-gsheet-v5.html
  *
- * ทำไมไม่ใช้สีแบรนด์เดิม (AMBER #E8A93C / BLUE #5A8FBE / RED #C1483F / GREEN #6FA98A)
- * มาเป็นสีชุดข้อมูลตรง ๆ: ตรวจแล้วไม่ผ่าน —
- *   AMBER สว่างเกินช่วง (L 0.776) และคอนทราสต์กับพื้นแค่ 2.01
- *   BLUE กับ GREEN สีจางเกิน (chroma 0.091 / 0.076) เวลาเป็นแท่งเล็ก ๆ จะดูเป็นสีเทา
- * สีแบรนด์จึงยังใช้กับ UI (เมนู ปุ่ม ขอบการ์ด) เหมือนเดิม ส่วนกราฟใช้ชุดด้านล่าง
+ * v5 กำหนดสีกราฟไว้ตรง ๆ ในโค้ด (ดู v5:2983-3436) ได้แก่
+ *   ส้ม #F5821F · น้ำเงิน #3672C4 · เขียว #1FA971 · กรมท่า #1E2A46
+ *   แดง #E24B4B · ทอง #F6C042 · ส้มเข้ม #DC6E11
+ * เดิมไฟล์นี้ใช้ชุดสีที่ผ่าน validator แต่ทำให้หน้าตาไม่ตรงกับของเดิม
+ * เมื่อโจทย์คือ "ให้เหมือน v5 ทุกอย่าง" จึงกลับมาใช้สีชุดนี้
  *
- * ผลตรวจ (validate_palette.js --pairs all เทียบกับพื้นการ์ดจริง):
- *   light บนพื้น #ffffff — ผ่านทุกข้อ, คอนทราสต์ aqua 2.82 จึงต้องมี label กำกับเสมอ
- *   dark  บนพื้น #232019 — ผ่านทุกข้อสะอาด
- *
- * ทำไมมีแค่ 3 สี: ที่ 4 สีขึ้นไปคู่สีเริ่มแยกไม่ออกสำหรับคนตาบอดสี (แม้แต่ชุด
- * อ้างอิงของ skill เองก็ไม่ผ่าน --pairs all) หมวดที่มีมากกว่า 3 จึงใช้
- * "ไล่เฉดสีเดียว เรียงตามขนาด" แทนการไล่สี ซึ่งเป็นรูปแบบที่ถูกต้องกว่าอยู่แล้ว
+ * v5 ไม่มีโหมดมืด ที่นี่จึงมีธีมเดียว ไม่ต้องเช็ค prefers-color-scheme
+ * กราฟทุกตัวยังมีตารางตัวเลขกำกับ (ChartCard.table) ให้อ่านได้โดยไม่ต้องพึ่งสี
  */
-import { useEffect, useState } from "react";
 
 export interface ChartTheme {
   dark: boolean;
@@ -30,45 +24,29 @@ export interface ChartTheme {
   inkMuted: string;
   surface: string;
   tooltipBg: string;
+  /** สีเน้นของ v5 เผื่อกราฟไหนอยากอ้างตรง ๆ */
+  navy: string;
+  orange: string;
 }
 
-const LIGHT: ChartTheme = {
+const V5: ChartTheme = {
   dark: false,
-  categorical: ["#2a78d6", "#eb6834", "#1baf7a"],
-  sequential: ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"],
-  status: { good: "#0ca30c", warning: "#fab219", serious: "#ec835a", critical: "#d03b3b" },
-  grid: "#e4e1db",
-  axis: "#918a80",
-  ink: "#23201c",
-  inkMuted: "#5c564e",
-  surface: "#ffffff",
-  tooltipBg: "#ffffff",
+  categorical: ["#F5821F", "#3672C4", "#1FA971"],
+  sequential: ["#D3DCEC", "#A9BAD8", "#7E97C4", "#5476B0", "#3672C4", "#28497F", "#1E2A46"],
+  status: { good: "#1FA971", warning: "#F6C042", serious: "#DC6E11", critical: "#E24B4B" },
+  grid: "#E7E9ED",
+  axis: "#9AA1AC",
+  ink: "#232833",
+  inkMuted: "#6B7280",
+  surface: "#FFFFFF",
+  tooltipBg: "#FFFFFF",
+  navy: "#1E2A46",
+  orange: "#F5821F",
 };
 
-const DARK: ChartTheme = {
-  dark: true,
-  categorical: ["#3987e5", "#d95926", "#199e70"],
-  sequential: ["#0d366b", "#184f95", "#256abf", "#3987e5", "#6da7ec", "#9ec5f4", "#cde2fb"],
-  status: { good: "#0ca30c", warning: "#fab219", serious: "#ec835a", critical: "#d03b3b" },
-  grid: "#3a352d",
-  axis: "#8a8378",
-  ink: "#f0ece5",
-  inkMuted: "#b8b1a6",
-  surface: "#232019",
-  tooltipBg: "#232019",
-};
-
+/** v5 เป็นธีมสว่างอย่างเดียว จึงคืนค่าคงที่ */
 export function useChartTheme(): ChartTheme {
-  const [dark, setDark] = useState(
-    () => matchMedia?.("(prefers-color-scheme: dark)").matches ?? false,
-  );
-  useEffect(() => {
-    const mq = matchMedia("(prefers-color-scheme: dark)");
-    const on = (e: MediaQueryListEvent) => setDark(e.matches);
-    mq.addEventListener("change", on);
-    return () => mq.removeEventListener("change", on);
-  }, []);
-  return dark ? DARK : LIGHT;
+  return V5;
 }
 
 /**
@@ -77,9 +55,8 @@ export function useChartTheme(): ChartTheme {
  */
 export function rankedShades(theme: ChartTheme, n: number): string[] {
   if (n <= 0) return [];
-  const ramp = theme.dark ? [...theme.sequential].reverse() : theme.sequential;
   // เริ่มจากเข้มสุดแล้วไล่ออก ข้ามเฉดอ่อนสุดที่แปลว่า "เกือบศูนย์"
-  const usable = ramp.slice(0, Math.max(2, ramp.length - 1)).reverse();
+  const usable = theme.sequential.slice(1).reverse();
   if (n === 1) return [usable[0]!];
   return Array.from({ length: n }, (_, i) =>
     usable[Math.min(usable.length - 1, Math.round((i / (n - 1)) * (usable.length - 1)))]!);

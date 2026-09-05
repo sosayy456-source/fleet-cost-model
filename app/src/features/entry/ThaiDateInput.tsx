@@ -44,7 +44,7 @@ export default function ThaiDateInput({ value, onChange, disabled }: ThaiDateInp
   const pad = (s: string) => (s ? String(parseInt(s, 10)) : "");
 
   return (
-    <div className="thdate">
+    <div className="dmy">
       <input
         id={uid} type="number" min={1} max={31} placeholder="วัน"
         value={pad(d ?? "")} disabled={disabled}

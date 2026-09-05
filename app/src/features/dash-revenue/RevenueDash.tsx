@@ -78,10 +78,10 @@ export default function RevenueDash() {
             ยุบเป็น cube {data.manifest.cube.cube_rows.toLocaleString("th-TH")} แถว
           </span>
         </div>
-        <nav className="nav" style={{ marginTop: 12, marginBottom: 0 }}>
+        <nav className="dash-tabs" style={{ marginTop: 12 }}>
           {TABS.map((t) => (
             <button key={t} type="button"
-              className={"nav-item" + (tab === t ? " nav-active" : "")}
+              className={"dtab" + (tab === t ? " active" : "")}
               onClick={() => setTab(t)}>{t}</button>
           ))}
         </nav>

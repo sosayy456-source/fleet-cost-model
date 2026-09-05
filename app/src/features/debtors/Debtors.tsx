@@ -1,12 +1,17 @@
 /**
- * รายการลูกหนี้รายบิล — แทน view-debtors ของ v5
+ * รายการลูกหนี้รายบิล — ตรงตาม v5:1021-1074
  * 1 แถว = 1 บิล (ไม่ใช่ 1 ใบรายการ) รวมบิลจากใบใหม่กับแท็บข้อมูลเก่าเข้าด้วยกัน
+ *
+ * ปุ่ม “ชำระ” เปิดหน้าต่างให้เลือกวันที่ชำระ เหมือน openPayModal() v5:2673
+ * และตรวจว่าวันที่ชำระต้องไม่ก่อนวันที่บิล
  */
 import { useMemo, useState } from "react";
-import { billIsPaid, billPayDate, recBills } from "../../lib/record/payment";
+import { billIsPaid, billPayDate, recBills, recPayInfo } from "../../lib/record/payment";
 import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import { put } from "../../lib/store/records";
 import { pushRecords, getUrl } from "../../lib/sheet/client";
+import { ShortId } from "../../lib/custmap/ShortId";
+import ThaiDateInput from "../entry/ThaiDateInput";
 import { CASH_ORIGIN } from "../../types/record";
 import type { RecordsState, OldDebtor } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
@@ -34,10 +39,6 @@ interface Row {
   recId?: string;
   billIndex?: number;
 }
-
-/** ย่อรหัสลูกค้าที่เป็น hash ยาว 64 ตัวให้พออ่านได้ (เทียบเท่า shortId ใน v5:2549) */
-const shortId = (s: string): string =>
-  /^[0-9a-f]{40,}$/i.test(s) ? s.slice(0, 10) + "…" : s;
 
 function buildRows(records: TripRecord[], oldDebtors: OldDebtor[]): Row[] {
   const today = todayISO();
@@ -78,8 +79,11 @@ function buildRows(records: TripRecord[], oldDebtors: OldDebtor[]): Row[] {
 export default function Debtors({ state }: { state: RecordsState }) {
   const { records, oldDebtors, loading, reload } = state;
   const [q, setQ] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [target, setTarget] = useState<Row | null>(null);
+  const [payDate, setPayDate] = useState(todayISO());
+  const [modalMsg, setModalMsg] = useState("");
 
   const rows = useMemo(() => {
     const all = buildRows(records, oldDebtors);
@@ -93,111 +97,149 @@ export default function Debtors({ state }: { state: RecordsState }) {
   const outstanding = rows.filter((r) => !r.paid);
   const paidRows = rows.filter((r) => r.paid);
   const owed = outstanding.reduce((s, r) => s + r.total, 0);
+  const received = paidRows.reduce((s, r) => s + r.total, 0);
+  const overdue = outstanding.filter((r) => (r.aging ?? 0) > 30);
 
-  async function markPaid(row: Row) {
-    if (!row.recId || row.billIndex == null) return;
-    setBusy(row.key);
-    setMsg(null);
+  const openPay = (row: Row) => {
+    setTarget(row); setPayDate(todayISO()); setModalMsg("");
+  };
+
+  async function confirmPay() {
+    if (!target?.recId || target.billIndex == null) return;
+    if (!payDate) { setModalMsg("กรุณากรอกวันที่ชำระให้ครบ"); return; }
+    const days = daysBetween(target.date, payDate);
+    if (days != null && days < 0) { setModalMsg("วันที่ชำระต้องไม่ก่อนวันที่บิล"); return; }
+
+    setBusy(true);
     try {
-      const rec = records.find((r) => r.id === row.recId);
+      const rec = records.find((r) => r.id === target.recId);
       if (!rec) throw new Error("ไม่พบใบรายการนี้");
       const bills = rec.bills.map((b, i) =>
-        i === row.billIndex ? { ...b, paid: true, payDate: todayISO() } : b);
+        i === target.billIndex ? { ...b, paid: true, payDate } : b);
       const updated: TripRecord = { ...rec, bills, synced: false };
       await put(updated);
       if (getUrl()) {
-        await pushRecords([updated]);
-        await put({ ...updated, synced: true });
+        try { await pushRecords([updated]); await put({ ...updated, synced: true }); }
+        catch { /* ออฟไลน์ก็ยังบันทึกในเครื่องแล้ว รอซิงก์ทีหลัง */ }
       }
-      setMsg(`บันทึกการชำระบิล ${row.no || row.key} แล้ว`);
+      const p = recPayInfo(updated);
+      setMsg(`บันทึกการชำระบิล ${target.no || "–"} แล้ว ✓`
+        + (days != null ? ` (ใช้เวลา ${days} วัน)` : "")
+        + ` · สถานะใบ ${updated.docNo || "–"}: ${p.status} (${p.paidCount}/${p.count})`);
+      setTarget(null);
       reload();
     } catch (e) {
-      setMsg("บันทึกไม่สำเร็จ: " + (e as Error).message);
-    } finally {
-      setBusy(null);
-    }
+      setModalMsg("บันทึกไม่สำเร็จ: " + (e as Error).message);
+    } finally { setBusy(false); }
   }
 
-  const table = (list: Row[], showPayButton: boolean) => (
-    <div className="scroll-x">
-      <table>
-        <thead>
-          <tr>
-            <th>แหล่ง</th><th>วันที่</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
-            <th>เส้นทาง</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>การชำระ</th>
-            <th className="n">จำนวน</th><th className="n">ราคารวม</th>
-            <th className="n">{showPayButton ? "ค้างมา" : "วันที่ชำระ"}</th>
-            {showPayButton && <th />}
-          </tr>
-        </thead>
-        <tbody>
-          {list.slice(0, 300).map((r) => (
-            <tr key={r.key}>
-              <td><span className="muted">{r.src}</span></td>
-              <td>{thDateSafe(r.date)}</td>
-              <td>{r.no || "–"}</td>
-              <td>{r.goodsType || "–"}</td>
-              <td>{r.origin && r.dest ? `${r.origin} → ${r.dest}` : "–"}</td>
-              <td>{shortId(r.sender)}</td>
-              <td>{shortId(r.receiver)}</td>
-              <td>{r.payType || "–"}</td>
-              <td className="n">{baht(r.qty)}</td>
-              <td className="n">{baht(r.total)}</td>
-              <td className="n" style={showPayButton && r.aging != null && r.aging > 30
-                ? { color: "var(--red)" } : undefined}>
-                {showPayButton ? (r.aging != null ? `${r.aging} วัน` : "–") : thDateSafe(r.payDate)}
-              </td>
-              {showPayButton && (
-                <td>
-                  {r.recId ? (
-                    <button type="button" onClick={() => markPaid(r)} disabled={busy === r.key}>
-                      ชำระ
-                    </button>
-                  ) : <span className="muted">แก้ในชีต</span>}
+  const table = (list: Row[], pending: boolean) => (
+    <div className="rec-card">
+      <div className="scroll">
+        <table className="rec-table">
+          <thead><tr>
+            <th>แหล่งข้อมูล</th><th>วันที่</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
+            <th>เส้นทาง</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>ประเภทการชำระ</th>
+            <th className="num">จำนวน</th><th className="num">ราคารวม</th>
+            <th className="num">{pending ? "ค้างมา" : "วันที่ชำระ"}</th>
+            <th>{pending ? "บันทึกการจ่าย" : "สถานะ"}</th>
+          </tr></thead>
+          <tbody>
+            {list.slice(0, 300).map((r) => (
+              <tr key={r.key} className={r.src === "เก่า" ? "oldrow" : undefined}>
+                <td><span className={"badge " + (r.src === "เก่า" ? "src-old" : "src-new")}>
+                  {r.src === "เก่า" ? "ข้อมูลเก่า" : "ข้อมูลใหม่"}</span></td>
+                <td>{thDateSafe(r.date)}</td>
+                <td className="doc">{r.no || "–"}</td>
+                <td>{r.goodsType || "–"}</td>
+                <td>{r.origin && r.dest ? `${r.origin} → ${r.dest}` : "–"}</td>
+                <td><ShortId v={r.sender} /></td>
+                <td><ShortId v={r.receiver} /></td>
+                <td>{r.payType || "–"}</td>
+                <td className="num">{baht(r.qty)}</td>
+                <td className="num">{baht(r.total)}</td>
+                <td className="num" style={pending && r.aging != null && r.aging > 30
+                  ? { color: "var(--red)", fontWeight: 700 } : undefined}>
+                  {pending ? (r.aging != null ? `${r.aging} วัน` : "–") : thDateSafe(r.payDate)}
                 </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                <td>
+                  {pending
+                    ? (r.recId
+                        ? <button className="btn-pay" type="button" onClick={() => openPay(r)}>ชำระ</button>
+                        : <span className="locknote">แก้ในชีต</span>)
+                    : <span className="badge paid">ชำระแล้ว</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {list.length === 0 && (
+        <div className="rec-empty">{pending ? "ไม่มีบิลค้างชำระ 🎉" : "ยังไม่มีบิลที่ชำระแล้ว"}</div>
+      )}
     </div>
   );
 
   return (
     <>
-      <div className="card">
-        <h2>ลูกหนี้คงค้าง <span className="muted">· {outstanding.length} บิล</span></h2>
-        <div className="grid" style={{ marginBottom: 12 }}>
-          <div className="stat">
-            <div className="label">ยอดค้างรวม</div>
-            <div className="value" style={{ color: "var(--red)" }}>{baht(owed)}</div>
-          </div>
-          <div className="stat">
-            <div className="label">บิลค้าง</div><div className="value">{outstanding.length}</div>
-          </div>
-          <div className="stat">
-            <div className="label">บิลที่ชำระแล้ว</div><div className="value">{paidRows.length}</div>
+      <div className="dz-cards four" style={{ marginBottom: 16 }}>
+        <div className="dz-kc"><div className="l">💳 ยอดค้างชำระรวม</div>
+          <div className="v" style={{ color: "var(--red)" }}>{baht(owed)}</div><div className="s">บาท</div></div>
+        <div className="dz-kc"><div className="l">✅ ยอดรับชำระแล้ว</div>
+          <div className="v" style={{ color: "var(--green)" }}>{baht(received)}</div><div className="s">บาท</div></div>
+        <div className="dz-kc"><div className="l">📋 บิลค้างชำระ</div>
+          <div className="v">{baht(outstanding.length)}</div><div className="s">ราย</div></div>
+        <div className="dz-kc"><div className="l">⏰ ค้างเกิน 30 วัน</div>
+          <div className="v" style={{ color: overdue.length ? "var(--red)" : undefined }}>{baht(overdue.length)}</div>
+          <div className="s">ราย</div></div>
+      </div>
+
+      <div className="rec-bar">
+        <div className="searchbox">
+          <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+          </svg>
+          <input value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="ค้นเลขที่บิล / ผู้ส่ง / ผู้รับ / เส้นทาง" />
+        </div>
+        <span className="locknote">
+          บิลประเภท “{CASH_ORIGIN}” ถือว่าชำระแล้วตั้งแต่เปิดบิล จึงไม่อยู่ในรายการค้าง
+        </span>
+      </div>
+
+      {msg && <div className="msg" style={{ color: "var(--green)", marginBottom: 10 }}>{msg}</div>}
+      {loading && <p className="muted">กำลังโหลด...</p>}
+
+      <h3 className="grp"><span className="dot" />ค้างชำระ · {outstanding.length} บิล</h3>
+      {table(outstanding, true)}
+
+      <h3 className="grp"><span className="dot" />ชำระแล้ว · {paidRows.length} บิล</h3>
+      {table(paidRows, false)}
+
+      {target && (
+        <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) setTarget(null); }}>
+          <div className="modal">
+            <div className="modal-h">บันทึกการชำระ</div>
+            <div className="modal-info">
+              เลขที่ใบรายการ <b>{target.docNo || "–"}</b> · วันที่บิล {thDateSafe(target.date)}<br />
+              บิล <b>{target.no || "–"}</b> · <ShortId v={target.sender} /> → <ShortId v={target.receiver} />
+              {" "}· ยอด <b>{baht(target.total)}</b> บาท
+              {target.payType && ` · ${target.payType}`}
+            </div>
+            <div className="field" style={{ marginTop: 12 }}>
+              <label>วันที่ชำระ · วัน / เดือน / ปี (พ.ศ.)</label>
+              <ThaiDateInput value={payDate} onChange={setPayDate} />
+            </div>
+            {modalMsg && <div className="msg" style={{ color: "var(--red)" }}>{modalMsg}</div>}
+            <div className="modal-actions">
+              <button className="btn-ghost" type="button" onClick={() => setTarget(null)}>ยกเลิก</button>
+              <button className="btn btn-green" type="button" onClick={confirmPay} disabled={busy}>
+                ยืนยันการชำระ
+              </button>
+            </div>
           </div>
         </div>
-
-        <input
-          value={q} onChange={(e) => setQ(e.target.value)}
-          placeholder="ค้นเลขที่บิล / ผู้ส่ง / ผู้รับ / เส้นทาง"
-          style={{ width: "100%", marginBottom: 12 }}
-        />
-        {msg && <p className="muted">{msg}</p>}
-        {loading && <p className="muted">กำลังโหลด...</p>}
-
-        <p className="muted" style={{ fontSize: 12 }}>
-          บิลประเภท "{CASH_ORIGIN}" ถือว่าชำระแล้วตั้งแต่เปิดบิล จึงไม่อยู่ในรายการค้าง
-        </p>
-        {table(outstanding, true)}
-      </div>
-
-      <div className="card">
-        <h2>ชำระแล้ว <span className="muted">· {paidRows.length} บิล</span></h2>
-        {table(paidRows, false)}
-      </div>
+      )}
     </>
   );
 }

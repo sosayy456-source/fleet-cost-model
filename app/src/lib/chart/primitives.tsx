@@ -2,9 +2,14 @@
  * ชิ้นส่วนกราฟที่ใช้ร่วมกันทุกหน้า
  * รวมค่ามาตรฐานของแกน กริด และ tooltip ไว้ที่เดียว จะได้ไม่ต้องตั้งซ้ำทุกกราฟ
  * และกราฟทุกตัวหน้าตาเป็นชุดเดียวกัน
+ *
+ * ★ ที่นี่ให้เป็น "ชุด props" ไม่ใช่คอมโพเนนต์ห่อ
+ *   Recharts หาลูกของกราฟจาก displayName ของ element เท่านั้น
+ *   ถ้าห่อ <XAxis> ไว้ในคอมโพเนนต์ของเราเอง มันจะมองไม่เห็น แล้วแกน/กริดจะหายไปทั้งใบ
+ *   (เจอจริงตอนพอร์ตแดชบอร์ด — กราฟวาดเส้นออกมาแต่ไม่มีแกนเลย)
+ *   จึงต้องเขียน <XAxis {...axisProps(t)} /> ตรง ๆ ในทุกกราฟ
  */
 import type { ReactNode } from "react";
-import { CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import { fmtBaht, useChartTheme } from "./theme";
 import type { ChartTheme } from "./theme";
 
@@ -41,36 +46,25 @@ export const axisProps = (t: ChartTheme) => ({
   axisLine: { stroke: t.grid },
 });
 
-export function Grid({ t }: { t: ChartTheme }) {
-  return <CartesianGrid stroke={t.grid} strokeDasharray="3 3" vertical={false} />;
-}
-
-export function XA({ t, ...rest }: { t: ChartTheme } & Record<string, unknown>) {
-  return <XAxis {...axisProps(t)} {...rest} />;
-}
-
-export function YA({ t, ...rest }: { t: ChartTheme } & Record<string, unknown>) {
-  return <YAxis {...axisProps(t)} width={64} {...rest} />;
-}
+export const gridProps = (t: ChartTheme) => ({
+  stroke: t.grid,
+  strokeDasharray: "3 3",
+  vertical: false,
+});
 
 /** tooltip ที่ใช้ token ข้อความ ไม่ใช่สีของชุดข้อมูล ตามหลักการอ่านง่าย */
-export function ChartTooltip({ suffix = " บาท" }: { suffix?: string }) {
-  const t = useChartTheme();
-  return (
-    <Tooltip
-      cursor={{ fill: t.grid, fillOpacity: 0.35 }}
-      contentStyle={{
-        background: t.tooltipBg,
-        border: `1px solid ${t.grid}`,
-        borderRadius: 8,
-        color: t.ink,
-        fontSize: 12.5,
-      }}
-      labelStyle={{ color: t.inkMuted, marginBottom: 4 }}
-      formatter={(v: number, name: string) => [fmtBaht(v) + suffix, name]}
-    />
-  );
-}
+export const tooltipProps = (t: ChartTheme, suffix = " บาท") => ({
+  cursor: { fill: t.grid, fillOpacity: 0.35 },
+  contentStyle: {
+    background: t.tooltipBg,
+    border: `1px solid ${t.grid}`,
+    borderRadius: 8,
+    color: t.ink,
+    fontSize: 12.5,
+  },
+  labelStyle: { color: t.inkMuted, marginBottom: 4 },
+  formatter: (v: number, name: string) => [fmtBaht(v) + suffix, name] as [string, string],
+});
 
 /** ตัวเลขเด่นหนึ่งค่า — ใช้เมื่อข้อมูลมีค่าเดียว กราฟไม่ช่วยอะไร */
 export function Stat({ label, value, tone, sub }: {
@@ -87,12 +81,12 @@ export function Stat({ label, value, tone, sub }: {
 
 /** แถบข้อความเตือน/ข้อสังเกต — มีไอคอนกำกับเสมอ ไม่สื่อความหมายด้วยสีอย่างเดียว */
 export function InsightCard({ level, html }: { level: string; html: string }) {
-  const t = useChartTheme();
+  const theme = useChartTheme();
   const map: Record<string, { color: string; icon: string; label: string }> = {
-    alert: { color: t.status.critical, icon: "▲", label: "ต้องรีบดู" },
-    warn: { color: t.status.serious, icon: "!", label: "ควรระวัง" },
-    ok: { color: t.status.good, icon: "✓", label: "ปกติ" },
-    info: { color: t.categorical[0], icon: "i", label: "ข้อสังเกต" },
+    alert: { color: theme.status.critical, icon: "▲", label: "ต้องรีบดู" },
+    warn: { color: theme.status.serious, icon: "!", label: "ควรระวัง" },
+    ok: { color: theme.status.good, icon: "✓", label: "ปกติ" },
+    info: { color: theme.categorical[0], icon: "i", label: "ข้อสังเกต" },
   };
   const s = map[level] ?? map.info!;
   return (

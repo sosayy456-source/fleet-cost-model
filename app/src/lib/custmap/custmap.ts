@@ -26,7 +26,7 @@ let cache: Promise<CustMap> | null = null;
 
 /** โหลดตารางครั้งเดียวแล้วใช้ซ้ำ — เรียกซ้ำได้ ไม่โหลดใหม่ */
 export function loadCustMap(url: string): Promise<CustMap> {
-  cache ??= build(url).catch((e) => { cache = null; throw e; });
+  cache ??= build(url).then(rememberCustMap).catch((e) => { cache = null; throw e; });
   return cache;
 }
 
@@ -72,3 +72,16 @@ async function build(url: string): Promise<CustMap> {
     },
   };
 }
+
+/**
+ * ตารางที่โหลดเสร็จแล้ว (ถ้ามี) — ให้หน้าอื่นเรียกแบบ synchronous ตอน render ได้
+ * โดยไม่บังคับให้โหลดไฟล์ 3.5 MB ถ้าผู้ใช้ยังไม่ได้เข้าหน้าค้นรหัส
+ */
+let resolved: CustMap | null = null;
+export const peekCustMap = (): CustMap | null => resolved;
+
+/** เรียกจาก loadCustMap เมื่อสร้างเสร็จ — แยกเป็นฟังก์ชันเพื่อไม่ให้ build() รู้จัก state ภายนอก */
+export function rememberCustMap(m: CustMap): CustMap { resolved = m; return m; }
+
+/** ดูเหมือน hash (hex ยาว ๆ) ไหม — v5:isHashLike */
+export const isHashLike = (s: string): boolean => /^[0-9a-f]{16,}$/i.test(s.trim());
