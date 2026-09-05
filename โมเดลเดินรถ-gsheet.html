@@ -19,6 +19,7 @@
     --bg:#F3F0EC; --card:#FFFFFF; --field-bg:#FBFAF8; --table-head:#FAF7F3;
     --border:#E7E2DB; --border-strong:#D9D2C9; --border-hover:#C9C1B7;
     --divider:#EDE8E1; --divider-light:#F4F0EA;
+    --field-border:#C6BCAE; --field-border-hover:#A89C8B;   /* กรอบช่องกรอก เข้มขึ้นให้เห็นชัด */
     --ink:#1B1B1F; --ink-soft:#6F6A64; --ink-faint:#A39C93; --ink-placeholder:#C4BDB3; --ink-muted:#4A453F;
     --green:#2C6B44; --green-soft:#EAF1EC; --green-line:#D6E0D8;
     --red:#A63A3A; --red-soft:#F7EBEA; --red-line:#E8D2D0;
@@ -76,24 +77,24 @@
   .card-h .step{background:none;color:var(--sidebar-num-active);font-family:var(--font-num);
     font-size:14px;font-weight:600;flex:none;width:auto;height:auto;border-radius:0}
   .card-h h2{font-size:21px;font-weight:700;letter-spacing:-.01em;font-family:var(--font-num)}
-  .card-h .hint{margin-left:auto;font-size:13.5px;color:var(--ink-soft);font-weight:400}
+  .card-h .hint{margin-left:auto;font-size:14px;color:var(--ink-soft);font-weight:400}
 
   h3.grp{font-size:15px;font-weight:700;color:var(--accent);margin:22px 0 14px;display:flex;align-items:center;gap:8px}
   h3.grp.waste{color:var(--ink-muted)}
   h3.grp .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
 
-  label{display:block;font-size:13.5px;font-weight:400;color:var(--ink-soft);margin:0 0 8px}
+  label{display:block;font-size:14.5px;font-weight:500;color:var(--ink-soft);margin:0 0 8px}
   .field{margin-bottom:18px}
-  select,input{width:100%;font-family:inherit;font-size:15px;color:var(--ink);background:var(--field-bg);
-    border:1px solid var(--border);border-radius:11px;padding:14px 16px;outline:none;
+  select,input{width:100%;font-family:inherit;font-size:16px;color:var(--ink);background:var(--field-bg);
+    border:1.5px solid var(--field-border);border-radius:11px;padding:14px 16px;outline:none;
     transition:border-color .16s var(--ease),background-color .16s var(--ease)}
-  input[type=number]{font-family:var(--font-num);font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
-  select:hover,input:hover{border-color:var(--border-hover);background:#fff}
+  input[type=number]{font-family:var(--font-num);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;font-size:16.5px}
+  select:hover,input:hover{border-color:var(--field-border-hover);background:#fff}
   input::placeholder{color:var(--ink-placeholder)}
   select{appearance:none;cursor:pointer;padding-right:36px;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239AA1AC' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:right 12px center}
-  select:focus,input:focus{border:1.5px solid var(--accent);background:#fff;box-shadow:none;padding:13.5px 15.5px}
+  select:focus,input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(110,24,55,.10)}
   input:disabled,select:disabled{background:#F4F1ED;color:var(--ink-faint);cursor:not-allowed}
   .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
   .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
@@ -109,13 +110,13 @@
   .route-line .pin.from{background:var(--green)} .route-line .pin.to{background:var(--orange)}
   .route-line span[id]{flex:1}
 
-  .price-note{font-size:13.5px;color:#8A5A61;background:var(--accent-tint);border:none;
+  .price-note{font-size:14.5px;color:#8A5A61;background:var(--accent-tint);border:none;
     border-radius:12px;padding:14px 18px;line-height:1.6;margin-top:10px}
   .price-note b{font-weight:700}
-  .chk{display:flex;align-items:center;gap:11px;cursor:pointer;font-size:14.5px;font-weight:400;color:var(--ink);
-    margin:0 0 12px;background:var(--field-bg);border:1px solid var(--border);border-radius:11px;padding:13px 18px;
+  .chk{display:flex;align-items:center;gap:11px;cursor:pointer;font-size:15.5px;font-weight:400;color:var(--ink);
+    margin:0 0 12px;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:11px;padding:13px 18px;
     transition:border-color .16s var(--ease)}
-  .chk:hover{border-color:var(--border-hover)}
+  .chk:hover{border-color:var(--field-border-hover)}
   .chk input{width:18px;height:18px;flex:none;accent-color:var(--accent);cursor:pointer;padding:0;border-radius:5px}
 
   .btn{font-family:inherit;font-weight:700;border:none;border-radius:999px;cursor:pointer;
@@ -157,7 +158,7 @@
   .kpi.waste .big{color:var(--ink-muted)} .kpi.profit .big{color:var(--accent)} .kpi.profit.loss .big{color:var(--red)}
 
   .result{background:var(--field-bg);border:1px solid var(--border);border-radius:14px;padding:18px 22px;margin-top:18px}
-  .result-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;font-size:14.5px}
+  .result-row{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;font-size:15px}
   .result-row+.result-row{border-top:1px solid var(--divider-light)}
   .result-row .k{color:var(--ink-soft)} .result-row .v{font-weight:600;font-variant-numeric:tabular-nums}
 
@@ -167,7 +168,7 @@
   .searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--ink-faint)}
   .rec-card{background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:none;overflow:hidden}
   table{width:100%;border-collapse:collapse;font-size:14.5px}
-  .rec-table thead th{background:var(--table-head);color:var(--ink-faint);font-weight:700;font-size:12.5px;
+  .rec-table thead th{background:var(--table-head);color:var(--ink-soft);font-weight:700;font-size:13px;
     letter-spacing:.04em;text-transform:uppercase;padding:16px 14px;text-align:left;white-space:nowrap}
   .rec-table td{padding:16px 14px;border-bottom:1px solid var(--divider-light);white-space:nowrap;vertical-align:middle}
   .rec-table tbody tr:last-child td{border-bottom:none}
@@ -220,13 +221,14 @@
   @media(max-width:1340px){.bill-row{grid-template-columns:repeat(5,1fr) 26px}}
   @media(max-width:900px){.bill-row{grid-template-columns:repeat(3,1fr) 26px}}
   @media(max-width:820px){.bill-row{grid-template-columns:1fr 1fr;}}
-  .bill-row input,.bill-row select{padding:10px 12px;font-size:13.5px;border-radius:9px;background:#fff}
+  .bill-row input,.bill-row select{padding:10px 12px;font-size:14.5px;border-radius:9px;background:#fff}
+  .bill-row input[type=number]{font-size:14.5px}
   .bill-block{border:1px solid var(--border);border-radius:14px;padding:14px 14px 6px;margin-bottom:12px;background:var(--field-bg)}
   .bill-x{color:var(--red);cursor:pointer;font-weight:700;font-size:16px;padding:0 4px;text-align:center}
   .bill-x:hover{color:#8A2E2E}
   .b-total-auto{background:#F2EFEA;color:var(--ink-soft);cursor:not-allowed}
   .bill-head{display:grid;grid-template-columns:.85fr .85fr .8fr .8fr .95fr .95fr .95fr .7fr .75fr .95fr .8fr 26px;gap:8px;
-    font-size:12px;color:var(--ink-faint);font-weight:700;letter-spacing:.03em;margin-bottom:6px}
+    font-size:12.5px;color:var(--ink-soft);font-weight:700;letter-spacing:.03em;margin-bottom:6px}
   @media(max-width:1340px){.bill-head{display:none}}
   .btn-pay{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12.5px;font-weight:600;color:#fff;background:var(--green);border:none;border-radius:8px;padding:6px 13px;cursor:pointer}
   .btn-pay:hover{background:#235436}
@@ -303,8 +305,8 @@
   .dz-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px 14px;align-items:end;
     background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin-bottom:18px;box-shadow:none}
   .dz-filters .ff{display:flex;flex-direction:column;gap:4px}
-  .dz-filters label{font-size:11px;color:var(--ink-soft);font-weight:600;margin:0}
-  .dz-filters select,.dz-filters input{font-family:inherit;font-size:13.5px;padding:10px 12px;border:1px solid var(--border);
+  .dz-filters label{font-size:12.5px;color:var(--ink-soft);font-weight:600;margin:0}
+  .dz-filters select,.dz-filters input{font-family:inherit;font-size:14.5px;padding:10px 12px;border:1.5px solid var(--field-border);
     border-radius:11px;background:var(--field-bg);width:100%;box-sizing:border-box;text-align:left}
   .dz-fbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft);background:#fff;
     border:1px solid var(--border);border-radius:999px;padding:10px 16px;cursor:pointer;height:40px;
