@@ -20,7 +20,9 @@
     --bg:#F3F0EC; --card:#FFFFFF; --field-bg:#FBFAF8; --table-head:#FAF7F3;
     --border:#E7E2DB; --border-strong:#D9D2C9; --border-hover:#C9C1B7;
     --divider:#EDE8E1; --divider-light:#F4F0EA;
-    --field-border:#C6BCAE; --field-border-hover:#A89C8B;   /* กรอบช่องกรอก เข้มขึ้นให้เห็นชัด */
+    /* กรอบช่องกรอกแบบเข้ม — หัวใจของดีไซน์รอบนี้ */
+    --field-border:#17161A; --field-border-hover:#17161A;
+    --row-line:#F1EDE7; --green-hover:#215334;
     --ink:#1B1B1F; --ink-soft:#6F6A64; --ink-faint:#A39C93; --ink-placeholder:#C4BDB3; --ink-muted:#4A453F;
     --green:#2C6B44; --green-soft:#EAF1EC; --green-line:#D6E0D8;
     --red:#A63A3A; --red-soft:#F7EBEA; --red-line:#E8D2D0;
@@ -66,41 +68,84 @@
   .page-h p{color:var(--ink-soft);font-size:15px;margin-top:6px}
   .view{display:none} .view.active{display:block}
 
-  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;
-    padding:26px 30px;box-shadow:none;margin-bottom:20px}
-  .card-h{display:flex;align-items:baseline;gap:18px;margin-bottom:22px}
-  .card-h .step{background:none;color:var(--sidebar-num-active);font-family:var(--font-num);
-    font-size:14px;font-weight:600;flex:none;width:auto;height:auto;border-radius:0}
-  .card-h h2{font-size:21px;font-weight:700;letter-spacing:-.01em;font-family:var(--font-num)}
+  @keyframes fFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:20px;
+    padding:22px 24px;box-shadow:none;margin-bottom:16px;
+    animation:fFadeUp .5s cubic-bezier(.22,1,.36,1) both}
+  .card-h{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+  .card-h .step{display:flex;align-items:center;justify-content:center;width:29px;height:29px;
+    border-radius:9px;background:var(--accent);color:#fff;font-family:var(--font-num);
+    font-size:14px;font-weight:700;flex:none}
+  .card-h h2{font-size:18.5px;font-weight:700;letter-spacing:-.01em;font-family:var(--font-num)}
   .card-h .hint{margin-left:auto;font-size:14px;color:var(--ink-soft);font-weight:400}
 
-  h3.grp{font-size:15px;font-weight:700;color:var(--accent);margin:22px 0 14px;display:flex;align-items:center;gap:8px}
-  h3.grp.waste{color:var(--ink-muted)}
+  h3.grp{font-size:14px;font-weight:700;color:var(--ink);margin:22px 0 14px;display:flex;align-items:center;gap:9px}
+  h3.grp .dot{width:7px;height:7px;border-radius:2px;background:var(--accent)}
+  h3.grp.waste{color:var(--accent);margin-top:0}
+  /* กล่องรวมต้นทุนสูญเปล่า — กรอบและช่องกรอกเป็นสีเลือดหมูทั้งกล่อง */
+  .wastebox{background:var(--accent-tint);border:1px solid var(--accent);border-radius:14px;
+    padding:16px 18px 2px;margin:20px 0 16px}
+  .wastebox label{color:var(--accent)}
+  .wastebox .input-suffix{border-color:var(--accent)}
+  .wastebox .input-suffix .unit{border-left-color:var(--accent);color:var(--accent);background:#fff}
+  .wastebox input{border-color:var(--accent)}
+  /* แถบ Load Factor */
+  .loadbar{display:flex;align-items:center;gap:12px;margin:12px 0 10px}
+  .loadbar .track{flex:1;height:9px;border-radius:999px;background:var(--sidebar-bg);
+    border:1px solid var(--field-border);overflow:hidden}
+  .loadbar .track i{display:block;height:100%;width:0;background:var(--accent);
+    transition:width .28s var(--ease),background-color .2s var(--ease)}
+  .loadbar .pct{font-family:var(--font-num);font-size:15px;font-weight:700;color:var(--ink);
+    min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+  /* ตัวเลือกแบบปุ่มคู่ (2 ตัวเลือก) */
+  .seg{display:flex;border:1px solid var(--field-border);border-radius:10px;overflow:hidden;background:#fff}
+  .seg button{flex:1;font-family:inherit;font-size:14.5px;font-weight:600;color:var(--ink-soft);
+    background:#fff;border:none;border-left:1px solid var(--field-border);padding:11px 10px;cursor:pointer;
+    transition:background-color .16s var(--ease),color .16s var(--ease)}
+  .seg button:first-child{border-left:none}
+  .seg button:hover:not(.on){background:var(--field-bg)}
+  .seg button.on{background:#1B1B1F;color:#fff}
+  .seg.disabled{opacity:.55;pointer-events:none}
   h3.grp .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
 
-  label{display:block;font-size:14.5px;font-weight:500;color:var(--ink-soft);margin:0 0 8px}
-  .field{margin-bottom:18px}
-  select,input{width:100%;font-family:inherit;font-size:16px;color:var(--ink);background:var(--field-bg);
-    border:1.5px solid var(--field-border);border-radius:11px;padding:14px 16px;outline:none;
-    transition:border-color .16s var(--ease),background-color .16s var(--ease)}
-  input[type=number]{font-family:var(--font-num);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;font-size:16.5px}
-  select:hover,input:hover{border-color:var(--field-border-hover);background:#fff}
+  label{display:block;font-size:13.5px;font-weight:600;color:var(--ink-muted);margin:0 0 6px}
+  label .hint{font-weight:400;color:var(--ink-faint)}
+  .field{margin-bottom:16px}
+  select,input{width:100%;font-family:inherit;font-size:15.5px;color:var(--ink);background:#fff;
+    border:1px solid var(--field-border);border-radius:10px;padding:12px 14px;outline:none;
+    transition:box-shadow .16s var(--ease),background-color .16s var(--ease)}
+  input[type=number]{font-family:var(--font-num);font-weight:600;font-variant-numeric:tabular-nums;text-align:right;font-size:16px}
+  select:hover,input:hover{background:#fff}
   input::placeholder{color:var(--ink-placeholder)}
   select{appearance:none;cursor:pointer;padding-right:36px;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239AA1AC' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:right 12px center}
-  select:focus,input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(110,24,55,.10)}
+  select:focus,input:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(110,24,55,.16)}
   input:disabled,select:disabled{background:#F4F1ED;color:var(--ink-faint);cursor:not-allowed}
   .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px}
   .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
   @media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}}
-  .input-suffix{position:relative}
-  .input-suffix .unit{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--ink-faint);font-size:13px;pointer-events:none}
-  .input-suffix input{padding-right:48px}
-  .dmy{display:grid;grid-template-columns:.7fr 1.1fr 1fr;gap:9px}
+  /* ช่องหน่วยแยกเป็นเซลล์ทางขวา คั่นด้วยเส้นเข้ม */
+  .input-suffix{display:flex;align-items:stretch;border:1px solid var(--field-border);border-radius:10px;
+    overflow:hidden;background:#fff;transition:box-shadow .16s var(--ease)}
+  .input-suffix:focus-within{box-shadow:0 0 0 3px rgba(110,24,55,.16)}
+  .input-suffix input{border:none;border-radius:0;flex:1;min-width:0;padding-right:12px}
+  .input-suffix input:focus{box-shadow:none}
+  .input-suffix .unit{position:static;transform:none;display:flex;align-items:center;flex:none;
+    padding:0 12px;background:var(--field-bg);border-left:1px solid var(--field-border);
+    color:var(--ink-soft);font-size:12.5px;pointer-events:none;white-space:nowrap}
+  /* วัน/เดือน/ปี รวมอยู่ในกรอบเดียว มีเส้นคั่นข้างใน */
+  .dmy{display:grid;grid-template-columns:78px 1fr 1fr;gap:0;border:1px solid var(--field-border);
+    border-radius:10px;overflow:hidden;background:#fff;transition:box-shadow .16s var(--ease)}
+  .dmy:focus-within{box-shadow:0 0 0 3px rgba(110,24,55,.16)}
+  .dmy>*{border:none;border-radius:0;border-left:1px solid var(--field-border)}
+  .dmy>*:first-child{border-left:none}
+  .dmy input,.dmy select{box-shadow:none}
+  .dmy input:focus,.dmy select:focus{box-shadow:none}
 
-  .route-line{display:flex;align-items:center;gap:12px;background:var(--accent-tint);border:none;
-    border-radius:12px;padding:16px 20px;margin-bottom:18px;font-size:14.5px;font-weight:600;color:var(--accent)}
+  .route-line{display:flex;align-items:center;gap:12px;background:var(--field-bg);
+    border:1px solid var(--field-border);border-radius:12px;padding:13px 16px;margin-bottom:16px;
+    font-size:14.5px;font-weight:600;color:var(--ink)}
   .route-line .pin{width:8px;height:8px;border-radius:50%;flex:none}
   .route-line .pin.from{background:var(--green)} .route-line .pin.to{background:var(--orange)}
   .route-line span[id]{flex:1}
@@ -108,18 +153,18 @@
   .price-note{font-size:14.5px;color:#8A5A61;background:var(--accent-tint);border:none;
     border-radius:12px;padding:14px 18px;line-height:1.6;margin-top:10px}
   .price-note b{font-weight:700}
-  .chk{display:flex;align-items:center;gap:11px;cursor:pointer;font-size:15.5px;font-weight:400;color:var(--ink);
-    margin:0 0 12px;background:var(--field-bg);border:1.5px solid var(--field-border);border-radius:11px;padding:13px 18px;
-    transition:border-color .16s var(--ease)}
-  .chk:hover{border-color:var(--field-border-hover)}
-  .chk input{width:18px;height:18px;flex:none;accent-color:var(--accent);cursor:pointer;padding:0;border-radius:5px}
+  .chk{display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;font-weight:400;color:var(--ink-muted);
+    margin:0 0 12px;background:var(--field-bg);border:1px solid var(--field-border);border-radius:10px;padding:11px 14px;
+    transition:box-shadow .16s var(--ease)}
+  .chk:focus-within{box-shadow:0 0 0 3px rgba(110,24,55,.16)}
+  .chk input{width:16px;height:16px;flex:none;accent-color:var(--accent);cursor:pointer;padding:0;border-radius:4px}
 
   .btn{font-family:inherit;font-weight:700;border:none;border-radius:999px;cursor:pointer;
     transition:background-color .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease),transform .18s var(--ease)}
   .btn:active{transform:scale(.97)}
-  .btn-calc{width:100%;font-size:15px;color:var(--ink-muted);background:#fff;border:1px solid var(--border-strong);
-    padding:15px 26px;box-shadow:none;font-weight:600}
-  .btn-calc:hover{background:#fff;border-color:#C0B7AC}
+  .btn-calc{width:100%;font-size:15px;color:#fff;background:#1B1B1F;border:none;border-radius:12px;
+    padding:15px 26px;box-shadow:none;font-weight:700}
+  .btn-calc:hover{background:var(--accent)}
   .btn-save{font-size:15px;color:#fff;background:var(--accent);padding:15px 30px;box-shadow:none;font-family:var(--font-num)}
   .btn-save:hover{background:var(--accent-hover)}
   .btn-green{font-size:13.5px;color:#fff;background:var(--green);padding:12px 22px;box-shadow:none}
@@ -161,13 +206,14 @@
   .searchbox{position:relative;flex:1;max-width:420px;min-width:200px}
   .searchbox input{padding-left:36px;background:#fff}
   .searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--ink-faint)}
-  .rec-card{background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:none;overflow:hidden}
+  .rec-card{background:#fff;border:1px solid var(--border);border-radius:18px;box-shadow:none;overflow:hidden}
   table{width:100%;border-collapse:collapse;font-size:14.5px}
-  .rec-table thead th{background:var(--table-head);color:var(--ink-soft);font-weight:700;font-size:13px;
-    letter-spacing:.04em;text-transform:uppercase;padding:16px 14px;text-align:left;white-space:nowrap}
-  .rec-table td{padding:16px 14px;border-bottom:1px solid var(--divider-light);white-space:nowrap;vertical-align:middle}
+  .rec-table thead th{background:var(--field-bg);color:var(--ink-faint);font-weight:700;font-size:11.5px;
+    letter-spacing:.06em;text-transform:uppercase;padding:13px 14px;text-align:left;white-space:nowrap}
+  .rec-table td{padding:13px 14px;border-bottom:1px solid var(--row-line);white-space:nowrap;
+    vertical-align:middle;font-size:13.5px}
   .rec-table tbody tr:last-child td{border-bottom:none}
-  .rec-table tbody tr:hover td{background:var(--table-head)}
+  .rec-table tbody tr:hover td{background:var(--field-bg)}
   .rec-table tbody tr.editing td{background:var(--accent-tint)}
   td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
   .doc{font-weight:700}
@@ -834,6 +880,7 @@
               <div class="input-suffix"><input id="loadActual" type="number" min="0" step="1" placeholder="0"><span class="unit">กก.</span></div></div>
           </div>
           <label class="chk"><input id="emptyLeg" type="checkbox"><span>เที่ยวนี้เป็นเที่ยวเปล่า (Empty Leg) — วิ่งโดยไม่มีสินค้า/ไม่ได้บรรทุก</span></label>
+          <div class="loadbar"><div class="track"><i id="loadFill"></i></div><span class="pct" id="loadPct">–</span></div>
           <div class="price-note" id="loadNote" style="margin-top:0">เลือกชนิดรถ + กรอกน้ำหนักบรรทุกจริง เพื่อคำนวณ Load Factor (% การใช้ประโยชน์ความจุ)</div>
         </div>
       </div>
@@ -884,14 +931,16 @@
             <div class="input-suffix"><input id="fuelCallTruck" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
         </div>
         <div class="price-note" id="fuelNote">น้ำมันเดินทาง (คำนวณอัตโนมัติ): –</div>
-        <h3 class="grp waste"><span class="dot"></span>ค่าน้ำมัน — ต้นทุนสูญเปล่า</h3>
-        <div class="grid3">
-          <div class="field"><label for="fuelOff">น้ำมันวิ่งรถนอกเส้นทาง</label>
-            <div class="input-suffix"><input id="fuelOff" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
-          <div class="field"><label for="fuelDetour">ค่าน้ำมันรถวิ่งอ้อม</label>
-            <div class="input-suffix"><input id="fuelDetour" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
-          <div class="field"><label for="fuelOffFleet">ค่าน้ำมันนอกเส้นทาง (Fleet Card)</label>
-            <div class="input-suffix"><input id="fuelOffFleet" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        <div class="wastebox">
+          <h3 class="grp waste"><span class="dot"></span>ค่าน้ำมัน — ต้นทุนสูญเปล่า</h3>
+          <div class="grid3">
+            <div class="field"><label for="fuelOff">น้ำมันวิ่งรถนอกเส้นทาง</label>
+              <div class="input-suffix"><input id="fuelOff" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+            <div class="field"><label for="fuelDetour">ค่าน้ำมันรถวิ่งอ้อม</label>
+              <div class="input-suffix"><input id="fuelDetour" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+            <div class="field"><label for="fuelOffFleet">ค่าน้ำมันนอกเส้นทาง (Fleet Card)</label>
+              <div class="input-suffix"><input id="fuelOffFleet" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          </div>
         </div>
         <h3 class="grp"><span class="dot"></span>3) ค่าแรงพนักงาน — ต้นทุนปกติ</h3>
         <div class="grid3">
@@ -899,9 +948,11 @@
           <div class="field"><label for="spare">พนักงานสำรอง</label><div class="input-suffix"><input id="spare" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
           <div class="field"><label for="snd">SND</label><div class="input-suffix"><input id="snd" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
         </div>
-        <h3 class="grp waste"><span class="dot"></span>ค่าแรง — ต้นทุนสูญเปล่า</h3>
-        <div class="grid2">
-          <div class="field"><label for="laborOff">ค่าแรงวิ่งรถนอกเส้นทาง</label><div class="input-suffix"><input id="laborOff" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+        <div class="wastebox">
+          <h3 class="grp waste"><span class="dot"></span>ค่าแรง — ต้นทุนสูญเปล่า</h3>
+          <div class="grid2">
+            <div class="field"><label for="laborOff">ค่าแรงวิ่งรถนอกเส้นทาง</label><div class="input-suffix"><input id="laborOff" type="number" min="0" step="1" placeholder="0"><span class="unit">บาท</span></div></div>
+          </div>
         </div>
         <h3 class="grp"><span class="dot"></span>4) ค่าธรรมเนียม <span style="font-weight:400;color:var(--ink-faint)">(นับเป็นต้นทุนปกติ)</span></h3>
         <div class="grid3">
@@ -1654,16 +1705,63 @@ function applyVehicleCapacity(){
   if(cap!=null && !$("capacity").value) $("capacity").value=cap;
   updateLoadNote();
 }
+// วาดแถบ Load Factor ให้ตรงกับตัวเลขที่คำนวณได้ (สีตามระดับการใช้ประโยชน์)
+function paintLoadBar(pct){
+  const fill=$("loadFill"), out=$("loadPct");
+  if(!fill||!out) return;
+  if(pct==null){ fill.style.width="0%"; out.textContent="–"; return; }
+  fill.style.width=Math.max(0,Math.min(100,pct))+"%";
+  fill.style.background = pct>=76 ? "var(--green)" : pct>=41 ? "var(--accent)" : "var(--red)";
+  out.textContent=pct+"%";
+}
 function updateLoadNote(){
   const cap=num("capacity"), load=num("loadActual"), empty=$("emptyLeg").checked;
   const note=$("loadNote");
+  const box=$("loadActual").closest(".field");
   if(empty){ $("loadActual").value=0; $("loadActual").disabled=true;
-    note.innerHTML=`เที่ยวเปล่า (Empty Leg) — ไม่มีสินค้าบรรทุก · Load Factor = <b>0%</b>`; return; }
+    if(box) box.style.opacity=".45";
+    note.innerHTML=`เที่ยวเปล่า (Empty Leg) — ไม่มีสินค้าบรรทุก · Load Factor = <b>0%</b>`;
+    paintLoadBar(0); return; }
   $("loadActual").disabled=false;
-  if(!cap){ note.innerHTML="เลือกชนิดรถ (จะเติมความจุให้อัตโนมัติ) หรือกรอกความจุเอง เพื่อคำนวณ Load Factor"; return; }
+  if(box) box.style.opacity="";
+  if(!cap){ note.innerHTML="เลือกชนิดรถ (จะเติมความจุให้อัตโนมัติ) หรือกรอกความจุเอง เพื่อคำนวณ Load Factor";
+    paintLoadBar(null); return; }
   const pct=cap?Math.min(100,Math.round(load/cap*100)):0;
-  note.innerHTML=`Load Factor: <b>${fmt(load,0)}</b> / <b>${fmt(cap,0)}</b> กก. = <b style="color:${pct<50?'var(--red)':pct<80?'#4A453F':'var(--green)'}">${pct}%</b>`;
+  note.innerHTML=`Load Factor: <b>${fmt(load,0)}</b> / <b>${fmt(cap,0)}</b> กก.`;
+  paintLoadBar(pct);
 }
+/* ---- ตัวเลือก 2 ทางแสดงเป็นปุ่มคู่ ----
+   ยังใช้ <select> เดิมเป็นตัวเก็บค่าอยู่ (ซ่อนไว้) เพื่อไม่ให้กระทบ readRolePart / การบันทึก */
+function makeSegmented(id){
+  const sel=$(id); if(!sel||sel.dataset.seg) return;
+  const opts=[...sel.options].filter(o=>o.value!=="");
+  if(opts.length!==2) return;
+  sel.dataset.seg="1";
+  const box=document.createElement("div");
+  box.className="seg"; box.id=id+"Seg";
+  opts.forEach(o=>{
+    const b=document.createElement("button");
+    b.type="button"; b.textContent=o.textContent; b.dataset.val=o.value||o.textContent;
+    b.onclick=()=>{ if(sel.disabled) return;
+      sel.value=b.dataset.val; sel.dispatchEvent(new Event("change",{bubbles:true})); syncSegmented(id); };
+    box.appendChild(b);
+  });
+  sel.style.display="none";
+  sel.parentNode.insertBefore(box,sel.nextSibling);
+  sel.addEventListener("change",()=>syncSegmented(id));
+  syncSegmented(id);
+}
+function syncSegmented(id){
+  const sel=$(id), box=$(id+"Seg"); if(!sel||!box) return;
+  [...box.children].forEach(b=>b.classList.toggle("on",b.dataset.val===sel.value));
+  box.classList.toggle("disabled",!!sel.disabled);
+}
+["routeType","fleetType"].forEach(makeSegmented);
+// โซนที่ถูกล็อกตามหน้าที่ ต้องล็อกปุ่มคู่ตามไปด้วย
+const _applyRoleZones0=applyRoleZones;
+applyRoleZones=function(){ _applyRoleZones0.apply(this,arguments);
+  ["routeType","fleetType"].forEach(syncSegmented); };
+
 veh.addEventListener("change",applyVehicleCapacity);
 ["capacity","loadActual"].forEach(id=>$(id).addEventListener("input",updateLoadNote));
 $("emptyLeg").addEventListener("change",updateLoadNote);
