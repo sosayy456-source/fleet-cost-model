@@ -62,7 +62,21 @@
   .navitem svg{width:18px;height:18px;flex:none;opacity:.9}
   .navitem .plus{color:currentColor}
 
+  /* จอมือถือแนวตั้ง — ยุบแถบเมนูซ้ายเป็นแถบเลื่อนแนวนอนด้านบน คืนพื้นที่ให้ฟอร์ม */
+  @media(max-width:720px){
+    .sidebar{position:static;width:100%;height:auto;flex-direction:row;align-items:center;
+      padding:10px 12px;overflow-x:auto;overflow-y:visible;gap:6px;
+      border-bottom:1px solid var(--border-strong)}
+    .nav{flex-direction:row;flex-wrap:nowrap;gap:6px}
+    .navitem{width:auto;flex:none;white-space:nowrap;padding:9px 13px;font-size:13.5px;gap:8px}
+  }
+
   .app{margin-left:var(--sidew);padding:28px 30px 60px;max-width:1400px}
+  /* ต้องอยู่หลังกฎ .app ด้านบน ไม่งั้นจะโดน margin-left:var(--sidew) ทับ (specificity เท่ากัน ใครมาทีหลังชนะ) */
+  @media(max-width:720px){
+    .app{margin-left:0;padding:18px 16px 40px}
+    .page-h h1{font-size:26px}
+  }
   .page-h{margin-bottom:20px}
   .page-h h1{font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
   .page-h p{color:var(--ink-soft);font-size:15px;margin-top:6px}
