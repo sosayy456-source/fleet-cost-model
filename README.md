@@ -4,7 +4,7 @@
 
 ## ไฟล์ในโปรเจกต์
 
-- **Model.html** — เวอร์ชันเปิดตรง ๆ ในเบราว์เซอร์ ข้อมูลเก็บในเครื่อง (localStorage) ต่อ Google Sheet ผ่าน Web App URL
+- **index.html** — เวอร์ชันเปิดตรง ๆ ในเบราว์เซอร์ ข้อมูลเก็บในเครื่อง (localStorage) ต่อ Google Sheet ผ่าน Web App URL
 - **AppsScript-โมเดลเดินรถ/** — เวอร์ชัน Google Apps Script (`Code.gs` + `Index.html`) วางในสเปรดชีตแล้ว Deploy เป็น Web App ข้อมูลทุกคนที่เปิดลิงก์เห็นชุดเดียวกัน เพราะเก็บบนชีตโดยตรง
 - **AppsScript-โค้ด.gs** — สคริปต์รุ่นก่อนหน้าของเวอร์ชันแรก (fetch/CORS) เก็บไว้อ้างอิง
 
