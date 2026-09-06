@@ -1,7 +1,10 @@
 /** ชนิดข้อมูลของใบรายการเดินรถ — ถอดจาก buildRecord() ใน v5:2116 */
 import type { FleetType } from "../lib/cost/types";
 
-export type RoleKey = "cs" | "dispatch" | "account";
+/** manager/admin เป็นตำแหน่งดูอย่างเดียว/ดูแลระบบ ไม่นับในความครบถ้วนของใบ */
+export type RoleKey = "cs" | "dispatch" | "account" | "manager" | "admin";
+/** เฉพาะตำแหน่งที่กรอกใบจริง — ใช้กับ stampRole และการแบ่งโซนในฟอร์ม */
+export type EntryRoleKey = "cs" | "dispatch" | "account";
 
 export const PAY_TYPES = ["เชื่อต้นทาง", "เชื่อปลายทาง", "สดต้นทาง", "สดปลายทาง"] as const;
 export type PayType = (typeof PAY_TYPES)[number];

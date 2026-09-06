@@ -16,7 +16,7 @@
 import { computeCost } from "../cost/computeCost";
 import { REF } from "../refdata";
 import { loadTrips, pushRecords } from "../sheet/client";
-import { ROLES, stampRole } from "../record/roles";
+import { ROLES, isEntryRole, stampRole } from "../record/roles";
 import { put } from "./records";
 import type { RefOverrides } from "../cost/types";
 import type { RoleKey, TripRecord } from "../../types/record";
@@ -69,6 +69,11 @@ export function recomputeTotals(rec: TripRecord, ovr?: RefOverrides): TripRecord
 
 export interface SaveOptions {
   role: RoleKey;
+  /**
+   * โซนของฝ่ายอื่นที่เปิดแก้ไขไว้ (ฝ่ายบัญชีกดชิปเปิด / ผู้ดูแลระบบเปิดทุกโซน)
+   * ช่องในโซนเหล่านี้จะถูกบันทึกด้วย และประทับว่าฝ่ายนั้นกรอกแล้ว
+   */
+  alsoRoles?: RoleKey[];
   overrides?: RefOverrides;
   /** ปิดการคุยกับชีต ใช้ตอนเทสต์หรือทำงานออฟไลน์แบบตั้งใจ */
   offline?: boolean;
@@ -85,8 +90,10 @@ export interface SaveResult {
  * @throws SaveAbortedError ถ้าอ่านใบล่าสุดจากชีตไม่ได้ (กันเขียนทับงานฝ่ายอื่น)
  */
 export async function saveRecord(draft: TripRecord, opts: SaveOptions): Promise<SaveResult> {
-  const { role, overrides, offline } = opts;
-  const mine = fieldsOwnedBy(role);
+  const { role, overrides, offline, alsoRoles = [] } = opts;
+  // ฝ่ายที่กำลังกรอกจริง = ฝ่ายตัวเอง + โซนอื่นที่เปิดแก้ไว้ (ไม่ซ้ำ)
+  const acting = [...new Set([role, ...alsoRoles])].filter(isEntryRole);
+  const mine = acting.flatMap(fieldsOwnedBy);
 
   let base: TripRecord = draft;
   let mergedFromSheet = false;
@@ -118,7 +125,8 @@ export async function saveRecord(draft: TripRecord, opts: SaveOptions): Promise<
     }
   }
 
-  const stamped = stampRole(base, role);
+  let stamped = base;
+  for (const k of acting) stamped = stampRole(stamped, k);
   const rec = recomputeTotals(stamped, overrides);
   rec.synced = false;
 

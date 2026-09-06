@@ -41,12 +41,41 @@ const mLabel = (k: string): string => {
 };
 
 /* ---------- ชิ้นส่วนหน้าตาแบบ v5 ---------- */
-function KC({ l, v, s }: { l: string; v: string; s?: React.ReactNode }) {
+function KC({ l, v, s, dot, tone }: {
+  l: string; v: string; s?: React.ReactNode;
+  /** จุดสีหน้าป้าย — main กำหนดผ่านตัวแปร --dot */
+  dot?: string;
+  /** โทนของตัวเลข: ดี / เตือน / แย่ */
+  tone?: "good" | "warn" | "bad";
+}) {
   return (
-    <div className="dz-kc">
+    <div className={"dz-kc" + (tone ? ` t-${tone}` : "")}
+      style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined}>
+      <div className="l">{dot && <i className="d" />}{l}</div>
+      <div className="v">{v}</div>
+      {s && <div className="s">{s}</div>}
+    </div>
+  );
+}
+
+/** เส้นประกอบในการ์ดเด่น — เป็นลายตกแต่ง ไม่ใช่ข้อมูลจริง (ตรงตาม main) */
+const SPARK = (
+  <svg className="spark" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden="true">
+    <polyline points="0,32 15,26 30,29 45,18 60,22 75,12 90,15 105,6 120,9" />
+  </svg>
+);
+
+/** การ์ดเด่นพื้นไล่สี — ใช้กับตัวเลขที่สำคัญที่สุดของแต่ละแท็บ */
+function Hero({ kind, l, v, s }: {
+  kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc";
+  l: string; v: string; s?: React.ReactNode;
+}) {
+  return (
+    <div className={`dz-kc hero ${kind}`}>
       <div className="l">{l}</div>
       <div className="v">{v}</div>
       {s && <div className="s">{s}</div>}
+      {SPARK}
     </div>
   );
 }
@@ -252,19 +281,23 @@ function MainPane({ rows }: { rows: TripRecord[] }) {
 
   return (
     <>
+      <div className="dz-heroes">
+        <Hero kind="cost" l="ค่าใช้จ่ายรวม" v={fmtBaht(k.cost)} s="บาท · ปกติ + สูญเปล่า" />
+        <Hero kind="rev" l="รายได้รวม" v={fmtBaht(k.rev)} s="บาท" />
+        <Hero kind={k.profit < 0 ? "loss" : "profit"} l="กำไรสุทธิ" v={fmtBaht(k.profit)}
+          s="บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร" />
+      </div>
       <div className="dz-cards">
-        <KC l="🧾 ค่าใช้จ่ายรวม" v={fmtBaht(k.cost)} s="บาท · ปกติ + สูญเปล่า" />
-        <KC l="🚚 จำนวนเที่ยววิ่ง" v={fmtBaht(k.trips)} s="เที่ยว" />
-        <KC l="⛽ ค่าน้ำมันรวม" v={fmtBaht(k.fuel)} s="บาท · ค่าน้ำมันเหมา + แก๊ส" />
-        <KC l="🧍 ค่าเบี้ยเลี้ยงคนขับรวม" v={fmtBaht(k.driver)} s="บาท" />
-        <KC l="📦 ค่าธรรมเนียมอื่นๆ" v={fmtBaht(k.other)} s="บาท" />
-        <KC l="🔧 ค่าซ่อมแซม" v={fmtBaht(k.repair)} s="บาท" />
-        <KC l="💨 ต้นทุนสูญเปล่า" v={fmtBaht(k.waste)} s="บาท · นอกเส้นทาง + วิ่งอ้อม" />
-        <KC l="🗂️ ค่าบริหาร (บิลเคลียร์)" v={fmtBaht(k.admin)} s="บาท" />
-        <KC l="💳 ลูกหนี้ค้างชำระ" v={fmtBaht(k.ar)} s="บาท" />
-        <KC l="💰 รายได้รวม" v={fmtBaht(k.rev)} s="บาท" />
-        <KC l="📈 กำไรสุทธิ" v={fmtBaht(k.profit)} s="บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร" />
-        <KC l="📊 กำไรเฉลี่ย/เที่ยว" v={fmtBaht(k.avg)} s={<>บาท · อัตรากำไร {fmtPct(k.margin)}</>} />
+        <KC dot="#4F46E5" l="จำนวนเที่ยววิ่ง" v={fmtBaht(k.trips)} s="เที่ยว" />
+        <KC dot="#F59E0B" l="ค่าน้ำมันรวม" v={fmtBaht(k.fuel)} s="บาท · ค่าน้ำมันเหมา + แก๊ส" />
+        <KC dot="#0D9488" l="ค่าเบี้ยเลี้ยงคนขับรวม" v={fmtBaht(k.driver)} s="บาท" />
+        <KC dot="#7C3AED" l="ค่าธรรมเนียมอื่นๆ" v={fmtBaht(k.other)} s="บาท" />
+        <KC dot="#EA580C" l="ค่าซ่อมแซม" v={fmtBaht(k.repair)} s="บาท" />
+        <KC dot="#E11D48" tone="bad" l="ต้นทุนสูญเปล่า" v={fmtBaht(k.waste)} s="บาท · นอกเส้นทาง + วิ่งอ้อม" />
+        <KC dot="#475569" l="ค่าบริหาร (บิลเคลียร์)" v={fmtBaht(k.admin)} s="บาท" />
+        <KC dot="#DB2777" l="ลูกหนี้ค้างชำระ" v={fmtBaht(k.ar)} s="บาท" />
+        <KC dot="#059669" tone="good" l="กำไรเฉลี่ย/เที่ยว" v={fmtBaht(k.avg)}
+          s={<>บาท · อัตรากำไร {fmtPct(k.margin)}</>} />
       </div>
 
       <ZT>แนวโน้ม &amp; โครงสร้างต้นทุน</ZT>
@@ -378,11 +411,14 @@ function TripPane({ rows }: { rows: TripRecord[] }) {
 
   return (
     <>
+      <div className="dz-heroes">
+        <Hero kind="loss" l="เที่ยวขาดทุน" v={fmtBaht(loss.length)}
+          s={`เที่ยว จากทั้งหมด ${fmtBaht(trips.length)}`} />
+      </div>
       <div className="dz-cards four">
-        <KC l="🚨 เที่ยวขาดทุน" v={fmtBaht(loss.length)} s={`เที่ยว จากทั้งหมด ${fmtBaht(trips.length)}`} />
-        <KC l="📉 ขาดทุนรวม (เที่ยวที่ขาดทุน)" v={fmtBaht(lossSum)} s="บาท" />
-        <KC l="📈 อัตรากำไรเฉลี่ย/เที่ยว" v={fmtPct(avgMargin)} s="ของรายได้ต่อเที่ยว" />
-        <KC l="🏆 กำไรสูงสุดต่อเที่ยว" v={fmtBaht(best)} s="บาท" />
+        <KC dot="#E11D48" tone="bad" l="ขาดทุนรวม (เที่ยวที่ขาดทุน)" v={fmtBaht(lossSum)} s="บาท" />
+        <KC dot="#4F46E5" l="อัตรากำไรเฉลี่ย/เที่ยว" v={fmtPct(avgMargin)} s="ของรายได้ต่อเที่ยว" />
+        <KC dot="#059669" tone="good" l="กำไรสูงสุดต่อเที่ยว" v={fmtBaht(best)} s="บาท" />
       </div>
 
       <div className="dz-row dz-11">
@@ -467,11 +503,16 @@ function CustomerPane({ rows }: { rows: TripRecord[] }) {
 
   return (
     <>
+      <div className="dz-heroes">
+        <Hero kind="cust" l="จำนวนลูกค้า" v={fmtBaht(cust.length)} s="ราย (มีบิลอย่างน้อย 1 รายการ)" />
+      </div>
       <div className="dz-cards four">
-        <KC l="👥 จำนวนลูกค้า" v={fmtBaht(cust.length)} s="ราย (มีบิลอย่างน้อย 1 รายการ)" />
-        <KC l="💚 ลูกค้าที่สร้างกำไรสูงสุด" v={top?.name ?? "–"} s={top ? `${fmtBaht(top.profit)} บาท` : "–"} />
-        <KC l="🔻 ลูกค้าที่กัดกำไรมากสุด" v={bot?.name ?? "–"} s={bot ? `${fmtBaht(bot.profit)} บาท` : "–"} />
-        <KC l="⚠️ ลูกค้าที่ขาดทุน" v={fmtBaht(lossN)} s={`ราย จากทั้งหมด ${fmtBaht(cust.length)}`} />
+        <KC dot="#059669" tone="good" l="ลูกค้าที่สร้างกำไรสูงสุด" v={top?.name ?? "–"}
+          s={top ? `${fmtBaht(top.profit)} บาท` : "–"} />
+        <KC dot="#E11D48" tone="bad" l="ลูกค้าที่กัดกำไรมากสุด" v={bot?.name ?? "–"}
+          s={bot ? `${fmtBaht(bot.profit)} บาท` : "–"} />
+        <KC dot="#F59E0B" tone="warn" l="ลูกค้าที่ขาดทุน" v={fmtBaht(lossN)}
+          s={`ราย จากทั้งหมด ${fmtBaht(cust.length)}`} />
       </div>
 
       <CC title="กำไร/ขาดทุนต่อลูกค้า (Top 15)" tall>
@@ -591,12 +632,15 @@ function FleetPane({ rows, year }: { rows: TripRecord[]; year: string }) {
   return (
     <>
       <ZT>การใช้ประโยชน์กองรถ (Fleet Utilization)</ZT>
-      <div className="dz-cards four">
-        <KC l="🚚 รถในกองรถทั้งหมด" v={fmtBaht(roster.length)}
+      <div className="dz-heroes">
+        <Hero kind="fleet" l="รถในกองรถทั้งหมด" v={fmtBaht(roster.length)}
           s={`${fmtBaht(roster.filter((f) => f.status === "ใช้งาน").length)} คัน สถานะ “ใช้งาน”`} />
-        <KC l="✅ รถที่มีเที่ยววิ่งในช่วงนี้" v={fmtBaht(inRoster)} s={`จาก ${fmtBaht(roster.length)} คันในกองรถ`} />
-        <KC l="📊 %การใช้งานเฉลี่ยต่อคัน" v={`${avgUtil}%`} s="วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน" />
-        <KC l="🛣️ ระยะทางรวมทุกเที่ยว" v={fmtBaht(km)} s="กม." />
+      </div>
+      <div className="dz-cards four">
+        <KC dot="#4F46E5" l="รถที่มีเที่ยววิ่งในช่วงนี้" v={fmtBaht(inRoster)}
+          s={`จาก ${fmtBaht(roster.length)} คันในกองรถ`} />
+        <KC dot="#0D9488" l="%การใช้งานเฉลี่ยต่อคัน" v={`${avgUtil}%`} s="วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน" />
+        <KC dot="#7C3AED" l="ระยะทางรวมทุกเที่ยว" v={fmtBaht(km)} s="กม." />
       </div>
 
       <div className="dz-row dz-11">
@@ -657,11 +701,11 @@ function FleetPane({ rows, year }: { rows: TripRecord[]; year: string }) {
 
       <ZT>มูลค่าที่สูญเสียจากอัตราบรรทุกต่ำ / เที่ยวเปล่า / รถใช้ไม่คุ้มค่า</ZT>
       <div className="dz-cards four">
-        <KC l="📦 Load Factor เฉลี่ย" v={`${avgLoad}%`} s="เฉพาะเที่ยวที่มีสินค้า + มีข้อมูลความจุ" />
-        <KC l="🚛 เที่ยวเปล่า (Empty Leg)" v={fmtBaht(emptyRecs.length)}
+        <KC dot="#0D9488" l="Load Factor เฉลี่ย" v={`${avgLoad}%`} s="เฉพาะเที่ยวที่มีสินค้า + มีข้อมูลความจุ" />
+        <KC dot="#F59E0B" tone="warn" l="เที่ยวเปล่า (Empty Leg)" v={fmtBaht(emptyRecs.length)}
           s={`${loadRecs.length ? Math.round(emptyRecs.length / loadRecs.length * 100) : 0}% ของเที่ยวที่มีข้อมูล`} />
-        <KC l="💸 ต้นทุนที่เสียไปจากเที่ยวเปล่า" v={fmtBaht(emptyCost)} s="บาท" />
-        <KC l="📉 มูลค่าเสียโอกาสจากบรรทุกไม่เต็ม" v={fmtBaht(lostVal)} s="บาท · โดยประมาณ" />
+        <KC dot="#E11D48" tone="bad" l="ต้นทุนที่เสียไปจากเที่ยวเปล่า" v={fmtBaht(emptyCost)} s="บาท" />
+        <KC dot="#EA580C" tone="bad" l="มูลค่าเสียโอกาสจากบรรทุกไม่เต็ม" v={fmtBaht(lostVal)} s="บาท · โดยประมาณ" />
       </div>
 
       <div className="dz-row dz-11">
@@ -783,11 +827,15 @@ function ServicePane({ rows }: { rows: TripRecord[] }) {
 
   return (
     <>
+      <div className="dz-heroes">
+        <Hero kind="svc" l="On-time Delivery" v={fmtPct(onTime, 0)}
+          s="ของบิลที่มีทั้งกำหนดส่งและเวลาส่งจริง" />
+      </div>
       <div className="dz-cards four">
-        <KC l="📦 จำนวนชิ้นสินค้ารวม" v={fmtBaht(qty)} s={`ชิ้น จาก ${fmtBaht(bills.length)} บิลที่มีข้อมูล`} />
-        <KC l="⏱️ On-time Delivery" v={fmtPct(onTime, 0)} s="ของบิลที่มีทั้งกำหนดส่งและเวลาส่งจริง" />
-        <KC l="💥 Damage Rate" v={fmtPct(dmgRate, 0)} s="ของบิลที่มีข้อมูลสถานะสินค้า" />
-        <KC l="🧯 จำนวนชิ้นเสียหายรวม" v={fmtBaht(dmgQty)} s="ชิ้น" />
+        <KC dot="#4F46E5" l="จำนวนชิ้นสินค้ารวม" v={fmtBaht(qty)}
+          s={`ชิ้น จาก ${fmtBaht(bills.length)} บิลที่มีข้อมูล`} />
+        <KC dot="#E11D48" tone="bad" l="Damage Rate" v={fmtPct(dmgRate, 0)} s="ของบิลที่มีข้อมูลสถานะสินค้า" />
+        <KC dot="#EA580C" l="จำนวนชิ้นเสียหายรวม" v={fmtBaht(dmgQty)} s="ชิ้น" />
       </div>
 
       {timed.length === 0 && withDmg.length === 0 && (
@@ -903,11 +951,14 @@ function DebtPane({ rows }: { rows: TripRecord[] }) {
 
   return (
     <>
+      <div className="dz-heroes">
+        <Hero kind="loss" l="ยอดค้างชำระรวม" v={fmtBaht(out)} s="บาท" />
+      </div>
       <div className="dz-cards four">
-        <KC l="💳 ยอดค้างชำระรวม" v={fmtBaht(out)} s="บาท" />
-        <KC l="✅ ยอดรับชำระแล้ว" v={fmtBaht(paid)} s="บาท" />
-        <KC l="📋 จำนวนรายการค้างชำระ" v={fmtBaht(cnt)} s="ราย" />
-        <KC l="% สัดส่วนค้างชำระ" v={fmtPct(gross ? out / gross * 100 : 0, 0)} s="ของยอดออกบิลทั้งหมด" />
+        <KC dot="#059669" tone="good" l="ยอดรับชำระแล้ว" v={fmtBaht(paid)} s="บาท" />
+        <KC dot="#E11D48" tone="bad" l="จำนวนรายการค้างชำระ" v={fmtBaht(cnt)} s="ราย" />
+        <KC dot="#F59E0B" tone="warn" l="สัดส่วนค้างชำระ" v={fmtPct(gross ? out / gross * 100 : 0, 0)}
+          s="ของยอดออกบิลทั้งหมด" />
       </div>
 
       <div className="dz-row dz-2">

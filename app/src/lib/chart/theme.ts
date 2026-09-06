@@ -1,14 +1,12 @@
 /**
- * ธีมกราฟ — ใช้สีชุดเดียวกับกราฟใน โมเดลเดินรถ-gsheet-v5.html
+ * ธีมกราฟ — ใช้สีชุดเดียวกับ #view-dash ใน index.html บน branch main
  *
- * v5 กำหนดสีกราฟไว้ตรง ๆ ในโค้ด (ดู v5:2983-3436) ได้แก่
- *   ส้ม #F5821F · น้ำเงิน #3672C4 · เขียว #1FA971 · กรมท่า #1E2A46
- *   แดง #E24B4B · ทอง #F6C042 · ส้มเข้ม #DC6E11
- * เดิมไฟล์นี้ใช้ชุดสีที่ผ่าน validator แต่ทำให้หน้าตาไม่ตรงกับของเดิม
- * เมื่อโจทย์คือ "ให้เหมือน v5 ทุกอย่าง" จึงกลับมาใช้สีชุดนี้
+ * หน้าแดชบอร์ดของ main มีโทเคนของตัวเองแยกจากธีมหลัก (เลือดหมู/ครีม)
+ * เป็นชุด indigo / violet / rose / emerald / amber บนพื้นขาว
+ * ตัวเลขใช้ Space Grotesk ตามที่ --d-num กำหนด
  *
- * v5 ไม่มีโหมดมืด ที่นี่จึงมีธีมเดียว ไม่ต้องเช็ค prefers-color-scheme
- * กราฟทุกตัวยังมีตารางตัวเลขกำกับ (ChartCard.table) ให้อ่านได้โดยไม่ต้องพึ่งสี
+ * ไม่มีโหมดมืด เพราะไฟล์ต้นทางไม่มี
+ * กราฟทุกใบยังมีตารางตัวเลขกำกับ (ChartCard.table) ให้อ่านได้โดยไม่ต้องพึ่งสี
  */
 
 export interface ChartTheme {
@@ -24,29 +22,42 @@ export interface ChartTheme {
   inkMuted: string;
   surface: string;
   tooltipBg: string;
-  /** สีเน้นของ v5 เผื่อกราฟไหนอยากอ้างตรง ๆ */
-  navy: string;
+  /** สีเน้นของแดชบอร์ด เผื่อกราฟไหนอยากอ้างตรง ๆ */
+  indigo: string;
+  violet: string;
+  rose: string;
+  emerald: string;
+  amber: string;
+  teal: string;
   orange: string;
+  /** ชื่อเดิมที่โค้ดเก่ายังอ้างถึง */
+  navy: string;
 }
 
-const V5: ChartTheme = {
+const DASH: ChartTheme = {
   dark: false,
-  categorical: ["#F5821F", "#3672C4", "#1FA971"],
-  sequential: ["#D3DCEC", "#A9BAD8", "#7E97C4", "#5476B0", "#3672C4", "#28497F", "#1E2A46"],
-  status: { good: "#1FA971", warning: "#F6C042", serious: "#DC6E11", critical: "#E24B4B" },
-  grid: "#E7E9ED",
-  axis: "#9AA1AC",
-  ink: "#232833",
-  inkMuted: "#6B7280",
+  categorical: ["#4F46E5", "#E11D48", "#059669"],
+  sequential: ["#E0E7FF", "#C7D2FE", "#A5B4FC", "#818CF8", "#6366F1", "#4F46E5", "#3730A3"],
+  status: { good: "#059669", warning: "#F59E0B", serious: "#EA580C", critical: "#E11D48" },
+  grid: "#F2EFEA",
+  axis: "#A29C92",
+  ink: "#17161A",
+  inkMuted: "#6E6960",
   surface: "#FFFFFF",
   tooltipBg: "#FFFFFF",
-  navy: "#1E2A46",
-  orange: "#F5821F",
+  indigo: "#4F46E5",
+  violet: "#7C3AED",
+  rose: "#E11D48",
+  emerald: "#059669",
+  amber: "#F59E0B",
+  teal: "#0D9488",
+  orange: "#EA580C",
+  navy: "#4F46E5",
 };
 
-/** v5 เป็นธีมสว่างอย่างเดียว จึงคืนค่าคงที่ */
+/** แดชบอร์ดของ main มีธีมเดียว จึงคืนค่าคงที่ */
 export function useChartTheme(): ChartTheme {
-  return V5;
+  return DASH;
 }
 
 /**
