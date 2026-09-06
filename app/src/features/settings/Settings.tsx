@@ -1,20 +1,19 @@
 /**
- * หน้าการตั้งค่า — เมนูใหม่ที่ index.html บน main เพิ่มเข้ามา
- * รวมของที่เดิมกระจายอยู่ในหน้ากรอกข้อมูล: ตารางราคาน้ำมัน · ตารางค่าซ่อม ·
- * ทะเบียนรถในกองรถ และการเชื่อม Google Sheet
+ * หน้าการตั้งค่า — ตรงตาม <section id="view-settings"> ของ index.html บน main
+ * มีสองการ์ดเท่านั้น: ตารางราคาน้ำมัน และ การคำนวณค่าซ่อมแซม
+ *
+ * ของอีกสองอย่างอยู่คนละหน้าตามต้นฉบับ —
+ *   ทะเบียนรถในกองรถ  → หน้า “บันทึกข้อมูล” (โซนฝ่ายจัดรถ)
+ *   การเชื่อม Google Sheet → หน้า “รายการทั้งหมด”
  */
-import SheetSettings from "./SheetSettings";
 import PriceTable from "../entry/panels/PriceTable";
 import RepairTable from "../entry/panels/RepairTable";
-import FleetRoster from "../entry/panels/FleetRoster";
 
 export default function Settings() {
   return (
     <>
-      <SheetSettings />
       <PriceTable />
       <RepairTable />
-      <FleetRoster />
     </>
   );
 }

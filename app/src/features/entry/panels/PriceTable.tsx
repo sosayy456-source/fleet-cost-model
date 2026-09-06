@@ -55,7 +55,8 @@ export default function PriceTable() {
 
   return (
     <div className="card">
-      <details className="prices">
+      {/* main เปิดกางไว้ตั้งแต่แรก (มี attribute open) */}
+      <details className="prices" open>
         <summary>
           ⛽ ตารางราคาน้ำมัน (ใช้คำนวณน้ำมันเดินทางอัตโนมัติ) · กดเพื่อดู/อัปเดต
           <Chev />

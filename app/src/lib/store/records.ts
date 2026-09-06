@@ -7,6 +7,7 @@
  *
  * ยังอ่านคีย์เดิมของ v5 ได้อยู่ และย้ายให้อัตโนมัติครั้งแรกที่เปิด
  */
+import { CASH_ORIGIN } from "../../types/record";
 import type { TripRecord } from "../../types/record";
 
 const DB_NAME = "fleet-cost-model";
@@ -111,7 +112,7 @@ export async function migrateFromLocalStorage(): Promise<MigrationResult> {
   }
 
   const list = Array.isArray(parsed) ? (parsed as TripRecord[]) : [];
-  const valid = list.filter((r) => r && typeof r.id === "string" && r.id);
+  const valid = list.filter((r) => r && typeof r.id === "string" && r.id).map(migrateSchema);
   if (valid.length) await putMany(valid);
 
   localStorage.setItem(MIGRATION_FLAG, new Date().toISOString());
@@ -136,4 +137,62 @@ export function readLegacyOverrides(): {
     ...(prices && typeof prices === "object" ? { prices } : {}),
     ...(repair && typeof repair === "object" ? { repair } : {}),
   };
+}
+
+/**
+ * ยกระดับ schema ของใบเก่า — ยกจาก migrateRecords() ใน index.html บน main:2385
+ *
+ * ทำตอนย้ายจาก localStorage เข้ามาครั้งเดียว แล้วเขียนธง _v2/_v3/_v4done ติดไว้
+ * ต้องมีธง ไม่งั้นรอบหน้าขั้น _v4done จะไปประทับว่า "ฝ่ายนั้นกรอกแล้ว"
+ * ให้ใบที่ฝ่ายนั้นยังไม่ได้กรอกจริง ๆ
+ */
+export function migrateSchema(rec: TripRecord): TripRecord {
+  const r = rec as unknown as Record<string, unknown>;
+  const n = (v: unknown) => Number(v) || 0;
+
+  // v2 — ย้ายสถานะการชำระจากระดับใบ ไปเป็นระดับบิล
+  if (!r._v2) {
+    let bs = Array.isArray(r.bills) ? (r.bills as Record<string, unknown>[]).slice() : [];
+    if (!bs.length) bs = [{ no: r.docNo ?? "", sender: "", receiver: "", qty: 0, total: 0, payType: "" }];
+    if (r.payStatus === "ชำระแล้ว") {
+      for (const b of bs) {
+        if (b.payType !== CASH_ORIGIN) { b.paid = true; b.payDate = r.payDate ?? r.date ?? null; }
+      }
+    }
+    for (const b of bs) {
+      if (b.paid === undefined) b.paid = false;
+      if (b.payDate === undefined) b.payDate = null;
+    }
+    r.bills = bs;
+    delete r.payStatus; delete r.payDate; delete r.daysToPay;
+    r._v2 = true; r.synced = false;
+  }
+
+  // v3 — น้ำมันเดินทางช่องเดียว แยกเป็นหลายช่องตามวิธีจ่าย
+  if (!r._v3) {
+    if (r.fuelTravel != null && r.fuelCash == null) r.fuelCash = r.fuelTravel;
+    for (const k of ["fuelCash", "fuelDownBill", "fuelFleet", "fuelUpBill", "fuelCallTruck",
+                     "fuelDetour", "fuelOffFleet"]) {
+      if (r[k] == null) r[k] = 0;
+    }
+    r.fuelSum = n(r.fuelCash) + n(r.fuelDownBill) + n(r.fuelFleet)
+      + n(r.fuelPickup) + n(r.fuelUpBill) + n(r.fuelCallTruck);
+    r.waste = n(r.fuelDetour) + n(r.fuelOffFleet) + n(r.laborOff) + n(r.fuelOff);
+    r.sheetTotal = n(r.gas) + n(r.fuelSum) + n(r.drv) + n(r.spare) + n(r.snd) + n(r.waste) + n(r.fees);
+    delete r.fuelTravel; delete r.fuelSrc;
+    r._v3 = true; r.synced = false;
+  }
+
+  // v4 — ใบที่บันทึกก่อนมีระบบ 3 ฝ่าย ถือว่ากรอกครบแล้ว
+  if (!r._v4done) {
+    for (const k of ["cs", "dispatch", "account"]) {
+      if (r[`_${k}Done`] === undefined) {
+        r[`_${k}Done`] = true;
+        r[`_${k}At`] = "(ก่อนแบ่งหน้าที่)";
+      }
+    }
+    r._v4done = true;
+  }
+
+  return rec;
 }

@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { getUrl, loadOld, loadTrips } from "../sheet/client";
-import { getAll } from "./records";
+import { getAll, migrateFromLocalStorage } from "./records";
 import type { TripRecord } from "../../types/record";
 
 export interface OldDebtor {
@@ -42,6 +42,8 @@ export interface RecordsState {
   loading: boolean;
   /** ข้อความบอกว่าโหลดจากชีตไม่ได้ ไม่ถือว่าพัง — ยังใช้ข้อมูลในเครื่องได้ */
   sheetError: string | null;
+  /** จำนวนใบที่เพิ่งย้ายมาจาก localStorage ของเวอร์ชันเดิม — null = ไม่ได้ย้ายรอบนี้ */
+  migrated: number | null;
   connected: boolean;
   reload: () => void;
 }
@@ -63,6 +65,7 @@ export function useRecords(): RecordsState {
   const [oldDebtors, setOldDebtors] = useState<OldDebtor[]>([]);
   const [loading, setLoading] = useState(true);
   const [sheetError, setSheetError] = useState<string | null>(null);
+  const [migrated, setMigrated] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
 
   const reload = useCallback(() => setTick((t) => t + 1), []);
@@ -73,6 +76,12 @@ export function useRecords(): RecordsState {
     setSheetError(null);
 
     (async () => {
+      // ต้องย้ายข้อมูลจากเวอร์ชันเดิมให้เสร็จก่อนอ่าน ไม่งั้นรอบแรกจะได้ลิสต์ว่าง
+      // แล้วผู้ใช้ต้องรีเฟรชเองถึงจะเห็นใบเก่า
+      const mg = await migrateFromLocalStorage().catch(() => null);
+      if (!alive) return;
+      if (mg && !mg.alreadyDone && mg.migrated) setMigrated(mg.migrated);
+
       const local = await getAll().catch(() => [] as TripRecord[]);
       if (!alive) return;
       setRecords(local);
@@ -106,7 +115,7 @@ export function useRecords(): RecordsState {
   }, [tick]);
 
   return {
-    records, oldRecords, oldDebtors, loading, sheetError,
+    records, oldRecords, oldDebtors, loading, sheetError, migrated,
     connected: !!getUrl(), reload,
   };
 }

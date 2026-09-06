@@ -30,7 +30,15 @@ export const r2 = (n: unknown): number | "" => {
   return Number.isFinite(v) ? Math.round(v * 100) / 100 : "";
 };
 
-export const todayISO = (): string => new Date().toISOString().slice(0, 10);
+/**
+ * วันนี้ตามเวลาเครื่อง ไม่ใช่ UTC — todayISO() ของ main:2699
+ * ถ้าใช้ toISOString() ผู้ใช้ในไทย (UTC+7) ที่เปิดแอปก่อนเจ็ดโมงเช้า
+ * จะได้วันที่ของ "เมื่อวาน" ทั้งวันที่ตั้งต้นในฟอร์มและจำนวนวันค้างชำระ
+ */
+export const todayISO = (): string => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 export function daysBetween(a: string | null | undefined, b: string | null | undefined): number | null {
   if (!a || !b) return null;

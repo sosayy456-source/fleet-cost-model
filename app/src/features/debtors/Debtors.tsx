@@ -5,14 +5,13 @@
  * ปุ่ม “ชำระ” เปิดหน้าต่างให้เลือกวันที่ชำระ เหมือน openPayModal() v5:2673
  * และตรวจว่าวันที่ชำระต้องไม่ก่อนวันที่บิล
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { billIsPaid, billPayDate, recBills, recPayInfo } from "../../lib/record/payment";
 import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import { put } from "../../lib/store/records";
 import { pushRecords, getUrl } from "../../lib/sheet/client";
 import { ShortId } from "../../lib/custmap/ShortId";
 import ThaiDateInput from "../entry/ThaiDateInput";
-import { CASH_ORIGIN } from "../../types/record";
 import type { RecordsState, OldDebtor } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
 
@@ -79,6 +78,7 @@ function buildRows(records: TripRecord[], oldDebtors: OldDebtor[]): Row[] {
 export default function Debtors({ state }: { state: RecordsState }) {
   const { records, oldDebtors, loading, reload } = state;
   const [q, setQ] = useState("");
+  const [src, setSrc] = useState<"all" | "new" | "old">("all");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [target, setTarget] = useState<Row | null>(null);
@@ -86,23 +86,31 @@ export default function Debtors({ state }: { state: RecordsState }) {
   const [modalMsg, setModalMsg] = useState("");
 
   const rows = useMemo(() => {
-    const all = buildRows(records, oldDebtors);
+    const everything = buildRows(records, oldDebtors);
+    const all = src === "all" ? everything
+      : everything.filter((r) => (src === "old" ? r.src === "เก่า" : r.src === "ใหม่"));
     const needle = q.trim().toLowerCase();
     if (!needle) return all;
     return all.filter((r) =>
       [r.no, r.docNo, r.sender, r.receiver, r.origin, r.dest, r.goodsType]
         .some((v) => String(v ?? "").toLowerCase().includes(needle)));
-  }, [records, oldDebtors, q]);
+  }, [records, oldDebtors, q, src]);
 
   const outstanding = rows.filter((r) => !r.paid);
   const paidRows = rows.filter((r) => r.paid);
-  const owed = outstanding.reduce((s, r) => s + r.total, 0);
-  const received = paidRows.reduce((s, r) => s + r.total, 0);
-  const overdue = outstanding.filter((r) => (r.aging ?? 0) > 30);
 
   const openPay = (row: Row) => {
     setTarget(row); setPayDate(todayISO()); setModalMsg("");
   };
+
+  /* มาจากปุ่ม "บันทึกจ่าย" ในแท็บลูกหนี้ของแดชบอร์ด — เปิดหน้าต่างให้ทันทีที่เข้าหน้านี้ */
+  useEffect(() => {
+    const key = sessionStorage.getItem("payBillKey");
+    if (!key) return;
+    sessionStorage.removeItem("payBillKey");
+    const row = rows.find((r) => r.key === key);
+    if (row && !row.paid) openPay(row);
+  }, [rows]);
 
   async function confirmPay() {
     if (!target?.recId || target.billIndex == null) return;
@@ -134,15 +142,18 @@ export default function Debtors({ state }: { state: RecordsState }) {
   }
 
   const table = (list: Row[], pending: boolean) => (
-    <div className="rec-card">
+    <div className="rec-card" style={pending ? { marginBottom: 18 } : undefined}>
+      <div style={{ padding: "14px 16px 6px", fontWeight: 700, fontSize: 15 }}>
+        {pending ? "🔴 ค้างชำระ" : "🟢 ประวัติการชำระ"} ({list.length})
+      </div>
       <div className="scroll">
         <table className="rec-table">
           <thead><tr>
-            <th>แหล่งข้อมูล</th><th>วันที่</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
-            <th>เส้นทาง</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>ประเภทการชำระ</th>
-            <th className="num">จำนวน</th><th className="num">ราคารวม</th>
-            <th className="num">{pending ? "ค้างมา" : "วันที่ชำระ"}</th>
-            <th>{pending ? "บันทึกการจ่าย" : "สถานะ"}</th>
+            <th>แหล่งข้อมูล</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
+            <th>ต้นทาง</th><th>ปลายทาง</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>ประเภทการชำระเงิน</th>
+            <th>สถานะการชำระเงิน</th><th className="num">จำนวน</th><th className="num">ราคารวม</th>
+            <th className={pending ? "num" : undefined}>{pending ? "จำนวนวันค้างชำระ" : "วันที่ชำระ"}</th>
+            <th className={pending ? undefined : "num"}>{pending ? "ชำระ" : "ใช้เวลา (วัน)"}</th>
           </tr></thead>
           <tbody>
             {list.slice(0, 300).map((r) => (
@@ -150,25 +161,41 @@ export default function Debtors({ state }: { state: RecordsState }) {
                 <td><span className={"badge " + (r.src === "เก่า" ? "src-old" : "src-new")}>
                   {r.src === "เก่า" ? "ข้อมูลเก่า" : "ข้อมูลใหม่"}</span></td>
                 <td>{thDateSafe(r.date)}</td>
-                <td className="doc">{r.no || "–"}</td>
+                <td className="doc">{r.docNo || "–"}</td>
+                <td style={{ fontWeight: 600 }}>{r.no || "–"}</td>
                 <td>{r.goodsType || "–"}</td>
-                <td>{r.origin && r.dest ? `${r.origin} → ${r.dest}` : "–"}</td>
+                <td>{r.origin || "–"}</td>
+                <td>{r.dest || "–"}</td>
                 <td><ShortId v={r.sender} /></td>
                 <td><ShortId v={r.receiver} /></td>
                 <td>{r.payType || "–"}</td>
+                <td>
+                  <span className={"badge " + (r.paid ? "paid" : "unpaid")}>
+                    {r.paid ? "ชำระแล้ว" : "ยังไม่ได้ชำระ"}
+                  </span>
+                </td>
                 <td className="num">{baht(r.qty)}</td>
                 <td className="num">{baht(r.total)}</td>
-                <td className="num" style={pending && r.aging != null && r.aging > 30
-                  ? { color: "var(--red)", fontWeight: 700 } : undefined}>
-                  {pending ? (r.aging != null ? `${r.aging} วัน` : "–") : thDateSafe(r.payDate)}
-                </td>
-                <td>
-                  {pending
-                    ? (r.recId
+                {pending ? (
+                  <>
+                    <td className="num" style={r.aging != null && r.aging > 30
+                      ? { color: "var(--red)", fontWeight: 700 } : undefined}>
+                      {r.aging != null ? r.aging : "–"}
+                    </td>
+                    <td>
+                      {r.recId
                         ? <button className="btn-pay" type="button" onClick={() => openPay(r)}>ชำระ</button>
-                        : <span className="locknote">แก้ในชีต</span>)
-                    : <span className="badge paid">ชำระแล้ว</span>}
-                </td>
+                        : <span className="locknote">แก้ในชีต</span>}
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>{thDateSafe(r.payDate)}</td>
+                    <td className="num" style={{ fontWeight: 700, color: "var(--blue)" }}>
+                      {r.payDate ? (daysBetween(r.date, r.payDate) ?? "–") : "–"}
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -182,39 +209,36 @@ export default function Debtors({ state }: { state: RecordsState }) {
 
   return (
     <>
-      <div className="dz-cards four" style={{ marginBottom: 16 }}>
-        <div className="dz-kc"><div className="l">💳 ยอดค้างชำระรวม</div>
-          <div className="v" style={{ color: "var(--red)" }}>{baht(owed)}</div><div className="s">บาท</div></div>
-        <div className="dz-kc"><div className="l">✅ ยอดรับชำระแล้ว</div>
-          <div className="v" style={{ color: "var(--green)" }}>{baht(received)}</div><div className="s">บาท</div></div>
-        <div className="dz-kc"><div className="l">📋 บิลค้างชำระ</div>
-          <div className="v">{baht(outstanding.length)}</div><div className="s">ราย</div></div>
-        <div className="dz-kc"><div className="l">⏰ ค้างเกิน 30 วัน</div>
-          <div className="v" style={{ color: overdue.length ? "var(--red)" : undefined }}>{baht(overdue.length)}</div>
-          <div className="s">ราย</div></div>
-      </div>
-
       <div className="rec-bar">
         <div className="searchbox">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round">
             <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
           </svg>
           <input value={q} onChange={(e) => setQ(e.target.value)}
-            placeholder="ค้นเลขที่บิล / ผู้ส่ง / ผู้รับ / เส้นทาง" />
+            placeholder="ค้นหา ผู้ส่ง / ผู้รับ / เลขที่บิล / ใบรายการ / ต้นทาง / ปลายทาง" />
         </div>
-        <span className="locknote">
-          บิลประเภท “{CASH_ORIGIN}” ถือว่าชำระแล้วตั้งแต่เปิดบิล จึงไม่อยู่ในรายการค้าง
-        </span>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="srcfilter">
+            {([["all", "ทั้งหมด"], ["new", "ข้อมูลใหม่"], ["old", "ข้อมูลเก่า"]] as const).map(([k, l]) => (
+              <button key={k} type="button" className={src === k ? "on" : ""} onClick={() => setSrc(k)}>{l}</button>
+            ))}
+          </div>
+          <button className="btn btn-green" type="button" onClick={reload} disabled={loading}>
+            ↻ อัปเดตข้อมูลลูกหนี้เก่า
+          </button>
+        </div>
       </div>
 
       {msg && <div className="msg" style={{ color: "var(--green)", marginBottom: 10 }}>{msg}</div>}
       {loading && <p className="muted">กำลังโหลด...</p>}
 
-      <h3 className="grp"><span className="dot" />ค้างชำระ · {outstanding.length} บิล</h3>
       {table(outstanding, true)}
-
-      <h3 className="grp"><span className="dot" />ชำระแล้ว · {paidRows.length} บิล</h3>
       {table(paidRows, false)}
+
+      <div className="locknote" style={{ marginTop: 8 }}>
+        ค้างชำระ {outstanding.length} · ชำระแล้ว {paidRows.length} · ลูกหนี้เก่าจากชีต {oldDebtors.length} ราย
+        {q ? ` · กรองด้วยคำค้น “${q}”` : ""}
+      </div>
 
       {target && (
         <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) setTarget(null); }}>

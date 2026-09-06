@@ -67,7 +67,8 @@ export default function RepairTable() {
 
   return (
     <div className="card">
-      <details className="prices">
+      {/* main เปิดกางไว้ตั้งแต่แรก (มี attribute open) */}
+      <details className="prices" open>
         <summary>
           🔧 การคำนวณค่าซ่อมแซม (แก้อัตราและน้ำหนักรายปีได้) · กดเพื่อดู/แก้ไข
           <Chev />

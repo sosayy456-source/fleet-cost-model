@@ -1,12 +1,21 @@
 import { genId, todayISO } from "../../lib/record/date";
 import type { TripRecord } from "../../types/record";
 
+export function emptyBill() {
+  return {
+    no: "", goodsType: "", sender: "", receiver: "", origin: "", dest: "",
+    qty: 0, total: 0, payType: "" as const, paid: false, payDate: null,
+    unitPrice: null, pricingType: "",
+  };
+}
+
 /** ใบเปล่าสำหรับเริ่มกรอกใหม่ — ทุกช่องตัวเลขเริ่มที่ 0 ไม่ใช่ undefined */
 export function emptyRecord(): TripRecord {
   return {
     id: genId(), docNo: "", source: "ใหม่", synced: false,
     date: todayISO(), routeType: "", branch: "", docType: "",
-    origin: "", dest: "", dist: 0, serviceGroup: "", revenue: 0, bills: [],
+    // main เปิดฟอร์มมาพร้อมบิลว่างหนึ่งแถวเสมอ (fillBills([]) → [{}])
+    origin: "", dest: "", dist: 0, serviceGroup: "", revenue: 0, bills: [emptyBill()],
     plate: "", fleetType: "", vehicle: "", releaseDate: "",
     capacity: 0, loadActual: 0, emptyLeg: false,
     gas: 0, fuelCash: 0, fuelDownBill: 0, fuelFleet: 0, fuelPickup: 0,
@@ -17,13 +26,8 @@ export function emptyRecord(): TripRecord {
     feeTarp: 0, feePolice: 0, feeCont: 0, feePort: 0, feeDoc: 0, feeToll: 0,
     repVeh: "", repFix: 0, repRate: 0, repVar: 0, repTotal: 0,
     fees: 0, labor: 0, normal: 0, waste: 0, sheetTotal: 0, profit: 0,
+    // buildRecord() ของ main ประทับทั้งสามทุกครั้งที่บันทึก (index.html:2461)
+    _v2: true, _v3: true, _v4: true,
   };
 }
 
-export function emptyBill() {
-  return {
-    no: "", goodsType: "", sender: "", receiver: "", origin: "", dest: "",
-    qty: 0, total: 0, payType: "" as const, paid: false, payDate: null,
-    unitPrice: null, pricingType: "",
-  };
-}

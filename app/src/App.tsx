@@ -19,13 +19,11 @@ import Settings from "./features/settings/Settings";
 const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
 const RevenueDash = lazy(() => import("./features/dash-revenue/RevenueDash"));
 const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
-import { ROLES, ROLE_PICK, ROLE_VIEWS } from "./lib/record/roles";
-import { migrateFromLocalStorage } from "./lib/store/records";
+import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
+import { billIsPaid, recBills } from "./lib/record/payment";
 import { useRecords } from "./lib/store/useRecords";
 import { IS_SAMPLE } from "./lib/dataset";
 import type { RoleKey } from "./types/record";
-
-const LS_ROLE = "modelRole";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
 const I = {
@@ -45,36 +43,34 @@ interface PageDef {
   label: string;
   icon: React.ReactNode;
   h1: string;
-  /** คำอธิบายใต้หัวเรื่อง — main ตัดออกในบางหน้า */
-  sub?: string;
-  badge?: "drafts";
+  /**
+   * id ของ <section class="view"> ตามที่ main ตั้งไว้
+   * สำคัญมาก: โทเคนสีทั้งชุดของแดชบอร์ด (--d-card, --d-ink, ฟอนต์ Anuphan ฯลฯ)
+   * ถูกประกาศไว้ใต้ #view-dash เท่านั้น ถ้าไม่มี element นี้ครอบ กราฟจะได้สีว่างเปล่า
+   */
+  view: string;
+  /** ตัวเลขสีแดงท้ายเมนู — main มีสองอัน: ใบที่ยังไม่ครบ และ ลูกหนี้ค้างชำระ */
+  badge?: "drafts" | "debt";
 }
 
 const PAGES: PageDef[] = [
-  { id: "dash-fleet", label: "แดชบอร์ด", icon: I.dash, h1: "แดชบอร์ด" },
-  { id: "entry", label: "บันทึกข้อมูล", icon: I.plus, h1: "บันทึกข้อมูล",
-    sub: "หน้านี้แสดงเฉพาะช่องที่ฝ่ายคุณกรอกได้ → บันทึก · ใบจะเข้า “รายการทั้งหมด” เมื่อครบทั้ง 3 ฝ่าย" },
-  { id: "records", label: "รายการทั้งหมด", icon: I.list, h1: "รายการทั้งหมด",
-    sub: "รายการที่บันทึกไว้ · บันทึกลง Google Sheet ของคุณ (จุดเขียว = ซิงก์แล้ว)" },
-  { id: "drafts", label: "ใบที่ยังไม่ครบ", icon: I.check, h1: "ใบที่ยังไม่ครบ", badge: "drafts",
-    sub: "ใบที่ยังกรอกไม่ครบทั้ง 3 ฝ่าย · กดที่แถวเพื่อเปิดใบนั้นมากรอกส่วนของคุณ" },
-  { id: "debtors", label: "รายการลูกหนี้", icon: I.person, h1: "รายการลูกหนี้",
-    sub: "แยกเป็นรายบิล · กดปุ่ม “ชำระ” เมื่อลูกหนี้มาจ่าย · ต้องจ่ายครบทุกรายในใบเดียวกัน สถานะใบจึงเปลี่ยนเป็นชำระแล้ว" },
-  { id: "dash-revenue", label: "แดชบอร์ดรายได้", icon: I.chart, h1: "แดชบอร์ดรายได้",
-    sub: "รายได้จากไฟล์บิลย้อนหลัง · กรองตามเดือนและมิติต่าง ๆ ได้" },
-  { id: "route-profit", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง",
-    sub: "รวมรายได้จากไฟล์บิล เข้ากับต้นทุนจากโมเดลเดินรถ ด้วยคีย์ ต้นทาง → ปลายทาง" },
-  { id: "custcode", label: "ค้นหารหัสลูกค้า", icon: I.search, h1: "ค้นหารหัสลูกค้า",
-    sub: "เทียบรหัสย่อ (CUSxxxxxxx) กับรหัสต้นฉบับ · ค้นหาได้ทั้งสองทาง" },
-  { id: "settings", label: "การตั้งค่า", icon: I.gear, h1: "การตั้งค่า" },
+  { id: "dash-fleet", view: "dash", label: "แดชบอร์ด", icon: I.dash, h1: "แดชบอร์ด" },
+  { id: "entry", view: "form", label: "บันทึกข้อมูล", icon: I.plus, h1: "บันทึกข้อมูล" },
+  { id: "records", view: "records", label: "รายการทั้งหมด", icon: I.list, h1: "รายการทั้งหมด" },
+  { id: "drafts", view: "drafts", label: "ใบที่ยังไม่ครบ", icon: I.check, h1: "ใบที่ยังไม่ครบ", badge: "drafts" },
+  { id: "debtors", view: "debtors", label: "รายการลูกหนี้", icon: I.person, h1: "รายการลูกหนี้", badge: "debt" },
+  { id: "custcode", view: "custcode", label: "ค้นหารหัสลูกค้า", icon: I.search, h1: "ค้นหารหัสลูกค้า" },
+  { id: "settings", view: "settings", label: "การตั้งค่า", icon: I.gear, h1: "การตั้งค่า" },
+  // สองหน้านี้ไม่มีใน index.html บน main — เป็นของที่โปรเจ็กต์นี้เพิ่ม (Phase 6-8)
+  { id: "dash-revenue", view: "dash", label: "แดชบอร์ดรายได้", icon: I.chart, h1: "แดชบอร์ดรายได้" },
+  { id: "route-profit", view: "dash", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง" },
 ];
 
 export default function App() {
-  const [role, setRole] = useState<RoleKey | null>(
-    () => (localStorage.getItem(LS_ROLE) as RoleKey | null) ?? null,
-  );
-  const [migrated, setMigrated] = useState<number | null>(null);
+  // เปิดเว็บทุกครั้งต้องเลือกตำแหน่งใหม่เสมอ ไม่จำไว้ในเครื่อง (ตรงตาม main:2129)
+  const [role, setRole] = useState<RoleKey | null>(null);
   const state = useRecords();
+  const [dismissed, setDismissed] = useState(false);
 
   /* เมนูที่ตำแหน่งนี้เข้าได้ */
   const allowed = role ? ROLE_VIEWS[role] : [];
@@ -93,29 +89,24 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
-  /* เปลี่ยนตำแหน่งแล้วหน้าเดิมอาจเข้าไม่ได้ → เด้งไปหน้าแรกที่เข้าได้ */
+  /* เลือกตำแหน่งแล้วเปิดหน้าแรกของตำแหน่งนั้นเสมอ — main:2241 showView(ROLE_VIEWS[ROLE][0]) */
   useEffect(() => {
-    if (role && !allowed.includes(page)) {
-      const first = allowed[0] ?? "entry";
-      location.hash = `#/${first}`;
-      setPage(first);
-    }
+    if (!role) return;
+    const first = allowed[0] ?? "entry";
+    location.hash = `#/${first}`;
+    setPage(first);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
-  useEffect(() => {
-    migrateFromLocalStorage()
-      .then((r) => { if (!r.alreadyDone && r.migrated) setMigrated(r.migrated); })
-      .catch(() => { /* private mode อาจใช้ IndexedDB ไม่ได้ ไม่ถือว่าพัง */ });
-  }, []);
-
   const goto = (p: string) => { location.hash = `#/${p}`; setPage(p); };
 
-  const draftCount = state.records.filter(
-    (r) => !r._csDone || !r._dispatchDone || !r._accountDone,
-  ).length;
+  // main:2355 — นับเฉพาะใบที่ยังไม่ครบ "และฝ่ายของเรายังไม่ได้กรอก" จึงเปลี่ยนตามตำแหน่ง
+  const draftCount = state.records.filter((r) => !roleAllDone(r) && !(role && roleDone(r, role))).length;
 
-  if (!role) return <RolePicker onPick={(k) => { localStorage.setItem(LS_ROLE, k); setRole(k); }} />;
+  // main:3002 — นับบิลของใบใหม่ที่ยังไม่ได้ชำระ (ไม่รวมข้อมูลเก่าจากชีต)
+  const debtCount = state.records.flatMap(recBills).filter((b) => !billIsPaid(b)).length;
+
+  if (!role) return <RolePicker onPick={setRole} />;
 
   const cur = pages.find((p) => p.id === page) ?? pages[0];
 
@@ -134,6 +125,9 @@ export default function App() {
               {p.badge === "drafts" && draftCount > 0 && (
                 <span className="nav-count">{draftCount}</span>
               )}
+              {p.badge === "debt" && debtCount > 0 && (
+                <span className="nav-count">{debtCount}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -141,7 +135,7 @@ export default function App() {
 
       <main className="app">
         <div className="rolebar">
-          <span className="who">{ROLES[role].label}</span>
+          <span className="who">{ROLES[role].en ?? ROLES[role].label}</span>
           <button type="button" className="sw" onClick={() => setRole(null)}>เปลี่ยนหน้าที่</button>
         </div>
 
@@ -149,31 +143,34 @@ export default function App() {
           <div className="banner">ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท</div>
         )}
 
-        {cur && (
-          <div className="page-h">
-            <h1>{cur.h1}</h1>
-            {cur.sub && <p>{cur.sub}</p>}
-          </div>
-        )}
-
-        {migrated != null && (
+        {state.migrated != null && !dismissed && (
           <div className="edit-banner" style={{ display: "flex" }}>
-            ย้ายใบรายการจากเวอร์ชันเดิมเข้าระบบใหม่แล้ว {migrated} ใบ
-            <button type="button" className="x" onClick={() => setMigrated(null)}>ปิด</button>
+            ย้ายใบรายการจากเวอร์ชันเดิมเข้าระบบใหม่แล้ว {state.migrated} ใบ
+            <button type="button" className="x" onClick={() => setDismissed(true)}>ปิด</button>
           </div>
         )}
 
-        {page === "entry" && <EntryForm role={role} />}
-        {page === "drafts" && <Drafts state={state} />}
-        {page === "records" && <RecordsList state={state} />}
-        {page === "debtors" && <Debtors state={state} />}
-        {page === "settings" && <Settings />}
-        <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
-          {page === "dash-fleet" && <FleetDash state={state} />}
-          {page === "dash-revenue" && <RevenueDash />}
-          {page === "route-profit" && <RouteProfit state={state} />}
-        </Suspense>
-        {page === "custcode" && <CustCode />}
+        <section className="view active" id={`view-${cur?.view ?? "form"}`}>
+          {cur && <div className="page-h"><h1>{cur.h1}</h1></div>}
+
+          {page === "entry" && <EntryForm role={role} state={state} />}
+          {page === "drafts" && <Drafts state={state} />}
+          {page === "records" && <RecordsList state={state} />}
+          {page === "debtors" && <Debtors state={state} />}
+          {page === "settings" && <Settings />}
+          <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
+            {page === "dash-fleet" && <FleetDash state={state} />}
+            {page === "dash-revenue" && <RevenueDash />}
+            {page === "route-profit" && <RouteProfit state={state} />}
+          </Suspense>
+          {page === "custcode" && <CustCode />}
+        </section>
+
+        {/* บรรทัดท้ายหน้า — main มีอยู่นอก section ทุกหน้าจึงเห็นเหมือนกันหมด */}
+        <p className="foot">
+          ต่อยอดจากโมเดลเดิม · บันทึกลง Google Sheet ผ่าน Apps Script Web App ·
+          ข้อมูลสำรองในเครื่อง (localStorage)
+        </p>
       </main>
     </>
   );

@@ -11,9 +11,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
 import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
-import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleDone } from "../../lib/record/roles";
+import { ShortId } from "../../lib/custmap/ShortId";
+import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleAllDone, roleDone } from "../../lib/record/roles";
 import { recPayInfo } from "../../lib/record/payment";
-import { thDateSafe } from "../../lib/record/date";
+import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import { SaveAbortedError, saveRecord } from "../../lib/store/save";
 import { getById } from "../../lib/store/records";
 import { useOverrides } from "../../lib/store/overrides";
@@ -21,6 +22,8 @@ import { useRoster } from "../../lib/store/roster";
 import { getUrl } from "../../lib/sheet/client";
 import { emptyBill, emptyRecord } from "./emptyRecord";
 import ThaiDateInput from "./ThaiDateInput";
+import FleetRoster from "./panels/FleetRoster";
+import type { RecordsState } from "../../lib/store/useRecords";
 import type { Bill, PayType, RoleKey, TripRecord } from "../../types/record";
 import { PAY_TYPES } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
@@ -29,37 +32,67 @@ const baht = (n: number) =>
   n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const baht0 = (n: number) => n.toLocaleString("th-TH", { maximumFractionDigits: 0 });
 
+/** ค่าแก๊สเป็นหัวข้อ 1) ของตัวเอง แยกจากกลุ่มน้ำมัน — ตรงตาม main */
+const GAS_FIELDS: [keyof TripRecord, string][] = [["gas", "1) ค่าแก๊ส"]];
 const FUEL_FIELDS: [keyof TripRecord, string][] = [
-  ["gas", "ค่าแก๊สเดินทาง"],
-  ["fuelCash", "ค่าน้ำมัน (เงินสด)"],
-  ["fuelDownBill", "ขาล่อง (บิลน้ำมัน)"],
-  ["fuelUpBill", "ขาขึ้น (บิลน้ำมัน)"],
+  ["fuelCash", "ค่าน้ำมันเดินทาง (เงินสด)"],
+  ["fuelDownBill", "ค่าน้ำมันเดินทางขาล่อง (บิลน้ำมัน)"],
+  ["fuelUpBill", "ค่าน้ำมันเดินทางขาขึ้น (บิลน้ำมัน)"],
   ["fuelFleet", "ค่าน้ำมัน (Fleet Card)"],
   ["fuelPickup", "ค่าน้ำมันไปเก็บสินค้า"],
-  ["fuelCallTruck", "ค่าเรียกรถไปขึ้นของ"],
+  ["fuelCallTruck", "ค่าเรียกรถไปขึ้นของ (บิลน้ำมัน)"],
 ];
 const LABOR_FIELDS: [keyof TripRecord, string][] = [
-  ["drv", "ค่าเบี้ยเลี้ยง พขร."],
-  ["spare", "ค่าเบี้ยเลี้ยง พขร. สำรอง"],
-  ["snd", "เบี้ยเลี้ยง SND"],
+  ["drv", "พนักงานขับ"],
+  ["spare", "พนักงานสำรอง"],
+  ["snd", "SND"],
 ];
 const FEE_FIELDS: [keyof TripRecord, string][] = [
-  ["feeTarp", "ค่าปิดเปิดผ้าใบ"],
-  ["feePolice", "ค่าตำรวจ"],
+  ["feeTarp", "ค่าเปิดปิดผ้าใบ"],
+  ["feePolice", "ค่าด่านตำรวจ"],
   ["feeCont", "ค่าธรรมเนียมคืนตู้"],
   ["feePort", "ค่าเข้าท่าเรือ"],
   ["feeDoc", "ค่าส่งเอกสาร"],
   ["feeToll", "ค่าทางด่วน"],
 ];
-/** ต้นทุนสูญเปล่าทั้งหมดอยู่ในกล่องเดียวกัน (.wastebox) */
-const WASTE_FIELDS: [keyof TripRecord, string][] = [
-  ["fuelOff", "น้ำมันนอกเส้นทาง"],
+/** main แยกสูญเปล่าเป็นสองกล่อง — น้ำมันอยู่ใต้หัวข้อ 2) ค่าแรงอยู่ใต้หัวข้อ 3) */
+const WASTE_FUEL_FIELDS: [keyof TripRecord, string][] = [
+  ["fuelOff", "น้ำมันวิ่งรถนอกเส้นทาง"],
   ["fuelDetour", "ค่าน้ำมันรถวิ่งอ้อม"],
-  ["fuelOffFleet", "นอกเส้นทาง (Fleet Card)"],
-  ["laborOff", "เบี้ยเลี้ยงนอกเส้นทาง"],
+  ["fuelOffFleet", "ค่าน้ำมันนอกเส้นทาง (Fleet Card)"],
+];
+const WASTE_LABOR_FIELDS: [keyof TripRecord, string][] = [
+  ["laborOff", "ค่าแรงวิ่งรถนอกเส้นทาง"],
 ];
 
-export default function EntryForm({ role }: { role: RoleKey }) {
+/**
+ * ตัดบิลแถวที่ว่างเปล่าทิ้งก่อนบันทึก และเติมเลขที่บิลจากเลขที่ใบรายการให้แถวที่เว้นว่าง
+ * ยกจาก readBills() ของ main:2817 — ฟอร์มเปิดมาพร้อมแถวว่างเสมอ จึงต้องกรองตรงนี้
+ * ไม่งั้นทุกใบจะได้บิลผีติดไปด้วยหนึ่งใบ
+ */
+function readyBills(rec: TripRecord): TripRecord {
+  const filled = rec.bills.filter((b) =>
+    b.no || b.sender || b.receiver || b.qty || b.unitPrice || b.total
+    || b.payType || b.goodsType || b.origin || b.dest);
+  const bills = filled.map((b) => ({ ...b, no: b.no || rec.docNo }));
+  // main คงพฤติกรรมไว้ว่า ถ้าไม่มีบิลเลยแต่มีเลขที่ใบ ให้สร้างบิลเปล่าหนึ่งใบไว้ผูกกับใบรายการ
+  if (!bills.length && rec.docNo) bills.push({ ...emptyBill(), no: rec.docNo });
+  return { ...rec, bills };
+}
+
+/** เกณฑ์คิดราคาต่อบิล — PRICE_BASIS ของ main:1487 */
+const PRICE_BASIS = ["คิดตามน้ำหนัก", "คิดตามหน่วย"] as const;
+
+/**
+ * ราคารวมของบิล = จำนวน/น้ำหนัก × ราคาต่อหน่วย
+ * ใบเก่าที่กรอกราคารวมเองไว้ (ยังไม่มีราคาต่อหน่วย) ให้คงยอดเดิม ไม่ให้หายไป
+ */
+function billTotal(b: Bill): number {
+  if (b.unitPrice == null) return Number(b.total) || 0;
+  return Math.round((Number(b.qty) || 0) * (Number(b.unitPrice) || 0) * 100) / 100;
+}
+
+export default function EntryForm({ role, state }: { role: RoleKey; state: RecordsState }) {
   const [rec, setRec] = useState<TripRecord>(emptyRecord);
   const [msg, setMsg] = useState<{ text: string; tone: "ok" | "err" | "info" } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -121,7 +154,27 @@ export default function EntryForm({ role }: { role: RoleKey }) {
   };
 
   const setBill = (i: number, patch: Partial<Bill>) =>
-    setRec((r) => ({ ...r, bills: r.bills.map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
+    setRec((r) => ({
+      ...r,
+      bills: r.bills.map((b, j) => {
+        if (j !== i) return b;
+        const next = { ...b, ...patch };
+        // ราคารวมคำนวณให้เสมอเมื่อมีราคาต่อหน่วย — ตรงกับ recalcTotal() ของ main
+        return { ...next, total: billTotal(next) };
+      }),
+    }));
+
+  /** main ซ่อนแถบนี้จากฝ่ายบริการลูกค้า ผู้จัดการ และผู้ดูแลระบบ */
+  const waitingDocs = (role === "cs" || role === "manager" || role === "admin")
+    ? []
+    : state.records.filter((r) => !roleAllDone(r) && !roleDone(r, role));
+
+  const openDoc = (r: TripRecord) => {
+    setRec(r);
+    setEditing(r.id);
+    setEditZones(new Set());
+    setMsg(null);
+  };
 
   const loadFactor = rec.capacity > 0 && !rec.emptyLeg
     ? Math.min(100, rec.loadActual / rec.capacity * 100) : null;
@@ -131,7 +184,7 @@ export default function EntryForm({ role }: { role: RoleKey }) {
     setMsg({ text: "กำลังบันทึก...", tone: "info" });
     try {
       const offline = !getUrl();
-      const res = await saveRecord(rec, {
+      const res = await saveRecord(readyBills(rec), {
         role, offline, overrides: ovr,
         alsoRoles: role === "admin" ? ROLE_ORDER : [...editZones],
       });
@@ -186,7 +239,29 @@ export default function EntryForm({ role }: { role: RoleKey }) {
         </div>
       )}
 
-      {/* แถบความคืบหน้า — ฝ่ายบัญชีกดชิปของฝ่ายอื่นเพื่อเปิด/ปิดการแก้ไขส่วนนั้น */}
+      {/* แถบชิป "ใบที่ยังรอฝ่ายเรากรอก" — renderDraftBar() ของ main:2316
+          ฝ่ายบริการลูกค้าเปิดใบเอง · ผู้จัดการไม่กรอก · ผู้ดูแลระบบดูจากหน้า "ใบที่ยังไม่ครบ"
+          สามฝ่ายนี้จึงไม่เห็นแถบนี้ */}
+      {waitingDocs.length > 0 && (
+        <div className="draftbar">
+          <div className="dt">ใบที่ยังรอ{ROLES[role].label}กรอก ({waitingDocs.length})</div>
+          <div className="draftlist">
+            {waitingDocs.map((r) => {
+              const age = r.date ? Math.max(0, daysBetween(r.date, todayISO()) ?? 0) : 0;
+              return (
+                <button key={r.id} type="button" className="dchip" onClick={() => openDoc(r)}>
+                  📄 {r.docNo || "–"}
+                  {age > 0 && <span className="age">ค้าง {age} วัน</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* แถบความคืบหน้า — main โชว์เฉพาะตอนเปิดใบที่บันทึกไว้แล้ว ใบใหม่จะว่างเปล่า
+          ฝ่ายบัญชีกดชิปของฝ่ายอื่นเพื่อเปิด/ปิดการแก้ไขส่วนนั้นได้ */}
+      {editing && (
       <div className="prog">
         <span className="pchip done" style={{ background: "var(--accent-tint)", color: "var(--accent)" }}>
           📄 ใบ {rec.docNo || "–"}
@@ -215,6 +290,7 @@ export default function EntryForm({ role }: { role: RoleKey }) {
           );
         })}
       </div>
+      )}
 
       {/* ═════ การ์ด 1 — ข้อมูลการเดินทาง ═════ */}
       {(zoneShow("cs") || zoneShow("dispatch")) && (
@@ -265,11 +341,6 @@ export default function EntryForm({ role }: { role: RoleKey }) {
                 </span>
                 <span className="pin to" />
               </div>
-              <F label="รายได้ค่าบรรทุก">
-                <div className="input-suffix">
-                  <input type="number" disabled={!zoneOpen("cs")} value={rec.revenue || ""} onChange={num("revenue")} />
-                  <span className="unit">บาท</span>
-                </div></F>
             </div>
           )}
 
@@ -334,6 +405,9 @@ export default function EntryForm({ role }: { role: RoleKey }) {
         </div>
       )}
 
+      {/* main วางแผงทะเบียนรถไว้ในโซนฝ่ายจัดรถของฟอร์ม (index.html:903) ไม่ใช่หน้าการตั้งค่า */}
+      {zoneShow("dispatch") && <FleetRoster />}
+
       {/* ═════ การ์ด 2 — ค่าใช้จ่าย ═════ */}
       {zoneShow("account") && (
         <div className="card">
@@ -342,31 +416,49 @@ export default function EntryForm({ role }: { role: RoleKey }) {
             <span className="hint">ทุกช่องเลือกกรอกหรือเว้นว่างได้ (ว่าง = 0)</span>
           </div>
 
-          <h3 className="grp"><span className="dot" />ค่าน้ำมัน — ต้นทุนปกติ</h3>
-          <label className="chk">
-            <input type="checkbox" checked={rec.fuelAutoOn} disabled={!zoneOpen("account")}
-              onChange={(e) => set("fuelAutoOn", e.target.checked)} />
-            <span>
-              บวกค่าน้ำมันที่คำนวณอัตโนมัติ — {baht0(rec.dist || 0)} กม. × {calc.auto.rate.toFixed(5)} ล./กม.
-              × {calc.auto.price.toFixed(2)} บ./ล. = <b>{baht(calc.auto.cost)}</b> บาท
+          <Money fields={GAS_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
+
+          <h3 className="grp"><span className="dot" />2) ค่าน้ำมัน — ต้นทุนปกติ{" "}
+            <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>
+              (แยกตามวิธีจ่าย ตามรูปแบบบิล · รวมค่าคำนวณอัตโนมัติ)
             </span>
+          </h3>
+          {/* main ถามกลับด้าน: ติ๊ก = ไม่ต้องคำนวณ ค่าที่เก็บจึงเป็นตรงข้ามกับช่องนี้ */}
+          <label className="chk">
+            <input type="checkbox" checked={!rec.fuelAutoOn} disabled={!zoneOpen("account")}
+              onChange={(e) => set("fuelAutoOn", !e.target.checked)} />
+            <span>ไม่ต้องคำนวณค่าน้ำมันอัตโนมัติ (ไม่ติ๊ก = บวกค่าน้ำมันอัตโนมัติเข้ากับช่องด้านล่างให้เอง)</span>
           </label>
           <Money fields={FUEL_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
-
-          <h3 className="grp"><span className="dot" />ค่าแรงพนักงาน — ต้นทุนปกติ</h3>
-          <Money fields={LABOR_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
-
-          <h3 className="grp"><span className="dot" />ค่าธรรมเนียม</h3>
-          <Money fields={FEE_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
-
-          <div className="wastebox">
-            <h3 className="grp waste"><span className="dot" />ต้นทุนสูญเปล่า</h3>
-            <Money fields={WASTE_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
+          <div className="price-note">
+            น้ำมันเดินทาง (คำนวณอัตโนมัติ): {baht0(rec.dist || 0)} กม. × {calc.auto.rate.toFixed(5)} ล./กม.
+            × {calc.auto.price.toFixed(2)} บ./ล. = <b>{baht(calc.auto.cost)}</b> บาท
           </div>
 
-          <h3 className="grp"><span className="dot" />ค่าซ่อมแซม</h3>
+          <div className="wastebox">
+            <h3 className="grp waste"><span className="dot" />ค่าน้ำมัน — ต้นทุนสูญเปล่า</h3>
+            <Money fields={WASTE_FUEL_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
+          </div>
+
+          <h3 className="grp"><span className="dot" />3) ค่าแรงพนักงาน — ต้นทุนปกติ</h3>
+          <Money fields={LABOR_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
+
+          <div className="wastebox">
+            <h3 className="grp waste"><span className="dot" />ค่าแรง — ต้นทุนสูญเปล่า</h3>
+            <Money fields={WASTE_LABOR_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
+          </div>
+
+          <h3 className="grp"><span className="dot" />4) ค่าธรรมเนียม{" "}
+            <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(นับเป็นต้นทุนปกติ)</span>
+          </h3>
+          <Money fields={FEE_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
+
+          <h3 className="grp"><span className="dot" />5) ค่าซ่อมแซม{" "}
+            <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>
+              (นับเป็นต้นทุนปกติ · อิงประเภทรถ + ชนิดรถ + ระยะทาง ไม่ต้องกรอก)
+            </span>
+          </h3>
           <div className="price-note" style={{ marginTop: 0 }}>
-            คิดจากประเภทรถ + ชนิดรถ + ระยะทาง ไม่ต้องกรอก —
             ตามเวลา <b>{baht(calc.repair.fixed)}</b>{!calc.repair.hasFix && " (ไม่มีในตาราง)"}
             {" + "}ตามระยะทาง <b>{baht(calc.repair.varCost)}</b>{!calc.repair.hasVar && " (ไม่มีในตาราง)"}
             {" = "}<b>{baht(calc.repair.total)}</b> บาท
@@ -378,102 +470,135 @@ export default function EntryForm({ role }: { role: RoleKey }) {
       <div className="card">
         <div className="card-h"><span className="step">3</span><h2>สรุปผล</h2></div>
 
+        {/* main วางช่องรายได้ไว้ในการ์ดสรุป ไม่ใช่การ์ดข้อมูลการเดินทาง */}
+        {zoneShow("cs") && (
+          <div className="grid3">
+            <F label="รายได้">
+              <div className="input-suffix">
+                <input type="number" min={0} step={100} placeholder="0"
+                  disabled={!zoneOpen("cs")} value={rec.revenue || ""} onChange={num("revenue")} />
+                <span className="unit">บาท</span>
+              </div></F>
+          </div>
+        )}
+
         <div className="kpis">
-          <div className="kpi rev"><div className="lab">รายได้ค่าบรรทุก</div>
+          <div className="kpi rev"><div className="lab">รายได้</div>
             <div className="big">{baht(rec.revenue)}<small>บาท</small></div></div>
-          <div className="kpi normal"><div className="lab">ต้นทุนปกติ</div>
+          <div className="kpi normal"><div className="lab">ต้นทุนเดินทางรวม (ปกติ)</div>
             <div className="big">{baht(calc.normal)}<small>บาท</small></div></div>
           <div className="kpi waste"><div className="lab">ต้นทุนสูญเปล่า</div>
             <div className="big">{baht(calc.waste)}<small>บาท</small></div></div>
           <div className={"kpi profit" + (profitLoss ? " loss" : "")}>
-            <div className="lab">{profitLoss ? "ขาดทุน" : "กำไร"}</div>
+            <div className="lab">กำไร / ขาดทุน</div>
             <div className="big">{baht(calc.profit)}<small>บาท</small></div></div>
         </div>
 
         <div className="result">
-          <div className="result-row"><span className="k">ค่าน้ำมันรวม (รวมค่าคำนวณอัตโนมัติ)</span><span className="v">{baht(calc.fuelSum)}</span></div>
-          <div className="result-row"><span className="k">ค่าแรงพนักงาน</span><span className="v">{baht(calc.labor)}</span></div>
-          <div className="result-row"><span className="k">ค่าธรรมเนียม</span><span className="v">{baht(calc.fees)}</span></div>
-          <div className="result-row"><span className="k">ค่าซ่อมแซม</span><span className="v">{baht(calc.repair.total)}</span></div>
-          <div className="result-row"><span className="k">ต้นทุนสูญเปล่า</span><span className="v">{baht(calc.waste)}</span></div>
+          <div className="result-row"><span className="k">ค่าแก๊ส</span><span className="v">{baht(rec.gas)}</span></div>
+          <div className="result-row"><span className="k">ค่าน้ำมันรวม (ค่าน้ำมันเหมา)</span><span className="v">{baht(calc.fuelSum)}</span></div>
+          <div className="result-row"><span className="k">ค่าแรง (ขับ+สำรอง+SND)</span><span className="v">{baht(calc.labor)}</span></div>
+          <div className="result-row"><span className="k">ค่าธรรมเนียมรวม</span><span className="v">{baht(calc.fees)}</span></div>
+          <div className="result-row"><span className="k">ค่าซ่อมตามระยะเวลา (คงที่)</span><span className="v">{baht(calc.repair.fixed)}</span></div>
+          <div className="result-row"><span className="k">ค่าซ่อมตามระยะทาง (ตาม กม.)</span><span className="v">{baht(calc.repair.varCost)}</span></div>
           <div className="result-row">
-            <span className="k">รวมค่าใช้จ่ายตามคอลัมน์ของชีต <span className="locknote">(ไม่รวมค่าซ่อม)</span></span>
+            <span className="k" style={{ color: "#4A453F" }}>สูญเปล่า: น้ำมัน (นอกเส้นทาง + วิ่งอ้อม + Fleet Card)</span>
+            <span className="v">{baht((rec.fuelOff || 0) + (rec.fuelDetour || 0) + (rec.fuelOffFleet || 0))}</span>
+          </div>
+          <div className="result-row">
+            <span className="k" style={{ color: "#4A453F" }}>สูญเปล่า: เบี้ยเลี้ยงนอกเส้นทาง</span>
+            <span className="v">{baht(rec.laborOff)}</span>
+          </div>
+          <div className="result-row">
+            <span className="k" style={{ fontWeight: 700 }}>รวมค่าใช้จ่าย{" "}
+              <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(ตามสูตรชีต · ไม่รวมค่าซ่อม)</span>
+            </span>
             <span className="v">{baht(calc.sheetTotal)}</span>
           </div>
         </div>
 
         {zoneShow("cs") && (
           <>
-            <h3 className="grp"><span className="dot" />รายการลูกหนี้ / บิล{" "}
-              <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>
-                · {pay.count} ราย · ชำระแล้ว {pay.paidCount}/{pay.count} · {pay.status}
-              </span>
-            </h3>
+            <h3 className="grp"><span className="dot" />รายการลูกหนี้ / บิล</h3>
 
-            {rec.bills.length > 0 && (
-              <div className="bill-head">
-                <span>เลขที่บิล</span><span>ประเภทสินค้า</span><span>ผู้ส่ง</span><span>ผู้รับ</span>
-                <span>จำนวน</span><span>ราคา/หน่วย</span><span>ราคารวม</span><span>เกณฑ์</span>
-                <span>ชำระ</span><span>กำหนดส่ง</span><span>ส่งจริง</span><span />
-              </div>
-            )}
+            <div className="price-note" style={{ marginTop: 0, marginBottom: 12 }}>
+              เว้น “เลขที่บิล” ว่าง = ใช้เลขที่ใบรายการ (ส่วนที่ 1) อัตโนมัติ ·
+              ประเภท <b>สดต้นทาง</b> = ถือว่าชำระแล้ว · <b>เชื่อต้นทาง / เชื่อปลายทาง / สดปลายทาง</b> = ยังไม่ได้ชำระ ·
+              <b> ราคารวม</b> คำนวณจาก จำนวน/น้ำหนัก × ราคาต่อหน่วย อัตโนมัติ
+            </div>
+
+            <div className="bill-head">
+              <span>เลขที่บิล</span><span>ประเภทสินค้า</span><span>ผู้ส่ง</span><span>ผู้รับ</span>
+              <span>ต้นทาง</span><span>ปลายทาง</span><span>ประเภทการชำระ</span>
+              <span>จำนวน / น้ำหนัก</span><span>ราคา/หน่วย · กก.</span><span>เกณฑ์คิดราคา</span>
+              <span>ราคารวม (อัตโนมัติ)</span><span />
+            </div>
 
             {rec.bills.map((b, i) => (
               <div key={i} className="bill-block">
                 <div className="bill-row">
                   <input placeholder="เลขที่บิล" value={b.no} disabled={!zoneOpen("cs")}
                     onChange={(e) => setBill(i, { no: e.target.value })} />
-                  <input placeholder="ประเภทสินค้า" value={b.goodsType} disabled={!zoneOpen("cs")}
+                  <input list="goodsTypes" placeholder="ประเภทสินค้า" value={b.goodsType} disabled={!zoneOpen("cs")}
                     onChange={(e) => setBill(i, { goodsType: e.target.value })} />
                   <input placeholder="ผู้ส่ง" value={b.sender} disabled={!zoneOpen("cs")}
                     onChange={(e) => setBill(i, { sender: e.target.value })} />
                   <input placeholder="ผู้รับ" value={b.receiver} disabled={!zoneOpen("cs")}
                     onChange={(e) => setBill(i, { receiver: e.target.value })} />
-                  <input type="number" placeholder="จำนวน" value={b.qty || ""} disabled={!zoneOpen("cs")}
-                    onChange={(e) => setBill(i, { qty: parseFloat(e.target.value) || 0 })} />
-                  <input type="number" placeholder="ราคา/หน่วย" value={b.unitPrice ?? ""} disabled={!zoneOpen("cs")}
-                    onChange={(e) => setBill(i, { unitPrice: parseFloat(e.target.value) || null })} />
-                  <input type="number" placeholder="ราคารวม" value={b.total || ""} disabled={!zoneOpen("cs")}
-                    onChange={(e) => setBill(i, { total: parseFloat(e.target.value) || 0 })} />
-                  <input placeholder="เกณฑ์" value={b.pricingType ?? ""} disabled={!zoneOpen("cs")}
-                    onChange={(e) => setBill(i, { pricingType: e.target.value })} />
+                  <select value={b.origin} disabled={!zoneOpen("cs")}
+                    onChange={(e) => setBill(i, { origin: e.target.value, dest: "" })}>
+                    <option value="">— ต้นทาง —</option>
+                    {ORIGINS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  <select value={b.dest} disabled={!zoneOpen("cs")}
+                    onChange={(e) => setBill(i, { dest: e.target.value })}>
+                    <option value="">— ปลายทาง —</option>
+                    {destsFor(b.origin).map((d) => <option key={d} value={d}>{d}</option>)}
+                  </select>
                   <select value={b.payType} disabled={!zoneOpen("cs")}
                     onChange={(e) => setBill(i, { payType: e.target.value as PayType })}>
-                    <option value="">— ชำระ —</option>
+                    <option value="">เลือกประเภท</option>
                     {PAY_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  <input type="date" value={b.plannedDate ?? ""} disabled={!zoneOpen("cs")}
-                    onChange={(e) => setBill(i, { plannedDate: e.target.value || null })} />
-                  <input type="date" value={b.actualDate ?? ""} disabled={!zoneOpen("cs")}
-                    onChange={(e) => setBill(i, { actualDate: e.target.value || null })} />
-                  <button className="bill-x" type="button" title="ลบบิลนี้" disabled={!zoneOpen("cs")}
+                  <input type="number" min={0} step="any" placeholder="น้ำหนัก/จำนวน"
+                    value={b.qty || ""} disabled={!zoneOpen("cs")}
+                    onChange={(e) => setBill(i, { qty: parseFloat(e.target.value) || 0 })} />
+                  <input type="number" min={0} step="any" placeholder="ราคาต่อหน่วย"
+                    value={b.unitPrice ?? ""} disabled={!zoneOpen("cs")}
+                    onChange={(e) => setBill(i, { unitPrice: e.target.value === "" ? null : parseFloat(e.target.value) })} />
+                  <select value={b.pricingType || PRICE_BASIS[0]} disabled={!zoneOpen("cs")}
+                    onChange={(e) => setBill(i, { pricingType: e.target.value })}>
+                    {PRICE_BASIS.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  {/* ราคารวมคำนวณให้ ไม่ให้กรอกเอง — ตรงตาม b-total-auto ของ main */}
+                  <input className="b-total-auto" type="number" placeholder="อัตโนมัติ" readOnly tabIndex={-1}
+                    value={billTotal(b) || ""} />
+                  <button className="bill-x" type="button" title="ลบลูกหนี้รายนี้" disabled={!zoneOpen("cs")}
                     onClick={() => setRec((r) => ({ ...r, bills: r.bills.filter((_, j) => j !== i) }))}>✕</button>
                 </div>
-                <div className="bill-sp">
-                  <div className="spf"><label>สถานะสินค้า</label>
-                    <select value={b.damageStatus ?? ""} disabled={!zoneOpen("cs")}
-                      onChange={(e) => setBill(i, { damageStatus: e.target.value })}>
-                      <option value="">— ไม่ระบุ —</option>
-                      <option>ปกติ</option><option>เสียหายบางส่วน</option>
-                      <option>เสียหายทั้งหมด</option><option>สูญหาย</option>
-                    </select></div>
-                  <div className="spf"><label>ชิ้นที่เสียหาย</label>
-                    <input type="number" value={b.damageQty ?? ""} disabled={!zoneOpen("cs")}
-                      onChange={(e) => setBill(i, { damageQty: parseFloat(e.target.value) || 0 })} /></div>
+                <div className="bill-cust">
+                  <span className="cx"><b>ผู้ส่ง:</b>{" "}
+                    {b.sender ? <ShortId v={b.sender} /> : <span className="wait">— ยังไม่ได้กรอก —</span>}</span>
+                  <span className="cx"><b>ผู้รับ:</b>{" "}
+                    {b.receiver ? <ShortId v={b.receiver} /> : <span className="wait">— ยังไม่ได้กรอก —</span>}</span>
                 </div>
               </div>
             ))}
 
+            <datalist id="goodsTypes" />
             <button className="btn-add" type="button" disabled={!zoneOpen("cs")}
               onClick={() => setRec((r) => ({ ...r, bills: [...r.bills, emptyBill()] }))}>
-              + เพิ่มบิลลูกหนี้
+              + เพิ่มรายการลูกหนี้
             </button>
+            <div className="price-note" style={{ marginTop: 12 }}>
+              สถานะการชำระ: {pay.count ? `${pay.status} · ชำระแล้ว ${pay.paidCount}/${pay.count} ราย` : "–"}
+            </div>
           </>
         )}
 
         <div className="save-row">
           <button className="btn btn-save" type="button" onClick={onSave} disabled={busy}>
-            บันทึกในฐานะ {ROLES[role].label}
+            💾 บันทึกข้อมูล
           </button>
           <button className="btn-ghost" type="button"
             onClick={() => { setRec(emptyRecord()); setEditing(null); setEditZones(new Set()); setMsg(null); }}>

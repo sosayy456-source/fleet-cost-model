@@ -5,7 +5,7 @@
  * ถ้าสลับกันแม้ช่องเดียว ข้อมูลจะลงผิดคอลัมน์โดยไม่มี error ให้เห็น
  * จึงมีเทสต์คุมทั้งจำนวนช่องและตำแหน่งของช่องสำคัญ
  */
-import { r2, thDateSafe, thSlashSafe } from "../record/date";
+import { r2, thDateSafe, thSlashSafe, todayISO } from "../record/date";
 import { billIsPaid, billPayDate, recBills, recPayInfo } from "../record/payment";
 import { roleAllDone, roleDone } from "../record/roles";
 import type { TripRecord } from "../../types/record";
@@ -103,7 +103,7 @@ export function recordToRow(r: TripRecord): Cell[] {
 }
 
 export function recordBillRows(r: TripRecord): Cell[][] {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
 
   return recBills(r).map((b, i) => {
     const pd = billPayDate(b, r);

@@ -5,13 +5,13 @@
  * กดที่ป้ายสถานะ = กางแถวรายละเอียดลูกหนี้ของใบนั้น
  */
 import { useMemo, useState } from "react";
-import { recCost, recProfit } from "../../lib/cost/recCost";
 import { billIsPaid, billPayDate, recBills, recStatus } from "../../lib/record/payment";
-import { thDateSafe } from "../../lib/record/date";
+import { thDateSafe, todayISO } from "../../lib/record/date";
 import { roleAllDone } from "../../lib/record/roles";
 import { pushRecords } from "../../lib/sheet/client";
 import { put, remove } from "../../lib/store/records";
 import { ShortId } from "../../lib/custmap/ShortId";
+import SheetSettings from "../settings/SheetSettings";
 import { CASH_ORIGIN, ST_PAID, ST_PARTIAL } from "../../types/record";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
@@ -78,7 +78,7 @@ export default function RecordsList({ state }: { state: RecordsState }) {
 
   async function setPaid(r: TripRecord, bi: number, paid: boolean) {
     const bills = recBills(r).map((b, j) =>
-      j === bi ? { ...b, paid, payDate: paid ? new Date().toISOString().slice(0, 10) : null } : b);
+      j === bi ? { ...b, paid, payDate: paid ? todayISO() : null } : b);
     const next = { ...r, bills, synced: false };
     await put(next);
     reload();
@@ -89,8 +89,23 @@ export default function RecordsList({ state }: { state: RecordsState }) {
     const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n;
   });
 
+  /** ล้างใบในเครื่องทั้งหมด — main:2692 ไม่แตะข้อมูลบน Google Sheet */
+  async function clearAll() {
+    if (!records.length) return;
+    if (!confirm("ล้างรายการในเครื่องทั้งหมด? (ไม่ลบข้อมูลใน Google Sheet)")) return;
+    setBusy(true);
+    try {
+      for (const r of records) await remove(r.id);
+      setMsg("ล้างรายการในเครื่องแล้ว");
+      reload();
+    } finally { setBusy(false); }
+  }
+
   return (
     <>
+      {/* main วางแผงตั้งค่าการเชื่อมชีตไว้หน้านี้ (index.html:1073) ไม่ใช่หน้าการตั้งค่า */}
+      <SheetSettings />
+
       <div className="rec-bar">
         <div className="searchbox">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round">
@@ -109,18 +124,13 @@ export default function RecordsList({ state }: { state: RecordsState }) {
           <button className="btn btn-green" type="button" onClick={syncAll} disabled={busy || !connected}>
             ⬆ ซิงก์ขึ้น Google Sheet{unsynced.length ? ` (${unsynced.length})` : ""}
           </button>
+          <button className="btn-ghost" type="button" onClick={clearAll} disabled={busy}>ล้างทั้งหมด</button>
         </div>
       </div>
 
       {sheetError && (
         <div className="banner">โหลดจากชีตไม่สำเร็จ (ยังใช้ข้อมูลในเครื่องได้) · {sheetError}</div>
       )}
-      {!connected && !loading && (
-        <div className="price-note" style={{ marginBottom: 14 }}>
-          ยังไม่ได้เชื่อม Google Sheet — แสดงเฉพาะใบที่กรอกในเครื่องนี้
-        </div>
-      )}
-
       <div className="rec-card">
         <div className="scroll">
           <table className="rec-table">
@@ -133,9 +143,11 @@ export default function RecordsList({ state }: { state: RecordsState }) {
             </tr></thead>
             <tbody>
               {list.slice(0, 300).map(({ r, old }, i) => {
-                const c = recCost(r);
-                const profit = old && r.profit != null ? Number(r.profit) : recProfit(r);
-                const cost = old && r.normal != null ? Number(r.normal) : c.total;
+                // main อ่านค่าที่บันทึกไว้ในใบตรง ๆ (normal / waste / profit) ไม่คำนวณใหม่
+                // "ต้นทุนรวม" ในตารางนี้จึงเป็นต้นทุนปกติ ยังไม่รวมสูญเปล่า ซึ่งแยกอยู่คอลัมน์ถัดไป
+                const cost = Number(r.normal) || 0;
+                const waste = Number(r.waste) || 0;
+                const profit = Number(r.profit) || 0;
                 const route = r.origin && r.dest ? `${r.origin}→${r.dest}` : "–";
                 const st = recStatus(r);
                 return (
@@ -166,7 +178,7 @@ export default function RecordsList({ state }: { state: RecordsState }) {
                       <td>{r.vehicle || "–"}</td>
                       <td className="num">{baht(r.revenue)}</td>
                       <td className="num">{baht(cost)}</td>
-                      <td className="num">{baht(old && r.waste != null ? r.waste : c.waste)}</td>
+                      <td className="num">{baht(waste)}</td>
                       <td className={"num " + (profit >= 0 ? "profit-pos" : "profit-neg")}>{baht(profit)}</td>
                       <td>
                         {old

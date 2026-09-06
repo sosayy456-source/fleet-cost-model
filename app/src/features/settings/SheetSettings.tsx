@@ -35,7 +35,7 @@ export default function SheetSettings() {
   const tone = { ok: "var(--green)", err: "var(--red)", info: "var(--ink-soft)" };
 
   return (
-    <details className="gs-config" open={!connected}>
+    <details className="gs-config">
       <summary>
         ⚙ ตั้งค่าการเชื่อม Google Sheet
         <span className={"badge-conn " + (connected ? "on" : "off")}>

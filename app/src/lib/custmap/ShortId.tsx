@@ -28,3 +28,16 @@ export function shortIdText(v: string | null | undefined): string {
   if (code) return code;
   return isHashLike(s) ? s.slice(0, 10) + "…" : s;
 }
+
+/**
+ * ป้ายชื่อลูกค้าสำหรับแกนกราฟ — custLabel() ของ main:2916
+ * ต่างจาก shortIdText ตรงที่ตัดชื่อยาวเกิน 22 ตัวทิ้ง ไม่งั้นแกนกินพื้นที่กราฟหมด
+ */
+export function custLabel(v: string | null | undefined): string {
+  const s = String(v ?? "").trim();
+  if (!s) return "(ไม่ระบุ)";
+  const code = peekCustMap()?.codeFor(s);
+  if (code) return code;
+  if (isHashLike(s)) return s.slice(0, 10) + "…";
+  return s.length > 22 ? s.slice(0, 20) + "…" : s;
+}

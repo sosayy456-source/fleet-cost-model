@@ -109,6 +109,15 @@ export interface TripRecord {
   sheetTotal: number;
   profit: number;
 
+  /**
+   * ธงบอกรุ่นของ schema — buildRecord() ของ main ประทับครบทั้งสามทุกครั้งที่บันทึก
+   * _v4 สำคัญเป็นพิเศษ: แดชบอร์ด Load Factor นับเฉพาะใบที่มีธงนี้
+   * เพราะใบก่อนหน้านั้นไม่มีช่องความจุ/น้ำหนักบรรทุกให้คำนวณ
+   */
+  _v2?: boolean;
+  _v3?: boolean;
+  _v4?: boolean;
+
   // ---- สถานะ workflow 3 ฝ่าย ----
   _csDone?: boolean;
   _csAt?: string;
