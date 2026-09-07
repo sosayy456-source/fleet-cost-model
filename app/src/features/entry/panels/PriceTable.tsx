@@ -1,8 +1,9 @@
 /**
- * ตารางราคาน้ำมัน — ยกจาก v5:915-930 (details.prices#pricePanel)
+ * ตารางราคาน้ำมัน — ตรงตาม details.prices ใน view-settings ของ index.html บน main
  *
  * ราคาเป็นแบบขั้นบันได: แถวหนึ่งคือ "มีผลตั้งแต่วันที่นี้"
  * ราคาที่ผู้ใช้เพิ่มเองเก็บแยกจากฐานกลาง แถวที่แก้เองมีจุดส้มกำกับ (tr.userrow)
+ * และเรียงจากเก่าไปใหม่เหมือนต้นฉบับ เพราะอ่านเป็นขั้นบันไดไล่ลงมาได้ตรงกว่า
  */
 import { useMemo, useState } from "react";
 import { REF } from "../../../lib/refdata";
@@ -27,23 +28,32 @@ export default function PriceTable() {
 
   const user = ovr.prices ?? {};
 
-  /** รวมฐานกลาง + ที่ผู้ใช้เพิ่ม แล้วเรียงจากใหม่ไปเก่า (เหมือนตารางใน v5) */
+  /** รวมฐานกลาง + ที่ผู้ใช้เพิ่ม แล้วเรียงจากเก่าไปใหม่ (ลำดับเดียวกับ PRICES ของ main) */
   const rows = useMemo(() => {
     const map = new Map<string, { price: number; own: boolean }>();
     for (const p of REF.prices) map.set(p.date, { price: p.price, own: false });
     for (const [date, p] of Object.entries(user)) map.set(date, { price: Number(p), own: true });
-    return [...map.entries()].sort(([a], [b]) => b.localeCompare(a))
+    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b))
       .map(([date, v]) => ({ date, ...v }));
   }, [user]);
 
   const add = () => {
     const day = parseInt(d, 10), mon = parseInt(m, 10), year = parseInt(y, 10), pr = parseFloat(price);
-    if (!day || !mon || !year) { setMsg("กรอกวัน เดือน ปี ให้ครบ"); return; }
-    if (!Number.isFinite(pr) || pr <= 0) { setMsg("กรอกราคาต่อลิตรให้ถูกต้อง"); return; }
+    if (!day || day < 1 || day > 31) { setMsg("กรุณาระบุ ‘วัน’ ให้ถูกต้อง (1–31)"); return; }
+    if (!mon || !year) { setMsg("กรุณาเลือกเดือนและปี"); return; }
+    if (!Number.isFinite(pr) || pr <= 0) { setMsg("กรุณาระบุ ‘ราคา’ ให้มากกว่า 0"); return; }
     const iso = `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const existed = rows.some((r) => r.date === iso);
     setOvr({ ...ovr, prices: { ...user, [iso]: pr } });
-    setD(""); setM(""); setPrice("");
-    setMsg(`เพิ่มราคา ${pr.toFixed(2)} บาท/ลิตร มีผลตั้งแต่ ${thDateSafe(iso)}`);
+    setPrice("");
+    setMsg(`${existed ? "อัปเดต" : "เพิ่ม"}ราคา ${thDateSafe(iso)} = ${pr.toFixed(2)} บาท/ลิตร แล้ว ✓`);
+  };
+
+  /** ลบราคาที่เพิ่มเองทั้งหมด — npReset ของ main:3096 */
+  const clearOwn = () => {
+    if (!Object.keys(user).length) { setMsg("ยังไม่มีราคาที่เพิ่มเอง"); return; }
+    setOvr({ ...ovr, prices: {} });
+    setMsg("ล้างราคาที่เพิ่มเองแล้ว ✓");
   };
 
   const del = (date: string) => {
@@ -77,35 +87,45 @@ export default function PriceTable() {
           <select style={{ width: 88, flex: "none" }} value={y} onChange={(e) => setY(e.target.value)}>
             {YEARS.map((ce) => <option key={ce} value={ce}>{ce + 543}</option>)}
           </select>
-          <input className="np-price" placeholder="ราคา/ลิตร" type="number" step="0.01"
-            style={{ flex: 1, minWidth: 96 }} value={price} onChange={(e) => setPrice(e.target.value)} />
-          <button className="btn-add" type="button" onClick={add}>+ เพิ่มราคา</button>
+          {/* main ห่อช่องราคาด้วย .input-suffix เพื่อให้มีเซลล์หน่วย บ./ล. ต่อท้าย */}
+          <div className="input-suffix np-price" style={{ flex: 1, minWidth: 96 }}>
+            <input placeholder="ราคา" type="number" min={0} step="0.01"
+              value={price} onChange={(e) => setPrice(e.target.value)} />
+            <span className="unit">บ./ล.</span>
+          </div>
+          <button className="btn-add" type="button" onClick={add}>+ อัปเดตราคา</button>
         </div>
         <div className="msg" style={{ color: "var(--green)" }}>{msg}</div>
 
         <div className="scroll" style={{ maxHeight: 300, overflowY: "auto" }}>
           <table>
             <thead><tr>
-              <th>มีผลตั้งแต่</th><th className="n">ราคา (บาท/ลิตร)</th><th>ที่มา</th><th />
+              <th>วันที่มีผล</th><th className="num">ราคา (บาท/ลิตร)</th><th />
             </tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.date} className={r.own ? "userrow" : undefined}>
                   <td>{thDateSafe(r.date)}</td>
-                  <td className="n">{r.price.toFixed(2)}</td>
-                  <td>{r.own
-                    ? <span className="badge src-new">แก้เอง</span>
-                    : <span className="badge src-old">ฐานกลาง</span>}</td>
-                  <td>{r.own && <button className="del-x" type="button" onClick={() => del(r.date)}>✕</button>}</td>
+                  <td className="num">{r.price.toFixed(2)}</td>
+                  <td className="num">
+                    {r.own && (
+                      <span className="del-x" title="ลบราคาที่เพิ่มเอง" role="button" tabIndex={0}
+                        onClick={() => del(r.date)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") del(r.date); }}>✕</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="dz-note">
-          แถวที่มีจุดส้มคือราคาที่เพิ่มเอง เก็บไว้ในเครื่องนี้เท่านั้น — ถ้าอยากให้ทุกฝ่ายใช้ราคาชุดเดียวกัน
-          ต้องแก้ที่ไฟล์ <code>refdata/fuelPrices.json</code>
-        </div>
+        <p style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
+          <span role="button" tabIndex={0} onClick={clearOwn}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") clearOwn(); }}
+            style={{ color: "var(--orange-dark)", cursor: "pointer", textDecoration: "underline" }}>
+            ล้างราคาที่เพิ่มเอง
+          </span>
+        </p>
       </details>
     </div>
   );
