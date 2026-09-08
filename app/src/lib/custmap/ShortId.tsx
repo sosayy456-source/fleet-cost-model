@@ -4,15 +4,21 @@
  * ต่างจาก v5 ตรงที่ตารางรหัส (3.5 MB) โหลดเฉพาะตอนเข้าหน้า “ค้นหารหัสลูกค้า”
  * ถ้ายังไม่ได้โหลด จะย่อ hash ให้อ่านง่ายแทน โดยเก็บค่าเต็มไว้ใน title
  */
-import { isHashLike, peekCustMap } from "./custmap";
+import { isHashLike } from "./custmap";
+import { isOwnCode, lookupCustomer } from "./newCodes";
 
 export function ShortId({ v }: { v: string | null | undefined }) {
   const s = String(v ?? "").trim();
   if (!s) return <>–</>;
 
-  const code = peekCustMap()?.codeFor(s) ?? null;
+  const code = lookupCustomer(s);
   if (code) {
-    return <span className="cuscode" title={`รหัสต้นฉบับ: ${s}`}>{code}</span>;
+    // รหัสที่ระบบออกเองใช้สีเขียว (.isnew) เพื่อให้แยกออกจากรหัสที่มาจากไฟล์แปลงรหัส
+    const own = isOwnCode(s);
+    return (
+      <span className={"cuscode" + (own ? " isnew" : "")}
+        title={`${own ? "รหัสที่ระบบออกใหม่" : "รหัสต้นฉบับ"}: ${s}`}>{code}</span>
+    );
   }
   if (isHashLike(s)) {
     return <span title={s} style={{ fontFamily: "ui-monospace, monospace", fontSize: 11 }}>{s.slice(0, 10)}…</span>;
@@ -24,7 +30,7 @@ export function ShortId({ v }: { v: string | null | undefined }) {
 export function shortIdText(v: string | null | undefined): string {
   const s = String(v ?? "").trim();
   if (!s) return "–";
-  const code = peekCustMap()?.codeFor(s);
+  const code = lookupCustomer(s);
   if (code) return code;
   return isHashLike(s) ? s.slice(0, 10) + "…" : s;
 }
@@ -36,7 +42,7 @@ export function shortIdText(v: string | null | undefined): string {
 export function custLabel(v: string | null | undefined): string {
   const s = String(v ?? "").trim();
   if (!s) return "(ไม่ระบุ)";
-  const code = peekCustMap()?.codeFor(s);
+  const code = lookupCustomer(s);
   if (code) return code;
   if (isHashLike(s)) return s.slice(0, 10) + "…";
   return s.length > 22 ? s.slice(0, 20) + "…" : s;

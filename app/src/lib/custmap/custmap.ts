@@ -45,6 +45,15 @@ export const isFullHash = (s: string): boolean => HASH_RE.test(s.trim());
 
 let cache: Promise<CustMap> | null = null;
 
+/** ที่อยู่ไฟล์ตาราง — วางไว้ใน public/ จึงเดินตาม base path ของ Vite */
+export const CUSTMAP_URL = `${import.meta.env.BASE_URL}custmap.bin`;
+
+/**
+ * โหลดตารางถ้ายังไม่ได้โหลด — custEnsure() ของ main:2549
+ * ต้องเรียกก่อนออกรหัสใหม่เสมอ ไม่งั้นไม่รู้ว่าไฟล์มีถึงเลขไหน แล้วจะออกเลขทับของเดิม
+ */
+export const ensureCustMap = (): Promise<CustMap> => loadCustMap(CUSTMAP_URL);
+
 /** โหลดตารางครั้งเดียวแล้วใช้ซ้ำ — เรียกซ้ำได้ ไม่โหลดใหม่ */
 export function loadCustMap(url: string): Promise<CustMap> {
   cache ??= build(url).then(rememberCustMap).catch((e) => { cache = null; throw e; });

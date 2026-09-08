@@ -11,7 +11,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
 import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
-import { ShortId } from "../../lib/custmap/ShortId";
+import { custCode, ensureCustMap, peekCustMap } from "../../lib/custmap/custmap";
+import { nextNumber, registerBills, useNewCodes } from "../../lib/custmap/newCodes";
 import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleAllDone, roleDone } from "../../lib/record/roles";
 import { recPayInfo } from "../../lib/record/payment";
 import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
@@ -101,6 +102,17 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   const [editZones, setEditZones] = useState<Set<RoleKey>>(new Set());
   const [ovr] = useOverrides();
   const [roster] = useRoster();
+  const newCodes = useNewCodes();
+  /** ตารางรหัสลูกค้าโหลดเสร็จหรือยัง — โน้ตใต้แถวบิลรอค่านี้ เหมือน CUST_READY ของ main */
+  const [custReady, setCustReady] = useState(() => !!peekCustMap());
+
+  // โหลดตารางรหัสตั้งแต่เปิดฟอร์ม เพราะต้องใช้ทั้งตอนพรีวิวและตอนบันทึก
+  // ถ้าไม่มีไฟล์ก็ปล่อยผ่าน — ฟอร์มยังกรอกได้ แค่ไม่โชว์รหัสย่อให้
+  useEffect(() => {
+    let alive = true;
+    ensureCustMap().then(() => { if (alive) setCustReady(true); }).catch(() => { /* ไม่มีไฟล์ตาราง */ });
+    return () => { alive = false; };
+  }, []);
 
   useEffect(() => {
     const id = sessionStorage.getItem("editRecordId");
@@ -140,6 +152,49 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   );
 
   const pay = recPayInfo(rec);
+
+  /**
+   * รหัสย่อที่ผู้ส่ง/ผู้รับแต่ละรายจะได้ — updateBillCustNotes() ของ main:2783
+   * คิดรวมทั้งใบเพราะลูกค้าใหม่หลายรายในใบเดียวกันต้องได้เลขไล่กัน ไม่ใช่เลขเดียวกันหมด
+   * ★ ตรงนี้เป็นแค่การพรีวิว ยังไม่จองเลข — รหัสจริงออกตอนกดบันทึกเท่านั้น
+   */
+  const custPreview = useMemo(() => {
+    const out = new Map<string, { code: string; kind: "file" | "own" | "pending" }>();
+    if (!custReady) return out;
+    let next = nextNumber(newCodes);
+    for (const b of rec.bills) {
+      for (const raw of [b.sender, b.receiver]) {
+        const s = String(raw ?? "").trim();
+        if (!s || out.has(s)) continue;
+        const own = newCodes[s];
+        if (own) { out.set(s, { code: custCode(own), kind: "own" }); continue; }
+        const fromFile = peekCustMap()?.codeFor(s) ?? null;
+        if (fromFile) { out.set(s, { code: fromFile, kind: "file" }); continue; }
+        out.set(s, { code: custCode(next++), kind: "pending" });
+      }
+    }
+    return out;
+  }, [rec.bills, newCodes, custReady]);
+
+  /** ช่องหนึ่งของโน้ตใต้แถวบิล */
+  const CustCell = ({ label, raw }: { label: string; raw: string }) => {
+    const s = String(raw ?? "").trim();
+    if (!s) return <span className="cx"><b>{label}:</b> <span className="wait">— ยังไม่ได้กรอก —</span></span>;
+    if (!custReady) return <span className="cx"><b>{label}:</b> <span className="wait">กำลังเตรียมฐานข้อมูลรหัส…</span></span>;
+    const hit = custPreview.get(s);
+    if (!hit) return <span className="cx"><b>{label}:</b> <span className="wait">—</span></span>;
+    const isNew = hit.kind !== "file";
+    return (
+      <span className="cx"><b>{label}:</b> <span className="arrow">→</span>{" "}
+        <span className={"cuscode" + (isNew ? " isnew" : "")} title={s}>{hit.code}</span>{" "}
+        <span className={isNew ? "tagnew" : "tagold"}>
+          {hit.kind === "file" ? "มีอยู่ในไฟล์แปลงรหัส"
+            : hit.kind === "own" ? "ลูกค้าใหม่ (ออกรหัสแล้ว)"
+              : "ลูกค้าใหม่ · จะได้รหัสนี้เมื่อกดบันทึก"}
+        </span>
+      </span>
+    );
+  };
 
   /** โซนนี้เปิดให้กรอกไหม — ผู้ดูแลระบบเปิดทุกโซน */
   const zoneOpen = (k: RoleKey) => role === "admin" || k === role || editZones.has(k);
@@ -185,7 +240,18 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     setMsg({ text: "กำลังบันทึก...", tone: "info" });
     try {
       const offline = !getUrl();
-      const res = await saveRecord(readyBills(rec), {
+      const ready = readyBills(rec);
+
+      // ออกรหัสให้ลูกค้าที่ไม่มีในไฟล์แปลงรหัส — v5:2549 ทำเฉพาะตอนโซนของฝ่ายบริการลูกค้าเปิด
+      // เพราะช่องผู้ส่ง/ผู้รับเป็นของฝ่ายนั้น ฝ่ายอื่นกดบันทึกไม่ควรไปกินเลขรหัส
+      if (role === "cs" || role === "admin" || editZones.has("cs")) {
+        try {
+          await ensureCustMap();
+          registerBills(ready.bills);
+        } catch { /* ไม่มีไฟล์ตาราง — ข้ามการออกรหัส ไม่งั้นจะออกเลขทับของไฟล์ */ }
+      }
+
+      const res = await saveRecord(ready, {
         role, offline, overrides: ovr,
         alsoRoles: role === "admin" ? ROLE_ORDER : [...editZones],
       });
@@ -595,10 +661,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
                     onClick={() => setRec((r) => ({ ...r, bills: r.bills.filter((_, j) => j !== i) }))}>✕</button>
                 </div>
                 <div className="bill-cust">
-                  <span className="cx"><b>ผู้ส่ง:</b>{" "}
-                    {b.sender ? <ShortId v={b.sender} /> : <span className="wait">— ยังไม่ได้กรอก —</span>}</span>
-                  <span className="cx"><b>ผู้รับ:</b>{" "}
-                    {b.receiver ? <ShortId v={b.receiver} /> : <span className="wait">— ยังไม่ได้กรอก —</span>}</span>
+                  <CustCell label="ผู้ส่ง" raw={b.sender} />
+                  <CustCell label="ผู้รับ" raw={b.receiver} />
                 </div>
               </div>
             ))}
