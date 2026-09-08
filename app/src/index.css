@@ -629,3 +629,12 @@ input[type="checkbox"]{width:auto;padding:0}
 @media(max-width:720px){.field-wide{grid-column:span 1}}
 
 .recharts-surface{overflow:visible}
+
+/* ---- ปุ่มรีเฟรชในแถบ "ใบที่ยังรอฝ่ายเรากรอก" ---- */
+.draftbar .dt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dt-reload{font-family:inherit;font-size:11.5px;font-weight:700;color:var(--orange-dark);
+  background:#fff;border:1px solid var(--orange-line);border-radius:8px;padding:5px 11px;
+  cursor:pointer;margin-left:auto;transition:border-color .15s var(--ease),background .15s var(--ease)}
+.dt-reload:hover:not(:disabled){border-color:var(--orange);background:var(--orange-soft)}
+.dt-reload:disabled{opacity:.55;cursor:default}
+.dt-none{font-size:12.5px;color:var(--ink-faint)}

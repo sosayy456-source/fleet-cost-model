@@ -165,9 +165,10 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     }));
 
   /** main ซ่อนแถบนี้จากฝ่ายบริการลูกค้า ผู้จัดการ และผู้ดูแลระบบ */
-  const waitingDocs = (role === "cs" || role === "manager" || role === "admin")
-    ? []
-    : state.records.filter((r) => !roleAllDone(r) && !roleDone(r, role));
+  const showDraftBar = role !== "cs" && role !== "manager" && role !== "admin";
+  const waitingDocs = showDraftBar
+    ? state.records.filter((r) => !roleAllDone(r) && !roleDone(r, role))
+    : [];
 
   const openDoc = (r: TripRecord) => {
     setRec(r);
@@ -242,20 +243,37 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       {/* แถบชิป "ใบที่ยังรอฝ่ายเรากรอก" — renderDraftBar() ของ main:2316
           ฝ่ายบริการลูกค้าเปิดใบเอง · ผู้จัดการไม่กรอก · ผู้ดูแลระบบดูจากหน้า "ใบที่ยังไม่ครบ"
           สามฝ่ายนี้จึงไม่เห็นแถบนี้ */}
-      {waitingDocs.length > 0 && (
+      {showDraftBar && (
         <div className="draftbar">
-          <div className="dt">ใบที่ยังรอ{ROLES[role].label}กรอก ({waitingDocs.length})</div>
-          <div className="draftlist">
-            {waitingDocs.map((r) => {
-              const age = r.date ? Math.max(0, daysBetween(r.date, todayISO()) ?? 0) : 0;
-              return (
-                <button key={r.id} type="button" className="dchip" onClick={() => openDoc(r)}>
-                  📄 {r.docNo || "–"}
-                  {age > 0 && <span className="age">ค้าง {age} วัน</span>}
-                </button>
-              );
-            })}
+          <div className="dt">
+            <span>ใบที่ยังรอ{ROLES[role].label}กรอก ({waitingDocs.length})</span>
+            {/* ฝ่ายจัดรถเห็นแค่หน้านี้หน้าเดียว (ROLE_VIEWS) จึงไม่มีทางไปกดโหลดใหม่ที่หน้า
+                "ใบที่ยังไม่ครบ" ได้ — ปุ่มนี้เลยต้องอยู่ตรงนี้ ไม่งั้นต้องรีโหลดทั้งหน้า
+                และแถบต้องไม่หายตอนลิสต์ว่าง ไม่งั้นพอเคลียร์ครบก็กดดึงใบใหม่ไม่ได้อีก */}
+            <button type="button" className="dt-reload" onClick={state.reload} disabled={state.loading}
+              title={state.connected
+                ? "ดึงใบล่าสุดจากชีตมาอีกครั้ง"
+                : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"}>
+              {state.loading ? "⟳ กำลังโหลด…" : "↻ รีเฟรช"}
+            </button>
           </div>
+          {waitingDocs.length > 0 ? (
+            <div className="draftlist">
+              {waitingDocs.map((r) => {
+                const age = r.date ? Math.max(0, daysBetween(r.date, todayISO()) ?? 0) : 0;
+                return (
+                  <button key={r.id} type="button" className="dchip" onClick={() => openDoc(r)}>
+                    📄 {r.docNo || "–"}
+                    {age > 0 && <span className="age">ค้าง {age} วัน</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="dt-none">
+              {state.loading ? "กำลังตรวจใบล่าสุด…" : "ไม่มีใบรอฝ่ายนี้กรอก ✓"}
+            </div>
+          )}
         </div>
       )}
 
