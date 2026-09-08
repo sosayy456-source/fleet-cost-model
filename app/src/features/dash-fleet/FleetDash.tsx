@@ -11,6 +11,7 @@
 import { useMemo, useRef, useState } from "react";
 import { DBar, DLine, DMixed, DPie } from "../../lib/chart/dcharts";
 import { useDashInk } from "../../lib/chart/dashfx";
+import RefreshBtn from "../../lib/ui/RefreshBtn";
 import { D, fmtN } from "../../lib/chart/theme";
 import { CC, Empty, Hero, KC, ListFF, Note, Pane, ResetBtn, SrcFF, TableHead, ZT,
          searchStyle, selectStyle } from "./parts";
@@ -85,7 +86,18 @@ export default function FleetDash({ state }: { state: RecordsState }) {
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, tab);
 
-  if (state.loading) return <div className="card"><p className="muted">กำลังโหลด...</p></div>;
+  /* ปุ่มเดียวกันทุกทางออกของคอมโพเนนต์ รวมถึงตอนยังไม่มีข้อมูล
+     ไม่งั้นแดชบอร์ดที่ว่างอยู่จะดึงใบเข้ามาไม่ได้เลยถ้าไม่รีโหลดทั้งหน้า */
+  const refresh = (
+    <RefreshBtn className="dash-reload" onClick={state.reload} loading={state.loading}
+      title={state.connected
+        ? "ดึงใบรายการล่าสุดจาก Google Sheet มาคำนวณใหม่"
+        : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"} />
+  );
+
+  if (state.loading) {
+    return <div className="card"><p className="muted">กำลังโหลด...</p></div>;
+  }
 
   const nothing = state.records.length === 0 && state.oldRecords.length === 0;
   if (nothing) {
@@ -96,6 +108,7 @@ export default function FleetDash({ state }: { state: RecordsState }) {
           ยังไม่มีใบรายการให้สรุป — กรอกใบแรกที่หน้า “บันทึกข้อมูล”
           หรือเชื่อม Google Sheet เพื่อดึงใบที่มีอยู่แล้วเข้ามา
         </p>
+        <div style={{ marginTop: 12 }}>{refresh}</div>
       </div>
     );
   }
@@ -109,6 +122,8 @@ export default function FleetDash({ state }: { state: RecordsState }) {
             className={"dtab" + (tab === t.id ? " active" : "")}
             onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
+        {/* อยู่บนแถบแท็บจึงติดมากับทุกแท็บ ไม่ต้องไปเติมทีละแพน */}
+        {refresh}
       </div>
 
       {tab === "main" && <MainPane state={state} />}

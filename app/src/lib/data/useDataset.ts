@@ -2,7 +2,7 @@
  * โหลดไฟล์ JSON ที่ ETL สร้างไว้
  * เป็น static file ทั้งหมด ไม่มี API ระหว่างทาง — โหลดครั้งเดียวแล้วใช้ซ้ำ
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { dataUrl } from "../dataset";
 
 export interface Manifest {
@@ -84,19 +84,34 @@ async function fetchAll(): Promise<Dataset> {
   return Object.fromEntries(parts) as unknown as Dataset;
 }
 
-export function useDataset(): { data: Dataset | null; error: string | null } {
+export interface DatasetState {
+  data: Dataset | null;
+  error: string | null;
+  loading: boolean;
+  /** ทิ้ง cache แล้วดึงไฟล์ใหม่ — ใช้หลังรัน ETL ซ้ำโดยไม่ต้องรีโหลดทั้งหน้า */
+  reload: () => void;
+}
+
+export function useDataset(): DatasetState {
   const [data, setData] = useState<Dataset | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState(0);
+
+  // ล้าง cache ของโมดูลด้วย ไม่งั้นกดรีเฟรชแล้วได้ชุดเดิมกลับมา
+  const reload = useCallback(() => { cache = null; setTick((t) => t + 1); }, []);
 
   useEffect(() => {
     let alive = true;
+    setLoading(true);
+    setError(null);
     cache ??= fetchAll().catch((e) => { cache = null; throw e; });
-    cache.then((d) => { if (alive) setData(d); })
-         .catch((e) => { if (alive) setError((e as Error).message); });
+    cache.then((d) => { if (alive) { setData(d); setLoading(false); } })
+         .catch((e) => { if (alive) { setError((e as Error).message); setLoading(false); } });
     return () => { alive = false; };
-  }, []);
+  }, [tick]);
 
-  return { data, error };
+  return { data, error, loading, reload };
 }
 
 /** 'ก.ค. 68' จาก '2025-07' — ตรรกะเดียวกับ cleaning.month_label ฝั่ง Python */

@@ -17,6 +17,7 @@ import { REF, distanceFor } from "../../lib/refdata";
 import { Stat } from "../../lib/chart/primitives";
 import { fmtBaht, fmtPct, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
+import RefreshBtn from "../../lib/ui/RefreshBtn";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { FleetType } from "../../lib/cost/types";
 import type { TripRecord } from "../../types/record";
@@ -37,7 +38,7 @@ interface RouteRow {
 
 export default function RouteProfit({ state }: { state: RecordsState }) {
   const t = useChartTheme();
-  const { data, error } = useDataset();
+  const { data, error, loading, reload } = useDataset();
   const [vehicle, setVehicle] = useState("รถเทรเลอร์");
   const [fleetType, setFleetType] = useState<FleetType>("รถบริษัท");
   const [month, setMonth] = useState("all");
@@ -99,8 +100,22 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
     }).sort((a, b) => b.revenue - a.revenue);
   }, [data, records, month, vehicle, fleetType]);
 
+  /* หน้านี้ join ข้อมูลสองทาง — ไฟล์รายได้จาก ETL กับใบรายการจากชีต/เครื่อง
+     ปุ่มเดียวจึงต้องสั่งดึงใหม่ทั้งคู่ ไม่งั้นตัวเลขสองฝั่งจะคนละรุ่นกัน */
+  const refreshBoth = () => { reload(); state.reload(); };
+  const refresh = (
+    <RefreshBtn className="dash-reload" onClick={refreshBoth} loading={loading || state.loading}
+      title="ดึงไฟล์รายได้จาก ETL และใบรายการล่าสุดมาคำนวณใหม่ทั้งคู่" />
+  );
+
   if (error) {
-    return <div className="card"><h2>กำไรรายเส้นทาง</h2><div className="banner">{error}</div></div>;
+    return (
+      <div className="card">
+        <h2>กำไรรายเส้นทาง</h2>
+        <div className="banner">{error}</div>
+        <div style={{ marginTop: 12 }}>{refresh}</div>
+      </div>
+    );
   }
   if (!data) return <div className="card"><p className="muted">กำลังโหลด...</p></div>;
 
@@ -112,7 +127,10 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
   return (
     <>
       <div className="card">
-        <h2>กำไรรายเส้นทาง</h2>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+          <h2 style={{ marginRight: "auto" }}>กำไรรายเส้นทาง</h2>
+          {refresh}
+        </div>
         <p className="muted" style={{ marginTop: 0 }}>
           รวมรายได้จากไฟล์บิล เข้ากับต้นทุนจากโมเดลเดินรถ โดยใช้ "ต้นทาง → ปลายทาง" เป็นตัวเชื่อม
         </p>

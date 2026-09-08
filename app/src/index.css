@@ -638,3 +638,13 @@ input[type="checkbox"]{width:auto;padding:0}
 .dt-reload:hover:not(:disabled){border-color:var(--orange);background:var(--orange-soft)}
 .dt-reload:disabled{opacity:.55;cursor:default}
 .dt-none{font-size:12.5px;color:var(--ink-faint)}
+
+/* ---- ปุ่มรีเฟรชในหน้าแดชบอร์ด (ใช้โทเคนสีของ #view-dash) ---- */
+.dash-reload{font-family:var(--d-font,inherit);font-size:13px;font-weight:600;
+  color:var(--d-ink2,#4A4640);background:var(--d-card,#fff);
+  border:1px solid var(--d-line,#E5E1DA);border-radius:9px;padding:7px 13px;cursor:pointer;
+  white-space:nowrap;transition:border-color .18s var(--d-ease,ease),color .18s var(--d-ease,ease)}
+.dash-reload:hover:not(:disabled){border-color:var(--d-indigo,#4F46E5);color:var(--d-indigo,#4F46E5)}
+.dash-reload:disabled{opacity:.55;cursor:default}
+/* บนแถบแท็บให้ชิดขวาสุด และไม่โดนเส้น .dink ทับ */
+.dash-tabs .dash-reload{margin:0 0 8px auto}

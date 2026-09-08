@@ -7,6 +7,7 @@
  */
 import { useMemo, useState } from "react";
 import { ROLE_ORDER, roleAllDone, roleDone } from "../../lib/record/roles";
+import RefreshBtn from "../../lib/ui/RefreshBtn";
 import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
@@ -39,9 +40,8 @@ export default function Drafts({ state }: { state: RecordsState }) {
           <input value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="ค้นหาเลขที่ใบรายการ / สาขา / เส้นทาง..." />
         </div>
-        <button className="btn btn-green" type="button" onClick={reload} disabled={loading}>
-          ↻ โหลดใบจากชีต
-        </button>
+        <RefreshBtn onClick={reload} loading={loading}
+          title="ดึงใบรายการล่าสุดจาก Google Sheet มาตรวจความครบถ้วนใหม่" />
       </div>
 
       <div className="rec-card">

@@ -13,6 +13,7 @@ import {
 import { ChartCard, InsightCard, Stat } from "../../lib/chart/primitives";
 import { fmtBaht, fmtPct, fmtShort, rankedShades, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
+import RefreshBtn from "../../lib/ui/RefreshBtn";
 import type { CubeRow, Dataset } from "../../lib/data/useDataset";
 
 const TABS = [
@@ -44,9 +45,16 @@ function aggregate(cube: CubeRow[], dim: string, months: string[] | null) {
 }
 
 export default function RevenueDash() {
-  const { data, error } = useDataset();
+  const { data, error, loading, reload } = useDataset();
   const [tab, setTab] = useState<Tab>("ภาพรวม");
   const [month, setMonth] = useState<string>("all");
+
+  /* ไฟล์ชุดนี้ ETL สร้างไว้ล่วงหน้า — กดรีเฟรชหลังรัน build_json.py ใหม่
+     แล้วเห็นตัวเลขชุดใหม่ได้เลย ไม่ต้องรีโหลดทั้งหน้า */
+  const refresh = (
+    <RefreshBtn className="dash-reload" onClick={reload} loading={loading}
+      title="ดึงไฟล์ข้อมูลที่ ETL สร้างไว้มาใหม่" />
+  );
 
   if (error) {
     return (
@@ -56,6 +64,7 @@ export default function RevenueDash() {
         <p className="muted">
           สร้างไฟล์ข้อมูลด้วย <code>python etl/build_json.py --dataset sample</code> ก่อน
         </p>
+        <div style={{ marginTop: 12 }}>{refresh}</div>
       </div>
     );
   }
@@ -77,6 +86,7 @@ export default function RevenueDash() {
             {data.manifest.sourceFiles.length} ไฟล์ ·{" "}
             ยุบเป็น cube {data.manifest.cube.cube_rows.toLocaleString("th-TH")} แถว
           </span>
+          <span style={{ marginLeft: "auto" }}>{refresh}</span>
         </div>
         <nav className="dash-tabs" style={{ marginTop: 12 }}>
           {TABS.map((t) => (
