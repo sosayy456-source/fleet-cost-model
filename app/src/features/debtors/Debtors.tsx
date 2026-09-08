@@ -11,6 +11,7 @@ import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import { put } from "../../lib/store/records";
 import { pushRecords, getUrl } from "../../lib/sheet/client";
 import { ShortId } from "../../lib/custmap/ShortId";
+import RefreshBtn from "../../lib/ui/RefreshBtn";
 import ThaiDateInput from "../entry/ThaiDateInput";
 import type { RecordsState, OldDebtor } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
@@ -223,9 +224,14 @@ export default function Debtors({ state }: { state: RecordsState }) {
               <button key={k} type="button" className={src === k ? "on" : ""} onClick={() => setSrc(k)}>{l}</button>
             ))}
           </div>
+          {/* สองปุ่มนี้เรียก reload ตัวเดียวกัน (useRecords ดึงทั้งใบใหม่และแท็บข้อมูลเก่า
+              ในรอบเดียว แยกดึงเฉพาะอย่างใดอย่างหนึ่งไม่ได้) แยกไว้เพราะปุ่มเขียวสื่อถึง
+              ข้อมูลเก่าอย่างเดียว ส่วนปุ่มรีเฟรชเป็นปุ่มเดียวกับหน้าอื่น หาที่เดิมเจอทุกหน้า */}
           <button className="btn btn-green" type="button" onClick={reload} disabled={loading}>
             ↻ อัปเดตข้อมูลลูกหนี้เก่า
           </button>
+          <RefreshBtn className="btn-ghost" onClick={reload} loading={loading}
+            title="ดึงบิลลูกหนี้ล่าสุดมาแสดงใหม่" />
         </div>
       </div>
 
