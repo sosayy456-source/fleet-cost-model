@@ -27,7 +27,13 @@ python build_json.py --dataset sample    # → app/public/data/sample/
 python -m pytest
 ```
 
-สคริปต์ครั้งเดียวใน `app/tools/`: `extract-refdata.mjs` (ดึงตารางอ้างอิงออกจาก v5), `gen-golden.mjs` (สร้าง fixture ของ golden test), `extract-custmap.mjs` (สร้าง `custmap.bin` จากไฟล์ลูกค้าจริง — ไม่อยู่ใน repo)
+สคริปต์ครั้งเดียวใน `app/tools/`: `extract-refdata.mjs` (ดึงตารางอ้างอิงออกจาก v5), `gen-golden.mjs` (สร้าง fixture ของ golden test), `extract-custmap.mjs` (**เลิกใช้แล้ว** — สร้าง `custmap.bin` รุ่นเก่าที่เก็บรหัสต้นฉบับแค่ 12 ตัวแรก)
+
+```bash
+python etl/build_custmap.py "แปลงรหัสลูกหนี้รวม.xlsx"   # → app/public/custmap.bin (17.9 MB, gitignore)
+```
+
+ตารางรหัสลูกค้าเก็บ **รหัสต้นฉบับเต็ม 64 ตัว ระเบียนละ 32 ไบต์** ตำแหน่งระเบียน = เลขในรหัส (`CUS0000001` อยู่ที่ไบต์ 0-31) ตัวโหลดยังอ่านไฟล์รุ่นเก่า (6 ไบต์) ได้ แยกด้วยขนาดที่หารลงตัว · **การเทียบรหัสต้องเป๊ะทั้งสองทาง** `CUS` + เลข 7 หลักพอดี และรหัสต้นฉบับครบ 64 ตัว — ของเดิมใช้ `parseInt` กับ "ขึ้นต้นด้วย" ทำให้ `CUS1`/`CUS001`/`CUS0000001` ชี้ไปที่รายเดียวกัน
 
 ## สถาปัตยกรรม
 
