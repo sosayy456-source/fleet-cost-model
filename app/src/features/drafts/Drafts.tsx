@@ -40,8 +40,16 @@ export default function Drafts({ state }: { state: RecordsState }) {
           <input value={q} onChange={(e) => setQ(e.target.value)}
             placeholder="ค้นหาเลขที่ใบรายการ / สาขา / เส้นทาง..." />
         </div>
-        <RefreshBtn onClick={reload} loading={loading}
-          title="ดึงใบรายการล่าสุดจาก Google Sheet มาตรวจความครบถ้วนใหม่" />
+        {/* สองปุ่มนี้เรียก reload ตัวเดียวกัน (useRecords ดึงทั้งในเครื่องและบนชีตในรอบเดียว
+            แยกดึงเฉพาะอย่างใดอย่างหนึ่งไม่ได้) แยกไว้เพราะปุ่มเดิมสื่อว่าดึงจากชีต
+            ส่วนปุ่มรีเฟรชเป็นปุ่มเดียวกับหน้าอื่น คนใช้จะได้หาที่เดิมเจอทุกหน้า */}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="btn btn-green" type="button" onClick={reload} disabled={loading}>
+            ↻ โหลดใบจากชีต
+          </button>
+          <RefreshBtn className="btn-ghost" onClick={reload} loading={loading}
+            title="ดึงใบรายการล่าสุดมาตรวจความครบถ้วนใหม่" />
+        </div>
       </div>
 
       <div className="rec-card">
