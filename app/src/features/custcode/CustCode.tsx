@@ -138,8 +138,8 @@ export default function CustCode() {
           <div className="banner">
             {err}
             <div style={{ fontWeight: 400, marginTop: 6, fontSize: 13 }}>
-              ไฟล์ <code>custmap.bin</code> ไม่ได้ commit ขึ้น repo เพราะมาจากข้อมูลลูกค้าจริง
-              สร้างในเครื่องด้วยคำสั่ง:<br />
+              ไฟล์ <code>app/public/custmap.bin</code> หายไปหรือโหลดไม่สำเร็จ
+              ปกติไฟล์นี้ commit มากับ repo อยู่แล้ว ถ้าไม่มีให้สร้างใหม่ด้วย:<br />
               <code>python etl/build_custmap.py "แปลงรหัสลูกหนี้รวม.xlsx"</code>
             </div>
           </div>
@@ -271,8 +271,8 @@ export default function CustCode() {
             ถ้ายอมให้เดาจากตัวขึ้นต้น จะชี้ผิดรายโดยไม่มีอะไรเตือน
             <br /><br />
             <b>5) การเก็บข้อมูล</b> — รหัสที่ออกใหม่เก็บในเครื่อง (localStorage คีย์{" "}
-            <code>custNewCodes</code>) แยกจากไฟล์ตาราง · ไฟล์ <code>custmap.bin</code>
-            โหลดเฉพาะตอนเข้าหน้านี้กับหน้าบันทึกข้อมูล ไม่ได้ติดไปกับทุกหน้า
+            <code>custNewCodes</code>) แยกจากไฟล์ตาราง · ไฟล์ <code>custmap.bin</code> (17.9 MB)
+            commit มากับ repo แต่โหลดเฉพาะตอนเข้าหน้านี้กับหน้าบันทึกข้อมูล ไม่ได้ติดไปกับทุกหน้า
           </div>
         </details>
       </div>

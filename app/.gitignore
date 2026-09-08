@@ -26,6 +26,7 @@ dist-ssr
 # TypeScript build mode
 *.tsbuildinfo
 
-# ตารางรหัสลูกค้า 3.3 MB สร้างจาก v5.html ด้วย tools/extract-custmap.mjs
-# ไม่ commit เพราะเป็นข้อมูลที่มาจากลูกค้าจริง (แม้จะ hash แล้ว)
-public/custmap.bin
+# ตารางรหัสลูกค้า (public/custmap.bin) commit ขึ้น repo แล้ว — เจ้าของข้อมูลยืนยันว่า
+# รหัสที่ hash ไว้ไม่ใช่ความลับ ไฟล์นี้จึงต้องขึ้นไปด้วย ไม่งั้นหน้าค้นรหัสลูกค้า
+# ใช้ไม่ได้บน GitHub Pages และการออกรหัสให้ลูกค้าใหม่ก็ไม่ทำงาน
+# สร้างใหม่: python etl/build_custmap.py "แปลงรหัสลูกหนี้รวม.xlsx"
