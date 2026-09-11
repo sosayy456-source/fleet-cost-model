@@ -22,11 +22,12 @@ import { useOverrides } from "../../lib/store/overrides";
 import { useRoster } from "../../lib/store/roster";
 import { getUrl } from "../../lib/sheet/client";
 import { emptyBill, emptyRecord } from "./emptyRecord";
+import { randomRecord } from "./randomRecord";
 import ThaiDateInput from "./ThaiDateInput";
 import FleetRoster from "./panels/FleetRoster";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { Bill, PayType, RoleKey, TripRecord } from "../../types/record";
-import { PAY_TYPES } from "../../types/record";
+import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
 
 const baht = (n: number) =>
@@ -80,9 +81,6 @@ function readyBills(rec: TripRecord): TripRecord {
   if (!bills.length && rec.docNo) bills.push({ ...emptyBill(), no: rec.docNo });
   return { ...rec, bills };
 }
-
-/** เกณฑ์คิดราคาต่อบิล — PRICE_BASIS ของ main:1487 */
-const PRICE_BASIS = ["คิดตามน้ำหนัก", "คิดตามหน่วย"] as const;
 
 /**
  * ราคารวมของบิล = จำนวน/น้ำหนัก × ราคาต่อหน่วย
@@ -685,6 +683,11 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
           <button className="btn-ghost" type="button"
             onClick={() => { setRec(emptyRecord()); setEditing(null); setEditZones(new Set()); setMsg(null); }}>
             เริ่มใบใหม่
+          </button>
+          {/* สำหรับเทสต์เท่านั้น — สุ่มกรอกทุกโซนให้ทันที ไม่ต้องพิมพ์เองตอนลองระบบ */}
+          <button className="btn-ghost" type="button"
+            onClick={() => { setRec(randomRecord()); setEditing(null); setEditZones(new Set()); setMsg(null); }}>
+            🎲 สุ่มข้อมูล
           </button>
           {msg && <span className="msg" style={{ color: tone[msg.tone] }}>{msg.text}</span>}
         </div>

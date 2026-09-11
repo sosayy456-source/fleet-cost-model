@@ -18,9 +18,13 @@
  * → ช่อง Version เลือก "เวอร์ชันใหม่" (New version) → Deploy   (URL เดิมใช้ต่อได้)
  *
  * ── ระบบเขียนลง 2 ชีต (สร้างให้อัตโนมัติถ้ายังไม่มี) ──────────
- *   "ค่าเดินทาง" : 1 แถว = 1 ใบรายการ · คอลัมน์ 1–34 ตรงรูปแบบเดิม · 35+ เป็นข้อมูลเสริม
+ *   "ข้อมูลใหม่" : 1 แถว = 1 ใบรายการ · คอลัมน์ 1–34 ตรงรูปแบบเดิม · 35+ เป็นข้อมูลเสริม
  *   "ลูกหนี้"    : 1 แถว = ลูกหนี้ 1 ราย · คอลัมน์ 1–9 ตรงรูปแบบเดิม · 10+ เป็นข้อมูลเสริม
  * เป็นระบบ upsert — ส่งใบรายการเดิมซ้ำจะทับแถวเดิม ไม่เพิ่มแถวใหม่
+ *
+ * แท็บ "ข้อมูลใหม่" พิมพ์แถวเพิ่มเองตรง ๆ ในชีตได้ด้วย (ไม่ต้องผ่านฟอร์มแอป) —
+ * แถวที่ไม่มีคอลัมน์ _DATA (ไม่ได้กรอกผ่านแอป) จะถูกอ่านด้วยชื่อหัวคอลัมน์แบบเดียวกับ
+ * "ข้อมูลเก่า" คือขึ้นในโมเดลทันที อ่านอย่างเดียว ไม่ต้องรอสถานะ 3 ฝ่ายครบ
  */
 
 var VERSION = 10;                        // ต้องตรงกับ GS_VERSION ในไฟล์ HTML
@@ -32,7 +36,7 @@ var VERSION = 10;                        // ต้องตรงกับ GS_VE
 //                  เช่น https://docs.google.com/spreadsheets/d/[ไอดีอยู่ตรงนี้]/edit
 var SPREADSHEET_ID = '';
 
-var SHEET_NAME = 'ค่าเดินทาง';
+var SHEET_NAME = 'ข้อมูลใหม่';
 var DEBT_SHEET_NAME = 'ลูกหนี้';
 
 // ── ข้อมูลเก่า ──────────────────────────────────────────────
@@ -100,6 +104,7 @@ function doPost(e) {
   var body;
   try {
     body = JSON.parse(e.postData.contents);
+    if (!body || typeof body !== 'object') throw new Error('ข้อมูลที่ส่งมาไม่ใช่ออบเจ็กต์');
   } catch (err) {
     return json({ ok: false, version: VERSION, error: 'อ่านข้อมูลที่ส่งมาไม่ได้: ' + err });
   }
@@ -364,7 +369,8 @@ function rowToRecord_(row, idx, source, sheetName, rowNo, dispRow) {
   };
 }
 
-/** อ่านแท็บเที่ยววิ่งเก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่า" แต่ไม่ใช่แท็บลูกหนี้เก่า */
+/** อ่านแท็บเที่ยววิ่งเก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่า" แต่ไม่ใช่แท็บลูกหนี้เก่า
+ *  รวมแถว "ข้อมูลใหม่" ที่พิมพ์ตรงในชีตเอง (ไม่ผ่านฟอร์มแอป) เข้ามาด้วย — อ่านวิธีเดียวกัน */
 function readOldRecords_() {
   var ss = getSpreadsheet_();
   var sheets = ss.getSheets();
@@ -384,12 +390,36 @@ function readOldRecords_() {
       if (rec) out.push(rec);
     }
   }
+  return out.concat(readManualNewRecords_());
+}
+
+/**
+ * อ่านแถวในแท็บ "ข้อมูลใหม่" ที่ไม่มีคอลัมน์ _DATA — คือพิมพ์ตรงในชีตเอง ไม่ได้ผ่านฟอร์มแอป
+ * จึงไม่มีสถานะ 3 ฝ่ายให้เช็คว่า "ครบ" ด้วย เลยอ่านด้วยชื่อหัวคอลัมน์แบบเดียวกับข้อมูลเก่า
+ * (แถวที่มี _DATA อยู่แล้ว = กรอกผ่านแอป ถูกอ่านโดย readTripRecords_ อยู่แล้ว ข้ามไม่อ่านซ้ำ)
+ */
+function readManualNewRecords_() {
+  var sh = getSheet_(SHEET_NAME, HEADERS);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var rng = sh.getRange(2, 1, last - 1, HEADERS.length);
+  var vals = rng.getValues(), disp = rng.getDisplayValues();
+  var idx = headerIndex_(HEADERS);
+  var out = [];
+  for (var i = 0; i < vals.length; i++) {
+    if (vals[i].join('').toString().trim() === '') continue;
+    var raw = String(vals[i][DATA_COL - 1] || '').trim();
+    if (raw) continue;
+    var rec = rowToRecord_(vals[i], idx, 'ใหม่', SHEET_NAME, i + 2, disp[i]);
+    if (rec) { rec.id = 'MANUAL:' + SHEET_NAME + ':' + (i + 2); out.push(rec); }
+  }
   return out;
 }
 
 /**
- * อ่านใบรายการทั้งหมดจากแท็บ "ค่าเดินทาง" — คืนเป็นออบเจ็กต์เต็มจากคอลัมน์ _DATA
+ * อ่านใบรายการทั้งหมดจากแท็บ "ข้อมูลใหม่" — คืนเป็นออบเจ็กต์เต็มจากคอลัมน์ _DATA
  * ใช้ให้แต่ละฝ่ายโหลดใบล่าสุดมาก่อนแก้ ข้อมูลของฝ่ายอื่นจึงไม่หาย
+ * (แถวที่ไม่มี _DATA คือพิมพ์ตรงในชีตเอง — อ่านแยกใน readManualNewRecords_())
  */
 function readTripRecords_() {
   var sh = getSheet_(SHEET_NAME, HEADERS);
@@ -473,7 +503,7 @@ function readOldDebtors_() {
   return out;
 }
 
-/** อ่านแท็บข้อมูลใหม่ (ค่าเดินทาง) ด้วยวิธีเดียวกัน — ใช้ตอนสร้างแท็บรวม */
+/** อ่านแท็บ "ข้อมูลใหม่" ด้วยวิธีเดียวกัน — ใช้ตอนสร้างแท็บรวม */
 function readNewRecords_() {
   var ss = getSpreadsheet_();
   var sh = ss.getSheetByName(SHEET_NAME);
@@ -600,7 +630,15 @@ function onOpen() {
 
 /** เอาสเปรดชีตปลายทาง — ตามไอดีที่ตั้งไว้ ถ้าไม่ได้ตั้งก็ใช้ชีตที่สคริปต์ผูกอยู่ */
 function getSpreadsheet_() {
-  if (SPREADSHEET_ID) return SpreadsheetApp.openById(SPREADSHEET_ID);
+  if (SPREADSHEET_ID) {
+    try {
+      return SpreadsheetApp.openById(SPREADSHEET_ID);
+    } catch (err) {
+      throw new Error(
+        'เปิดสเปรดชีตตาม SPREADSHEET_ID ไม่ได้ — เช็คว่าไอดีถูกต้อง และบัญชีที่ Deploy ("Execute as: Me") ' +
+        'มีสิทธิ์เข้าถึงชีตนั้น · ' + err);
+    }
+  }
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) throw new Error(
     'สคริปต์นี้ไม่ได้ผูกกับสเปรดชีต จึงไม่รู้ว่าจะเขียนลงที่ไหน — ' +

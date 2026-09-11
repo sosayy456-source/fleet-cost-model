@@ -24,7 +24,8 @@ const STATUS_CLASS: Record<string, string> = {
 
 type Src = "all" | "new" | "old";
 
-interface Row { r: TripRecord; old: boolean }
+/** locked = แถวอ่านอย่างเดียวจากชีตโดยตรง (ข้อมูลเก่า หรือข้อมูลใหม่ที่พิมพ์ตรงในชีตเอง) แก้ในแอปไม่ได้ */
+interface Row { r: TripRecord; locked: boolean }
 
 export default function RecordsList({ state }: { state: RecordsState }) {
   const { records, oldRecords, loading, sheetError, connected, reload } = state;
@@ -34,19 +35,36 @@ export default function RecordsList({ state }: { state: RecordsState }) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
+  // แถวจากชีต ("locked") ติดป้าย source เอง — อาจเป็น "เก่า" หรือ "ใหม่" (พิมพ์ตรงในชีต) ก็ได้
+  const isOld = (r: TripRecord) => r.source === "เก่า";
+
   const list = useMemo<Row[]>(() => {
     const out: Row[] = [];
-    if (src !== "old") for (const r of records) if (roleAllDone(r)) out.push({ r, old: false });
-    if (src !== "new") for (const r of oldRecords as unknown as TripRecord[]) out.push({ r, old: true });
-    out.sort((a, b) => String(b.r.date ?? "").localeCompare(String(a.r.date ?? "")));
+    const editableDocNos = new Set<string>();
+    for (const r of records) if (roleAllDone(r)) {
+      out.push({ r, locked: false });
+      if (r.docNo) editableDocNos.add(r.docNo);
+    }
+    for (const r of oldRecords as unknown as TripRecord[]) {
+      // กันโชว์ซ้ำ: ใบที่เพิ่งบันทึกผ่านแอปมีทั้งฉบับแก้ไขได้ (records, ยึดอันนี้) กับฉบับที่
+      // อ่านตรงจากชีต (ยังไม่มี _DATA ตอนเพิ่งบันทึกเสร็จใหม่ ๆ) — ใบเก่าจริงไม่กันชนแบบนี้
+      if (!isOld(r) && r.docNo && editableDocNos.has(r.docNo)) continue;
+      out.push({ r, locked: true });
+    }
+    const bySrc = src === "all" ? out : out.filter(({ r }) => isOld(r) === (src === "old"));
+    bySrc.sort((a, b) => String(b.r.date ?? "").localeCompare(String(a.r.date ?? "")));
     const needle = q.trim().toLowerCase();
-    if (!needle) return out;
-    return out.filter(({ r }) => {
+    if (!needle) return bySrc;
+    return bySrc.filter(({ r }) => {
       const route = r.origin && r.dest ? `${r.origin}→${r.dest}` : "";
       return [r.docNo, route, r.branch, r.plate]
         .some((v) => String(v ?? "").toLowerCase().includes(needle));
     });
   }, [records, oldRecords, q, src]);
+
+  const newCount = records.filter(roleAllDone).length
+    + (oldRecords as unknown as TripRecord[]).filter((r) => !isOld(r)).length;
+  const oldCount = (oldRecords as unknown as TripRecord[]).filter(isOld).length;
 
   const unsynced = records.filter((r) => r.synced === false && roleAllDone(r));
 
@@ -120,7 +138,7 @@ export default function RecordsList({ state }: { state: RecordsState }) {
               <button key={k} type="button" className={src === k ? "on" : ""} onClick={() => setSrc(k)}>{l}</button>
             ))}
           </div>
-          <button className="btn-ghost" type="button" onClick={reload} disabled={loading}>↻ โหลดข้อมูลเก่า</button>
+          <button className="btn-ghost" type="button" onClick={reload} disabled={loading}>↻ รีเฟรช</button>
           <button className="btn btn-green" type="button" onClick={syncAll} disabled={busy || !connected}>
             ⬆ ซิงก์ขึ้น Google Sheet{unsynced.length ? ` (${unsynced.length})` : ""}
           </button>
@@ -142,7 +160,7 @@ export default function RecordsList({ state }: { state: RecordsState }) {
               <th>สถานะ</th><th>แก้ไข</th>
             </tr></thead>
             <tbody>
-              {list.slice(0, 300).map(({ r, old }, i) => {
+              {list.slice(0, 300).map(({ r, locked }, i) => {
                 // main อ่านค่าที่บันทึกไว้ในใบตรง ๆ (normal / waste / profit) ไม่คำนวณใหม่
                 // "ต้นทุนรวม" ในตารางนี้จึงเป็นต้นทุนปกติ ยังไม่รวมสูญเปล่า ซึ่งแยกอยู่คอลัมน์ถัดไป
                 const cost = Number(r.normal) || 0;
@@ -150,16 +168,17 @@ export default function RecordsList({ state }: { state: RecordsState }) {
                 const profit = Number(r.profit) || 0;
                 const route = r.origin && r.dest ? `${r.origin}→${r.dest}` : "–";
                 const st = recStatus(r);
+                const old = isOld(r);
                 return (
                   <>
-                    <tr key={`${r.id}-${i}`} className={old ? "oldrow" : undefined}>
+                    <tr key={`${r.id}-${i}`} className={locked ? "oldrow" : undefined}>
                       <td>
                         <span className={"badge " + (old ? "src-old" : "src-new")}>
                           {old ? "ข้อมูลเก่า" : "ข้อมูลใหม่"}
                         </span>
                       </td>
                       <td className="doc">
-                        {!old && <span className={"sdot" + (r.synced ? " on" : "")}
+                        {!locked && <span className={"sdot" + (r.synced ? " on" : "")}
                           title={r.synced ? "ซิงก์ขึ้น Google Sheet แล้ว" : "ยังไม่ได้ซิงก์"} />}
                         {r.docNo || "–"}
                       </td>
@@ -181,14 +200,14 @@ export default function RecordsList({ state }: { state: RecordsState }) {
                       <td className="num">{baht(waste)}</td>
                       <td className={"num " + (profit >= 0 ? "profit-pos" : "profit-neg")}>{baht(profit)}</td>
                       <td>
-                        {old
+                        {locked
                           ? <span className="locknote">–</span>
                           : <span className={"badge clk " + (STATUS_CLASS[st] ?? "unpaid")}
                               title="กดเพื่อดูรายละเอียดลูกหนี้"
                               onClick={() => toggle(r.id)}>{st}</span>}
                       </td>
                       <td>
-                        {old ? <span className="locknote">แก้ในชีต</span> : (
+                        {locked ? <span className="locknote">แก้ในชีต</span> : (
                           <span className="act">
                             <button className="btn-edit" type="button" title="แก้ไข" onClick={() => edit(r)}>
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -204,7 +223,7 @@ export default function RecordsList({ state }: { state: RecordsState }) {
                         )}
                       </td>
                     </tr>
-                    {!old && open.has(r.id) && (
+                    {!locked && open.has(r.id) && (
                       <tr className="detail-row" key={`${r.id}-d`}>
                         <td colSpan={14}><DetailBills r={r} onPay={setPaid} /></td>
                       </tr>
@@ -218,14 +237,14 @@ export default function RecordsList({ state }: { state: RecordsState }) {
         {list.length === 0 && (
           <div className="rec-empty">
             {records.length + oldRecords.length === 0
-              ? "ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ (ข้อมูลเก่ากด “โหลดข้อมูลเก่า”)"
+              ? "ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ (ข้อมูลเก่ากด “รีเฟรช”)"
               : "ไม่พบรายการที่ตรงกับเงื่อนไข"}
           </div>
         )}
       </div>
 
       <div className="locknote" style={{ marginTop: 8 }}>
-        แสดง {Math.min(list.length, 300)} รายการ · ใหม่ {records.length} · เก่า {oldRecords.length}
+        แสดง {Math.min(list.length, 300)} รายการ · ใหม่ {newCount} · เก่า {oldCount}
         {list.length > 300 && " · จำกัด 300 แถวแรก ใช้ช่องค้นหาเพื่อกรองให้แคบลง"}
       </div>
       {msg && <div className="msg" style={{ color: "var(--green)", marginTop: 6 }}>{msg}</div>}
