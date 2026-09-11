@@ -78,7 +78,9 @@ function readyBills(rec: TripRecord): TripRecord {
   const bills = filled.map((b) => ({ ...b, no: b.no || rec.docNo }));
   // main คงพฤติกรรมไว้ว่า ถ้าไม่มีบิลเลยแต่มีเลขที่ใบ ให้สร้างบิลเปล่าหนึ่งใบไว้ผูกกับใบรายการ
   if (!bills.length && rec.docNo) bills.push({ ...emptyBill(), no: rec.docNo });
-  return { ...rec, bills };
+  // รายได้ผูกกับบิลชุดที่กรองแล้วเสมอ — ต้องคิดหลังตัดแถวว่างทิ้ง ไม่ใช่จาก rec.bills ดิบ
+  const out = { ...rec, bills };
+  return { ...out, revenue: billsRevenue(out) };
 }
 
 /** เกณฑ์คิดราคาต่อบิล — PRICE_BASIS ของ main:1487 */
@@ -91,6 +93,17 @@ const PRICE_BASIS = ["คิดตามน้ำหนัก", "คิดตา
 function billTotal(b: Bill): number {
   if (b.unitPrice == null) return Number(b.total) || 0;
   return Math.round((Number(b.qty) || 0) * (Number(b.unitPrice) || 0) * 100) / 100;
+}
+
+/**
+ * รายได้ของใบ = ผลรวมราคารวมของทุกบิล — ไม่ให้กรอกเอง กรอกแค่รายการลูกหนี้ / บิล
+ * ใบเก่าที่กรอกรายได้เองไว้ตอนยังไม่มีบิล (หรือบิลไม่มียอดสักใบ) ให้คงยอดเดิม ไม่ให้หายไป
+ * เหตุผลเดียวกับ billTotal() ที่คงยอดของบิลรุ่นที่ยังไม่มีราคาต่อหน่วย
+ */
+function billsRevenue(rec: TripRecord): number {
+  const sum = rec.bills.reduce((s, b) => s + billTotal(b), 0);
+  if (!sum) return Number(rec.revenue) || 0;
+  return Math.round(sum * 100) / 100;
 }
 
 export default function EntryForm({ role, state }: { role: RoleKey; state: RecordsState }) {
@@ -133,11 +146,14 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   const num = (k: keyof TripRecord) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setRec((r) => ({ ...r, [k]: parseFloat(e.target.value) || 0 }));
 
+  /** รายได้คิดจากบิลอย่างเดียว — ช่องในการ์ดสรุปเป็นแค่ตัวแสดงผล */
+  const revenue = billsRevenue(rec);
+
   const calc = useMemo(
     () => computeCost(
       {
         date: rec.date, vehicle: rec.vehicle, fleetType: rec.fleetType,
-        distance: rec.dist, revenue: rec.revenue,
+        distance: rec.dist, revenue,
         gas: rec.gas, fuelCash: rec.fuelCash, fuelDownBill: rec.fuelDownBill,
         fuelFleet: rec.fuelFleet, fuelPickup: rec.fuelPickup, fuelUpBill: rec.fuelUpBill,
         fuelCallTruck: rec.fuelCallTruck, fuelAutoOn: rec.fuelAutoOn,
@@ -148,7 +164,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       },
       REF, ovr,
     ),
-    [rec, ovr],
+    [rec, revenue, ovr],
   );
 
   const pay = recPayInfo(rec);
@@ -554,13 +570,14 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       <div className="card">
         <div className="card-h"><span className="step">3</span><h2>สรุปผล</h2></div>
 
-        {/* main วางช่องรายได้ไว้ในการ์ดสรุป ไม่ใช่การ์ดข้อมูลการเดินทาง */}
+        {/* main วางช่องรายได้ไว้ในการ์ดสรุป ไม่ใช่การ์ดข้อมูลการเดินทาง
+            ★ คิดจากผลรวมราคารวมของรายการลูกหนี้ / บิล ไม่ให้กรอกเอง — แบบเดียวกับช่องราคารวมของบิล */}
         {zoneShow("cs") && (
           <div className="grid3">
-            <F label="รายได้">
+            <F label="รายได้" hint="(อัตโนมัติ · รวมจากรายการลูกหนี้ / บิล)">
               <div className="input-suffix">
-                <input type="number" min={0} step={100} placeholder="0"
-                  disabled={!zoneOpen("cs")} value={rec.revenue || ""} onChange={num("revenue")} />
+                <input className="b-total-auto" type="number" placeholder="0" readOnly tabIndex={-1}
+                  value={revenue || ""} />
                 <span className="unit">บาท</span>
               </div></F>
           </div>
@@ -568,7 +585,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
 
         <div className="kpis">
           <div className="kpi rev"><div className="lab">รายได้</div>
-            <div className="big">{baht(rec.revenue)}<small>บาท</small></div></div>
+            <div className="big">{baht(revenue)}<small>บาท</small></div></div>
           <div className="kpi normal"><div className="lab">ต้นทุนเดินทางรวม (ปกติ)</div>
             <div className="big">{baht(calc.normal)}<small>บาท</small></div></div>
           <div className="kpi waste"><div className="lab">ต้นทุนสูญเปล่า</div>
@@ -608,7 +625,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
             <div className="price-note" style={{ marginTop: 0, marginBottom: 12 }}>
               เว้น “เลขที่บิล” ว่าง = ใช้เลขที่ใบรายการ (ส่วนที่ 1) อัตโนมัติ ·
               ประเภท <b>สดต้นทาง</b> = ถือว่าชำระแล้ว · <b>เชื่อต้นทาง / เชื่อปลายทาง / สดปลายทาง</b> = ยังไม่ได้ชำระ ·
-              <b> ราคารวม</b> คำนวณจาก จำนวน/น้ำหนัก × ราคาต่อหน่วย อัตโนมัติ
+              <b> ราคารวม</b> คำนวณจาก จำนวน/น้ำหนัก × ราคาต่อหน่วย อัตโนมัติ ·
+              <b> รายได้</b> ในสรุปผลคือผลรวมราคารวมของทุกแถวในตารางนี้
             </div>
 
             <div className="bill-head">
