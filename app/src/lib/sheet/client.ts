@@ -43,9 +43,24 @@ export interface SheetResponse {
 
 export class SheetError extends Error {}
 
+/**
+ * เกินเวลานี้แล้วยังไม่ตอบ ถือว่าค้าง — ตัดทิ้งแทนที่จะรอเงียบ ๆ ไม่รู้จบ
+ * ★ ตั้งไว้สูง (90s) เพราะ Apps Script cold start + สแกนหลายแท็บ (loadOld/rebuildMerged)
+ *   บางครั้งใช้เวลาเกิน 30 วินาทีได้จริงโดยที่ยังไม่ได้ค้างจริง ๆ — ค่าที่ต่ำเกินไปเคยตัด
+ *   การบันทึกที่กำลังจะสำเร็จทิ้งไปก่อน (อ่านใบล่าสุดจากชีตไม่สำเร็จ → SaveAbortedError)
+ */
+const TIMEOUT_MS = 90000;
+
 export async function postToSheet<T extends SheetResponse>(payload: unknown): Promise<T> {
   const url = getUrl();
   if (!url) throw new SheetError("ยังไม่ได้ตั้งค่า URL ของ Web App");
+
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    throw new SheetError("ไม่มีสัญญาณอินเทอร์เน็ต — ยังใช้ข้อมูลในเครื่องได้");
+  }
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
 
   let res: Response;
   try {
@@ -54,12 +69,20 @@ export async function postToSheet<T extends SheetResponse>(payload: unknown): Pr
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
       redirect: "follow",
+      signal: ctrl.signal,
     });
   } catch (err) {
+    if ((err as Error).name === "AbortError") {
+      throw new SheetError(
+        `เซิร์ฟเวอร์ไม่ตอบภายใน ${TIMEOUT_MS / 1000} วินาที — Apps Script อาจกำลังโหลดหนักหรือ URL ไม่ถูกต้อง ลองใหม่อีกครั้ง`,
+      );
+    }
     throw new SheetError(
       "ติดต่อเซิร์ฟเวอร์ไม่ได้ (network/CORS) — ตรวจว่า URL ลงท้าย /exec และตอน Deploy " +
       "ตั้ง 'Who has access = Anyone' · " + (err as Error).message,
     );
+  } finally {
+    clearTimeout(timer);
   }
 
   const txt = await res.text();
@@ -111,7 +134,11 @@ interface OldResult extends SheetResponse {
   debtors?: Record<string, unknown>[];
 }
 
-/** ข้อมูลเก่าจากทุกแท็บที่ชื่อขึ้นต้นด้วย "ข้อมูลเก่า" — อ่านอย่างเดียว */
+/**
+ * ข้อมูลเก่าจากทุกแท็บที่ชื่อขึ้นต้นด้วย "ข้อมูลเก่า" — อ่านอย่างเดียว
+ * รวมถึงแถวในแท็บ "ข้อมูลใหม่" ที่พิมพ์ตรงในชีตเอง (ไม่ผ่านฟอร์มแอป) — Apps Script
+ * ติดป้าย source ให้ต่อแถวแล้ว ("เก่า"/"ใหม่") จึงไม่ทับค่านี้จากฝั่งหน้าเว็บอีก
+ */
 export async function loadOld(): Promise<{
   records: Record<string, unknown>[];
   debtors: Record<string, unknown>[];
@@ -119,8 +146,8 @@ export async function loadOld(): Promise<{
   if (!getUrl()) return { records: [], debtors: [] };
   const res = await postToSheet<OldResult>({ loadOld: true });
   return {
-    records: (res.records ?? []).map((r) => ({ ...r, source: "เก่า", bills: [] })),
-    debtors: (res.debtors ?? []).map((d) => ({ ...d, source: "เก่า" })),
+    records: (res.records ?? []).map((r) => ({ source: "เก่า", ...r, bills: [] })),
+    debtors: (res.debtors ?? []).map((d) => ({ source: "เก่า", ...d })),
   };
 }
 
@@ -131,12 +158,19 @@ export interface PushResult extends SheetResponse {
   merged?: number;
 }
 
-/** เขียนใบรายการ + บิลลงชีต เป็น upsert โดยใช้คอลัมน์ ID เป็นคีย์ */
+/**
+ * เขียนใบรายการ + บิลลงชีต เป็น upsert โดยใช้คอลัมน์ ID เป็นคีย์
+ * ★ ต้องส่ง records (JSON เต็มของแต่ละใบ) คู่กับ rows เสมอ — Apps Script เอาไปเก็บในคอลัมน์ _DATA
+ *   (เรียงตรงกับ rows ตามดัชนี ดู body.records ใน doPost ของ apps-script/Code.gs)
+ *   ถ้าลืมส่ง _DATA จะว่างตลอด ทำให้ loadTrips()/readTripRecords_() หาใบนี้ไม่เจอ
+ *   และ readManualNewRecords_() จะเข้าใจผิดว่าเป็นแถวที่พิมพ์ตรงในชีตเอง เกิดโชว์ซ้ำกับของในเครื่อง
+ */
 export function pushRecords(list: TripRecord[]): Promise<PushResult> {
   const bills: Cell[][] = [];
   for (const r of list) for (const row of recordBillRows(r)) bills.push(row);
   return postToSheet<PushResult>({
     rows: list.map(recordToRow),
+    records: list,
     bills,
     billOwners: list.map((r) => r.id),
   });
