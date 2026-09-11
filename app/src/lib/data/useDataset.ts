@@ -3,7 +3,8 @@
  * เป็น static file ทั้งหมด ไม่มี API ระหว่างทาง — โหลดครั้งเดียวแล้วใช้ซ้ำ
  */
 import { useCallback, useEffect, useState } from "react";
-import { dataUrl } from "../dataset";
+import { dataUrl, resetDataset, resolveDataset } from "../dataset";
+import type { DatasetName } from "../dataset";
 
 export interface Manifest {
   dataset: string;
@@ -75,9 +76,11 @@ const FILES: Record<keyof Dataset, string> = {
 let cache: Promise<Dataset> | null = null;
 
 async function fetchAll(): Promise<Dataset> {
+  const ds: DatasetName = await resolveDataset();
   const keys = Object.keys(FILES) as (keyof Dataset)[];
   const parts = await Promise.all(keys.map(async (k) => {
-    const res = await fetch(dataUrl(FILES[k]));
+    // ห้าม cache — หลังรัน ETL ซ้ำต้องได้ไฟล์ชุดใหม่ ไม่ใช่ที่เบราว์เซอร์จำไว้
+    const res = await fetch(dataUrl(ds, FILES[k]), { cache: "no-store" });
     if (!res.ok) throw new Error(`โหลด ${FILES[k]} ไม่ได้ (HTTP ${res.status})`);
     return [k, await res.json()] as const;
   }));
@@ -99,7 +102,8 @@ export function useDataset(): DatasetState {
   const [tick, setTick] = useState(0);
 
   // ล้าง cache ของโมดูลด้วย ไม่งั้นกดรีเฟรชแล้วได้ชุดเดิมกลับมา
-  const reload = useCallback(() => { cache = null; setTick((t) => t + 1); }, []);
+  // และให้ตรวจชุดข้อมูลใหม่ เผื่อเพิ่งรัน ETL ครั้งแรกหลังเปิดแอป (sample → real)
+  const reload = useCallback(() => { cache = null; resetDataset(); setTick((t) => t + 1); }, []);
 
   useEffect(() => {
     let alive = true;

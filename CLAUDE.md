@@ -17,7 +17,7 @@ npm test -- -t "ชื่อเทส"                          # เฉพา�
 npx tsc -b --force        # เช็ค type อย่างเดียว ไม่ build
 ```
 
-`VITE_DATASET=real npm run dev` เพื่อใช้ข้อมูลจริง (ต้องรัน ETL ก่อน) — ค่าเริ่มต้นคือ `sample`
+ข้อมูลจริง: วาง `.xlsx` ใน `etl/data/revenue/` → plugin `autoEtl` ใน `vite.config.ts` รัน ETL ให้เองตอน dev (หน่วง 2 วิ, หา python จาก `etl/.venv` หรือ venv ของ Streamlit ก่อน `python` บน PATH) → กดรีเฟรชในแดชบอร์ด · แอปเลือกชุดข้อมูลเองตอนรัน (`lib/dataset.ts`: มี `data/real/manifest.json` ที่เป็น json จริง = real ไม่งั้น sample) `VITE_DATASET` ยังบังคับได้ · **Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์** ตรวจแค่ status ไม่ได้ ต้องดู content-type
 
 Windows PowerShell: ถ้า `npm.ps1 cannot be loaded` ให้ใช้ `npm.cmd run dev`
 

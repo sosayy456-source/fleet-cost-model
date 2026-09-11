@@ -22,7 +22,7 @@ const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
 import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
 import { billIsPaid, recBills } from "./lib/record/payment";
 import { useRecords } from "./lib/store/useRecords";
-import { IS_SAMPLE } from "./lib/dataset";
+import { useActiveDataset } from "./lib/dataset";
 import type { RoleKey } from "./types/record";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
@@ -70,6 +70,7 @@ export default function App() {
   // เปิดเว็บทุกครั้งต้องเลือกตำแหน่งใหม่เสมอ ไม่จำไว้ในเครื่อง (ตรงตาม main:2129)
   const [role, setRole] = useState<RoleKey | null>(null);
   const state = useRecords();
+  const { isSample } = useActiveDataset();
   const [dismissed, setDismissed] = useState(false);
 
   /* เมนูที่ตำแหน่งนี้เข้าได้ */
@@ -139,7 +140,7 @@ export default function App() {
           <button type="button" className="sw" onClick={() => setRole(null)}>เปลี่ยนหน้าที่</button>
         </div>
 
-        {IS_SAMPLE && (
+        {isSample && (
           <div className="banner">ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท</div>
         )}
 

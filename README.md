@@ -81,11 +81,17 @@ npm install
 npm run dev          # ข้อมูลตัวอย่าง → http://localhost:5173/fleet-cost-model/
 ```
 
-ข้อมูลจริง (ต้องรัน ETL ก่อน):
+### ใช้ข้อมูลจริง — ไม่ต้องพิมพ์อะไรเพิ่ม
 
-```bash
-VITE_DATASET=real npm run dev
-```
+1. ลากไฟล์บิล `.xlsx` ใส่ `etl/data/revenue/` (ตอน `npm run dev` รันอยู่ก็ได้)
+2. รอสักครู่ — dev server รัน ETL ให้เอง ดูสถานะได้ใน terminal (`[etl] ✓ …`)
+3. กดปุ่ม **↻ รีเฟรชข้อมูล** ในแดชบอร์ดรายได้ แถบแดง "ข้อมูลตัวอย่าง" จะหายไป
+
+แอปตรวจเองว่ามี `app/public/data/real/` ไหม มี = ใช้ข้อมูลจริง / ไม่มี = ตัวอย่าง
+ลบไฟล์ออกจนหมดแล้วกดรีเฟรช ก็กลับเป็นตัวอย่างเอง ไม่ต้องรีสตาร์ท server
+
+ถ้าอยากรัน ETL เองหรือ dev server ไม่ได้เปิดอยู่ ดูหัวข้อ ETL ด้านล่าง ·
+บังคับชุดข้อมูลได้ด้วย `VITE_DATASET=sample|real` ถ้าจำเป็น
 
 > **Windows PowerShell** ถ้าขึ้น `npm.ps1 cannot be loaded because running scripts is disabled`
 > ให้ใช้ `npm.cmd run dev` แทน (ไม่ต้องไปแก้ ExecutionPolicy ของเครื่อง)
