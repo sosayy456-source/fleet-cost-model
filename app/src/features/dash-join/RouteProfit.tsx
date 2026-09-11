@@ -18,6 +18,8 @@ import { Stat } from "../../lib/chart/primitives";
 import { fmtBaht, fmtPct, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
 import RefreshBtn from "../../lib/ui/RefreshBtn";
+import EtlBanner from "../../lib/ui/EtlBanner";
+import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { FleetType } from "../../lib/cost/types";
 import type { TripRecord } from "../../types/record";
@@ -39,6 +41,9 @@ interface RouteRow {
 export default function RouteProfit({ state }: { state: RecordsState }) {
   const t = useChartTheme();
   const { data, error, loading, reload } = useDataset();
+  // สถานะ ETL จาก dev server — ขึ้น "กำลังแปลง…" และรีเฟรชเองเมื่อเสร็จ (เฉพาะตอน dev)
+  const etl = useEtlStatus();
+  useAutoReloadOnEtl(etl, reload);
   const [vehicle, setVehicle] = useState("รถเทรเลอร์");
   const [fleetType, setFleetType] = useState<FleetType>("รถบริษัท");
   const [month, setMonth] = useState("all");
@@ -126,6 +131,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
 
   return (
     <>
+      <EtlBanner status={etl} />
       <div className="card">
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <h2 style={{ marginRight: "auto" }}>กำไรรายเส้นทาง</h2>

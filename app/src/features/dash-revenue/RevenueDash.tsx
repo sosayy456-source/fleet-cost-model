@@ -14,6 +14,8 @@ import { ChartCard, InsightCard, Stat } from "../../lib/chart/primitives";
 import { fmtBaht, fmtPct, fmtShort, rankedShades, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
 import RefreshBtn from "../../lib/ui/RefreshBtn";
+import EtlBanner from "../../lib/ui/EtlBanner";
+import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import type { CubeRow, Dataset } from "../../lib/data/useDataset";
 
 const TABS = [
@@ -46,6 +48,9 @@ function aggregate(cube: CubeRow[], dim: string, months: string[] | null) {
 
 export default function RevenueDash() {
   const { data, error, loading, reload } = useDataset();
+  // สถานะ ETL จาก dev server — ขึ้น "กำลังแปลง…" และรีเฟรชเองเมื่อเสร็จ (เฉพาะตอน dev)
+  const etl = useEtlStatus();
+  useAutoReloadOnEtl(etl, reload);
   const [tab, setTab] = useState<Tab>("ภาพรวม");
   const [month, setMonth] = useState<string>("all");
 
@@ -75,6 +80,7 @@ export default function RevenueDash() {
 
   return (
     <>
+      <EtlBanner status={etl} />
       <div className="card">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <select value={month} onChange={(e) => setMonth(e.target.value)}>

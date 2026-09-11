@@ -47,6 +47,18 @@ function autoEtl(): Plugin {
   let running = false;
   let queued = false;
 
+  /**
+   * สถานะล่าสุด ส่งให้เบราว์เซอร์ผ่าน HMR websocket (import.meta.hot.on("etl:status"))
+   * แดชบอร์ดจะได้ขึ้น "กำลังแปลง…" และรีเฟรชเองตอนเสร็จ ไม่ต้องเดาว่าเสร็จหรือยัง
+   */
+  type Status = { state: "idle" | "running" | "done" | "error" | "cleared"; message: string; at: number };
+  let status: Status = { state: "idle", message: "", at: Date.now() };
+  let emit: (s: Status) => void = () => {};
+  const setStatus = (state: Status["state"], message: string) => {
+    status = { state, message, at: Date.now() };
+    emit(status);
+  };
+
   const run = (log: (m: string) => void) => {
     if (running) { queued = true; return; }
 
@@ -59,15 +71,19 @@ function autoEtl(): Plugin {
         if (existsSync(realDir)) {
           for (const f of readdirSync(realDir)) rmSync(resolve(realDir, f), { force: true });
         }
-        log("ไม่มีไฟล์ .xlsx ใน etl/data/revenue/ แล้ว — กลับไปใช้ข้อมูลตัวอย่าง (กด “รีเฟรชข้อมูล” ในแดชบอร์ด)");
+        log("ไม่มีไฟล์ .xlsx ใน etl/data/revenue/ แล้ว — กลับไปใช้ข้อมูลตัวอย่าง");
+        setStatus("cleared", "ไม่มีไฟล์รายได้จริงแล้ว กลับไปใช้ข้อมูลตัวอย่าง");
       } catch (e) {
         log(`✗ ล้าง public/data/real/ ไม่ได้ (${(e as Error).message}) — ลบเองแล้วกดรีเฟรช`);
+        setStatus("error", `ล้างข้อมูลเก่าไม่ได้: ${(e as Error).message}`);
       }
       return;
     }
 
     running = true;
-    log("▶ กำลังแปลงไฟล์รายได้จริงเป็น JSON (python build_json.py --dataset real) …");
+    const files = readdirSync(watchDir).filter(isXlsx);
+    log(`▶ กำลังแปลงไฟล์รายได้จริง ${files.length} ไฟล์เป็น JSON (python build_json.py --dataset real) …`);
+    setStatus("running", `กำลังแปลงไฟล์รายได้จริง ${files.length} ไฟล์ — ไฟล์ละราว 10-20 วินาที`);
     const exe = pythonExe();
     const child = spawn(exe, ["build_json.py", "--dataset", "real"], {
       cwd: etlDir, stdio: ["ignore", "pipe", "pipe"],
@@ -79,13 +95,20 @@ function autoEtl(): Plugin {
     child.on("error", (e) => {
       running = false;
       log(`✗ รัน python ไม่ได้ (${e.message}) — รันเองด้วย: cd etl && python build_json.py --dataset real`);
+      setStatus("error", `รัน python ไม่ได้: ${e.message}`);
     });
     child.on("close", (code) => {
       running = false;
-      if (code === 0) log("✓ ข้อมูลรายได้จริงพร้อมแล้ว — กด “รีเฟรชข้อมูล” ในแดชบอร์ดรายได้ได้เลย");
-      else if (/No module named/.test(tail)) {
+      if (code === 0) {
+        log("✓ ข้อมูลรายได้จริงพร้อมแล้ว");
+        setStatus("done", "ข้อมูลรายได้จริงพร้อมแล้ว");
+      } else if (/No module named/.test(tail)) {
         log(`✗ python ที่ใช้ (${exe}) ยังไม่มีไลบรารี — ติดตั้งด้วย: "${exe}" -m pip install -r etl/requirements.txt`);
-      } else log(`✗ ETL ล้มเหลว (exit ${code})\n${tail.trim()}`);
+        setStatus("error", "python ที่ใช้ยังไม่มี pandas — ดูคำสั่งติดตั้งใน terminal ของ dev server");
+      } else {
+        log(`✗ ETL ล้มเหลว (exit ${code})\n${tail.trim()}`);
+        setStatus("error", "แปลงไฟล์ไม่สำเร็จ — ดูรายละเอียดใน terminal ของ dev server");
+      }
       if (queued) { queued = false; run(log); }
     });
   };
@@ -98,6 +121,12 @@ function autoEtl(): Plugin {
       if (!existsSync(watchDir)) return;
       // อะไรก็ตามที่พังใน plugin นี้ต้องไม่ล้ม dev server — แค่บอกใน terminal แล้วปล่อยแอปรันต่อ
       const safeRun = () => { try { run(log); } catch (e) { log(`✗ ${(e as Error).message}`); } };
+
+      emit = (st) => server.ws.send({ type: "custom", event: "etl:status", data: st });
+      // แท็บที่เพิ่งเปิด/รีโหลดขอสถานะล่าสุด — ไม่งั้นจะไม่รู้ว่ากำลังแปลงอยู่
+      server.ws.on("etl:hello", (_d, client) => {
+        client.send({ type: "custom", event: "etl:status", data: status });
+      });
 
       server.watcher.add(watchDir);
       const onFile = (file: string) => {
