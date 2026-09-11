@@ -8,12 +8,15 @@
  */
 import PriceTable from "../entry/panels/PriceTable";
 import RepairTable from "../entry/panels/RepairTable";
+import RepairImport from "./RepairImport";
 
 export default function Settings() {
   return (
     <>
       <PriceTable />
       <RepairTable />
+      {/* วางใต้ตารางค่าซ่อม เพราะผลการนำเข้าลงในตารางนั้นโดยตรง */}
+      <RepairImport />
     </>
   );
 }

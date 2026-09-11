@@ -658,3 +658,24 @@ input[type="checkbox"]{width:auto;padding:0}
   transition:background .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
 .btn-copy:hover{background:var(--field-bg);border-color:var(--orange);color:var(--accent)}
 .btn-copy svg{width:14px;height:14px}
+
+/* ---- นำเข้าข้อมูลค่าซ่อมจาก Excel ----
+   ช่องวางข้อมูลสามช่อง + ตารางพรีวิว ใช้โทนเดียวกับแผงราคาน้ำมัน/ค่าซ่อม */
+.xls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:14px 0}
+@media(max-width:720px){.xls-grid{grid-template-columns:1fr}}
+.xls-box label{display:block;font-size:13px;margin-bottom:6px;color:var(--ink)}
+.xls-box textarea{width:100%;min-height:120px;resize:vertical;font-family:ui-monospace,monospace;
+  font-size:12px;line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:12px;
+  background:#fff;color:var(--ink);white-space:pre;overflow-x:auto}
+.xls-box textarea:focus{outline:none;border-color:var(--orange)}
+.xls-hint{display:block;font-weight:400;font-size:11.5px;color:var(--ink-faint);margin-top:2px}
+.xls-status{font-size:12px;font-weight:600;margin-top:5px}
+.xls-opts{display:flex;flex-direction:column;gap:8px;margin:4px 0 14px}
+.xls-opts label{display:block;font-size:13px;cursor:pointer}
+.xls-opts input{margin-right:8px;vertical-align:middle}
+.xls-warn{background:var(--field-bg);border:1px solid var(--border);border-left:3px solid var(--orange);
+  border-radius:12px;padding:12px 14px;margin-top:14px;font-size:12.5px;color:var(--ink-soft)}
+.xls-warn ul{margin:6px 0 0;padding-left:18px}
+.xls-warn li{margin:3px 0}
+.xls-prev th{text-align:center;white-space:nowrap}
+.xls-prev td.num{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
