@@ -683,3 +683,26 @@ input[type="checkbox"]{width:auto;padding:0}
 .xls-file input[type=file]{font-size:11.5px;color:var(--ink-soft);max-width:100%}
 .xls-file .btn-ghost{padding:5px 10px;font-size:11.5px}
 .xls-prevhead{font-weight:700;font-size:13px;margin:14px 0 6px;color:var(--ink)}
+
+/* ---- เลือกไฟล์นำเข้าค่าซ่อม ---- */
+.xls-grid.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.xls-drop{border:1px dashed var(--border-strong);border-radius:12px;padding:12px 14px;background:#fff}
+.xls-drop.on{border-style:solid;border-color:var(--green);background:var(--field-bg)}
+.xls-drop input[type=file]{font-size:11.5px;color:var(--ink-soft);max-width:100%}
+.xls-picked{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12.5px}
+.xls-picked b{word-break:break-all}
+.xls-picked .btn-ghost{padding:4px 10px;font-size:11.5px}
+
+/* ---- ชุดอัตราค่าซ่อมที่บันทึกไว้ ---- */
+.rep-sets{margin-top:16px;border-top:1px solid var(--border);padding-top:12px}
+.rep-sets-h{display:flex;gap:10px;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;font-size:13.5px;margin-bottom:8px}
+.rep-sets-h .btn-ghost{padding:6px 12px;font-size:12px}
+.rep-setlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.rep-setlist li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  background:var(--field-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.rep-setname{font-weight:600;font-size:13px;flex:1 1 160px;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep-setact{display:flex;gap:6px;align-items:center;margin-left:auto}
+.rep-setact .btn-ghost{padding:4px 10px;font-size:11.5px}
+.rep-setact .btn-del{width:26px;height:26px}

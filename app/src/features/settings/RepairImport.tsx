@@ -1,23 +1,22 @@
 /**
- * นำเข้าข้อมูลดิบจาก Excel เพื่ออัปเดตอัตราค่าซ่อมแซม — ตามเอกสาร "ค่าซ่อม.pdf"
+ * นำเข้าข้อมูลดิบเพื่ออัปเดตอัตราค่าซ่อมแซม — ตามเอกสาร "ค่าซ่อม.pdf"
  *
  * วางไว้ใต้ตารางค่าซ่อมในหน้าการตั้งค่า เพราะผลลัพธ์ลงในตารางนั้นโดยตรง
  *
- * รับข้อมูลสองทาง — วางจากคลิปบอร์ด (เร็วสำหรับตารางเล็ก) และเลือกไฟล์ .csv/.txt
- * (จำเป็นสำหรับรายงานค่าซ่อมจริงที่มีหลายหมื่นบรรทัด ซึ่งวางในช่องข้อความไม่ไหว)
- * ไม่รับ .xlsx โดยตรงเพราะต้องลากไลบรารีอ่าน Excel ราว 400 KB เข้ามาใน bundle
- * ที่ทุกคนต้องโหลด — Save As CSV ใน Excel ครั้งเดียวจบกว่า
+ * รับเป็น "ไฟล์" อย่างเดียว ไม่มีช่องพิมพ์/วางข้อความ — ของจริงมีหลายหมื่นบรรทัด
+ * วางในช่องข้อความไม่ไหวอยู่แล้ว และการมีสองทางทำให้ผู้ใช้ลังเลว่าต้องใช้ทางไหน
+ *
+ * ไม่มีช่องน้ำหนักถ่วงรายปี — ตารางด้านบนมีให้แก้อยู่แล้ว ไม่ต้องรับซ้ำ
  *
  * ตรรกะทั้งหมดอยู่ใน lib/repair/ — ที่นี่มีแต่หน้าจอ ตามกติกาว่าฟีเจอร์ห้ามมีสูตรของตัวเอง
  */
 import { useMemo, useRef, useState } from "react";
 import { REF } from "../../lib/refdata";
 import { useOverrides } from "../../lib/store/overrides";
+import { addSnapshot } from "../../lib/store/repairSnapshots";
 import { BASE_YEARS, KNOWN_VEHICLES, planApply } from "../../lib/repair/apply";
-import { decodeThai } from "../../lib/repair/parse";
-import {
-  ANY_FLEET, TIME_KEYWORDS, computeRates, parseMaintenance, parseOperations, parseWeights,
-} from "../../lib/repair/rates";
+import { readTable } from "../../lib/repair/parse";
+import { ANY_FLEET, TIME_KEYWORDS, computeRates, parseMaintenance, parseOperations } from "../../lib/repair/rates";
 
 const Chev = () => (
   <svg className="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -29,24 +28,33 @@ const thNum = (n: number | undefined, d: number) =>
 
 const FLEET_LABEL = (f: string) => (f === ANY_FLEET ? "ทุกประเภท" : f);
 
-/** หนึ่งช่องรับข้อมูล — วางจากคลิปบอร์ด หรือเลือกไฟล์ */
-function Box({ title, hint, value, onChange, status, tone }: {
-  title: string; hint: string; value: string;
-  onChange: (v: string) => void; status: string; tone: string;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [busy, setBusy] = useState(false);
+/** ไฟล์หนึ่งช่อง — ตารางที่อ่านได้ พร้อมชื่อไฟล์และข้อผิดพลาดถ้ามี */
+interface Picked {
+  name: string;
+  table: string[][];
+}
 
-  const pick = async (f: File | undefined) => {
+function FileBox({ title, hint, picked, error, onPick, onClear, status, tone }: {
+  title: string; hint: string; picked: Picked | null; error: string | null;
+  onPick: (p: Picked) => void; onClear: () => void; status: string; tone: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  /** ข้อผิดพลาดของการอ่านไฟล์เก็บไว้ในตัวช่องเอง ไม่ต้องดันขึ้นไปถึงหน้าหลัก */
+  const [err, setErr] = useState<string | null>(null);
+  const shown = err ?? error;
+
+  const take = async (f: File | undefined) => {
     if (!f) return;
     setBusy(true);
     try {
-      onChange(decodeThai(await f.arrayBuffer()));
-    } catch {
-      onChange("");
+      onPick({ name: f.name, table: await readTable(f) });
+    } catch (e) {
+      onClear();
+      setErr((e as Error).message);
     } finally {
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
+      if (ref.current) ref.current.value = "";
     }
   };
 
@@ -56,18 +64,21 @@ function Box({ title, hint, value, onChange, status, tone }: {
         <b>{title}</b>
         <span className="xls-hint">{hint}</span>
       </label>
-      <textarea value={value.length > 200_000 ? value.slice(0, 200_000) + "\n…" : value}
-        onChange={(e) => onChange(e.target.value)} spellCheck={false}
-        placeholder="คัดลอกจาก Excel ทั้งตาราง (รวมบรรทัดหัวตาราง) แล้ววางที่นี่ หรือเลือกไฟล์ด้านล่าง" />
-      <div className="xls-file">
-        <input ref={fileRef} type="file" accept=".csv,.tsv,.txt"
-          onChange={(e) => void pick(e.target.files?.[0])} />
-        {value && (
-          <button type="button" className="btn-ghost" onClick={() => onChange("")}>ล้างช่องนี้</button>
+
+      <div className={"xls-drop" + (picked ? " on" : "")}>
+        <input ref={ref} type="file" accept=".xlsx,.csv,.tsv,.txt"
+          onChange={(e) => { setErr(null); void take(e.target.files?.[0]); }} />
+        {picked && (
+          <div className="xls-picked">
+            <b>{picked.name}</b>
+            <button type="button" className="btn-ghost"
+              onClick={() => { setErr(null); onClear(); }}>เอาออก</button>
+          </div>
         )}
       </div>
-      <div className="xls-status" style={{ color: busy ? "var(--ink-soft)" : tone }}>
-        {busy ? "กำลังอ่านไฟล์…" : status}
+
+      <div className="xls-status" style={{ color: busy ? "var(--ink-soft)" : (shown ? "var(--red)" : tone) }}>
+        {busy ? "กำลังอ่านไฟล์…" : (shown ?? status)}
       </div>
     </div>
   );
@@ -75,48 +86,45 @@ function Box({ title, hint, value, onChange, status, tone }: {
 
 export default function RepairImport() {
   const [ovr, setOvr] = useOverrides();
-  const [maintText, setMaintText] = useState("");
-  const [opText, setOpText] = useState("");
-  const [weightText, setWeightText] = useState("");
+  const [maintFile, setMaintFile] = useState<Picked | null>(null);
+  const [opFile, setOpFile] = useState<Picked | null>(null);
   const [mergeTrailer, setMergeTrailer] = useState(true);
-  const [useWeights, setUseWeights] = useState(true);
   const [preview, setPreview] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: string } | null>(null);
 
-  const maint = useMemo(() => parseMaintenance(maintText), [maintText]);
-  const ops = useMemo(() => parseOperations(opText), [opText]);
-  const weights = useMemo(() => parseWeights(weightText), [weightText]);
+  const maint = useMemo(
+    () => (maintFile ? parseMaintenance(maintFile.table) : null), [maintFile]);
+  const ops = useMemo(
+    () => (opFile ? parseOperations(opFile.table) : null), [opFile]);
 
-  const ready = maint.rows.length > 0 && ops.rows.length > 0;
+  const ready = !!maint?.rows.length && !!ops?.rows.length;
 
   const result = useMemo(
     () => (ready
-      ? computeRates(maint.rows, ops.rows, weights.rows, { mergeTrailer, knownVehicles: KNOWN_VEHICLES })
+      ? computeRates(maint!.rows, ops!.rows, [], { mergeTrailer, knownVehicles: KNOWN_VEHICLES })
       : null),
-    [ready, maint.rows, ops.rows, weights.rows, mergeTrailer],
+    [ready, maint, ops, mergeTrailer],
   );
 
+  // น้ำหนักถ่วงมาจากตารางด้านบนเสมอ — หน้านี้ไม่รับน้ำหนักเข้ามาแล้ว
   const plan = useMemo(
-    () => (result ? planApply(result, ovr.repair, { useWeights }) : null),
-    [result, ovr.repair, useWeights],
+    () => (result ? planApply(result, ovr.repair, { useWeights: false }) : null),
+    [result, ovr.repair],
   );
 
-  /** น้ำหนักที่จะใช้จริงตอนถ่วง — เอาไว้โชว์คอลัมน์ POR ให้ตรงกับที่จะได้จริง */
-  const effWeights = BASE_YEARS.map((y, i) =>
-    (useWeights ? result?.weights[y] : undefined)
-    ?? ovr.repair?.weights?.[i] ?? REF.repair.weights[i] ?? 0);
+  const effWeights = BASE_YEARS.map((_, i) =>
+    ovr.repair?.weights?.[i] ?? REF.repair.weights[i] ?? 0);
 
   const por = (rates: Record<number, number> | undefined) =>
     BASE_YEARS.reduce((s, y, i) => s + ((rates?.[y] ?? 0) * (effWeights[i] ?? 0)), 0);
 
-  /** แถวของตารางอัตราตามเวลา — หนึ่งแถวต่อ ชนิดรถ × ประเภทรถ */
   const timeRows = (result?.vehicles ?? []).flatMap((v) =>
     Object.entries(v.time).map(([fleet, byYear]) => ({ vehicle: v.vehicle, fleet, byYear })));
-
   const distRows = (result?.vehicles ?? []).filter((v) => Object.keys(v.dist).length);
 
-  const statusOf = (t: { rows: unknown[]; missing: string[] }, text: string) => {
-    if (!text.trim()) return { text: "ยังไม่ได้ใส่ข้อมูล", tone: "var(--ink-faint)" };
+  const statusOf = (t: { rows: unknown[]; missing: string[] } | null, picked: Picked | null) => {
+    if (!picked) return { text: "ยังไม่ได้เลือกไฟล์", tone: "var(--ink-faint)" };
+    if (!t) return { text: "อ่านไฟล์ไม่ได้", tone: "var(--red)" };
     if (t.missing.length) return { text: `หาคอลัมน์ไม่เจอ: ${t.missing.join(", ")}`, tone: "var(--red)" };
     if (!t.rows.length) return { text: "อ่านข้อมูลไม่ได้สักบรรทัด", tone: "var(--red)" };
     return { text: `อ่านได้ ${t.rows.length.toLocaleString("th-TH")} บรรทัด ✓`, tone: "var(--green)" };
@@ -124,22 +132,23 @@ export default function RepairImport() {
 
   const apply = () => {
     if (!plan || !plan.cells) return;
+    // ★ เก็บของเดิมไว้เป็นชุดก่อนทับเสมอ ผู้ใช้จึงย้อนกลับได้แม้กดทับไปแล้ว
+    const kept = addSnapshot(`ก่อนนำเข้า ${maintFile?.name ?? ""}`.trim(), ovr.repair ?? {});
     setOvr({ ...ovr, repair: plan.repair });
     setMsg({
       text: `อัปเดตอัตราค่าซ่อมแล้ว ${plan.cells} ช่อง · ${plan.vehicles.length} ชนิดรถ`
-        + " (ย้อนกลับได้ที่ลิงก์ “↺ ย้อนกลับไปใช้ค่าเดิมทั้งหมด” ในตารางด้านบน)",
+        + ` · เก็บชุดค่าเดิมไว้ให้แล้วในชื่อ “${kept[0]?.name ?? ""}”`,
       tone: "var(--green)",
     });
     setPreview(false);
   };
 
   const clearAll = () => {
-    setMaintText(""); setOpText(""); setWeightText("");
-    setPreview(false); setMsg(null);
+    setMaintFile(null); setOpFile(null); setPreview(false); setMsg(null);
   };
 
   const allWarnings = [
-    ...maint.warnings, ...ops.warnings, ...weights.warnings,
+    ...(maint?.warnings ?? []), ...(ops?.warnings ?? []),
     ...(result?.warnings ?? []), ...(plan?.warnings ?? []),
   ];
 
@@ -147,39 +156,36 @@ export default function RepairImport() {
     <div className="card">
       <details className="prices">
         <summary>
-          📥 อัปเดตอัตราค่าซ่อมจากข้อมูล Excel · กดเพื่อเปิด
+          📥 อัปเดตอัตราค่าซ่อมจากไฟล์ Excel · กดเพื่อเปิด
           <Chev />
         </summary>
 
         <div className="price-note" style={{ marginTop: 12 }}>
-          ใส่ข้อมูลได้สองทาง — <b>คัดลอกจาก Excel แล้ววาง</b> (รวมบรรทัดหัวตาราง) หรือ{" "}
-          <b>เลือกไฟล์ .csv</b> ที่ Save As มาจาก Excel (แนะนำสำหรับรายงานจริงที่มีหลายหมื่นบรรทัด)<br />
+          เลือกไฟล์ <b>.xlsx</b> หรือ <b>.csv</b> ที่ส่งออกจากระบบบัญชี แล้วกด “คำนวณอัตรา” —
+          ผลลัพธ์จะไปลงตารางค่าซ่อมด้านบนเมื่อกดยืนยัน<br />
           <b>วิธีแบ่งประเภทค่าใช้จ่าย:</b> ชื่อบัญชีมีคำว่า “สินทรัพย์รอตัดบัญชี” → คิดตามเวลา
           โดยหารยอดด้วย 8 · รายละเอียดการซ่อมตรงกับคำสำคัญ {TIME_KEYWORDS.length} คำ
           (ประกันภัย · ภาษี · GPS · ตรวจเช็ค 68 จุด · บำรุงรักษายาง ฯลฯ) → คิดตามเวลาเต็มจำนวน ·
           ที่เหลือ → คิดตามระยะทาง<br />
           <b>อัตรา:</b> ตามเวลา = ยอดกลุ่มเวลา ÷ จำนวนวัน <i>(แยกตามประเภทรถ)</i> ·
-          ตามระยะทาง = ยอดกลุ่มระยะทาง ÷ ระยะทางรวม <i>(รวมทุกประเภทรถ เพราะตารางใช้แถวเดียวกัน)</i>
+          ตามระยะทาง = ยอดกลุ่มระยะทาง ÷ ระยะทางรวม <i>(รวมทุกประเภทรถ เพราะตารางใช้แถวเดียวกัน)</i><br />
+          <b>น้ำหนักถ่วงรายปี</b> ใช้ค่าที่ตั้งไว้ในตารางด้านบน ไม่ต้องใส่ซ้ำที่นี่
         </div>
 
-        <div className="xls-grid">
-          <Box
+        <div className="xls-grid two">
+          <FileBox
             title="1 · รายงานค่าซ่อมตามงวด"
             hint="ต้องมี: ชนิดรถ · จำนวนเงิน · วันที่ตามงวด (หรือ ปี) — ควรมี: ประเภทรถ · ชื่อบัญชี · รายละเอียดการซ่อม"
-            value={maintText} onChange={setMaintText}
-            status={statusOf(maint, maintText).text} tone={statusOf(maint, maintText).tone}
+            picked={maintFile} error={null}
+            onPick={setMaintFile} onClear={() => setMaintFile(null)}
+            status={statusOf(maint, maintFile).text} tone={statusOf(maint, maintFile).tone}
           />
-          <Box
+          <FileBox
             title="2 · ข้อมูลการปฏิบัติงาน"
             hint="ต้องมี: ปี · ชนิดรถ · ระยะทางรวม · จำนวนวันรวม — ควรมี: ประเภทรถ (รถบริษัท/รถร่วม)"
-            value={opText} onChange={setOpText}
-            status={statusOf(ops, opText).text} tone={statusOf(ops, opText).tone}
-          />
-          <Box
-            title="3 · น้ำหนักถ่วงรายปี"
-            hint="ต้องมี: ปี · น้ำหนัก (ใส่ 20% หรือ 0.2 ก็ได้) — ไม่ใส่ก็ได้ ระบบจะใช้น้ำหนักเดิม"
-            value={weightText} onChange={setWeightText}
-            status={statusOf(weights, weightText).text} tone={statusOf(weights, weightText).tone}
+            picked={opFile} error={null}
+            onPick={setOpFile} onClear={() => setOpFile(null)}
+            status={statusOf(ops, opFile).text} tone={statusOf(ops, opFile).tone}
           />
         </div>
 
@@ -192,11 +198,6 @@ export default function RepairImport() {
               ควรเปิดไว้ — ในระบบนี้รถเทรเลอร์ชี้ไปที่หัวลากอย่างเดียว แถวของหางจึงไม่เคยถูกใช้
             </span>
           </label>
-          <label>
-            <input type="checkbox" checked={useWeights}
-              onChange={(e) => setUseWeights(e.target.checked)} />
-            ใช้น้ำหนักถ่วงจากตารางที่ 3 ทับของเดิม
-          </label>
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
@@ -205,9 +206,7 @@ export default function RepairImport() {
             คำนวณอัตรา
           </button>
           <button className="btn-ghost" type="button" onClick={clearAll}>ล้างทั้งหมด</button>
-          {!ready && (
-            <span className="locknote">ต้องมีอย่างน้อยตารางที่ 1 และ 2 ถึงจะคำนวณได้</span>
-          )}
+          {!ready && <span className="locknote">ต้องเลือกไฟล์ทั้งสองช่องก่อนจึงจะคำนวณได้</span>}
         </div>
 
         {allWarnings.length > 0 && (
@@ -294,7 +293,7 @@ export default function RepairImport() {
               </button>
               <button className="btn-ghost" type="button" onClick={() => setPreview(false)}>ยกเลิก</button>
               <span className="locknote">
-                เขียนเป็น “ค่าที่แก้เอง” ทับฐานกลาง ย้อนกลับได้ทุกเมื่อ ไม่ได้แก้ไฟล์ต้นฉบับ
+                ชุดค่าเดิมจะถูกเก็บไว้ให้อัตโนมัติก่อนทับ — เลือกย้อนกลับได้ในตารางด้านบน
               </span>
             </div>
           </>

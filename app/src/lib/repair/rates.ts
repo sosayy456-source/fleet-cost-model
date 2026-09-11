@@ -321,11 +321,15 @@ const HEAD_MAINT = {
 };
 
 /** แถวที่เป็นหัวตารางซ้ำ (รายงานหลายหน้าพิมพ์หัวซ้ำทุกหน้า) ต้องข้าม */
+/** รับได้ทั้งข้อความดิบ (วางจากคลิปบอร์ด) และตารางที่แยกมาแล้ว (จากไฟล์ .xlsx) */
+const asTable = (src: string | string[][]): string[][] =>
+  Array.isArray(src) ? src : parseDelimited(src);
+
 const isHeaderEcho = (cell: string, aliases: string[]): boolean =>
   aliases.some((a) => normHeader(a) === normHeader(cell));
 
-export function parseMaintenance(text: string): ParsedTable<MaintRow> {
-  const table = parseDelimited(text);
+export function parseMaintenance(src: string | string[][]): ParsedTable<MaintRow> {
+  const table = asTable(src);
   if (table.length < 2) return { rows: [], missing: ["ไม่มีข้อมูล"], warnings: [] };
 
   const head = table[0]!;
@@ -386,8 +390,8 @@ const HEAD_OP = {
   days: ["จำนวนวันรวม", "จำนวนวันทำงานรวม", "จำนวนวัน", "วัน"],
 };
 
-export function parseOperations(text: string): ParsedTable<OpRow> {
-  const table = parseDelimited(text);
+export function parseOperations(src: string | string[][]): ParsedTable<OpRow> {
+  const table = asTable(src);
   if (table.length < 2) return { rows: [], missing: ["ไม่มีข้อมูล"], warnings: [] };
 
   const head = table[0]!;
@@ -423,8 +427,8 @@ export function parseOperations(text: string): ParsedTable<OpRow> {
   return { rows, missing: [], warnings };
 }
 
-export function parseWeights(text: string): ParsedTable<WeightRow> {
-  const table = parseDelimited(text);
+export function parseWeights(src: string | string[][]): ParsedTable<WeightRow> {
+  const table = asTable(src);
   if (table.length < 2) return { rows: [], missing: ["ไม่มีข้อมูล"], warnings: [] };
 
   const head = table[0]!;

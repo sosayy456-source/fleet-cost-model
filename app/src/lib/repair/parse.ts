@@ -1,12 +1,10 @@
 /**
- * อ่านตารางที่ผู้ใช้คัดลอกมาจาก Excel
- *
- * คัดลอกจาก Excel แล้ววางในเว็บจะได้ข้อความคั่นด้วยแท็บ (TSV) ไม่ใช่ไฟล์ .xlsx
- * จึงไม่ต้องใช้ไลบรารีอ่าน Excel เลย — รับทั้ง TSV และ CSV โดยเดาตัวคั่นจากบรรทัดหัวตาราง
+ * อ่านไฟล์ตารางที่ผู้ใช้เลือก — .xlsx ผ่าน xlsx.ts · .csv/.tsv/.txt ผ่านตัวแยกในไฟล์นี้
  *
  * ★ เดาตัวคั่นจาก "บรรทัดแรกที่มีข้อมูล" เท่านั้น ไม่ใช่ทั้งก้อน
  *   เพราะช่องรายละเอียดการซ่อมมักมีจุลภาคอยู่ข้างใน ถ้านับทั้งไฟล์จะเดาเป็น CSV ผิด ๆ
  */
+import { isXlsx, readXlsx } from "./xlsx";
 
 /** ช่องว่างที่มองไม่เห็นซึ่งติดมากับการคัดลอก — NBSP และ zero-width */
 const INVISIBLE = /[ ​-‍﻿]/g;
@@ -145,5 +143,38 @@ export function toBEYear(v: string | undefined): number | null {
   const plain = /^(\d{4})$/.exec(s);
   if (plain) return asBE(Number(plain[1]));
 
+  // ★ วันที่ใน Excel เก็บเป็น "เลขลำดับวัน" นับจาก 30/12/1899 ไม่ใช่ข้อความ
+  //   ช่วง 20000-80000 คือ ค.ศ. 1954-2119 ซึ่งไม่ทับกับปีสี่หลัก (2567/2024)
+  //   ที่ดักไปแล้วข้างบน จึงแยกจากกันได้แน่นอน
+  const serial = /^(\d{5})(?:\.\d+)?$/.exec(s);
+  if (serial) {
+    const n = Number(serial[1]);
+    if (n >= 20_000 && n <= 80_000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + n * 86_400_000);
+      return asBE(d.getUTCFullYear());
+    }
+  }
+
   return null;
+}
+
+/**
+ * อ่านไฟล์ที่ผู้ใช้เลือกเป็นตาราง — รับ .xlsx, .csv, .tsv, .txt
+ * @throws Error พร้อมข้อความภาษาไทยเมื่อรูปแบบไฟล์ยังไม่รองรับ
+ */
+export async function readTable(file: File): Promise<string[][]> {
+  const name = file.name;
+  const buf = await file.arrayBuffer();
+
+  if (isXlsx(name)) return readXlsx(buf);
+  if (/\.pdf$/i.test(name)) {
+    throw new Error(
+      "ไฟล์ PDF ยังอ่านไม่ได้ — ข้อความไทยในชั้นข้อความของรายงานถูกสลับรูปสระ "
+      + "ทำให้ชื่อชนิดรถเพี้ยน ส่งออกจากระบบเป็น .xlsx หรือ .csv แทน",
+    );
+  }
+  if (/\.xls$/i.test(name)) {
+    throw new Error("ไฟล์ .xls รุ่นเก่ายังอ่านไม่ได้ — เปิดใน Excel แล้ว Save As เป็น .xlsx");
+  }
+  return parseDelimited(decodeThai(buf));
 }
