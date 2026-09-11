@@ -19,6 +19,7 @@ import Settings from "./features/settings/Settings";
 const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
 const RevenueDash = lazy(() => import("./features/dash-revenue/RevenueDash"));
 const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
+import ErrorBoundary from "./lib/ui/ErrorBoundary";
 import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
 import { billIsPaid, recBills } from "./lib/record/payment";
 import { useRecords } from "./lib/store/useRecords";
@@ -153,17 +154,20 @@ export default function App() {
         <section className="view active" id={`view-${cur?.view ?? "form"}`}>
           {cur && <div className="page-h"><h1>{cur.h1}</h1></div>}
 
-          {page === "entry" && <EntryForm role={role} state={state} />}
-          {page === "drafts" && <Drafts state={state} />}
-          {page === "records" && <RecordsList state={state} />}
-          {page === "debtors" && <Debtors state={state} />}
-          {page === "settings" && <Settings />}
-          <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
-            {page === "dash-fleet" && <FleetDash state={state} />}
-            {page === "dash-revenue" && <RevenueDash />}
-            {page === "route-profit" && <RouteProfit state={state} />}
-          </Suspense>
-          {page === "custcode" && <CustCode />}
+          {/* ครอบเฉพาะเนื้อหน้า เพื่อให้หน้าที่พังไม่ลากเมนูซ้ายไปด้วย — เปลี่ยนหน้าแล้วลองใหม่ได้เลย */}
+          <ErrorBoundary resetKey={page} where={cur ? `หน้า “${cur.h1}”` : undefined}>
+            {page === "entry" && <EntryForm role={role} state={state} />}
+            {page === "drafts" && <Drafts state={state} />}
+            {page === "records" && <RecordsList state={state} />}
+            {page === "debtors" && <Debtors state={state} />}
+            {page === "settings" && <Settings />}
+            <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
+              {page === "dash-fleet" && <FleetDash state={state} />}
+              {page === "dash-revenue" && <RevenueDash />}
+              {page === "route-profit" && <RouteProfit state={state} />}
+            </Suspense>
+            {page === "custcode" && <CustCode />}
+          </ErrorBoundary>
         </section>
 
         {/* บรรทัดท้ายหน้า — main มีอยู่นอก section ทุกหน้าจึงเห็นเหมือนกันหมด */}

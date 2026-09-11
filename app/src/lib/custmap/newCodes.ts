@@ -14,7 +14,7 @@
  *   ไม่งั้นแค่เปิดหน้าดูใบก็กินเลขไปเรื่อย ๆ ทั้งที่ยังไม่ได้บันทึกอะไร
  */
 import { useCallback, useEffect, useState } from "react";
-import { custCode, peekCustMap } from "./custmap";
+import { custCode, isFullHash, peekCustCount, peekCustMap } from "./custmap";
 
 const LS_KEY = "custNewCodes";
 /** เหตุการณ์ของหน้าต่างเดียวกัน — storage event ไม่ยิงให้แท็บที่เขียนเอง */
@@ -45,10 +45,11 @@ function save(map: NewCodeMap): void {
 
 /**
  * จำนวนรหัสในไฟล์แปลงรหัส — ใช้เป็นฐานของเลขถัดไป
- * ถ้ายังไม่ได้โหลดตาราง (ผู้ใช้ยังไม่เข้าหน้าค้นรหัส) จะเป็น 0 ซึ่งทำให้ออกเลขทับของเดิมได้
- * จึงต้อง await ensureCustMap() ก่อนเรียก registerBills เสมอ — main ก็ทำแบบเดียวกัน (custEnsure)
+ * ถ้ายังไม่รู้จำนวน จะเป็น 0 ซึ่งทำให้ออกเลขทับของเดิมได้
+ * จึงต้อง await ensureCustCount() ก่อนเรียก registerBills เสมอ — main ใช้ custEnsure() ที่โหลดทั้งไฟล์
+ * แต่ตรงนี้พอรู้แค่ "ไฟล์มีกี่ระเบียน" ซึ่ง HEAD request เดียวก็ได้คำตอบแล้ว
  */
-const fileCount = (): number => peekCustMap()?.count ?? 0;
+const fileCount = (): number => peekCustCount();
 
 /** เลขถัดไปที่จะออก — ต่อจากทั้งไฟล์และรหัสที่เคยออกไปแล้ว */
 export function nextNumber(map: NewCodeMap = loadNewCodes()): number {
@@ -78,15 +79,20 @@ export function isOwnCode(orig: string | null | undefined, map?: NewCodeMap): bo
  * เขียนลง localStorage ครั้งเดียวตอนจบ ไม่ใช่ทีละราย
  */
 export function registerBills(bills: { sender?: string; receiver?: string }[]): number {
-  // ไม่มีตาราง = ไม่รู้ว่าไฟล์มีถึงเลขไหน ออกรหัสไปจะทับของเดิม — ยอมไม่ออกดีกว่า
-  if (!peekCustMap()) return 0;
+  // ไม่รู้จำนวนระเบียนในไฟล์ = ออกรหัสไปจะทับของเดิม — ยอมไม่ออกดีกว่า
+  if (!peekCustCount()) return 0;
   const map = loadNewCodes();
   let next = nextNumber(map);
   let issued = 0;
   for (const b of bills ?? []) {
     for (const raw of [b.sender, b.receiver]) {
       const s = String(raw ?? "").trim();
-      if (!s || map[s] || peekCustMap()?.codeFor(s)) continue;
+      if (!s || map[s]) continue;
+      // รหัสต้นฉบับต้องเทียบกับไฟล์ก่อน ไม่งั้นลูกค้าที่มีรหัสอยู่แล้วจะได้รหัสใหม่ซ้อน
+      // ถ้ายังไม่ได้โหลดตารางเต็มก็ยอม "ไม่ออกรหัส" ดีกว่าออกผิด (ผู้เรียกควร await ensureCustMap ก่อน)
+      if (isFullHash(s)) {
+        if (!peekCustMap() || peekCustMap()!.codeFor(s)) continue;
+      }
       map[s] = next++;
       issued++;
     }

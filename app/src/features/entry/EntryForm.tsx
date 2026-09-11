@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
 import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
-import { custCode, ensureCustMap, peekCustMap } from "../../lib/custmap/custmap";
+import { custCode, ensureCustCount, ensureCustMap, isFullHash, peekCustCount, peekCustMap } from "../../lib/custmap/custmap";
 import { nextNumber, registerBills, useNewCodes } from "../../lib/custmap/newCodes";
 import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleAllDone, roleDone } from "../../lib/record/roles";
 import { recPayInfo } from "../../lib/record/payment";
@@ -116,16 +116,31 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   const [ovr] = useOverrides();
   const [roster] = useRoster();
   const newCodes = useNewCodes();
-  /** ตารางรหัสลูกค้าโหลดเสร็จหรือยัง — โน้ตใต้แถวบิลรอค่านี้ เหมือน CUST_READY ของ main */
-  const [custReady, setCustReady] = useState(() => !!peekCustMap());
+  /** รู้จำนวนระเบียนในไฟล์แล้วหรือยัง — พอสำหรับพรีวิวรหัสลูกค้าใหม่ เหมือน CUST_READY ของ main */
+  const [custReady, setCustReady] = useState(() => !!peekCustCount());
+  /** ตารางเต็มโหลดแล้วหรือยัง — ต้องใช้เฉพาะตอนมีรหัสต้นฉบับในช่องผู้ส่ง/ผู้รับ */
+  const [tableReady, setTableReady] = useState(() => !!peekCustMap());
 
-  // โหลดตารางรหัสตั้งแต่เปิดฟอร์ม เพราะต้องใช้ทั้งตอนพรีวิวและตอนบันทึก
-  // ถ้าไม่มีไฟล์ก็ปล่อยผ่าน — ฟอร์มยังกรอกได้ แค่ไม่โชว์รหัสย่อให้
+  // ★ หน้านี้ไม่โหลดตารางเต็ม 18 MB อีกแล้ว — ขอแค่จำนวนระเบียนผ่าน HEAD
+  //   เพราะสิ่งเดียวที่ต้องใช้จริงคือ "ไฟล์มีถึงเลขไหน" เพื่อออกรหัสลูกค้าใหม่ต่อท้าย
+  //   ฝ่ายบริการลูกค้ากับฝ่ายจัดรถเปิดหน้านี้เป็นหน้าแรก จะให้รอโหลด 18 MB ก่อนกรอกไม่ไหว
   useEffect(() => {
     let alive = true;
-    ensureCustMap().then(() => { if (alive) setCustReady(true); }).catch(() => { /* ไม่มีไฟล์ตาราง */ });
+    ensureCustCount().then(() => { if (alive) setCustReady(true); }).catch(() => { /* ไม่มีไฟล์ตาราง */ });
     return () => { alive = false; };
   }, []);
+
+  /** ช่องผู้ส่ง/ผู้รับที่เป็นรหัสต้นฉบับ (hex 64 ตัว) — มีเมื่อไหร่ถึงค่อยโหลดตารางเต็ม */
+  const hasHash = rec.bills.some((b) => isFullHash(String(b.sender ?? "")) || isFullHash(String(b.receiver ?? "")));
+
+  // ชื่อบริษัทที่พิมพ์เองไม่มีทางตรงกับไฟล์อยู่แล้ว (codeFor รับเฉพาะ hex 64 ตัวเป๊ะ)
+  // จึงโหลดตารางเฉพาะตอนที่มีรหัสต้นฉบับจริง ๆ ในใบ — ไม่งั้นเสียเน็ต 18 MB ฟรี
+  useEffect(() => {
+    if (!hasHash || tableReady) return;
+    let alive = true;
+    ensureCustMap().then(() => { if (alive) setTableReady(true); }).catch(() => { /* ไม่มีไฟล์ตาราง */ });
+    return () => { alive = false; };
+  }, [hasHash, tableReady]);
 
   useEffect(() => {
     const id = sessionStorage.getItem("editRecordId");
@@ -184,19 +199,24 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
         if (!s || out.has(s)) continue;
         const own = newCodes[s];
         if (own) { out.set(s, { code: custCode(own), kind: "own" }); continue; }
+        // รหัสต้นฉบับที่ยังรอตารางเต็มอยู่ ต้องไม่ถูกพรีวิวว่าเป็นลูกค้าใหม่
+        // ไม่งั้นตัวเลขจะกระพริบเปลี่ยนตอนตารางโหลดเสร็จ
+        if (isFullHash(s) && !tableReady) continue;
         const fromFile = peekCustMap()?.codeFor(s) ?? null;
         if (fromFile) { out.set(s, { code: fromFile, kind: "file" }); continue; }
         out.set(s, { code: custCode(next++), kind: "pending" });
       }
     }
     return out;
-  }, [rec.bills, newCodes, custReady]);
+  }, [rec.bills, newCodes, custReady, tableReady]);
 
   /** ช่องหนึ่งของโน้ตใต้แถวบิล */
   const CustCell = ({ label, raw }: { label: string; raw: string }) => {
     const s = String(raw ?? "").trim();
     if (!s) return <span className="cx"><b>{label}:</b> <span className="wait">— ยังไม่ได้กรอก —</span></span>;
-    if (!custReady) return <span className="cx"><b>{label}:</b> <span className="wait">กำลังเตรียมฐานข้อมูลรหัส…</span></span>;
+    if (!custReady || (isFullHash(s) && !tableReady)) {
+      return <span className="cx"><b>{label}:</b> <span className="wait">กำลังเตรียมฐานข้อมูลรหัส…</span></span>;
+    }
     const hit = custPreview.get(s);
     if (!hit) return <span className="cx"><b>{label}:</b> <span className="wait">—</span></span>;
     const isNew = hit.kind !== "file";
@@ -262,7 +282,13 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       // เพราะช่องผู้ส่ง/ผู้รับเป็นของฝ่ายนั้น ฝ่ายอื่นกดบันทึกไม่ควรไปกินเลขรหัส
       if (role === "cs" || role === "admin" || editZones.has("cs")) {
         try {
-          await ensureCustMap();
+          // รู้จำนวนระเบียนก่อนเสมอ ไม่งั้นเลขที่ออกจะทับของในไฟล์
+          await ensureCustCount();
+          // ตารางเต็มต้องใช้เฉพาะตอนมีรหัสต้นฉบับในใบ — เพื่อไม่ให้ออกรหัสซ้อนรายที่มีอยู่แล้ว
+          const needTable = ready.bills.some(
+            (b) => isFullHash(String(b.sender ?? "")) || isFullHash(String(b.receiver ?? "")),
+          );
+          if (needTable) await ensureCustMap();
           registerBills(ready.bills);
         } catch { /* ไม่มีไฟล์ตาราง — ข้ามการออกรหัส ไม่งั้นจะออกเลขทับของไฟล์ */ }
       }

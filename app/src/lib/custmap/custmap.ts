@@ -44,6 +44,9 @@ export const isCustCode = (s: string): boolean => CODE_RE.test(s.trim());
 export const isFullHash = (s: string): boolean => HASH_RE.test(s.trim());
 
 let cache: Promise<CustMap> | null = null;
+let countCache: Promise<number> | null = null;
+/** จำนวนระเบียนในไฟล์ที่รู้แล้ว — มาจาก HEAD หรือจากตารางที่โหลดเต็มแล้วก็ได้ */
+let knownCount = 0;
 
 /** ที่อยู่ไฟล์ตาราง — วางไว้ใน public/ จึงเดินตาม base path ของ Vite */
 export const CUSTMAP_URL = `${import.meta.env.BASE_URL}custmap.bin`;
@@ -58,6 +61,38 @@ export const ensureCustMap = (): Promise<CustMap> => loadCustMap(CUSTMAP_URL);
 export function loadCustMap(url: string): Promise<CustMap> {
   cache ??= build(url).then(rememberCustMap).catch((e) => { cache = null; throw e; });
   return cache;
+}
+
+/**
+ * รู้ว่าไฟล์มีกี่ระเบียน โดยไม่ต้องโหลดไฟล์ 18 MB ทั้งก้อน
+ *
+ * หน้าบันทึกข้อมูลต้องรู้แค่ "ไฟล์มีถึงเลขไหน" เพื่อออกรหัสลูกค้าใหม่ต่อท้ายให้ถูก
+ * ไม่ได้ต้องการตัวตารางจริง ๆ เว้นแต่ผู้ใช้วางรหัสต้นฉบับลงช่องผู้ส่ง/ผู้รับ
+ * ระเบียนมีขนาดคงที่ จำนวนจึงหาได้จาก Content-Length ตรง ๆ ด้วย HEAD request เดียว
+ *
+ * ★ ลำดับการเดารุ่นไฟล์ต้องตรงกับ build() เป๊ะ (ลอง 32 ก่อน แล้วค่อย 6)
+ *   ไม่งั้นไฟล์ที่หารลงตัวทั้งคู่จะนับจำนวนไม่ตรงกันระหว่างสองทาง แล้วรหัสจะเลื่อน
+ */
+export function ensureCustCount(url = CUSTMAP_URL): Promise<number> {
+  if (knownCount) return Promise.resolve(knownCount);
+  countCache ??= headCount(url)
+    .then((n) => { knownCount = n; return n; })
+    .catch((e) => { countCache = null; throw e; });
+  return countCache;
+}
+
+async function headCount(url: string): Promise<number> {
+  const res = await fetch(url, { method: "HEAD" });
+  if (!res.ok) throw new Error(`อ่านขนาดตารางรหัสลูกค้าไม่ได้ (HTTP ${res.status})`);
+
+  const len = Number(res.headers.get("content-length"));
+  if (!Number.isFinite(len) || len <= 0) {
+    // บาง host ไม่ส่ง Content-Length มากับ HEAD — ยอมถอยไปโหลดทั้งไฟล์ดีกว่าออกรหัสผิด
+    return (await loadCustMap(url)).count;
+  }
+  if (len % FULL_BYTES === 0) return len / FULL_BYTES;
+  if (len % PREFIX_BYTES === 0) return len / PREFIX_BYTES;
+  throw new Error("ไฟล์ตารางรหัสลูกค้าเสียหาย ขนาดไม่ลงตัวกับระเบียนละ 32 หรือ 6 ไบต์");
 }
 
 async function build(url: string): Promise<CustMap> {
@@ -137,7 +172,13 @@ let resolved: CustMap | null = null;
 export const peekCustMap = (): CustMap | null => resolved;
 
 /** เรียกจาก loadCustMap เมื่อสร้างเสร็จ — แยกเป็นฟังก์ชันเพื่อไม่ให้ build() รู้จัก state ภายนอก */
-export function rememberCustMap(m: CustMap): CustMap { resolved = m; return m; }
+export function rememberCustMap(m: CustMap): CustMap { resolved = m; knownCount = m.count; return m; }
+
+/**
+ * จำนวนระเบียนในไฟล์เท่าที่รู้ — 0 แปลว่ายังไม่รู้ ห้ามออกรหัสใหม่
+ * ต่างจาก peekCustMap() ตรงที่ค่านี้มีตั้งแต่ยิง HEAD เสร็จ ไม่ต้องรอโหลดทั้งไฟล์
+ */
+export const peekCustCount = (): number => knownCount;
 
 /** ดูเหมือนรหัสต้นฉบับ (hex ยาว ๆ) ไหม — v5:isHashLike */
 export const isHashLike = (s: string): boolean => /^[0-9a-f]{16,}$/i.test(s.trim());

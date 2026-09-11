@@ -40,6 +40,16 @@ export const todayISO = (): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
+/**
+ * เวลาปัจจุบันตามเครื่อง รูปแบบ 'YYYY-MM-DD HH:mm' — ใช้ประทับว่าฝ่ายไหนกรอกเมื่อไหร่
+ * เหตุผลเดียวกับ todayISO() ห้ามใช้ toISOString() เพราะเป็น UTC
+ * ผู้ใช้ในไทย (UTC+7) จะได้เวลาย้อนหลังไป 7 ชั่วโมง และก่อนเจ็ดโมงเช้าวันที่จะเป็นเมื่อวาน
+ */
+export const nowStamp = (): string => {
+  const d = new Date();
+  return `${todayISO()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export function daysBetween(a: string | null | undefined, b: string | null | undefined): number | null {
   if (!a || !b) return null;
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
