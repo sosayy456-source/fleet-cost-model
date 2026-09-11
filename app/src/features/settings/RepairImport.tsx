@@ -3,18 +3,20 @@
  *
  * วางไว้ใต้ตารางค่าซ่อมในหน้าการตั้งค่า เพราะผลลัพธ์ลงในตารางนั้นโดยตรง
  *
- * ทำไมเป็นช่องวางข้อความ ไม่ใช่ปุ่มอัปโหลด .xlsx:
- * คัดลอกจาก Excel แล้ววางจะได้ข้อความคั่นแท็บมาอยู่แล้ว อ่านได้ทันทีโดยไม่ต้อง
- * ลากไลบรารีอ่าน .xlsx (ราว 400 KB) เข้ามาใน bundle ที่ทุกคนต้องโหลด
+ * รับข้อมูลสองทาง — วางจากคลิปบอร์ด (เร็วสำหรับตารางเล็ก) และเลือกไฟล์ .csv/.txt
+ * (จำเป็นสำหรับรายงานค่าซ่อมจริงที่มีหลายหมื่นบรรทัด ซึ่งวางในช่องข้อความไม่ไหว)
+ * ไม่รับ .xlsx โดยตรงเพราะต้องลากไลบรารีอ่าน Excel ราว 400 KB เข้ามาใน bundle
+ * ที่ทุกคนต้องโหลด — Save As CSV ใน Excel ครั้งเดียวจบกว่า
  *
  * ตรรกะทั้งหมดอยู่ใน lib/repair/ — ที่นี่มีแต่หน้าจอ ตามกติกาว่าฟีเจอร์ห้ามมีสูตรของตัวเอง
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { REF } from "../../lib/refdata";
 import { useOverrides } from "../../lib/store/overrides";
-import { BASE_YEARS, planApply } from "../../lib/repair/apply";
+import { BASE_YEARS, KNOWN_VEHICLES, planApply } from "../../lib/repair/apply";
+import { decodeThai } from "../../lib/repair/parse";
 import {
-  TIME_KEYWORDS, computeRates, parseMaintenance, parseOperations, parseWeights,
+  ANY_FLEET, TIME_KEYWORDS, computeRates, parseMaintenance, parseOperations, parseWeights,
 } from "../../lib/repair/rates";
 
 const Chev = () => (
@@ -25,20 +27,48 @@ const Chev = () => (
 const thNum = (n: number | undefined, d: number) =>
   n == null ? "–" : n.toLocaleString("th-TH", { minimumFractionDigits: d, maximumFractionDigits: d });
 
-/** หนึ่งช่องวางข้อมูล พร้อมบรรทัดบอกสถานะการอ่าน */
+const FLEET_LABEL = (f: string) => (f === ANY_FLEET ? "ทุกประเภท" : f);
+
+/** หนึ่งช่องรับข้อมูล — วางจากคลิปบอร์ด หรือเลือกไฟล์ */
 function Box({ title, hint, value, onChange, status, tone }: {
   title: string; hint: string; value: string;
   onChange: (v: string) => void; status: string; tone: string;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    try {
+      onChange(decodeThai(await f.arrayBuffer()));
+    } catch {
+      onChange("");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   return (
     <div className="xls-box">
       <label>
         <b>{title}</b>
         <span className="xls-hint">{hint}</span>
       </label>
-      <textarea value={value} onChange={(e) => onChange(e.target.value)} spellCheck={false}
-        placeholder="คัดลอกจาก Excel ทั้งตาราง (รวมบรรทัดหัวตาราง) แล้ววางที่นี่" />
-      <div className="xls-status" style={{ color: tone }}>{status}</div>
+      <textarea value={value.length > 200_000 ? value.slice(0, 200_000) + "\n…" : value}
+        onChange={(e) => onChange(e.target.value)} spellCheck={false}
+        placeholder="คัดลอกจาก Excel ทั้งตาราง (รวมบรรทัดหัวตาราง) แล้ววางที่นี่ หรือเลือกไฟล์ด้านล่าง" />
+      <div className="xls-file">
+        <input ref={fileRef} type="file" accept=".csv,.tsv,.txt"
+          onChange={(e) => void pick(e.target.files?.[0])} />
+        {value && (
+          <button type="button" className="btn-ghost" onClick={() => onChange("")}>ล้างช่องนี้</button>
+        )}
+      </div>
+      <div className="xls-status" style={{ color: busy ? "var(--ink-soft)" : tone }}>
+        {busy ? "กำลังอ่านไฟล์…" : status}
+      </div>
     </div>
   );
 }
@@ -60,7 +90,9 @@ export default function RepairImport() {
   const ready = maint.rows.length > 0 && ops.rows.length > 0;
 
   const result = useMemo(
-    () => (ready ? computeRates(maint.rows, ops.rows, weights.rows, { mergeTrailer }) : null),
+    () => (ready
+      ? computeRates(maint.rows, ops.rows, weights.rows, { mergeTrailer, knownVehicles: KNOWN_VEHICLES })
+      : null),
     [ready, maint.rows, ops.rows, weights.rows, mergeTrailer],
   );
 
@@ -74,11 +106,17 @@ export default function RepairImport() {
     (useWeights ? result?.weights[y] : undefined)
     ?? ovr.repair?.weights?.[i] ?? REF.repair.weights[i] ?? 0);
 
-  const por = (rates: Record<number, number>) =>
-    BASE_YEARS.reduce((s, y, i) => s + (rates[y] ?? 0) * (effWeights[i] ?? 0), 0);
+  const por = (rates: Record<number, number> | undefined) =>
+    BASE_YEARS.reduce((s, y, i) => s + ((rates?.[y] ?? 0) * (effWeights[i] ?? 0)), 0);
+
+  /** แถวของตารางอัตราตามเวลา — หนึ่งแถวต่อ ชนิดรถ × ประเภทรถ */
+  const timeRows = (result?.vehicles ?? []).flatMap((v) =>
+    Object.entries(v.time).map(([fleet, byYear]) => ({ vehicle: v.vehicle, fleet, byYear })));
+
+  const distRows = (result?.vehicles ?? []).filter((v) => Object.keys(v.dist).length);
 
   const statusOf = (t: { rows: unknown[]; missing: string[] }, text: string) => {
-    if (!text.trim()) return { text: "ยังไม่ได้วางข้อมูล", tone: "var(--ink-faint)" };
+    if (!text.trim()) return { text: "ยังไม่ได้ใส่ข้อมูล", tone: "var(--ink-faint)" };
     if (t.missing.length) return { text: `หาคอลัมน์ไม่เจอ: ${t.missing.join(", ")}`, tone: "var(--red)" };
     if (!t.rows.length) return { text: "อ่านข้อมูลไม่ได้สักบรรทัด", tone: "var(--red)" };
     return { text: `อ่านได้ ${t.rows.length.toLocaleString("th-TH")} บรรทัด ✓`, tone: "var(--green)" };
@@ -114,18 +152,20 @@ export default function RepairImport() {
         </summary>
 
         <div className="price-note" style={{ marginTop: 12 }}>
-          คัดลอกตารางจาก Excel (<b>รวมบรรทัดหัวตาราง</b>) แล้ววางลงช่องด้านล่าง ระบบจะคำนวณ
-          อัตราค่าซ่อมรายปีให้ แล้วนำไปใส่ตารางด้านบนเมื่อกดยืนยัน<br />
+          ใส่ข้อมูลได้สองทาง — <b>คัดลอกจาก Excel แล้ววาง</b> (รวมบรรทัดหัวตาราง) หรือ{" "}
+          <b>เลือกไฟล์ .csv</b> ที่ Save As มาจาก Excel (แนะนำสำหรับรายงานจริงที่มีหลายหมื่นบรรทัด)<br />
           <b>วิธีแบ่งประเภทค่าใช้จ่าย:</b> ชื่อบัญชีมีคำว่า “สินทรัพย์รอตัดบัญชี” → คิดตามเวลา
           โดยหารยอดด้วย 8 · รายละเอียดการซ่อมตรงกับคำสำคัญ {TIME_KEYWORDS.length} คำ
-          (ประกันภัย ภาษี GPS บำรุงรักษา ฯลฯ) → คิดตามเวลาเต็มจำนวน · ที่เหลือ → คิดตามระยะทาง<br />
-          <b>อัตรา:</b> ตามเวลา = ยอดรวมกลุ่มเวลา ÷ จำนวนวันรวม · ตามระยะทาง = ยอดรวมกลุ่มระยะทาง ÷ ระยะทางรวม
+          (ประกันภัย · ภาษี · GPS · ตรวจเช็ค 68 จุด · บำรุงรักษายาง ฯลฯ) → คิดตามเวลาเต็มจำนวน ·
+          ที่เหลือ → คิดตามระยะทาง<br />
+          <b>อัตรา:</b> ตามเวลา = ยอดกลุ่มเวลา ÷ จำนวนวัน <i>(แยกตามประเภทรถ)</i> ·
+          ตามระยะทาง = ยอดกลุ่มระยะทาง ÷ ระยะทางรวม <i>(รวมทุกประเภทรถ เพราะตารางใช้แถวเดียวกัน)</i>
         </div>
 
         <div className="xls-grid">
           <Box
-            title="1 · ข้อมูลค่าซ่อมดิบ"
-            hint="ต้องมี: ชนิดรถ · จำนวนเงิน · ปี หรือ วันที่ซ่อม — ควรมี: ชื่อบัญชี · รายละเอียดการซ่อม"
+            title="1 · รายงานค่าซ่อมตามงวด"
+            hint="ต้องมี: ชนิดรถ · จำนวนเงิน · วันที่ตามงวด (หรือ ปี) — ควรมี: ประเภทรถ · ชื่อบัญชี · รายละเอียดการซ่อม"
             value={maintText} onChange={setMaintText}
             status={statusOf(maint, maintText).text} tone={statusOf(maint, maintText).tone}
           />
@@ -164,7 +204,7 @@ export default function RepairImport() {
             onClick={() => setPreview(true)}>
             คำนวณอัตรา
           </button>
-          <button className="btn-ghost" type="button" onClick={clearAll}>ล้างช่องทั้งหมด</button>
+          <button className="btn-ghost" type="button" onClick={clearAll}>ล้างทั้งหมด</button>
           {!ready && (
             <span className="locknote">ต้องมีอย่างน้อยตารางที่ 1 และ 2 ถึงจะคำนวณได้</span>
           )}
@@ -183,7 +223,10 @@ export default function RepairImport() {
             <div className="price-note" style={{ marginTop: 14 }}>
               <b>ผลการคำนวณ</b> · {result.vehicles.length} ชนิดรถ · ปีที่พบ{" "}
               {result.years.map((y) => `พ.ศ. ${y}`).join(" / ") || "–"} ·
-              จะเขียนลงตาราง {plan.cells} ช่อง
+              จะเขียนลงตาราง {plan.cells} ช่อง ·{" "}
+              {result.fleetSplit
+                ? "แยกอัตราตามเวลาตามประเภทรถจากไฟล์"
+                : "ไฟล์ไม่ได้บอกประเภทรถ — ลงอัตราเดียวกันทุกแท็บ"}
               {Object.keys(result.mergedTrailer).length > 0 && (
                 <>
                   <br />ยุบค่าซ่อมหางเข้าหัวลากแล้ว{" "}
@@ -194,33 +237,53 @@ export default function RepairImport() {
               )}
             </div>
 
-            <div className="scroll" style={{ maxHeight: 420, overflowY: "auto" }}>
+            <div className="xls-prevhead">อัตราตามเวลา (บาท/วัน)</div>
+            <div className="scroll" style={{ maxHeight: 320, overflowY: "auto" }}>
               <table className="rep-tbl xls-prev">
-                <thead>
-                  <tr>
-                    <th rowSpan={2}>ชนิดรถ</th>
-                    <th rowSpan={2}>ลงแท็บ</th>
-                    <th colSpan={BASE_YEARS.length + 1}>ตามเวลา (บาท/วัน)</th>
-                    <th colSpan={BASE_YEARS.length + 1}>ตามระยะทาง (บาท/กม.)</th>
-                  </tr>
-                  <tr>
-                    {BASE_YEARS.map((y) => <th key={`t${y}`}>{y}</th>)}
-                    <th>POR</th>
-                    {BASE_YEARS.map((y) => <th key={`d${y}`}>{y}</th>)}
-                    <th>POR</th>
-                  </tr>
-                </thead>
+                <thead><tr>
+                  <th>ชนิดรถ</th><th>ลงแท็บ</th>
+                  {BASE_YEARS.map((y) => <th key={y}>{y}</th>)}
+                  <th>POR</th>
+                </tr></thead>
                 <tbody>
-                  {result.vehicles.map((v) => (
+                  {timeRows.map((r) => (
+                    <tr key={`${r.vehicle}|${r.fleet}`}>
+                      <td>{r.vehicle}</td>
+                      <td className="locknote">{FLEET_LABEL(r.fleet)}</td>
+                      {BASE_YEARS.map((y) => <td key={y} className="num">{thNum(r.byYear[y], 2)}</td>)}
+                      <td className="num rep-total">{thNum(por(r.byYear), 2)}</td>
+                    </tr>
+                  ))}
+                  {!timeRows.length && (
+                    <tr><td colSpan={BASE_YEARS.length + 3} className="locknote">
+                      ไม่มีรายการที่เข้าเกณฑ์คิดตามเวลา
+                    </td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="xls-prevhead">อัตราตามระยะทาง (บาท/กม.) · ใช้ร่วมกันทุกประเภทรถ</div>
+            <div className="scroll" style={{ maxHeight: 320, overflowY: "auto" }}>
+              <table className="rep-tbl xls-prev">
+                <thead><tr>
+                  <th>ชนิดรถ</th>
+                  {BASE_YEARS.map((y) => <th key={y}>{y}</th>)}
+                  <th>POR</th>
+                </tr></thead>
+                <tbody>
+                  {distRows.map((v) => (
                     <tr key={v.vehicle}>
                       <td>{v.vehicle}</td>
-                      <td className="locknote">{v.fleets.join(" + ") || "ทั้งสอง"}</td>
-                      {BASE_YEARS.map((y) => <td key={`t${y}`} className="num">{thNum(v.time[y], 2)}</td>)}
-                      <td className="num rep-total">{thNum(por(v.time), 2)}</td>
-                      {BASE_YEARS.map((y) => <td key={`d${y}`} className="num">{thNum(v.dist[y], 4)}</td>)}
+                      {BASE_YEARS.map((y) => <td key={y} className="num">{thNum(v.dist[y], 4)}</td>)}
                       <td className="num rep-total">{thNum(por(v.dist), 4)}</td>
                     </tr>
                   ))}
+                  {!distRows.length && (
+                    <tr><td colSpan={BASE_YEARS.length + 2} className="locknote">
+                      ไม่มีรายการที่เข้าเกณฑ์คิดตามระยะทาง
+                    </td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

@@ -45,6 +45,25 @@ export function parseDelimited(text: string): string[][] {
   return lines.map((l) => splitLine(l, sep));
 }
 
+/**
+ * อ่านไฟล์ที่ผู้ใช้เลือกมาเป็นข้อความ
+ *
+ * ★ Excel ภาษาไทยบันทึก CSV เป็น Windows-874 (TIS-620) ไม่ใช่ UTF-8
+ *   ถ้าถอดเป็น UTF-8 ตรง ๆ ภาษาไทยจะกลายเป็นตัวขยะทั้งไฟล์โดยไม่มี error
+ *   จึงลอง UTF-8 แบบเข้มงวดก่อน ถ้าไม่ผ่านค่อยถอยไป Windows-874
+ */
+export function decodeThai(buf: ArrayBuffer): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    try {
+      return new TextDecoder("windows-874").decode(buf);
+    } catch {
+      return new TextDecoder("utf-8").decode(buf);
+    }
+  }
+}
+
 /** ชื่อคอลัมน์แบบเทียบง่าย — ตัดช่องว่าง วงเล็บ จุด และขีดออกให้หมด */
 export const normHeader = (s: string): string =>
   clean(s).toLowerCase().replace(/[\s()（）.·_\-/]/g, "");

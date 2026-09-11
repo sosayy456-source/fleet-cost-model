@@ -679,3 +679,7 @@ input[type="checkbox"]{width:auto;padding:0}
 .xls-warn li{margin:3px 0}
 .xls-prev th{text-align:center;white-space:nowrap}
 .xls-prev td.num{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.xls-file{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.xls-file input[type=file]{font-size:11.5px;color:var(--ink-soft);max-width:100%}
+.xls-file .btn-ghost{padding:5px 10px;font-size:11.5px}
+.xls-prevhead{font-weight:700;font-size:13px;margin:14px 0 6px;color:var(--ink)}

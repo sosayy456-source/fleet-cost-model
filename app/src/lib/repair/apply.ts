@@ -13,9 +13,19 @@
  *   ไม่ใช่ทับเป็น 0 ไม่งั้นนำเข้าข้อมูลปีเดียวแล้วอีกสองปีจะหายไปทั้งแถว
  */
 import { REF } from "../refdata";
-import { TRACTOR_KEY } from "./rates";
+import { ANY_FLEET, TRACTOR_KEY } from "./rates";
 import type { RatesResult } from "./rates";
 import type { RefOverrides } from "../cost/types";
+
+/**
+ * ชื่อชนิดรถทั้งหมดที่ตารางค่าซ่อมใช้ — ส่งให้ computeRates ปรับชื่อจากไฟล์ให้ตรง
+ * รวมคีย์จากทั้งสองแท็บของอัตราตามเวลาและอัตราตามระยะทาง
+ */
+export const KNOWN_VEHICLES: string[] = [...new Set([
+  ...Object.values(REF.repair.time).flatMap((byVeh) => Object.keys(byVeh)),
+  ...Object.keys(REF.repair.dist),
+  ...REF.vehicles.map((v) => v.repairKey ?? v.name),
+])];
 
 /** ปี พ.ศ. ของแต่ละช่องในตารางฐาน เรียงตามดัชนีเดียวกับ REF.repair.years */
 export const BASE_YEARS: number[] = REF.repair.years.map((y) => 2000 + Number(y) + 543);
@@ -74,21 +84,27 @@ export function planApply(
   for (const v of res.vehicles) {
     let touched = false;
 
-    // ── อัตราตามเวลา — ลงทุกประเภทรถที่ไฟล์บอกมา ────────────────────
-    const fleets = v.fleets.length ? v.fleets : ALL_FLEETS;
-    for (const fleet of fleets) {
-      const row = rowOf(out.time?.[fleet]?.[v.vehicle]);
-      let changed = false;
-      for (const [yStr, rate] of Object.entries(v.time)) {
-        const i = slot(Number(yStr));
-        if (i < 0) continue;
-        row[i] = rate;
-        changed = true;
-        cells++;
-      }
-      if (changed) {
-        out.time = { ...out.time, [fleet]: { ...out.time?.[fleet], [v.vehicle]: row } };
-        touched = true;
+    // ── อัตราตามเวลา ─────────────────────────────────────────────────
+    // "*" = ไฟล์ไม่ได้บอกประเภทรถ ให้ลงอัตราเดียวกันทุกแท็บที่ใบงานมี
+    for (const [src, byYear] of Object.entries(v.time)) {
+      const targets = src === ANY_FLEET
+        ? (v.fleets.length ? v.fleets : ALL_FLEETS)
+        : [src];
+
+      for (const fleet of targets) {
+        const row = rowOf(out.time?.[fleet]?.[v.vehicle]);
+        let changed = false;
+        for (const [yStr, rate] of Object.entries(byYear)) {
+          const i = slot(Number(yStr));
+          if (i < 0) continue;
+          row[i] = rate;
+          changed = true;
+          cells++;
+        }
+        if (changed) {
+          out.time = { ...out.time, [fleet]: { ...out.time?.[fleet], [v.vehicle]: row } };
+          touched = true;
+        }
       }
     }
 
