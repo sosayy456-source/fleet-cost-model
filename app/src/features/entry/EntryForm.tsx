@@ -143,6 +143,21 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   }, [hasHash, tableReady]);
 
   useEffect(() => {
+    // ทำซ้ำใบ — หน้ารายการส่งใบที่คัดลอกแล้วมาทั้งก้อน ไม่ได้ส่งแค่ id
+    // เพราะใบที่อยู่บนชีตอย่างเดียว (ยังไม่เคยเปิดในเครื่องนี้) getById หาไม่เจอ
+    const dup = sessionStorage.getItem("duplicateRecord");
+    if (dup) {
+      sessionStorage.removeItem("duplicateRecord");
+      try {
+        const r = JSON.parse(dup) as TripRecord;
+        setRec(r);
+        setEditing(null); // เป็นใบใหม่ ไม่ใช่การแก้ใบเดิม
+        setEditZones(new Set());
+        setMsg({ text: "ทำซ้ำใบรายการแล้ว — ใส่เลขที่ใบใหม่และตรวจวันที่ก่อนบันทึก", tone: "info" });
+        return;
+      } catch { /* ข้อมูลเสีย — เริ่มใบเปล่าตามปกติ */ }
+    }
+
     const id = sessionStorage.getItem("editRecordId");
     if (!id) return;
     sessionStorage.removeItem("editRecordId");

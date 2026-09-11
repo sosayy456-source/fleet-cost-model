@@ -13,8 +13,9 @@ import { put, remove } from "../../lib/store/records";
 import { ShortId } from "../../lib/custmap/ShortId";
 import SheetSettings from "../settings/SheetSettings";
 import { CASH_ORIGIN, ST_PAID, ST_PARTIAL } from "../../types/record";
+import { duplicateRecord } from "../../lib/record/duplicate";
 import type { RecordsState } from "../../lib/store/useRecords";
-import type { TripRecord } from "../../types/record";
+import type { RoleKey, TripRecord } from "../../types/record";
 
 const baht = (n: unknown) => (Number(n) || 0).toLocaleString("th-TH", { maximumFractionDigits: 0 });
 
@@ -26,7 +27,7 @@ type Src = "all" | "new" | "old";
 
 interface Row { r: TripRecord; old: boolean }
 
-export default function RecordsList({ state }: { state: RecordsState }) {
+export default function RecordsList({ role, state }: { role: RoleKey; state: RecordsState }) {
   const { records, oldRecords, loading, sheetError, connected, reload } = state;
   const [q, setQ] = useState("");
   const [src, setSrc] = useState<Src>("all");
@@ -66,6 +67,16 @@ export default function RecordsList({ state }: { state: RecordsState }) {
 
   function edit(r: TripRecord) {
     sessionStorage.setItem("editRecordId", r.id);
+    location.hash = "#/entry";
+  }
+
+  /**
+   * ทำซ้ำใบ — เฉพาะผู้ดูแลระบบ เพราะใบที่คัดลอกมามีช่องของทั้งสามฝ่ายติดมาด้วย
+   * คนที่กดจึงต้องเป็นคนที่เห็นและแก้ได้ทุกโซน ไม่งั้นจะบันทึกใบที่มีข้อมูลของฝ่ายอื่น
+   * ติดมาโดยไม่มีโอกาสตรวจ
+   */
+  function duplicate(r: TripRecord) {
+    sessionStorage.setItem("duplicateRecord", JSON.stringify(duplicateRecord(r)));
     location.hash = "#/entry";
   }
 
@@ -195,6 +206,15 @@ export default function RecordsList({ state }: { state: RecordsState }) {
                                 <path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
                               </svg>
                             </button>
+                            {role === "admin" && (
+                              <button className="btn-copy" type="button" title="ทำซ้ำใบนี้"
+                                onClick={() => duplicate(r)}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect x="9" y="9" width="12" height="12" rx="2" />
+                                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                                </svg>
+                              </button>
+                            )}
                             <button className="btn-del" type="button" title="ลบ" onClick={() => del(r)}>
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />

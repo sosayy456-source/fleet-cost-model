@@ -648,3 +648,13 @@ input[type="checkbox"]{width:auto;padding:0}
 .dash-reload:disabled{opacity:.55;cursor:default}
 /* บนแถบแท็บให้ชิดขวาสุด และไม่โดนเส้น .dink ทับ */
 .dash-tabs .dash-reload{margin:0 0 8px auto}
+
+/* ---- ปุ่มทำซ้ำใบรายการ (เฉพาะผู้ดูแลระบบ) ----
+   ทรงเดียวกับ .btn-del ในส่วนที่ 1 แต่เป็นกลาง ไม่ใช่สีแดง
+   เพราะเป็นการสร้างของใหม่ ไม่ใช่การทำลาย */
+.btn-copy{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-strong);
+  background:#fff;color:var(--ink-soft);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
+.btn-copy:hover{background:var(--field-bg);border-color:var(--orange);color:var(--accent)}
+.btn-copy svg{width:14px;height:14px}

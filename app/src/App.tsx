@@ -158,7 +158,7 @@ export default function App() {
           <ErrorBoundary resetKey={page} where={cur ? `หน้า “${cur.h1}”` : undefined}>
             {page === "entry" && <EntryForm role={role} state={state} />}
             {page === "drafts" && <Drafts state={state} />}
-            {page === "records" && <RecordsList state={state} />}
+            {page === "records" && <RecordsList role={role} state={state} />}
             {page === "debtors" && <Debtors state={state} />}
             {page === "settings" && <Settings />}
             <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
