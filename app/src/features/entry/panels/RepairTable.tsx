@@ -129,9 +129,8 @@ export default function RepairTable() {
   const useSet = (id: string) => {
     const s = snapshots.find((x) => x.id === id);
     if (!s) return;
-    if (!confirm(`ใช้ชุด “${s.name}” แทนค่าปัจจุบัน?\n(ค่าปัจจุบันจะถูกเก็บเป็นชุดใหม่ให้ก่อน)`)) return;
-    // เก็บของที่กำลังใช้อยู่ไว้ก่อนเสมอ ไม่งั้นสลับชุดแล้วของเดิมหาย
-    if (countEdits()) addSnapshot(`ก่อนสลับไป ${s.name}`, rep);
+    // ไม่สำรองชุดปัจจุบันให้อัตโนมัติ — ผู้ใช้กด "บันทึกชุดค่าปัจจุบัน" เองเมื่ออยากเก็บ
+    if (!confirm(`ใช้ชุด “${s.name}” แทนค่าปัจจุบัน?\nค่าที่แก้เองซึ่งยังไม่ได้บันทึกเป็นชุดจะถูกแทนที่`)) return;
     setOvr({ ...ovr, repair: structuredClone(s.repair) });
     say(`ใช้ชุด “${s.name}” แล้ว ✓`);
   };
@@ -244,7 +243,7 @@ export default function RepairTable() {
 
             {snapshots.length === 0 ? (
               <div className="locknote">
-                ยังไม่มีชุดที่บันทึกไว้ · ระบบจะเก็บชุดปัจจุบันให้อัตโนมัติก่อนนำเข้าข้อมูลใหม่ทุกครั้ง
+                ยังไม่มีชุดที่บันทึกไว้ · ค่าที่นำเข้าจากไฟล์ Excel จะถูกบันทึกเป็นชุดให้เอง
               </div>
             ) : (
               <ul className="rep-setlist">

@@ -132,12 +132,13 @@ export default function RepairImport() {
 
   const apply = () => {
     if (!plan || !plan.cells) return;
-    // ★ เก็บของเดิมไว้เป็นชุดก่อนทับเสมอ ผู้ใช้จึงย้อนกลับได้แม้กดทับไปแล้ว
-    const kept = addSnapshot(`ก่อนนำเข้า ${maintFile?.name ?? ""}`.trim(), ovr.repair ?? {});
+    // บันทึกเฉพาะชุดที่นำเข้าใหม่ — ค่าฐานกลางกลับไปได้ด้วย "ย้อนกลับไปใช้ค่าเดิมทั้งหมด" อยู่แล้ว
+    // จึงไม่ต้องสำรองของเดิมทุกครั้ง ไม่งั้นรายการชุดจะรกไปด้วยชุด "ก่อน..." ที่ไม่มีใครใช้
     setOvr({ ...ovr, repair: plan.repair });
+    const saved = addSnapshot(`นำเข้า ${maintFile?.name ?? ""}`.trim(), plan.repair);
     setMsg({
       text: `อัปเดตอัตราค่าซ่อมแล้ว ${plan.cells} ช่อง · ${plan.vehicles.length} ชนิดรถ`
-        + ` · เก็บชุดค่าเดิมไว้ให้แล้วในชื่อ “${kept[0]?.name ?? ""}”`,
+        + ` · บันทึกเป็นชุด “${saved[0]?.name ?? ""}” แล้ว`,
       tone: "var(--green)",
     });
     setPreview(false);
@@ -293,7 +294,7 @@ export default function RepairImport() {
               </button>
               <button className="btn-ghost" type="button" onClick={() => setPreview(false)}>ยกเลิก</button>
               <span className="locknote">
-                ชุดค่าเดิมจะถูกเก็บไว้ให้อัตโนมัติก่อนทับ — เลือกย้อนกลับได้ในตารางด้านบน
+                ค่าที่นำเข้าจะถูกบันทึกเป็นชุดใหม่ — กลับไปค่าเดิมได้ที่ “ย้อนกลับไปใช้ค่าเดิมทั้งหมด” ด้านบน
               </span>
             </div>
           </>
