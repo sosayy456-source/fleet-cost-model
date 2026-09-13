@@ -70,5 +70,61 @@
     "litrePerKm": 0.13793,
     "capacityKg": 3000,
     "repairKey": "รถ 6 ล้อเล็ก"
+  },
+  {
+    "name": "รถ 10 ล้อ",
+    "litrePerKm": 0.25,
+    "capacityKg": 12000,
+    "repairKey": "รถ 10 ล้อ",
+    "approxFrom": "รถ 10 ล้อตู้แห้ง"
+  },
+  {
+    "name": "หางพ่วงตู้แห้ง",
+    "litrePerKm": 0.25,
+    "capacityKg": 15000,
+    "repairKey": "หางพ่วงตู้แห้ง",
+    "approxFrom": "รถ 12 ล้อตู้แห้ง"
+  },
+  {
+    "name": "หางพ่วงคอก",
+    "litrePerKm": 0.25,
+    "capacityKg": 15000,
+    "repairKey": "หางพ่วงคอก",
+    "approxFrom": "รถ 12 ล้อคอก"
+  },
+  {
+    "name": "หางพ่วงตู้เย็น",
+    "litrePerKm": 0.27027,
+    "capacityKg": 15000,
+    "repairKey": "หางพ่วงตู้เย็น",
+    "approxFrom": "รถ 12 ล้อตู้เย็น"
+  },
+  {
+    "name": "รถ 6 ล้อ FC4",
+    "litrePerKm": 0.17986,
+    "capacityKg": 6000,
+    "repairKey": "รถ 6 ล้อ FC4",
+    "approxFrom": "รถ 6 ล้อใหญ่"
+  },
+  {
+    "name": "รถ 6 ล้อ(ตู้แห้ง)",
+    "litrePerKm": 0.17986,
+    "capacityKg": 6000,
+    "repairKey": "รถ 6 ล้อ(ตู้แห้ง)",
+    "approxFrom": "รถ 6 ล้อใหญ่"
+  },
+  {
+    "name": "รถปิกอัพ 3 ตัน",
+    "litrePerKm": 0.13793,
+    "capacityKg": 3000,
+    "repairKey": "รถปิกอัพ 3 ตัน",
+    "approxFrom": "รถ 6 ล้อเล็ก"
+  },
+  {
+    "name": "รถปิ๊กอัพตู้เย็น",
+    "litrePerKm": 0.13793,
+    "capacityKg": 3000,
+    "repairKey": "รถปิ๊กอัพตู้เย็น",
+    "approxFrom": "รถ 6 ล้อเล็ก"
   }
 ]

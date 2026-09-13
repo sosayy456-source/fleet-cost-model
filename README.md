@@ -104,6 +104,7 @@ pip install -r requirements.txt
 python build_json.py --dataset sample     # ใช้ etl/sample_data/
 python build_json.py --dataset real       # ใช้ etl/data/revenue/
 python build_json.py --inspect data/revenue       # ดูว่าไฟล์มีคอลัมน์อะไรบ้าง
+python build_fleet.py "../ทะเบียนในกองรถ.xlsx"      # ทะเบียนรถในกองรถ → app/src/lib/refdata/fleet.json
 ```
 
 ผลลัพธ์ลงที่ `app/public/data/<dataset>/`
