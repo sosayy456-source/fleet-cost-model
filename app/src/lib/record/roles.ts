@@ -7,6 +7,7 @@
  * แต่ละตำแหน่งเห็นเมนูไม่เท่ากัน (ROLE_VIEWS) — ฝ่ายบริการลูกค้ากับฝ่ายจัดรถ
  * เห็นแค่หน้ากรอกข้อมูล ส่วนผู้ดูแลระบบเห็นครบทุกหน้า
  */
+import { nowStamp } from "./date";
 import type { RoleKey, TripRecord } from "../../types/record";
 
 export interface RoleDef {
@@ -79,6 +80,7 @@ export const roleAllDone = (r: Partial<TripRecord> | null | undefined): boolean 
 export function stampRole<T extends Partial<TripRecord>>(rec: T, k: RoleKey): T {
   const out = rec as Record<string, unknown>;
   out[`_${k}Done`] = true;
-  out[`_${k}At`] = new Date().toISOString().slice(0, 16).replace("T", " ");
+  // ★ ต้องเป็นเวลาเครื่อง ไม่ใช่ UTC — ของเดิมใช้ toISOString() ทำให้เวลาในชีตช้าไป 7 ชั่วโมง
+  out[`_${k}At`] = nowStamp();
   return rec;
 }

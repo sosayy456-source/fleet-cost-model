@@ -648,3 +648,61 @@ input[type="checkbox"]{width:auto;padding:0}
 .dash-reload:disabled{opacity:.55;cursor:default}
 /* บนแถบแท็บให้ชิดขวาสุด และไม่โดนเส้น .dink ทับ */
 .dash-tabs .dash-reload{margin:0 0 8px auto}
+
+/* ---- ปุ่มทำซ้ำใบรายการ (เฉพาะผู้ดูแลระบบ) ----
+   ทรงเดียวกับ .btn-del ในส่วนที่ 1 แต่เป็นกลาง ไม่ใช่สีแดง
+   เพราะเป็นการสร้างของใหม่ ไม่ใช่การทำลาย */
+.btn-copy{width:30px;height:30px;border-radius:8px;border:1px solid var(--border-strong);
+  background:#fff;color:var(--ink-soft);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background .18s var(--ease),border-color .18s var(--ease),color .18s var(--ease)}
+.btn-copy:hover{background:var(--field-bg);border-color:var(--orange);color:var(--accent)}
+.btn-copy svg{width:14px;height:14px}
+
+/* ---- นำเข้าข้อมูลค่าซ่อมจาก Excel ----
+   ช่องวางข้อมูลสามช่อง + ตารางพรีวิว ใช้โทนเดียวกับแผงราคาน้ำมัน/ค่าซ่อม */
+.xls-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin:14px 0}
+@media(max-width:720px){.xls-grid{grid-template-columns:1fr}}
+.xls-box label{display:block;font-size:13px;margin-bottom:6px;color:var(--ink)}
+.xls-box textarea{width:100%;min-height:120px;resize:vertical;font-family:ui-monospace,monospace;
+  font-size:12px;line-height:1.5;padding:10px 12px;border:1px solid var(--border);border-radius:12px;
+  background:#fff;color:var(--ink);white-space:pre;overflow-x:auto}
+.xls-box textarea:focus{outline:none;border-color:var(--orange)}
+.xls-hint{display:block;font-weight:400;font-size:11.5px;color:var(--ink-faint);margin-top:2px}
+.xls-status{font-size:12px;font-weight:600;margin-top:5px}
+.xls-opts{display:flex;flex-direction:column;gap:8px;margin:4px 0 14px}
+.xls-opts label{display:block;font-size:13px;cursor:pointer}
+.xls-opts input{margin-right:8px;vertical-align:middle}
+.xls-warn{background:var(--field-bg);border:1px solid var(--border);border-left:3px solid var(--orange);
+  border-radius:12px;padding:12px 14px;margin-top:14px;font-size:12.5px;color:var(--ink-soft)}
+.xls-warn ul{margin:6px 0 0;padding-left:18px}
+.xls-warn li{margin:3px 0}
+.xls-prev th{text-align:center;white-space:nowrap}
+.xls-prev td.num{text-align:right;font-family:var(--font-num);font-variant-numeric:tabular-nums}
+.xls-file{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.xls-file input[type=file]{font-size:11.5px;color:var(--ink-soft);max-width:100%}
+.xls-file .btn-ghost{padding:5px 10px;font-size:11.5px}
+.xls-prevhead{font-weight:700;font-size:13px;margin:14px 0 6px;color:var(--ink)}
+
+/* ---- เลือกไฟล์นำเข้าค่าซ่อม ---- */
+.xls-grid.two{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.xls-drop{border:1px dashed var(--border-strong);border-radius:12px;padding:12px 14px;background:#fff}
+.xls-drop.on{border-style:solid;border-color:var(--green);background:var(--field-bg)}
+.xls-drop input[type=file]{font-size:11.5px;color:var(--ink-soft);max-width:100%}
+.xls-picked{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;font-size:12.5px}
+.xls-picked b{word-break:break-all}
+.xls-picked .btn-ghost{padding:4px 10px;font-size:11.5px}
+
+/* ---- ชุดอัตราค่าซ่อมที่บันทึกไว้ ---- */
+.rep-sets{margin-top:16px;border-top:1px solid var(--border);padding-top:12px}
+.rep-sets-h{display:flex;gap:10px;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;font-size:13.5px;margin-bottom:8px}
+.rep-sets-h .btn-ghost{padding:6px 12px;font-size:12px}
+.rep-setlist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.rep-setlist li{display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  background:var(--field-bg);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.rep-setname{font-weight:600;font-size:13px;flex:1 1 160px;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rep-setact{display:flex;gap:6px;align-items:center;margin-left:auto}
+.rep-setact .btn-ghost{padding:4px 10px;font-size:11.5px}
+.rep-setact .btn-del{width:26px;height:26px}

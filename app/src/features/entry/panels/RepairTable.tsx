@@ -11,6 +11,9 @@
 import { useState } from "react";
 import { REF } from "../../../lib/refdata";
 import { useOverrides } from "../../../lib/store/overrides";
+import {
+  addSnapshot, countCells, removeSnapshot, renameSnapshot, useRepairSnapshots,
+} from "../../../lib/store/repairSnapshots";
 
 const Chev = () => (
   <svg className="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -36,6 +39,7 @@ export default function RepairTable() {
   const [ovr, setOvr] = useOverrides();
   const [tab, setTab] = useState<TabId>("รถบริษัท");
   const [msg, setMsg] = useState<{ text: string; tone: string } | null>(null);
+  const snapshots = useRepairSnapshots();
 
   const rep = ovr.repair ?? {};
   const isDist = tab === "dist";
@@ -109,6 +113,41 @@ export default function RepairTable() {
     if (!confirm(`ย้อนค่าซ่อมทั้งหมดกลับไปใช้ค่าเดิมจากไฟล์ Excel? (มีที่แก้เองอยู่ ${n} ช่อง)`)) return;
     setOvr({ ...ovr, repair: {} });
     say("ย้อนกลับไปใช้ค่าเดิมทั้งหมดแล้ว ✓", "var(--orange-dark)");
+  };
+
+  /* ── ชุดค่าที่บันทึกไว้ — ย้อนกลับได้มากกว่าแค่ "กลับไปใช้ฐานกลาง" ───────── */
+
+  const saveSet = () => {
+    const n = countEdits();
+    if (!n) { say("ยังไม่มีค่าที่แก้เอง จึงไม่มีอะไรให้บันทึก", "var(--ink-faint)"); return; }
+    const name = prompt("ตั้งชื่อชุดค่านี้", `ค่าซ่อม ${new Date().toLocaleDateString("th-TH")}`);
+    if (name === null) return;
+    const list = addSnapshot(name, rep);
+    say(`บันทึกชุด “${list[0]?.name ?? ""}” แล้ว ✓ (${n} ช่องที่แก้เอง)`);
+  };
+
+  const useSet = (id: string) => {
+    const s = snapshots.find((x) => x.id === id);
+    if (!s) return;
+    // ไม่สำรองชุดปัจจุบันให้อัตโนมัติ — ผู้ใช้กด "บันทึกชุดค่าปัจจุบัน" เองเมื่ออยากเก็บ
+    if (!confirm(`ใช้ชุด “${s.name}” แทนค่าปัจจุบัน?\nค่าที่แก้เองซึ่งยังไม่ได้บันทึกเป็นชุดจะถูกแทนที่`)) return;
+    setOvr({ ...ovr, repair: structuredClone(s.repair) });
+    say(`ใช้ชุด “${s.name}” แล้ว ✓`);
+  };
+
+  const dropSet = (id: string) => {
+    const s = snapshots.find((x) => x.id === id);
+    if (!s || !confirm(`ลบชุด “${s.name}” ทิ้ง?`)) return;
+    removeSnapshot(id);
+    say(`ลบชุด “${s.name}” แล้ว`, "var(--orange-dark)");
+  };
+
+  const rename = (id: string) => {
+    const s = snapshots.find((x) => x.id === id);
+    if (!s) return;
+    const name = prompt("เปลี่ยนชื่อชุด", s.name);
+    if (name === null) return;
+    renameSnapshot(id, name);
   };
 
   const resetTab = () => {
@@ -193,6 +232,35 @@ export default function RepairTable() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* ชุดค่าที่บันทึกไว้ — เก็บของเดิมไว้ก่อนทับทุกครั้ง จึงสลับกลับไปชุดไหนก็ได้ */}
+          <div className="rep-sets">
+            <div className="rep-sets-h">
+              <b>ชุดค่าที่บันทึกไว้{snapshots.length ? ` (${snapshots.length})` : ""}</b>
+              <button type="button" className="btn-ghost" onClick={saveSet}>💾 บันทึกชุดค่าปัจจุบัน</button>
+            </div>
+
+            {snapshots.length === 0 ? (
+              <div className="locknote">
+                ยังไม่มีชุดที่บันทึกไว้ · ค่าที่นำเข้าจากไฟล์ Excel จะถูกบันทึกเป็นชุดให้เอง
+              </div>
+            ) : (
+              <ul className="rep-setlist">
+                {snapshots.map((s) => (
+                  <li key={s.id}>
+                    <span className="rep-setname" title={s.name}>{s.name}</span>
+                    <span className="locknote">{s.savedAt} · {countCells(s.repair)} ช่อง</span>
+                    <span className="rep-setact">
+                      <button type="button" className="btn-ghost" onClick={() => useSet(s.id)}>ใช้ชุดนี้</button>
+                      <button type="button" className="btn-ghost" onClick={() => rename(s.id)}>เปลี่ยนชื่อ</button>
+                      <button type="button" className="btn-del" title="ลบชุดนี้"
+                        onClick={() => dropSet(s.id)}>✕</button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {msg && <div className="msg" style={{ marginTop: 8, color: msg.tone }}>{msg.text}</div>}

@@ -46,8 +46,14 @@ export function useCountUp(paneRef: RefObject<HTMLElement | null>, deps: unknown
     const timers: number[] = [];
 
     box.querySelectorAll<HTMLElement>(".dz-kc .v").forEach((el, i) => {
-      const txt = el.dataset.real !== undefined ? el.dataset.real : (el.textContent ?? "");
-      el.dataset.real = txt;
+      /*
+       * ★ ค่าจริงต้องมาจาก data-real ที่ React วาดใหม่ทุกครั้ง ห้ามจำไว้เองใน dataset
+       *   ของเดิมเขียน dataset.real ครั้งแรกแล้วใช้ค่านั้นตลอด พอเปลี่ยนตัวกรอง (เช่นปี)
+       *   ตัวเลขใหม่ถูกเขียนทับกลับเป็นค่าแรกที่เห็น ทุกปีจึงแสดงเท่ากับ "ทุกปี"
+       * การ์ดใส่ key={ค่า} ไว้ด้วย ค่าเปลี่ยนเมื่อไหร่ React สร้างกล่องใหม่ จึงไม่ไปอัปเดต
+       * text node เก่าที่ถูก textContent ด้านล่างถอดออกไปแล้ว
+       */
+      const txt = el.dataset.real ?? el.textContent ?? "";
       const m = txt.match(/-?[\d,]*\.?\d+/);
       if (!m) return;
       const target = parseFloat(m[0].replace(/,/g, ""));

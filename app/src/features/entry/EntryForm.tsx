@@ -11,7 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
 import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
-import { custCode, ensureCustMap, peekCustMap } from "../../lib/custmap/custmap";
+import { custCode, ensureCustCount, ensureCustMap, isFullHash, peekCustCount, peekCustMap } from "../../lib/custmap/custmap";
 import { nextNumber, registerBills, useNewCodes } from "../../lib/custmap/newCodes";
 import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleAllDone, roleDone } from "../../lib/record/roles";
 import { recPayInfo } from "../../lib/record/payment";
@@ -79,7 +79,9 @@ function readyBills(rec: TripRecord): TripRecord {
   const bills = filled.map((b) => ({ ...b, no: b.no || rec.docNo }));
   // main คงพฤติกรรมไว้ว่า ถ้าไม่มีบิลเลยแต่มีเลขที่ใบ ให้สร้างบิลเปล่าหนึ่งใบไว้ผูกกับใบรายการ
   if (!bills.length && rec.docNo) bills.push({ ...emptyBill(), no: rec.docNo });
-  return { ...rec, bills };
+  // รายได้ผูกกับบิลชุดที่กรองแล้วเสมอ — ต้องคิดหลังตัดแถวว่างทิ้ง ไม่ใช่จาก rec.bills ดิบ
+  const out = { ...rec, bills };
+  return { ...out, revenue: billsRevenue(out) };
 }
 
 /**
@@ -89,6 +91,17 @@ function readyBills(rec: TripRecord): TripRecord {
 function billTotal(b: Bill): number {
   if (b.unitPrice == null) return Number(b.total) || 0;
   return Math.round((Number(b.qty) || 0) * (Number(b.unitPrice) || 0) * 100) / 100;
+}
+
+/**
+ * รายได้ของใบ = ผลรวมราคารวมของทุกบิล — ไม่ให้กรอกเอง กรอกแค่รายการลูกหนี้ / บิล
+ * ใบเก่าที่กรอกรายได้เองไว้ตอนยังไม่มีบิล (หรือบิลไม่มียอดสักใบ) ให้คงยอดเดิม ไม่ให้หายไป
+ * เหตุผลเดียวกับ billTotal() ที่คงยอดของบิลรุ่นที่ยังไม่มีราคาต่อหน่วย
+ */
+function billsRevenue(rec: TripRecord): number {
+  const sum = rec.bills.reduce((s, b) => s + billTotal(b), 0);
+  if (!sum) return Number(rec.revenue) || 0;
+  return Math.round(sum * 100) / 100;
 }
 
 export default function EntryForm({ role, state }: { role: RoleKey; state: RecordsState }) {
@@ -101,18 +114,48 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   const [ovr] = useOverrides();
   const [roster] = useRoster();
   const newCodes = useNewCodes();
-  /** ตารางรหัสลูกค้าโหลดเสร็จหรือยัง — โน้ตใต้แถวบิลรอค่านี้ เหมือน CUST_READY ของ main */
-  const [custReady, setCustReady] = useState(() => !!peekCustMap());
+  /** รู้จำนวนระเบียนในไฟล์แล้วหรือยัง — พอสำหรับพรีวิวรหัสลูกค้าใหม่ เหมือน CUST_READY ของ main */
+  const [custReady, setCustReady] = useState(() => !!peekCustCount());
+  /** ตารางเต็มโหลดแล้วหรือยัง — ต้องใช้เฉพาะตอนมีรหัสต้นฉบับในช่องผู้ส่ง/ผู้รับ */
+  const [tableReady, setTableReady] = useState(() => !!peekCustMap());
 
-  // โหลดตารางรหัสตั้งแต่เปิดฟอร์ม เพราะต้องใช้ทั้งตอนพรีวิวและตอนบันทึก
-  // ถ้าไม่มีไฟล์ก็ปล่อยผ่าน — ฟอร์มยังกรอกได้ แค่ไม่โชว์รหัสย่อให้
+  // ★ หน้านี้ไม่โหลดตารางเต็ม 18 MB อีกแล้ว — ขอแค่จำนวนระเบียนผ่าน HEAD
+  //   เพราะสิ่งเดียวที่ต้องใช้จริงคือ "ไฟล์มีถึงเลขไหน" เพื่อออกรหัสลูกค้าใหม่ต่อท้าย
+  //   ฝ่ายบริการลูกค้ากับฝ่ายจัดรถเปิดหน้านี้เป็นหน้าแรก จะให้รอโหลด 18 MB ก่อนกรอกไม่ไหว
   useEffect(() => {
     let alive = true;
-    ensureCustMap().then(() => { if (alive) setCustReady(true); }).catch(() => { /* ไม่มีไฟล์ตาราง */ });
+    ensureCustCount().then(() => { if (alive) setCustReady(true); }).catch(() => { /* ไม่มีไฟล์ตาราง */ });
     return () => { alive = false; };
   }, []);
 
+  /** ช่องผู้ส่ง/ผู้รับที่เป็นรหัสต้นฉบับ (hex 64 ตัว) — มีเมื่อไหร่ถึงค่อยโหลดตารางเต็ม */
+  const hasHash = rec.bills.some((b) => isFullHash(String(b.sender ?? "")) || isFullHash(String(b.receiver ?? "")));
+
+  // ชื่อบริษัทที่พิมพ์เองไม่มีทางตรงกับไฟล์อยู่แล้ว (codeFor รับเฉพาะ hex 64 ตัวเป๊ะ)
+  // จึงโหลดตารางเฉพาะตอนที่มีรหัสต้นฉบับจริง ๆ ในใบ — ไม่งั้นเสียเน็ต 18 MB ฟรี
   useEffect(() => {
+    if (!hasHash || tableReady) return;
+    let alive = true;
+    ensureCustMap().then(() => { if (alive) setTableReady(true); }).catch(() => { /* ไม่มีไฟล์ตาราง */ });
+    return () => { alive = false; };
+  }, [hasHash, tableReady]);
+
+  useEffect(() => {
+    // ทำซ้ำใบ — หน้ารายการส่งใบที่คัดลอกแล้วมาทั้งก้อน ไม่ได้ส่งแค่ id
+    // เพราะใบที่อยู่บนชีตอย่างเดียว (ยังไม่เคยเปิดในเครื่องนี้) getById หาไม่เจอ
+    const dup = sessionStorage.getItem("duplicateRecord");
+    if (dup) {
+      sessionStorage.removeItem("duplicateRecord");
+      try {
+        const r = JSON.parse(dup) as TripRecord;
+        setRec(r);
+        setEditing(null); // เป็นใบใหม่ ไม่ใช่การแก้ใบเดิม
+        setEditZones(new Set());
+        setMsg({ text: "ทำซ้ำใบรายการแล้ว — ใส่เลขที่ใบใหม่และตรวจวันที่ก่อนบันทึก", tone: "info" });
+        return;
+      } catch { /* ข้อมูลเสีย — เริ่มใบเปล่าตามปกติ */ }
+    }
+
     const id = sessionStorage.getItem("editRecordId");
     if (!id) return;
     sessionStorage.removeItem("editRecordId");
@@ -131,11 +174,14 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   const num = (k: keyof TripRecord) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setRec((r) => ({ ...r, [k]: parseFloat(e.target.value) || 0 }));
 
+  /** รายได้คิดจากบิลอย่างเดียว — ช่องในการ์ดสรุปเป็นแค่ตัวแสดงผล */
+  const revenue = billsRevenue(rec);
+
   const calc = useMemo(
     () => computeCost(
       {
         date: rec.date, vehicle: rec.vehicle, fleetType: rec.fleetType,
-        distance: rec.dist, revenue: rec.revenue,
+        distance: rec.dist, revenue,
         gas: rec.gas, fuelCash: rec.fuelCash, fuelDownBill: rec.fuelDownBill,
         fuelFleet: rec.fuelFleet, fuelPickup: rec.fuelPickup, fuelUpBill: rec.fuelUpBill,
         fuelCallTruck: rec.fuelCallTruck, fuelAutoOn: rec.fuelAutoOn,
@@ -146,7 +192,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       },
       REF, ovr,
     ),
-    [rec, ovr],
+    [rec, revenue, ovr],
   );
 
   const pay = recPayInfo(rec);
@@ -166,19 +212,24 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
         if (!s || out.has(s)) continue;
         const own = newCodes[s];
         if (own) { out.set(s, { code: custCode(own), kind: "own" }); continue; }
+        // รหัสต้นฉบับที่ยังรอตารางเต็มอยู่ ต้องไม่ถูกพรีวิวว่าเป็นลูกค้าใหม่
+        // ไม่งั้นตัวเลขจะกระพริบเปลี่ยนตอนตารางโหลดเสร็จ
+        if (isFullHash(s) && !tableReady) continue;
         const fromFile = peekCustMap()?.codeFor(s) ?? null;
         if (fromFile) { out.set(s, { code: fromFile, kind: "file" }); continue; }
         out.set(s, { code: custCode(next++), kind: "pending" });
       }
     }
     return out;
-  }, [rec.bills, newCodes, custReady]);
+  }, [rec.bills, newCodes, custReady, tableReady]);
 
   /** ช่องหนึ่งของโน้ตใต้แถวบิล */
   const CustCell = ({ label, raw }: { label: string; raw: string }) => {
     const s = String(raw ?? "").trim();
     if (!s) return <span className="cx"><b>{label}:</b> <span className="wait">— ยังไม่ได้กรอก —</span></span>;
-    if (!custReady) return <span className="cx"><b>{label}:</b> <span className="wait">กำลังเตรียมฐานข้อมูลรหัส…</span></span>;
+    if (!custReady || (isFullHash(s) && !tableReady)) {
+      return <span className="cx"><b>{label}:</b> <span className="wait">กำลังเตรียมฐานข้อมูลรหัส…</span></span>;
+    }
     const hit = custPreview.get(s);
     if (!hit) return <span className="cx"><b>{label}:</b> <span className="wait">—</span></span>;
     const isNew = hit.kind !== "file";
@@ -244,7 +295,13 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       // เพราะช่องผู้ส่ง/ผู้รับเป็นของฝ่ายนั้น ฝ่ายอื่นกดบันทึกไม่ควรไปกินเลขรหัส
       if (role === "cs" || role === "admin" || editZones.has("cs")) {
         try {
-          await ensureCustMap();
+          // รู้จำนวนระเบียนก่อนเสมอ ไม่งั้นเลขที่ออกจะทับของในไฟล์
+          await ensureCustCount();
+          // ตารางเต็มต้องใช้เฉพาะตอนมีรหัสต้นฉบับในใบ — เพื่อไม่ให้ออกรหัสซ้อนรายที่มีอยู่แล้ว
+          const needTable = ready.bills.some(
+            (b) => isFullHash(String(b.sender ?? "")) || isFullHash(String(b.receiver ?? "")),
+          );
+          if (needTable) await ensureCustMap();
           registerBills(ready.bills);
         } catch { /* ไม่มีไฟล์ตาราง — ข้ามการออกรหัส ไม่งั้นจะออกเลขทับของไฟล์ */ }
       }
@@ -552,13 +609,14 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       <div className="card">
         <div className="card-h"><span className="step">3</span><h2>สรุปผล</h2></div>
 
-        {/* main วางช่องรายได้ไว้ในการ์ดสรุป ไม่ใช่การ์ดข้อมูลการเดินทาง */}
+        {/* main วางช่องรายได้ไว้ในการ์ดสรุป ไม่ใช่การ์ดข้อมูลการเดินทาง
+            ★ คิดจากผลรวมราคารวมของรายการลูกหนี้ / บิล ไม่ให้กรอกเอง — แบบเดียวกับช่องราคารวมของบิล */}
         {zoneShow("cs") && (
           <div className="grid3">
-            <F label="รายได้">
+            <F label="รายได้" hint="(อัตโนมัติ · รวมจากรายการลูกหนี้ / บิล)">
               <div className="input-suffix">
-                <input type="number" min={0} step={100} placeholder="0"
-                  disabled={!zoneOpen("cs")} value={rec.revenue || ""} onChange={num("revenue")} />
+                <input className="b-total-auto" type="number" placeholder="0" readOnly tabIndex={-1}
+                  value={revenue || ""} />
                 <span className="unit">บาท</span>
               </div></F>
           </div>
@@ -566,7 +624,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
 
         <div className="kpis">
           <div className="kpi rev"><div className="lab">รายได้</div>
-            <div className="big">{baht(rec.revenue)}<small>บาท</small></div></div>
+            <div className="big">{baht(revenue)}<small>บาท</small></div></div>
           <div className="kpi normal"><div className="lab">ต้นทุนเดินทางรวม (ปกติ)</div>
             <div className="big">{baht(calc.normal)}<small>บาท</small></div></div>
           <div className="kpi waste"><div className="lab">ต้นทุนสูญเปล่า</div>
@@ -606,7 +664,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
             <div className="price-note" style={{ marginTop: 0, marginBottom: 12 }}>
               เว้น “เลขที่บิล” ว่าง = ใช้เลขที่ใบรายการ (ส่วนที่ 1) อัตโนมัติ ·
               ประเภท <b>สดต้นทาง</b> = ถือว่าชำระแล้ว · <b>เชื่อต้นทาง / เชื่อปลายทาง / สดปลายทาง</b> = ยังไม่ได้ชำระ ·
-              <b> ราคารวม</b> คำนวณจาก จำนวน/น้ำหนัก × ราคาต่อหน่วย อัตโนมัติ
+              <b> ราคารวม</b> คำนวณจาก จำนวน/น้ำหนัก × ราคาต่อหน่วย อัตโนมัติ ·
+              <b> รายได้</b> ในสรุปผลคือผลรวมราคารวมของทุกแถวในตารางนี้
             </div>
 
             <div className="bill-head">
