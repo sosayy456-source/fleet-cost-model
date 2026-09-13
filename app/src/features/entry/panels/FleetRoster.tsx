@@ -2,10 +2,10 @@
  * ทะเบียนรถในกองรถ (Fleet Roster) — ยกจาก v5:780-800 (บล็อก details#fleetPanel)
  * ใช้คำนวณ %การใช้ประโยชน์ของแต่ละคันในแดชบอร์ด
  */
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { REF } from "../../../lib/refdata";
 import { thDateSafe } from "../../../lib/record/date";
-import { FLEET_STATUS, useRoster } from "../../../lib/store/roster";
+import { FLEET_STATUS, isBasePlate, kindsOf, useRoster } from "../../../lib/store/roster";
 import type { FleetVehicle } from "../../../lib/store/roster";
 
 const Chev = () => (
@@ -18,6 +18,14 @@ const blank: FleetVehicle = { plate: "", fleetType: "", vehicle: "", start: "", 
 export default function FleetRoster() {
   const [roster, setRoster] = useRoster();
   const [draft, setDraft] = useState<FleetVehicle>(blank);
+  const [q, setQ] = useState("");
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (needle
+      ? roster.filter((f) => f.plate.toLowerCase().includes(needle) || f.vehicle.toLowerCase().includes(needle))
+      : roster
+    ).slice().sort((a, b) => a.plate.localeCompare(b.plate, "th"));
+  }, [roster, q]);
   const [msg, setMsg] = useState("");
 
   const add = () => {
@@ -44,8 +52,10 @@ export default function FleetRoster() {
         </summary>
 
         <div className="price-note" style={{ marginTop: 12 }}>
-          เพิ่มรถทุกคันในกองรถที่นี่ (ครั้งเดียวต่อคัน) — ระบบจะใช้ <b>วันที่เริ่มใช้งาน</b> เทียบกับ
-          จำนวนวันที่มีเที่ยววิ่งจริง เพื่อคำนวณ % การใช้ประโยชน์ของแต่ละคัน
+          ฐานกลาง <b>{roster.filter((f) => isBasePlate(f.plate)).length} คัน</b> มาจากไฟล์ ทะเบียนในกองรถ.xlsx
+          (วันที่เริ่มใช้งาน = วันที่ปล่อยรถครั้งแรก · คันที่วิ่งตั้งแต่ ม.ค. 2567 นับจาก 1 ม.ค. 2567) —
+          ระบบใช้ <b>วันที่เริ่มใช้งาน</b> เทียบกับจำนวนวันที่มีเที่ยววิ่งจริง เพื่อคำนวณ % การใช้ประโยชน์ ·
+          เพิ่มรถใหม่ที่ยังไม่อยู่ในไฟล์ได้ด้านล่าง ที่แก้/ลบเก็บในเครื่องนี้เท่านั้น
         </div>
 
         <div className="price-add">
@@ -67,21 +77,29 @@ export default function FleetRoster() {
         </div>
         <div className="msg" style={{ color: "var(--green)" }}>{msg}</div>
 
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาทะเบียน / ชนิดรถ"
+          style={{ margin: "4px 0 10px", maxWidth: 320 }} />
+
         <div className="scroll" style={{ maxHeight: 300, overflowY: "auto" }}>
           <table>
             <thead><tr>
               <th>ทะเบียนรถ</th><th>ประเภทรถ</th><th>ชนิดรถ</th><th>เริ่มใช้งาน</th><th>สถานะ</th><th />
             </tr></thead>
             <tbody>
-              {roster.length === 0 ? (
+              {shown.length === 0 ? (
                 <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 14 }}>
-                  ยังไม่มีรถในกองรถ — เพิ่มด้านบน
+                  {roster.length ? "ไม่พบที่ค้นหา" : "ยังไม่มีรถในกองรถ — เพิ่มด้านบน"}
                 </td></tr>
-              ) : roster.map((f) => (
+              ) : shown.map((f) => (
                 <tr key={f.plate}>
                   <td style={{ fontWeight: 700 }}>{f.plate}</td>
                   <td>{f.fleetType || "–"}</td>
-                  <td>{f.vehicle || "–"}</td>
+                  <td title={kindsOf(f).map((k) => `${k.fleetType} · ${k.vehicle} (${k.trips} เที่ยว)`).join(", ")}>
+                    {f.vehicle || "–"}
+                    {kindsOf(f).length > 1 && (
+                      <span className="hint" style={{ marginLeft: 4 }}>+{kindsOf(f).length - 1} ชนิด</span>
+                    )}
+                  </td>
                   <td>{thDateSafe(f.start)}</td>
                   <td>{f.status || "–"}</td>
                   <td><button className="del-x" type="button" title="ลบ" onClick={() => del(f.plate)}>✕</button></td>

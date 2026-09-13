@@ -1,46 +1,115 @@
 /**
- * ทะเบียนรถในกองรถ (Fleet Roster) — ยกจาก v5:1455-1466
+ * ทะเบียนรถในกองรถ (Fleet Roster) — ยกจาก v5:1455-1466 แล้วเปลี่ยนฐานข้อมูล
  *
- * ใช้คีย์ localStorage ตัวเดิม "fleetRoster" เพื่อให้คนที่เคยกรอกไว้ใน v5
- * เปิดแอปใหม่แล้วเจอรถของตัวเองครบ ไม่ต้องกรอกซ้ำ
+ * ฐานกลาง = refdata/fleet.json (274 คัน สร้างจาก ทะเบียนในกองรถ.xlsx ด้วย etl/build_fleet.py)
+ * ทับด้วยสิ่งที่ผู้ใช้แก้ในเครื่อง (localStorage คีย์ "fleetRoster" ตัวเดิมของ v5):
+ *   เพิ่มคันใหม่  → เก็บเป็นระเบียนใหม่
+ *   แก้คันในฐาน  → เก็บระเบียนทับ (จับคู่ด้วยทะเบียน)
+ *   ลบคันในฐาน  → เก็บทะเบียนไว้ในรายการลบ ไม่งั้นรีโหลดแล้วโผล่กลับมา
  *
- * เก็บใน localStorage ไม่ใช่ IndexedDB เพราะเป็นรายการสั้น (หลักสิบคัน)
+ * เก็บใน localStorage ไม่ใช่ IndexedDB เพราะเป็นรายการสั้น (หลักร้อยคัน)
  * และต้องอ่านแบบ synchronous ตอน render ตารางการใช้ประโยชน์
+ *
+ * ★ ตัวอย่าง 4 คันของ v5 (FLEET_SAMPLE) ที่ค้างใน localStorage ของคนที่เคยใช้ ถูกตัดทิ้งตอนอ่าน
+ *   ไม่งั้นทะเบียนสมมติจะปนอยู่กับทะเบียนจริงจากไฟล์
  */
 import { useEffect, useState } from "react";
+import fleet from "../refdata/fleet.json";
+
+export interface FleetKind {
+  fleetType: string;
+  vehicle: string;
+  /** จำนวนเที่ยวที่วิ่งเป็นคู่นี้ในไฟล์ต้นทาง */
+  trips: number;
+}
 
 export interface FleetVehicle {
   plate: string;
+  /** ประเภท/ชนิดหลัก — คู่ที่วิ่งบ่อยที่สุด ใช้แสดงในตารางและแดชบอร์ด */
   fleetType: string;
   vehicle: string;
   /** วันที่เริ่มใช้งาน (ISO) — ใช้เป็นตัวหารของ %การใช้งาน */
   start: string;
   status: string;
+  /**
+   * ทุกคู่ (ประเภทรถ, ชนิดรถ) ที่คันนี้เคยวิ่ง — ตัวกรองทะเบียนในฟอร์มใช้ตัวนี้
+   * หางพ่วงบางคันเปลี่ยนตู้ไปมา (ตู้เย็น ↔ คอก) จึงต้องโผล่ได้ทั้งสองชนิด
+   * ไม่มี = คันที่ผู้ใช้เพิ่มเอง ให้ถือว่ามีคู่เดียวคือ fleetType/vehicle
+   */
+  kinds?: FleetKind[];
+  /** สาขาที่เคยปล่อยรถคันนี้ — ข้อมูลประกอบ ไม่ได้ใช้กรอง */
+  branches?: string[];
+  trips?: number;
+  firstTrip?: string;
+  lastTrip?: string;
 }
 
 const LS_FLEET = "fleetRoster";
+/** ทะเบียนจากฐานกลางที่ผู้ใช้ลบทิ้ง */
+const LS_REMOVED = "fleetRoster.removed";
 
 export const FLEET_STATUS = ["ใช้งาน", "ซ่อมบำรุง", "จอด", "ปลดระวาง"];
 
-/** ข้อมูลตัวอย่างชุดเดียวกับ v5 — ลบ/แก้ได้จากตารางในฟอร์ม */
-const FLEET_SAMPLE: FleetVehicle[] = [
-  { plate: "ชม.70-0820", fleetType: "รถบริษัท", vehicle: "รถเทรเลอร์", start: "2023-01-15", status: "ใช้งาน" },
-  { plate: "ชม.81-2214", fleetType: "รถบริษัท", vehicle: "รถ 10 ล้อตู้แห้ง", start: "2022-06-01", status: "ใช้งาน" },
-  { plate: "ชม.55-9931", fleetType: "รถร่วม", vehicle: "รถ 6 ล้อใหญ่", start: "2024-03-10", status: "ใช้งาน" },
-  { plate: "ชม.62-4471", fleetType: "รถบริษัท", vehicle: "รถ 12 ล้อคอก", start: "2021-11-20", status: "ซ่อมบำรุง" },
-];
+/** ฐานกลางจากไฟล์ — อ่านอย่างเดียว */
+export const FLEET_BASE: readonly FleetVehicle[] = (fleet as { vehicles: FleetVehicle[] }).vehicles;
+const BASE_PLATES = new Set(FLEET_BASE.map((f) => f.plate));
 
-export function loadRoster(): FleetVehicle[] {
+/** ตัวอย่าง 4 คันของ v5 — เอาไว้แค่จำได้ว่าอันไหนต้องตัดทิ้ง */
+const LEGACY_SAMPLE = new Set(["ชม.81-2214", "ชม.55-9931", "ชม.62-4471"]);
+// ชม.70-0820 ก็อยู่ในตัวอย่างเดิม แต่เป็นทะเบียนจริงที่มีในไฟล์ จึงไม่ต้องตัด — ฐานกลางทับให้เอง
+
+function readJson<T>(key: string, fallback: T): T {
   try {
-    const s = JSON.parse(localStorage.getItem(LS_FLEET) ?? "null");
-    return Array.isArray(s) && s.length ? (s as FleetVehicle[]) : FLEET_SAMPLE.slice();
+    const v = JSON.parse(localStorage.getItem(key) ?? "null");
+    return v ?? fallback;
   } catch {
-    return FLEET_SAMPLE.slice();
+    return fallback;
   }
 }
 
+/** ทุกคู่ประเภท/ชนิดของคันนี้ — คันที่ผู้ใช้เพิ่มเองไม่มี kinds ให้ใช้คู่หลัก */
+export const kindsOf = (f: FleetVehicle): FleetKind[] =>
+  f.kinds?.length ? f.kinds : [{ fleetType: f.fleetType, vehicle: f.vehicle, trips: f.trips ?? 0 }];
+
+/** คันนี้เคยวิ่งเป็นคู่ (ประเภท, ชนิด) นี้ไหม — ค่าว่าง = ไม่กรองมิตินั้น */
+export const matchesKind = (f: FleetVehicle, fleetType: string, vehicle: string): boolean =>
+  kindsOf(f).some((k) => (!fleetType || k.fleetType === fleetType) && (!vehicle || k.vehicle === vehicle));
+
+export function loadRoster(): FleetVehicle[] {
+  const stored = readJson<FleetVehicle[]>(LS_FLEET, []);
+  const removed = new Set(readJson<string[]>(LS_REMOVED, []));
+  const list = Array.isArray(stored) ? stored : [];
+
+  const byPlate = new Map<string, FleetVehicle>();
+  for (const f of FLEET_BASE) if (!removed.has(f.plate)) byPlate.set(f.plate, f);
+  for (const f of list) {
+    if (!f?.plate || LEGACY_SAMPLE.has(f.plate)) continue;
+    // ค่าที่ผู้ใช้แก้ทับของฐาน — คง kinds/branches ของฐานไว้ ถ้าผู้ใช้ไม่ได้ส่งมา
+    const base = byPlate.get(f.plate);
+    byPlate.set(f.plate, base ? { ...base, ...f, kinds: f.kinds ?? base.kinds } : f);
+  }
+  return [...byPlate.values()];
+}
+
+/**
+ * บันทึกรายการทั้งชุด — เก็บเฉพาะส่วนต่างจากฐานกลาง
+ * (คันที่เพิ่มเอง + คันในฐานที่ถูกแก้ + รายการทะเบียนที่ลบ)
+ */
 export function saveRoster(list: FleetVehicle[]): void {
-  try { localStorage.setItem(LS_FLEET, JSON.stringify(list)); } catch { /* โควตาเต็ม/โหมดส่วนตัว */ }
+  const baseBy = new Map(FLEET_BASE.map((f) => [f.plate, f] as const));
+  const keep = new Set(list.map((f) => f.plate));
+
+  const diff = list.filter((f) => {
+    const b = baseBy.get(f.plate);
+    if (!b) return true;
+    return b.fleetType !== f.fleetType || b.vehicle !== f.vehicle || b.start !== f.start || b.status !== f.status;
+  });
+  const removed = FLEET_BASE.filter((f) => !keep.has(f.plate)).map((f) => f.plate);
+
+  try {
+    localStorage.setItem(LS_FLEET, JSON.stringify(diff));
+    localStorage.setItem(LS_REMOVED, JSON.stringify(removed));
+  } catch { /* โควตาเต็ม/โหมดส่วนตัว */ }
 }
 
 /** เหตุการณ์ของหน้าต่างเดียวกัน — storage event ไม่ยิงให้แท็บที่เขียนเอง */
@@ -54,6 +123,9 @@ export function useRoster(): [FleetVehicle[], (l: FleetVehicle[]) => void] {
     addEventListener("storage", on);
     return () => { removeEventListener(EV, on); removeEventListener("storage", on); };
   }, []);
-  const put = (l: FleetVehicle[]) => { saveRoster(l); setList(l); dispatchEvent(new Event(EV)); };
+  const put = (l: FleetVehicle[]) => { saveRoster(l); setList(loadRoster()); dispatchEvent(new Event(EV)); };
   return [list, put];
 }
+
+/** คันนี้อยู่ในฐานกลางจากไฟล์ไหม (ไม่ใช่ที่ผู้ใช้เพิ่มเอง) */
+export const isBasePlate = (plate: string): boolean => BASE_PLATES.has(plate);

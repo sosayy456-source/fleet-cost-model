@@ -16,6 +16,11 @@ export interface Vehicle {
   capacityKg: number | null;
   /** ชื่อเดียวกันแต่สะกดต่างในตารางค่าซ่อม (เดิมอยู่ใน REPAIR_ALIAS) */
   repairKey: string;
+  /**
+   * ชนิดที่เพิ่มจากไฟล์ทะเบียนในกองรถ ยังไม่มีอัตราน้ำมัน/ความจุของตัวเอง
+   * จึงยืมมาจากชนิดนี้ไปก่อน — UI ควรบอกผู้ใช้ว่าเป็นค่าประมาณ
+   */
+  approxFrom?: string;
 }
 
 export interface RepairTable {

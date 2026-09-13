@@ -19,7 +19,7 @@ import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import { SaveAbortedError, saveRecord } from "../../lib/store/save";
 import { getById } from "../../lib/store/records";
 import { useOverrides } from "../../lib/store/overrides";
-import { useRoster } from "../../lib/store/roster";
+import { matchesKind, useRoster } from "../../lib/store/roster";
 import { getUrl } from "../../lib/sheet/client";
 import { emptyBill, emptyRecord } from "./emptyRecord";
 import { randomRecord } from "./randomRecord";
@@ -230,6 +230,24 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     setMsg(null);
   };
 
+  /**
+   * ทะเบียนที่เลือกได้ = คันที่เคยวิ่งเป็นคู่ (ประเภทรถ, ชนิดรถ) ที่เลือกไว้
+   * ยังไม่เลือกอะไร = ทั้งกองรถ · ยังพิมพ์ทะเบียนนอกรายการได้เสมอ (รถใหม่ที่ยังไม่อยู่ในไฟล์)
+   */
+  const platesForForm = useMemo(
+    () => roster.filter((f) => matchesKind(f, rec.fleetType, rec.vehicle))
+      .sort((a, b) => a.plate.localeCompare(b.plate, "th")),
+    [roster, rec.fleetType, rec.vehicle],
+  );
+  const plateHint = !rec.fleetType && !rec.vehicle ? "· ทั้งกองรถ"
+    : platesForForm.length ? `· ${platesForForm.length} คันที่ตรงกับที่เลือก`
+      : "· ไม่มีคันไหนเคยวิ่งเป็นชนิดนี้ พิมพ์ทะเบียนเองได้";
+  /** ชนิดที่เพิ่มจากไฟล์ทะเบียนในกองรถ ยืมอัตราน้ำมัน/ความจุมาจากชนิดอื่น — บอกไว้ให้รู้ */
+  const approxNote = (() => {
+    const v = REF.vehicles.find((x) => x.name === rec.vehicle);
+    return v?.approxFrom ? `· ใช้อัตราน้ำมัน/ความจุของ ${v.approxFrom} ไปก่อน` : undefined;
+  })();
+
   const loadFactor = rec.capacity > 0 && !rec.emptyLeg
     ? Math.min(100, rec.loadActual / rec.capacity * 100) : null;
 
@@ -428,23 +446,26 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
 
           {zoneShow("dispatch") && (
             <div>
+              {/* ลำดับ ประเภทรถ → ชนิดรถ → ทะเบียนรถ: สองช่องแรกเป็นตัวกรองให้ช่องทะเบียน
+                  เหลือเฉพาะคันที่เคยวิ่งเป็นคู่นั้น (จาก kinds ใน refdata/fleet.json) */}
               <div className="grid3">
-                <F label="เลขทะเบียนรถ">
-                  <input list="plateList" disabled={!zoneOpen("dispatch")} placeholder="เช่น ชม.70-0820"
-                    value={rec.plate} onChange={(e) => set("plate", e.target.value)} />
-                  <datalist id="plateList">
-                    {roster.map((f) => <option key={f.plate} value={f.plate} />)}
-                  </datalist>
-                </F>
                 <F label="ประเภทรถ">
                   <Seg value={rec.fleetType} options={["รถบริษัท", "รถร่วม"]}
                     disabled={!zoneOpen("dispatch")} onChange={(v) => set("fleetType", v as FleetType)} /></F>
-                <F label="ชนิดรถ">
+                <F label="ชนิดรถ" hint={approxNote}>
                   <Sel value={rec.vehicle} disabled={!zoneOpen("dispatch")} options={REF.vehicles.map((v) => v.name)}
                     onChange={(v) => setRec((r) => ({
                       ...r, vehicle: v,
                       capacity: REF.vehicles.find((x) => x.name === v)?.capacityKg ?? r.capacity,
                     }))} /></F>
+                <F label="เลขทะเบียนรถ" hint={plateHint}>
+                  <input list="plateList" disabled={!zoneOpen("dispatch")}
+                    placeholder={platesForForm.length ? `เลือกจาก ${platesForForm.length} คัน หรือพิมพ์เอง` : "เช่น ชม.70-0820"}
+                    value={rec.plate} onChange={(e) => set("plate", e.target.value)} />
+                  <datalist id="plateList">
+                    {platesForForm.map((f) => <option key={f.plate} value={f.plate}>{f.vehicle}</option>)}
+                  </datalist>
+                </F>
               </div>
               <div className="grid3">
                 <div className="field"><label>วันที่ปล่อยรถ <span className="hint">· วัน / เดือน / ปี (พ.ศ.)</span></label>
