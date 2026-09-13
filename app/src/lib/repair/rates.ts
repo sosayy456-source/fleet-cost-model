@@ -328,11 +328,34 @@ const asTable = (src: string | string[][]): string[][] =>
 const isHeaderEcho = (cell: string, aliases: string[]): boolean =>
   aliases.some((a) => normHeader(a) === normHeader(cell));
 
+/** รายงานที่ส่งออกจากระบบบัญชีจริงมีหัวรายงานอยู่เหนือหัวตาราง จึงค้นเฉพาะช่วงต้นไฟล์ */
+const HEADER_SCAN_ROWS = 30;
+
+/**
+ * หาแถวหัวตาราง ซึ่งไม่จำเป็นต้องเป็นแถวแรก
+ *
+ * ไฟล์ Excel ของ "รายงานค่าซ่อมตามงวด" เริ่มด้วยชื่อรายงาน ช่วงวันที่ และสาขา
+ * แล้วจึงถึงหัวตาราง ถ้าถือว่าแถวแรกเป็นหัวตาราง จะหาคอลัมน์ไม่เจอทั้งไฟล์
+ *
+ * ★ ต้องเทียบแบบตรงตัวเท่านั้น ห้ามเทียบแบบ "มีคำนี้อยู่"
+ *   เพราะแถว "วันที่ตามงวด ตั้งแต่ 01/01/2567 ถึง 31/01/2567" มีชื่อคอลัมน์ปนอยู่
+ *   และจะถูกจับผิดเป็นหัวตาราง ถ้าไม่เจอแถวไหนเลย ให้ใช้แถวแรกเหมือนเดิม
+ */
+function headerIndex(table: string[][], required: string[][]): number {
+  const limit = Math.min(table.length, HEADER_SCAN_ROWS);
+  for (let i = 0; i < limit; i++) {
+    const cells = table[i]!.map(normHeader);
+    if (required.every((aliases) => aliases.some((a) => cells.includes(normHeader(a))))) return i;
+  }
+  return 0;
+}
+
 export function parseMaintenance(src: string | string[][]): ParsedTable<MaintRow> {
   const table = asTable(src);
   if (table.length < 2) return { rows: [], missing: ["ไม่มีข้อมูล"], warnings: [] };
 
-  const head = table[0]!;
+  const h = headerIndex(table, [HEAD_MAINT.vehicle, HEAD_MAINT.amount]);
+  const head = table[h]!;
   const iVeh = findCol(head, HEAD_MAINT.vehicle);
   const iFleet = findCol(head, HEAD_MAINT.fleet);
   const iAmt = findCol(head, HEAD_MAINT.amount);
@@ -360,7 +383,7 @@ export function parseMaintenance(src: string | string[][]): ParsedTable<MaintRow
 
   const rows: MaintRow[] = [];
   let noYear = 0;
-  for (const r of table.slice(1)) {
+  for (const r of table.slice(h + 1)) {
     const vehicle = r[iVeh] ?? "";
     if (!vehicle || isHeaderEcho(vehicle, HEAD_MAINT.vehicle)) continue;
 
@@ -394,7 +417,8 @@ export function parseOperations(src: string | string[][]): ParsedTable<OpRow> {
   const table = asTable(src);
   if (table.length < 2) return { rows: [], missing: ["ไม่มีข้อมูล"], warnings: [] };
 
-  const head = table[0]!;
+  const h = headerIndex(table, [HEAD_OP.vehicle, HEAD_OP.km]);
+  const head = table[h]!;
   const iYear = findCol(head, HEAD_OP.year);
   const iVeh = findCol(head, HEAD_OP.vehicle);
   const iFleet = findCol(head, HEAD_OP.fleet);
@@ -412,7 +436,7 @@ export function parseOperations(src: string | string[][]): ParsedTable<OpRow> {
   if (iFleet < 0) warnings.push("ไม่มีคอลัมน์ “ประเภทรถ” — จะลงอัตราให้ทั้งรถบริษัทและรถร่วม");
 
   const rows: OpRow[] = [];
-  for (const r of table.slice(1)) {
+  for (const r of table.slice(h + 1)) {
     const year = toBEYear(r[iYear]);
     const vehicle = r[iVeh] ?? "";
     if (!year || !vehicle || isHeaderEcho(vehicle, HEAD_OP.vehicle)) continue;
