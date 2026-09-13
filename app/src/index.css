@@ -706,3 +706,85 @@ input[type="checkbox"]{width:auto;padding:0}
 .rep-setact{display:flex;gap:6px;align-items:center;margin-left:auto}
 .rep-setact .btn-ghost{padding:4px 10px;font-size:11.5px}
 .rep-setact .btn-del{width:26px;height:26px}
+
+/* ================= แท็บ "หน้างาน" ของแดชบอร์ดหลัก =================
+   สีอิงตามดีไซน์ "Dashboard ผู้บริหาร/หน้างาน" ที่ส่งมาให้ (.dc.html ต้นแบบ)
+   เขียว/เหลือง/แดง เป็นโทเคนใหม่ ไม่ใช้ปนกับ --d-amber ของกราฟ (สีนั้นเป็นสีตกแต่งเฉย ๆ
+   ไม่ใช่สีสถานะ) ขอบเขตอยู่แค่ .opsview จึงไม่กระทบดีไซน์ของแท็บอื่น */
+.opsview{
+  --op-green:#2C6B44; --op-green-tint:#E6EFE9;
+  --op-amber:#B4762A; --op-amber-tint:#FBF0DE;
+  --op-red:#A63A3A; --op-red-tint:#F5E7EA;
+}
+
+/* ---- ปุ่มสลับ "หลัก / หน้างาน" — วางในแถวตัวกรองต่อจากช่อง "ทะเบียนรถ" ---- */
+.op-modesw{display:inline-flex;flex:none;border:1.5px solid #111;border-radius:11px;overflow:hidden}
+.op-modesw button{font-family:inherit;font-size:13.5px;font-weight:600;color:#7A5F66;background:#fff;
+  border:none;padding:9px 17px;cursor:pointer;transition:background-color .18s var(--d-ease),color .18s var(--d-ease)}
+.op-modesw button+button{border-left:1.5px solid #111}
+.op-modesw button.active{background:#1B1B1F;color:#fff}
+
+.op-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:13px;margin-bottom:14px}
+.op-tile{position:relative;background:var(--d-card);border:1.5px solid var(--d-line);border-radius:18px;
+  padding:18px 20px;animation:dFadeUp .5s var(--d-ease) both;
+  transition:transform .25s var(--d-ease),box-shadow .25s var(--d-ease)}
+.op-tile:hover{transform:translateY(-4px);box-shadow:0 14px 26px -18px rgba(23,22,26,.28)}
+.op-tile.green:hover{box-shadow:0 14px 26px -16px rgba(44,107,68,.35)}
+.op-tile.amber:hover{box-shadow:0 14px 26px -16px rgba(180,118,42,.35)}
+.op-tile.red:hover{box-shadow:0 14px 26px -16px rgba(166,58,58,.35)}
+.op-tile .op-kbar{height:6px;border-radius:999px;background:var(--d-rail);margin-top:12px;overflow:hidden}
+.op-tile .op-kbar i{display:block;height:100%;border-radius:999px;
+  transform-origin:left;animation:dBarGrow 1s var(--d-ease) .15s both}
+.op-tile.green{border-color:var(--op-green)}
+.op-tile.amber{border-color:var(--op-amber)}
+.op-tile.red{border-color:var(--op-red)}
+.op-tile .op-head{display:flex;align-items:center;gap:9px}
+.op-tile .op-dot{width:11px;height:11px;border-radius:50%;flex:none}
+.op-tile.green .op-dot{background:var(--op-green)} .op-tile.green .op-head span{color:var(--op-green)}
+.op-tile.amber .op-dot{background:var(--op-amber)} .op-tile.amber .op-head span{color:var(--op-amber)}
+.op-tile.red .op-dot{background:var(--op-red)} .op-tile.red .op-head span{color:var(--op-red)}
+.op-tile .op-head span{font-size:13.5px;font-weight:600}
+.op-tile .op-val{display:flex;align-items:baseline;gap:8px;margin-top:8px}
+.op-tile .op-val b{font-size:32px;font-weight:700;letter-spacing:-.03em;font-family:var(--d-num);
+  font-variant-numeric:tabular-nums;color:var(--d-ink)}
+.op-tile.green .op-val b{color:var(--op-green)}
+.op-tile.amber .op-val b{color:var(--op-amber)}
+.op-tile.red .op-val b{color:var(--op-red)}
+.op-tile .op-unit{font-size:13.5px;color:var(--d-ink5)}
+.op-tile .op-pct{margin-left:auto;font-size:13px;font-weight:700;border-radius:999px;padding:3px 11px;
+  font-family:var(--d-num)}
+.op-tile.green .op-pct{color:var(--op-green);background:var(--op-green-tint)}
+.op-tile.amber .op-pct{color:var(--op-amber);background:var(--op-amber-tint)}
+.op-tile.red .op-pct{color:var(--op-red);background:var(--op-red-tint)}
+.op-tile .op-sub{font-size:12.5px;color:var(--d-ink5);margin-top:4px}
+
+.op-passcard{background:var(--d-card);border:1px solid var(--d-line);border-radius:18px;
+  padding:20px 22px;margin-bottom:14px;animation:dFadeUp .5s var(--d-ease) both}
+.op-passhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-bottom:14px}
+.op-passcard h3{display:flex;align-items:center;font-size:15.5px;font-weight:700;margin:0;color:var(--d-ink)}
+.op-livedot{width:7px;height:7px;border-radius:50%;margin-right:9px;flex:none;
+  animation:dPulseDot 2.2s ease-in-out infinite}
+@keyframes dPulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.7)}}
+.op-passline{font-size:13px;color:var(--d-ink3)}
+.op-bar{display:flex;height:16px;border-radius:999px;overflow:hidden;border:1px solid var(--d-line)}
+.op-bar span{display:block;height:100%;transform-origin:left;animation:dBarGrow .8s var(--d-ease) both}
+.op-legend{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;font-size:12.5px;color:var(--d-ink3)}
+.op-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:7px;vertical-align:1px}
+
+/* ---- ไล่จังหวะเข้าเฟรมของการ์ด/ตารางถัดจากส่วนบน ให้ลื่นเหมือนต้นแบบ ---- */
+.opsview .dz-cards .dz-kc:nth-child(1){animation-delay:.28s}
+.opsview .dz-cards .dz-kc:nth-child(2){animation-delay:.33s}
+.opsview .dz-cards .dz-kc:nth-child(3){animation-delay:.38s}
+.opsview .dz-cc{animation-delay:.42s}
+.opsview .dz-cc ~ .dz-cc{animation-delay:.48s}
+
+.op-status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;
+  border-radius:999px;padding:4px 12px;white-space:nowrap}
+.op-status i{width:8px;height:8px;border-radius:50%;flex:none}
+.op-status.green{color:var(--op-green);background:var(--op-green-tint)}
+.op-status.green i{background:var(--op-green)}
+.op-status.amber{color:var(--op-amber);background:var(--op-amber-tint)}
+.op-status.amber i{background:var(--op-amber)}
+.op-status.red{color:var(--op-red);background:var(--op-red-tint)}
+.op-status.red i{background:var(--op-red)}

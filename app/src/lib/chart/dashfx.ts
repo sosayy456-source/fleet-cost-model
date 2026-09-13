@@ -45,7 +45,7 @@ export function useCountUp(paneRef: RefObject<HTMLElement | null>, deps: unknown
     const run = String(++runId.current);
     const timers: number[] = [];
 
-    box.querySelectorAll<HTMLElement>(".dz-kc .v").forEach((el, i) => {
+    box.querySelectorAll<HTMLElement>(".dz-kc .v, .op-tile .op-val b, .op-passline b").forEach((el, i) => {
       /*
        * ★ ค่าจริงต้องมาจาก data-real ที่ React วาดใหม่ทุกครั้ง ห้ามจำไว้เองใน dataset
        *   ของเดิมเขียน dataset.real ครั้งแรกแล้วใช้ค่านั้นตลอด พอเปลี่ยนตัวกรอง (เช่นปี)
