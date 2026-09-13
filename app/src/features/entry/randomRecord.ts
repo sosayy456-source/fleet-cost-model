@@ -3,7 +3,7 @@
  * สุ่มทุกโซน (cs/dispatch/account) พร้อมกัน ไม่ต้องสลับตำแหน่งเพื่อกรอกทีละฝ่ายตอนทดสอบ
  * ค่าที่สุ่มอิงข้อมูลอ้างอิงจริง (เส้นทาง/ชนิดรถ) ให้พอเดาได้ ไม่ใช่ตัวเลขมั่ว ๆ ล้วน
  */
-import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
+import { ACTIVE_VEHICLES, BRANCHES, DOC_TYPES, ORIGINS, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
 import { genId, todayISO } from "../../lib/record/date";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
 import type { TripRecord } from "../../types/record";
@@ -35,7 +35,7 @@ export function randomRecord(): TripRecord {
   const origin = pick(ORIGINS);
   const dest = pick(destsFor(origin));
   const dist = distanceFor(origin, dest) ?? int(50, 500);
-  const vehicle = pick(REF.vehicles);
+  const vehicle = pick(ACTIVE_VEHICLES);
   const capacity = vehicle.capacityKg ?? int(1000, 15000);
 
   return {

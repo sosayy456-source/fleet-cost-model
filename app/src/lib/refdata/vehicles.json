@@ -27,7 +27,8 @@
     "name": "รถ 10 ล้อสั้น",
     "litrePerKm": 0.25,
     "capacityKg": 9000,
-    "repairKey": "รถ 10 ล้อสั้น"
+    "repairKey": "รถ 10 ล้อสั้น",
+    "retired": true
   },
   {
     "name": "รถ 10 ล้อยาว",
@@ -39,7 +40,8 @@
     "name": "รถ 12 ล้อตู้แห้ง",
     "litrePerKm": 0.25,
     "capacityKg": 15000,
-    "repairKey": "รถ 12 ล้อตู้แห้ง"
+    "repairKey": "รถ 12 ล้อตู้แห้ง",
+    "retired": true
   },
   {
     "name": "รถ 12 ล้อคอก",
@@ -57,13 +59,15 @@
     "name": "รถ 6 ล้อตู้เย็น",
     "litrePerKm": 0.17986,
     "capacityKg": 5000,
-    "repairKey": "รถ 6 ล้อตู้เย็น"
+    "repairKey": "รถ 6 ล้อตู้เย็น",
+    "retired": true
   },
   {
     "name": "รถ 6 ล้อกลาง",
     "litrePerKm": 0.16474,
     "capacityKg": 4000,
-    "repairKey": "รถ 6 ล้อกลาง"
+    "repairKey": "รถ 6 ล้อกลาง",
+    "retired": true
   },
   {
     "name": "รถ 6 ล้อเล็ก",
@@ -83,7 +87,7 @@
     "litrePerKm": 0.25,
     "capacityKg": 15000,
     "repairKey": "หางพ่วงตู้แห้ง",
-    "approxFrom": "รถ 12 ล้อตู้แห้ง"
+    "approxFrom": "รถ 12 ล้อคอก"
   },
   {
     "name": "หางพ่วงคอก",

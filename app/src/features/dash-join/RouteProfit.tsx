@@ -13,7 +13,7 @@
 import { useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
 import { recCost } from "../../lib/cost/recCost";
-import { REF, distanceFor } from "../../lib/refdata";
+import { ACTIVE_VEHICLES, REF, distanceFor } from "../../lib/refdata";
 import { Stat } from "../../lib/chart/primitives";
 import { fmtBaht, fmtPct, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
@@ -165,7 +165,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
             <option value="รถร่วม">รถร่วม</option>
           </select>
           <select value={vehicle} onChange={(e) => setVehicle(e.target.value)}>
-            {REF.vehicles.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+            {ACTIVE_VEHICLES.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
           </select>
         </div>
         <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 10 }}>

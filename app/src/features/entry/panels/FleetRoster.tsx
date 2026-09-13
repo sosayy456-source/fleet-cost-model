@@ -3,7 +3,7 @@
  * ใช้คำนวณ %การใช้ประโยชน์ของแต่ละคันในแดชบอร์ด
  */
 import { useMemo, useState } from "react";
-import { REF } from "../../../lib/refdata";
+import { ACTIVE_VEHICLES } from "../../../lib/refdata";
 import { thDateSafe } from "../../../lib/record/date";
 import { FLEET_STATUS, isBasePlate, kindsOf, useRoster } from "../../../lib/store/roster";
 import type { FleetVehicle } from "../../../lib/store/roster";
@@ -66,7 +66,7 @@ export default function FleetRoster() {
           </select>
           <select value={draft.vehicle} onChange={(e) => setDraft({ ...draft, vehicle: e.target.value })}>
             <option value="">ชนิดรถ</option>
-            {REF.vehicles.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+            {ACTIVE_VEHICLES.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
           </select>
           <input type="date" style={{ flex: "none", width: 150 }}
             value={draft.start} onChange={(e) => setDraft({ ...draft, start: e.target.value })} />

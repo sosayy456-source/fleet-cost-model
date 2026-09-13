@@ -10,7 +10,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
-import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
+import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor, vehicleOptions } from "../../lib/refdata";
 import { custCode, ensureCustMap, peekCustMap } from "../../lib/custmap/custmap";
 import { nextNumber, registerBills, useNewCodes } from "../../lib/custmap/newCodes";
 import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleAllDone, roleDone } from "../../lib/record/roles";
@@ -453,7 +453,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
                   <Seg value={rec.fleetType} options={["รถบริษัท", "รถร่วม"]}
                     disabled={!zoneOpen("dispatch")} onChange={(v) => set("fleetType", v as FleetType)} /></F>
                 <F label="ชนิดรถ" hint={approxNote}>
-                  <Sel value={rec.vehicle} disabled={!zoneOpen("dispatch")} options={REF.vehicles.map((v) => v.name)}
+                  <Sel value={rec.vehicle} disabled={!zoneOpen("dispatch")} options={vehicleOptions(rec.vehicle)}
                     onChange={(v) => setRec((r) => ({
                       ...r, vehicle: v,
                       capacity: REF.vehicles.find((x) => x.name === v)?.capacityKg ?? r.capacity,

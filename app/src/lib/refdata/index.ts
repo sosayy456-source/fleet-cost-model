@@ -38,3 +38,15 @@ export const distanceFor = (origin: string, dest: string): number | null =>
 
 export const vehicleByName = (name: string): Vehicle | undefined =>
   REF.vehicles.find((v) => v.name === name);
+
+/** ชนิดรถที่ให้เลือกใน UI — ตัดชนิดที่เลิกใช้ออก (REF.vehicles ยังมีครบไว้คำนวณใบเก่า) */
+export const ACTIVE_VEHICLES: Vehicle[] = REF.vehicles.filter((v) => !v.retired);
+
+/**
+ * ตัวเลือกชนิดรถสำหรับดรอปดาวน์ — ถ้าค่าปัจจุบันเป็นชนิดที่เลิกใช้ (ใบเก่า) ต้องยังโผล่ในรายการ
+ * ไม่งั้นดรอปดาวน์จะแสดงว่าง แล้วพอกดบันทึกค่าจะหายไป
+ */
+export const vehicleOptions = (current?: string): string[] => {
+  const names = ACTIVE_VEHICLES.map((v) => v.name);
+  return current && !names.includes(current) && vehicleByName(current) ? [...names, current] : names;
+};
