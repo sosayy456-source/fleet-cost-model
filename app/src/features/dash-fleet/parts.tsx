@@ -21,7 +21,8 @@ export function Hero({ kind, l, v, s }: {
   return (
     <div className={`dz-kc hero ${kind}`}>
       <div className="l">{l}</div>
-      <div className="v">{v}</div>
+      {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
+      <div className="v" key={v} data-real={v}>{v}</div>
       {s && <div className="s">{s}</div>}
       {SPARK}
     </div>
@@ -42,7 +43,7 @@ export function KC({ l, v, s, dot, tone, small, bar }: {
     <div className={"dz-kc" + (tone ? ` t-${tone}` : "")}
       style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined}>
       <div className="l">{dot && <i className="d" />}{l}</div>
-      <div className="v" style={small ? { fontSize: 14 } : undefined}>{v}</div>
+      <div className="v" key={v} data-real={v} style={small ? { fontSize: 14 } : undefined}>{v}</div>
       {s && <div className="s">{s}</div>}
       {bar && <div className="kbar"><i style={{ background: bar }} /></div>}
     </div>
