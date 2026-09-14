@@ -12,7 +12,6 @@ import { useMemo, useRef, useState } from "react";
 import { DBar, DLine, DMixed, DPie } from "../../lib/chart/dcharts";
 import { useDashInk } from "../../lib/chart/dashfx";
 import RefreshBtn from "../../lib/ui/RefreshBtn";
-import { SEED_PREFIX, clearSeed, seedSampleRecords } from "../../lib/store/seed";
 import { D, fmtN } from "../../lib/chart/theme";
 import { CC, Empty, Hero, KC, ListFF, Note, Pane, ResetBtn, SrcFF, TableHead, ZT,
          searchStyle, selectStyle } from "./parts";
@@ -86,20 +85,6 @@ export default function FleetDash({ state }: { state: RecordsState }) {
   const [tab, setTab] = useState<TabId>("main");
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, tab);
-  const [seeding, setSeeding] = useState(false);
-  const [seedMsg, setSeedMsg] = useState<string | null>(null);
-  const seededCount = state.records.filter((r) => r.docNo?.startsWith(SEED_PREFIX)).length;
-  const unseed = async () => {
-    if (!confirm(`ลบใบตัวอย่าง ${seededCount} ใบ? (ใบที่กรอกเองไม่โดน)`)) return;
-    setSeeding(true);
-    try { await clearSeed(); state.reload(); } finally { setSeeding(false); }
-  };
-  const seed = async () => {
-    setSeeding(true); setSeedMsg(null);
-    try { await seedSampleRecords(60); state.reload(); }
-    catch (e) { setSeedMsg("สร้างใบตัวอย่างไม่สำเร็จ: " + (e as Error).message); }
-    finally { setSeeding(false); }
-  };
 
   /* ปุ่มเดียวกันทุกทางออกของคอมโพเนนต์ รวมถึงตอนยังไม่มีข้อมูล
      ไม่งั้นแดชบอร์ดที่ว่างอยู่จะดึงใบเข้ามาไม่ได้เลยถ้าไม่รีโหลดทั้งหน้า */
@@ -123,18 +108,7 @@ export default function FleetDash({ state }: { state: RecordsState }) {
           ยังไม่มีใบรายการให้สรุป — กรอกใบแรกที่หน้า “บันทึกข้อมูล”
           หรือเชื่อม Google Sheet เพื่อดึงใบที่มีอยู่แล้วเข้ามา
         </p>
-        {/* บน Pages ไม่มีทั้งสองอย่าง — ให้ใส่ใบสมมติดูแดชบอร์ดได้ทันที */}
-        <p className="muted" style={{ marginTop: 10 }}>
-          หรืออยากดูหน้าตาแดชบอร์ดก่อน กดปุ่มนี้เพื่อใส่ใบตัวอย่าง 60 ใบย้อนหลัง 12 เดือน
-          (ใบสมมติ ลบทิ้งได้ทีหลัง ไม่ถูกส่งขึ้นชีต)
-        </p>
-        <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn btn-green" type="button" disabled={seeding} onClick={seed}>
-            {seeding ? "กำลังสร้าง…" : "🎲 โหลดใบตัวอย่าง 60 ใบ"}
-          </button>
-          {refresh}
-        </div>
-        {seedMsg && <p className="muted" style={{ marginTop: 8, color: "var(--red)" }}>{seedMsg}</p>}
+        <div style={{ marginTop: 12 }}>{refresh}</div>
       </div>
     );
   }
@@ -149,15 +123,7 @@ export default function FleetDash({ state }: { state: RecordsState }) {
             onClick={() => setTab(t.id)}>{t.label}</button>
         ))}
         {/* อยู่บนแถบแท็บจึงติดมากับทุกแท็บ ไม่ต้องไปเติมทีละแพน */}
-        <span className="dash-tools">
-          {seededCount > 0 && (
-            <button className="dash-reload" type="button" disabled={seeding}
-              title="ลบเฉพาะใบที่ปุ่ม “โหลดใบตัวอย่าง” สร้าง ใบที่กรอกเองไม่โดน" onClick={unseed}>
-              🗑 ล้างใบตัวอย่าง ({seededCount})
-            </button>
-          )}
-          {refresh}
-        </span>
+        {refresh}
       </div>
 
       {tab === "main" && <MainPane state={state} />}
