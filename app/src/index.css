@@ -648,3 +648,6 @@ input[type="checkbox"]{width:auto;padding:0}
 .dash-reload:disabled{opacity:.55;cursor:default}
 /* บนแถบแท็บให้ชิดขวาสุด และไม่โดนเส้น .dink ทับ */
 .dash-tabs .dash-reload{margin:0 0 8px auto}
+/* กลุ่มปุ่มขวาสุดของแถบแท็บ (ล้างใบตัวอย่าง + รีเฟรช) — ชิดขวาเป็นก้อนเดียว ไม่แยกกัน */
+.dash-tabs .dash-tools{margin:0 0 8px auto;display:flex;gap:8px;align-items:center}
+.dash-tabs .dash-tools .dash-reload{margin:0}
