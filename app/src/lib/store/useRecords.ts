@@ -11,6 +11,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { getUrl, loadOld, loadTrips } from "../sheet/client";
+import { loadCostRevOld } from "../data/useCostRev";
 import { getAll, migrateFromLocalStorage } from "./records";
 import type { TripRecord } from "../../types/record";
 
@@ -40,6 +41,13 @@ export interface RecordsState {
   /** แถวอ่านตรงจากชีต (ข้อมูลเก่า + ข้อมูลใหม่ที่พิมพ์ตรงในชีตเอง) — ไม่มี bills, แยกด้วย r.source */
   oldRecords: Record<string, unknown>[];
   oldDebtors: OldDebtor[];
+  /**
+   * "ข้อมูลเก่า" จากไฟล์ต้นทุน+รายได้ (etl/build_costrev.py) — เที่ยวที่เลขที่ใบรายการตรงกับ
+   * ข้อมูลรายได้จริง และบิลของเที่ยวเหล่านั้นจากไฟล์รายได้
+   * หน้ารายการทั้งหมดกับหน้าลูกหนี้ใช้ชุดนี้แทนแท็บ "ข้อมูลเก่า*" ในชีต
+   * ★ แดชบอร์ดเดิม (dash-fleet) ยังใช้ oldRecords/oldDebtors จากชีตตามเดิม ไม่แตะ
+   */
+  fileOld: { records: TripRecord[]; debtors: OldDebtor[] };
   loading: boolean;
   /** ข้อความบอกว่าโหลดจากชีตไม่ได้ ไม่ถือว่าพัง — ยังใช้ข้อมูลในเครื่องได้ */
   sheetError: string | null;
@@ -64,6 +72,7 @@ export function useRecords(): RecordsState {
   const [records, setRecords] = useState<TripRecord[]>([]);
   const [oldRecords, setOldRecords] = useState<Record<string, unknown>[]>([]);
   const [oldDebtors, setOldDebtors] = useState<OldDebtor[]>([]);
+  const [fileOld, setFileOld] = useState<RecordsState["fileOld"]>({ records: [], debtors: [] });
   const [loading, setLoading] = useState(true);
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [migrated, setMigrated] = useState<number | null>(null);
@@ -86,6 +95,11 @@ export function useRecords(): RecordsState {
       const local = await getAll().catch(() => [] as TripRecord[]);
       if (!alive) return;
       setRecords(local);
+
+      // ข้อมูลเก่าจากไฟล์ — ไม่ต้องมีชีตก็โหลดได้ (คืนค่าว่างถ้ายังไม่รัน ETL)
+      loadCostRevOld().then((fo) => {
+        if (alive) setFileOld({ records: fo.records as TripRecord[], debtors: fo.debtors as OldDebtor[] });
+      });
 
       if (!getUrl()) {
         setLoading(false);
@@ -116,7 +130,7 @@ export function useRecords(): RecordsState {
   }, [tick]);
 
   return {
-    records, oldRecords, oldDebtors, loading, sheetError, migrated,
+    records, oldRecords, oldDebtors, fileOld, loading, sheetError, migrated,
     connected: !!getUrl(), reload,
   };
 }

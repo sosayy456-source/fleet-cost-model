@@ -24,6 +24,10 @@ function autoEtl(): Plugin {
   const etlDir = resolve(here, "..", "etl");
   const watchDir = resolve(etlDir, "data", "revenue");
   const realOut = resolve(here, "public", "data", "real", "manifest.json");
+  // งานที่สอง: ไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) → build_costrev.py
+  // ต้องรันซ้ำเมื่อไฟล์รายได้เปลี่ยนด้วย เพราะ ETL นี้จับคู่เลขที่ใบรายการกับไฟล์รายได้
+  const costDir = resolve(etlDir, "data", "Dashboard real data");
+  const costOut = resolve(here, "public", "data", "real", "costrev");
   const isXlsx = (f: string) => /\.xlsx$/i.test(f) && !/^~\$/.test(f) && !/\.backup\./i.test(f);
 
   /**
@@ -113,6 +117,48 @@ function autoEtl(): Plugin {
     });
   };
 
+  let crRunning = false, crQueued = false;
+  let emitCr: (s: Status) => void = () => {};
+  let crStatus: Status = { state: "idle", message: "", at: Date.now() };
+  const setCr = (state: Status["state"], message: string) => { crStatus = { state, message, at: Date.now() }; emitCr(crStatus); };
+
+  const runCostRev = (log: (m: string) => void) => {
+    if (crRunning) { crQueued = true; return; }
+    if (!existsSync(costDir) || !readdirSync(costDir).some(isXlsx)) {
+      try {
+        if (existsSync(costOut)) for (const f of readdirSync(costOut)) rmSync(resolve(costOut, f), { force: true });
+        log("ไม่มีไฟล์ .xlsx ใน etl/data/Dashboard real data/ — Executive/Dashboard รวม กลับไปใช้ข้อมูลตัวอย่าง");
+        setCr("cleared", "ไม่มีไฟล์ต้นทุน+รายได้จริงแล้ว กลับไปใช้ข้อมูลตัวอย่าง");
+      } catch (e) {
+        log(`✗ ล้าง public/data/real/costrev/ ไม่ได้ (${(e as Error).message})`);
+      }
+      return;
+    }
+    crRunning = true;
+    log("▶ กำลังแปลงไฟล์ต้นทุน+รายได้รายเที่ยว (python build_costrev.py --dataset real) …");
+    setCr("running", "กำลังแปลงไฟล์ต้นทุน+รายได้รายเที่ยว และจับคู่กับข้อมูลรายได้จริง");
+    const exe = pythonExe();
+    const child = spawn(exe, ["build_costrev.py", "--dataset", "real"], {
+      cwd: etlDir, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" },
+    });
+    let tail = "";
+    child.stdout.on("data", (d) => { tail = (tail + d.toString()).slice(-800); });
+    child.stderr.on("data", (d) => { tail = (tail + d.toString()).slice(-800); });
+    child.on("error", (e) => { crRunning = false; log(`✗ รัน python ไม่ได้ (${e.message})`); setCr("error", `รัน python ไม่ได้: ${e.message}`); });
+    child.on("close", (code) => {
+      crRunning = false;
+      if (code === 0) {
+        log("✓ ข้อมูลต้นทุน+รายได้รายเที่ยวพร้อมแล้ว — " + tail.trim().split("\n").slice(-6).join(" | "));
+        setCr("done", "ข้อมูลต้นทุน+รายได้รายเที่ยวพร้อมแล้ว");
+      } else {
+        log(`✗ build_costrev ล้มเหลว (exit ${code}) — ${tail.trim()}`);
+        setCr("error", "แปลงไฟล์ต้นทุน+รายได้ไม่สำเร็จ — ดู terminal ของ dev server");
+      }
+      if (crQueued) { crQueued = false; runCostRev(log); }
+    });
+  };
+
   return {
     name: "auto-etl-real",
     apply: "serve",
@@ -123,6 +169,22 @@ function autoEtl(): Plugin {
       const safeRun = () => { try { run(log); } catch (e) { log(`✗ ${(e as Error).message}`); } };
 
       emit = (st) => server.ws.send({ type: "custom", event: "etl:status", data: st });
+      emitCr = (st) => server.ws.send({ type: "custom", event: "costrev:status", data: st });
+      server.ws.on("costrev:hello", (_d, client) => { client.send({ type: "custom", event: "costrev:status", data: crStatus }); });
+      const safeRunCr = () => { try { runCostRev(log); } catch (e) { log(`✗ ${(e as Error).message}`); } };
+      let crTimer: NodeJS.Timeout | null = null;
+      const scheduleCr = () => { if (crTimer) clearTimeout(crTimer); crTimer = setTimeout(safeRunCr, 2500); };
+      if (existsSync(costDir)) {
+        server.watcher.add(costDir);
+        const onCost = (file: string) => {
+          if (!file.startsWith(costDir) || !isXlsx(file.slice(costDir.length + 1))) return;
+          scheduleCr();
+        };
+        server.watcher.on("add", onCost); server.watcher.on("change", onCost); server.watcher.on("unlink", onCost);
+        if (readdirSync(costDir).some(isXlsx) && !existsSync(resolve(costOut, "manifest.json"))) {
+          server.httpServer?.once("listening", () => setTimeout(safeRunCr, 600));
+        }
+      }
       // แท็บที่เพิ่งเปิด/รีโหลดขอสถานะล่าสุด — ไม่งั้นจะไม่รู้ว่ากำลังแปลงอยู่
       server.ws.on("etl:hello", (_d, client) => {
         client.send({ type: "custom", event: "etl:status", data: status });
@@ -133,6 +195,8 @@ function autoEtl(): Plugin {
         if (!file.startsWith(watchDir) || !isXlsx(file.slice(watchDir.length + 1))) return;
         if (timer) clearTimeout(timer);
         timer = setTimeout(safeRun, 2000);
+        // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย
+        if (existsSync(costDir) && readdirSync(costDir).some(isXlsx)) scheduleCr();
       };
       server.watcher.on("add", onFile);
       server.watcher.on("change", onFile);

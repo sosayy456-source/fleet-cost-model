@@ -16,17 +16,21 @@ export interface EtlStatus {
   at: number;
 }
 
-export function useEtlStatus(): EtlStatus | null {
+/**
+ * @param channel "etl" = ไฟล์รายได้ (build_json.py) · "costrev" = ไฟล์ต้นทุน+รายได้รายเที่ยว (build_costrev.py)
+ * plugin ส่งคนละ event กัน เพื่อให้แดชบอร์ดแต่ละชุดรีเฟรชเฉพาะตอนข้อมูลของตัวเองเปลี่ยน
+ */
+export function useEtlStatus(channel: "etl" | "costrev" = "etl"): EtlStatus | null {
   const [status, setStatus] = useState<EtlStatus | null>(null);
   useEffect(() => {
     const hot = import.meta.hot;
     if (!hot) return;
     const on = (s: EtlStatus) => setStatus(s);
-    hot.on("etl:status", on);
+    hot.on(`${channel}:status`, on);
     // ขอสถานะล่าสุดตอนเปิดหน้า เผื่อกำลังแปลงอยู่ตั้งแต่ก่อนเราเข้ามา
-    hot.send("etl:hello", {});
-    return () => { hot.off("etl:status", on); };
-  }, []);
+    hot.send(`${channel}:hello`, {});
+    return () => { hot.off(`${channel}:status`, on); };
+  }, [channel]);
   return status;
 }
 

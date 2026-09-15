@@ -105,7 +105,23 @@ python build_json.py --dataset sample     # ใช้ etl/sample_data/
 python build_json.py --dataset real       # ใช้ etl/data/revenue/
 python build_json.py --inspect data/revenue       # ดูว่าไฟล์มีคอลัมน์อะไรบ้าง
 python build_fleet.py "../ทะเบียนในกองรถ.xlsx"      # ทะเบียนรถในกองรถ → app/src/lib/refdata/fleet.json
+python build_costrev.py --dataset sample          # ต้นทุน+รายได้รายเที่ยว → app/public/data/sample/costrev/
+python build_costrev.py --dataset real            # ใช้ etl/data/Dashboard real data/ + etl/data/revenue/
 ```
+
+### Executive Dashboard / Dashboard รวม
+
+สองเมนูนี้อ่านจากไฟล์ต้นทุน+รายได้รายเที่ยว (`RealCostandRevenue.xlsx` — เรียกสั้น ๆ ว่า realalldata)
+หน้าตาเหมือนกัน 3 แท็บ (กองรถ / กำไรรายเที่ยว / ต้นทุน) ต่างกันที่ข้อมูล:
+
+| เมนู | ใช้เที่ยวไหน |
+|---|---|
+| Executive Dashboard | เฉพาะเที่ยวที่ `เลขที่ใบรายการ` ตรงกับข้อมูลรายได้จริงใน `etl/data/revenue/` |
+| Dashboard รวม | ทุกเที่ยวในไฟล์ |
+
+วางไฟล์จริงใน `etl/data/Dashboard real data/` แล้วระบบแปลงให้เองเหมือนข้อมูลรายได้ (ดู README ในโฟลเดอร์นั้น)
+บิลจากไฟล์รายได้ของเที่ยวที่จับคู่ได้ไปโชว์เป็น "ข้อมูลเก่า" ในหน้า **รายการลูกหนี้** และเที่ยวที่จับคู่ได้เป็น
+"ข้อมูลเก่า" ในหน้า **รายการทั้งหมด** (ข้อมูลใหม่ยังเชื่อมกับชีตตามเดิม)
 
 ผลลัพธ์ลงที่ `app/public/data/<dataset>/`
 

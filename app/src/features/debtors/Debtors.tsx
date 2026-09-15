@@ -77,7 +77,10 @@ function buildRows(records: TripRecord[], oldDebtors: OldDebtor[]): Row[] {
 }
 
 export default function Debtors({ state }: { state: RecordsState }) {
-  const { records, oldDebtors, loading, reload } = state;
+  const { records, loading, reload } = state;
+  // ลูกหนี้ "ข้อมูลเก่า" ในหน้านี้ = บิลจากไฟล์รายได้จริงของเที่ยวที่จับคู่กับไฟล์ต้นทุนได้
+  // (etl/build_costrev.py → old_debtors.json) ไม่ใช่แท็บลูกหนี้เก่าในชีตอีกแล้ว
+  const oldDebtors = state.fileOld.debtors;
   const [q, setQ] = useState("");
   const [src, setSrc] = useState<"all" | "new" | "old">("all");
   const [busy, setBusy] = useState(false);
@@ -242,7 +245,7 @@ export default function Debtors({ state }: { state: RecordsState }) {
       {table(paidRows, false)}
 
       <div className="locknote" style={{ marginTop: 8 }}>
-        ค้างชำระ {outstanding.length} · ชำระแล้ว {paidRows.length} · ลูกหนี้เก่าจากชีต {oldDebtors.length} ราย
+        ค้างชำระ {outstanding.length} · ชำระแล้ว {paidRows.length} · ลูกหนี้เก่าจากไฟล์รายได้จริง {oldDebtors.length} รายการ
         {q ? ` · กรองด้วยคำค้น “${q}”` : ""}
       </div>
 

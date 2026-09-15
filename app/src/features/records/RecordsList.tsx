@@ -29,7 +29,13 @@ type Src = "all" | "new" | "old";
 interface Row { r: TripRecord; locked: boolean }
 
 export default function RecordsList({ role, state }: { role: RoleKey; state: RecordsState }) {
-  const { records, oldRecords, loading, sheetError, connected, reload } = state;
+  const { records, loading, sheetError, connected, reload, fileOld } = state;
+  // "ข้อมูลเก่า" ในหน้านี้มาจากไฟล์ต้นทุน+รายได้ (เที่ยวที่จับคู่กับข้อมูลรายได้จริงได้)
+  // ส่วนแถวที่พิมพ์ตรงในชีต (source "ใหม่") ยังมาจากชีตตามเดิม — ข้อมูลใหม่ทั้งหมดยังเชื่อมกับชีต
+  const oldRecords = useMemo<Record<string, unknown>[]>(() => [
+    ...state.oldRecords.filter((r) => r.source !== "เก่า"),
+    ...(fileOld.records as unknown as Record<string, unknown>[]),
+  ], [state.oldRecords, fileOld.records]);
   const [q, setQ] = useState("");
   const [src, setSrc] = useState<Src>("all");
   const [msg, setMsg] = useState<string | null>(null);

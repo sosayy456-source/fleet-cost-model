@@ -1,0 +1,397 @@
+"""แปลงไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) เป็น JSON ให้แดชบอร์ด Executive / รวม
+
+    python etl/build_costrev.py --dataset sample
+        ต้นทุน  etl/sample_data/ExampleCostandRevenue.xlsx
+        รายได้  RevenueDashboard/RevenueDashboard/sample_data/bill_*.xlsx
+    python etl/build_costrev.py --dataset real
+        ต้นทุน  etl/data/Dashboard real data/*.xlsx   (RealCostandRevenue.xlsx)
+        รายได้  etl/data/revenue/*.xlsx                (ข้อมูลรายได้จริง)
+
+ผลลัพธ์ app/public/data/<dataset>/costrev/
+    manifest.json      สรุปจำนวน ช่วงวันที่ %จับคู่ระยะทาง
+    trips.json         1 แถว = 1 เที่ยว (ทุกแถวในไฟล์) มีธง m = เลขที่ใบรายการตรงกับข้อมูลรายได้
+    old_records.json   เที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้ารายการทั้งหมด
+    old_debtors.json   บิลจากไฟล์รายได้ของเที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้าลูกหนี้
+
+กติกา (ตกลงกับเจ้าของข้อมูล 16 ก.ย. 2569):
+    รายได้เที่ยว    = ราคารวมจากรายได้ ถ้าว่างใช้ ค่าบรรทุกทั้งใบรายการ
+    ต้นทุนเที่ยว    = คอลัมน์ ต้นทุน (ตัวสุดท้าย รวมค่าเช่าแล้ว)
+    เที่ยวตีเปล่า   = ประเภทใบรายการ ∈ EMPTY_TYPES
+    สูญเปล่า        = 4 คอลัมน์นอกเส้นทาง (WASTE_COLS)
+    น้ำมัน          = 8 คอลัมน์ตามเอกสารจัดประเภทต้นทุน (ไม่มีแก๊ส/Fleet Card)
+    เบี้ยเลี้ยง      = พขร. + สำรอง (นอกเส้นทางไปอยู่สูญเปล่าแล้ว)
+    ค่าธรรมเนียม    = ผ้าใบ ตำรวจ ประกัน + คืนตู้ ท่าเรือ ส่งเอกสาร ทางด่วน
+    ค่าซ่อม / ค่าเสื่อม = คอลัมน์เดียวตรง ๆ · ค่าเช่าไม่รวมในกราฟกลุ่มต้นทุน
+    ค่าเช่า          นับเป็นต้นทุนเฉพาะแถว หมายเหตุต้นทุน=ค่าเช่า (ต้นทุน = ค่าเช่ารวม ทั้งก้อน)
+                     แถว "ค่าเดินทาง" ต้นทุน = Σ ค่าแก๊ส…ค่าซ่อมรวม (คอลัมน์ 13-42) ตรวจแล้ว 4,130/4,130 แถว
+    อื่น ๆ           = ต้นทุนปกติ − ผันแปร − คงที่ − ค่าเช่า (แก๊ส, Fleet Card เดินทาง, เพิ่มย้อนหลัง, SND)
+    ระยะทาง         = routes.json ของแอป จับคู่ด้วย จุดขึ้น/จุดลง (ไม่ตรงก็ null)
+
+★ ไฟล์ต้นทางใช้ openpyxl อ่านตรง ๆ ไม่ผ่าน pandas — pandas ใน venv ถูก Windows
+  Application Control บล็อก DLL ของ pyarrow ตั้งแต่ 16 ก.ย. (build_json.py ยังพัง)
+★ วันที่ปล่อยรถในไฟล์ปนปี ค.ศ. กับ พ.ศ. ในคอลัมน์เดียว — parse_date แปลงเป็น ค.ศ. ทั้งหมด
+★ เลขที่ใบรายการต้องเทียบเป็นสตริงเป๊ะ ๆ (13 หลัก) ห้ามแปลงเป็นตัวเลข เลข 0 นำหน้าจะหาย
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections import Counter
+from datetime import date, datetime
+from pathlib import Path
+
+import openpyxl
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent
+OUT_ROOT = ROOT / "app" / "public" / "data"
+ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
+
+SAMPLE_COST = HERE / "sample_data" / "ExampleCostandRevenue.xlsx"
+SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
+REAL_COST_DIR = HERE / "data" / "Dashboard real data"
+REAL_REV_DIR = HERE / "data" / "revenue"
+
+# ---- นิยามกลุ่มคอลัมน์ (ชื่อต้องตรงกับหัวตารางในไฟล์ทุกตัวอักษร) ----
+EMPTY_TYPES = {"ของเหมาตีเปล่า", "รถว่างไปสาขา"}
+WASTE_COLS = [
+    "น้ำมันนอกเส้นทาง",
+    "ค่าน้ำมันนอกเส้นทาง(Fleet Card)",
+    "ค่าน้ำมันรถวิ่งอ้อม",
+    "เบี้ยเลี้ยงนอกเส้นทาง",
+]
+FUEL_COLS = {
+    "cash":   ["ค่าน้ำมันเดินทาง(เงินสด)"],
+    "down":   ["ค่าน้ำมันเดินทางขาล่อง(บิลน้ำมัน)", "จำนวนเงินขาล่อง"],
+    "up":     ["ค่าน้ำมันเดินทางขาขึ้น (บิลน้ำมัน)", "จำนวนเงินขาขึ้น"],
+    "pickup": ["ค่าน้ำมันไปเก็บสินค้า"],
+    "call":   ["ค่าเรียกรถไปขึ้นของ (บิลน้ำมัน)", "ค่าเรียกรถไปขึ้นของ"],
+}
+ALLOW_COLS = {
+    "drv":   ["ค่าเบี้ยเลี้ยงพขร."],
+    "spare": ["ค่าเบี้ยเลี้ยงพขร.สำรอง"],
+}
+FEE_COLS = {
+    "tarp":   ["ค่าปิดเปิดผ้าใบรถเทเลอร์"],
+    "police": ["ค่าตำรวจ"],
+    "insure": ["ค่าประกันสินค้า"],
+    "cont":   ["ค่าธรรมเนียมคืนตู้"],
+    "port":   ["ค่าเข้าท่าเรือ"],
+    "doc":    ["ค่าส่งเอกสาร"],
+    "toll":   ["ค่าทางด่วน"],
+}
+COL_REPAIR = "ค่าซ่อมรวม"
+COL_DEP = "ค่าเสื่อม"
+COL_RENT = "ค่าเช่ารวม"
+COL_COST = "ต้นทุน"
+COL_REV1 = "ราคารวมจากรายได้"
+COL_REV2 = "ค่าบรรทุกทั้งใบรายการ"
+
+PAYMENT_UNPAID = "ยังไม่ได้ชำระ"   # ตรงกับ PAYMENT_STATUS_UNPAID ใน etl/src/cleaning.py
+
+
+def num(v) -> float:
+    if v is None or v == "" or v == "-":
+        return 0.0
+    try:
+        return float(str(v).replace(",", "").strip())
+    except ValueError:
+        return 0.0
+
+
+def num_or_none(v) -> float | None:
+    if v is None or str(v).strip() in ("", "-", "None"):
+        return None
+    try:
+        return float(str(v).replace(",", "").strip())
+    except ValueError:
+        return None
+
+
+def text(v) -> str:
+    return "" if v is None else str(v).strip()
+
+
+def parse_date(v) -> date | None:
+    """dd/mm/yyyy ที่ปีเป็น ค.ศ. หรือ พ.ศ. ก็ได้ · หรือ datetime ที่ openpyxl แปลงให้แล้ว"""
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v.date()
+    if isinstance(v, date):
+        return v
+    s = str(v).strip()
+    for sep in ("/", "-"):
+        parts = s.split(sep)
+        if len(parts) == 3 and all(p.strip().isdigit() for p in parts):
+            a, b, c = (int(p) for p in parts)
+            if len(parts[0].strip()) == 4:       # yyyy-mm-dd
+                y, m, d = a, b, c
+            else:                                # dd/mm/yyyy
+                d, m, y = a, b, c
+            if y > 2400:
+                y -= 543
+            try:
+                return date(y, m, d)
+            except ValueError:
+                return None
+    return None
+
+
+def read_sheet(path: Path, header_row: int):
+    """คืน (หัวคอลัมน์, แถวข้อมูล) — header_row นับจาก 0"""
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb.worksheets[0]
+    it = ws.iter_rows(values_only=True)
+    for _ in range(header_row):
+        next(it)
+    hdr = [text(c) for c in next(it)]
+    rows = [r for r in it if any(c is not None and str(c).strip() != "" for c in r)]
+    wb.close()
+    return hdr, rows
+
+
+def find_header_row(path: Path, must_have: str) -> int:
+    """ไฟล์ต้นทุนมีแถวหัวกลุ่มอยู่บนหัวคอลัมน์จริง — หาแถวที่มีคอลัมน์ที่ต้องการ"""
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb.worksheets[0]
+    for i, r in enumerate(ws.iter_rows(values_only=True, max_row=10)):
+        if any(text(c) == must_have for c in r):
+            wb.close()
+            return i
+    wb.close()
+    sys.exit(f"หาแถวหัวคอลัมน์ที่มี '{must_have}' ไม่เจอใน 10 แถวแรกของ {path.name}")
+
+
+def xlsx_files(folder: Path) -> list[Path]:
+    out = []
+    for p in sorted(folder.glob("*.xlsx")):
+        n = p.name
+        if n.startswith("~$") or ".backup." in n.lower():
+            continue
+        out.append(p)
+    return out
+
+
+# ---------------------------------------------------------------- รายได้
+def load_revenue(rev_dir: Path):
+    """คืน (set เลขที่ใบรายการ, รายการบิลต่อใบรายการ, จำนวนไฟล์)"""
+    doc_set: set[str] = set()
+    bills: dict[str, list[dict]] = {}
+    files = xlsx_files(rev_dir)
+    for p in files:
+        hdr, rows = read_sheet(p, 0)
+        col = {h: i for i, h in enumerate(hdr)}
+        need = ["เลขที่ใบรายการ", "เลขที่บิล", "วันที่", "ราคารวม", "สถานะการชำระเงิน"]
+        missing = [c for c in need if c not in col]
+        if missing:
+            print(f"  [!] ข้าม {p.name}: ขาดคอลัมน์ {missing}")
+            continue
+        g = lambda r, name: r[col[name]] if name in col else None  # noqa: E731
+        for r in rows:
+            doc = text(g(r, "เลขที่ใบรายการ"))
+            if not doc:
+                continue
+            doc_set.add(doc)
+            d = parse_date(g(r, "วันที่"))
+            status = text(g(r, "สถานะการชำระเงิน"))
+            bills.setdefault(doc, []).append({
+                "docNo": doc,
+                "no": text(g(r, "เลขที่บิล")),
+                "date": d.isoformat() if d else "",
+                "goodsType": text(g(r, "ประเภทสินค้า")),
+                "origin": text(g(r, "ต้นทาง")),
+                "dest": text(g(r, "ปลายทาง")),
+                "sender": text(g(r, "ผู้ส่ง_encoded")),
+                "receiver": text(g(r, "ผู้รับ_encoded")),
+                "payType": text(g(r, "ประเภทการชำระเงิน")),
+                "status": status,
+                "paid": status != PAYMENT_UNPAID,
+                "qty": num(g(r, "จำนวน")),
+                "total": num(g(r, "ราคารวม")),
+                "billStatus": text(g(r, "สถานะบิล")),
+            })
+    return doc_set, bills, len(files)
+
+
+# ---------------------------------------------------------------- ต้นทุน
+def build(dataset: str) -> None:
+    if dataset == "sample":
+        cost_files = [SAMPLE_COST]
+        rev_dir = SAMPLE_REV_DIR
+    else:
+        cost_files = xlsx_files(REAL_COST_DIR)
+        rev_dir = REAL_REV_DIR
+    if not cost_files or not cost_files[0].exists():
+        sys.exit(f"ไม่พบไฟล์ต้นทุนสำหรับ {dataset} — วาง .xlsx ใน {REAL_COST_DIR if dataset == 'real' else SAMPLE_COST}")
+
+    routes = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))
+
+    def distance(o: str, d: str) -> float | None:
+        v = routes.get(o, {}).get(d)
+        if v is None:
+            v = routes.get(d, {}).get(o)
+        return float(v) if v is not None else None
+
+    print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
+    rev_docs, rev_bills, rev_files = load_revenue(rev_dir)
+    print(f"  {rev_files} ไฟล์ · ใบรายการไม่ซ้ำ {len(rev_docs):,}")
+
+    trips: list[dict] = []
+    skipped_no_doc = skipped_no_date = 0
+    kinds = Counter()
+    for cf in cost_files:
+        hrow = find_header_row(cf, "เลขที่ใบรายการ")
+        hdr, rows = read_sheet(cf, hrow)
+        col = {h: i for i, h in enumerate(hdr)}
+        missing = [c for c in [COL_COST, COL_REV2, "เลขที่ใบรายการ", "วันที่ปล่อยรถ", "ประเภทใบรายการ"] if c not in col]
+        if missing:
+            sys.exit(f"{cf.name} ขาดคอลัมน์ {missing}")
+        for k in WASTE_COLS + [c for cs in FUEL_COLS.values() for c in cs] + [c for cs in ALLOW_COLS.values() for c in cs] \
+                + [c for cs in FEE_COLS.values() for c in cs] + [COL_REPAIR, COL_DEP, COL_RENT]:
+            if k not in col:
+                print(f"  [!] {cf.name}: ไม่มีคอลัมน์ '{k}' — จะคิดเป็น 0")
+
+        def g(r, name):
+            i = col.get(name)
+            return r[i] if i is not None and i < len(r) else None
+
+        def gsum(r, names):
+            return round(sum(num(g(r, n)) for n in names), 2)
+
+        print(f"อ่าน {cf.name}: {len(rows):,} แถว")
+        for r in rows:
+            doc = text(g(r, "เลขที่ใบรายการ"))
+            if not doc:
+                skipped_no_doc += 1
+                continue
+            d = parse_date(g(r, "วันที่ปล่อยรถ"))
+            if d is None:
+                skipped_no_date += 1
+                continue
+
+            rev1 = num_or_none(g(r, COL_REV1))
+            revenue = rev1 if rev1 is not None else num(g(r, COL_REV2))
+            cost = num(g(r, COL_COST))
+            ttype = text(g(r, "ประเภทใบรายการ"))
+            origin, dest = text(g(r, "จุดขึ้น")), text(g(r, "จุดลง"))
+            kind = text(g(r, "ชนิดรถ"))
+            kinds[kind] += 1
+
+            fuel = {k: gsum(r, cs) for k, cs in FUEL_COLS.items()}
+            allow = {k: gsum(r, cs) for k, cs in ALLOW_COLS.items()}
+            fee = {k: gsum(r, cs) for k, cs in FEE_COLS.items()}
+            waste = gsum(r, WASTE_COLS)
+            repair = num(g(r, COL_REPAIR))
+            dep = num(g(r, COL_DEP))
+            # ค่าเช่าอยู่ใน "ต้นทุน" เฉพาะแถวที่ หมายเหตุต้นทุน = ค่าเช่า (ต้นทุน = ค่าเช่ารวม ทั้งก้อน)
+            # แถว "ค่าเดินทาง" ต้นทุน = Σ คอลัมน์ค่าแก๊ส…ค่าซ่อมรวม ส่วน ค่าเช่ารวม เป็นแค่บันทึกประกอบ
+            note = text(g(r, "หมายเหตุต้นทุน"))
+            rent = num(g(r, COL_RENT)) if "ค่าเช่า" in note and abs(num(g(r, COL_RENT)) - cost) < 1 else 0.0
+            fuel_t = round(sum(fuel.values()), 2)
+            allow_t = round(sum(allow.values()), 2)
+            fee_t = round(sum(fee.values()), 2)
+            trips.append({
+                "id": doc,
+                "d": d.isoformat(),
+                "mo": d.strftime("%Y-%m"),
+                "y": d.year,
+                "br": text(g(r, "สาขา")),
+                "t": ttype,
+                "ft": text(g(r, "ประเภทรถ")),
+                "vk": kind,
+                "pl": text(g(r, "ทะเบียนรถ")),
+                "o": origin, "de": dest,
+                "rt": text(g(r, "จุดขึ้น-จุดลง")) or f"{origin}-{dest}",
+                "dir": text(g(r, "ขาขึ้น-ขาล่อง")),
+                "km": distance(origin, dest),
+                "rev": round(revenue, 2),
+                "cost": round(cost, 2),
+                "profit": round(revenue - cost, 2),
+                "empty": ttype in EMPTY_TYPES,
+                "clear": text(g(r, "เป็นบิลเคลียร์")) == "ใช่",
+                "m": doc in rev_docs,
+                # กลุ่มต้นทุน — ยอดที่คำนวณต่อได้ (ปกติ/ผันแปร/อื่น ๆ) ไม่เก็บ ให้ฝั่งแอปคิดเอง ไฟล์จะได้เล็ก
+                "waste": waste, "fuel": fuel_t, "allow": allow_t, "fee": fee_t,
+                "repair": repair, "dep": dep, "rent": rent,
+                **{f"f_{k}": v for k, v in fuel.items()},
+                **{f"a_{k}": v for k, v in allow.items()},
+                **{f"fe_{k}": v for k, v in fee.items()},
+            })
+
+    if not trips:
+        sys.exit("ไม่มีเที่ยวให้ประมวลผล")
+
+    matched = [t for t in trips if t["m"]]
+    route_pairs = {(t["o"], t["de"]) for t in trips if t["o"] and t["de"]}
+    route_hit = sum(1 for o, d in route_pairs if distance(o, d) is not None)
+    trips_with_km = sum(1 for t in trips if t["km"] is not None)
+
+    out_dir = OUT_ROOT / dataset / "costrev"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    def dump(name: str, obj) -> None:
+        (out_dir / name).write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
+    # แถวข้อมูลเก่าสำหรับหน้ารายการทั้งหมด — รูปเดียวกับ TripRecord เท่าที่ตารางใช้
+    old_records = [{
+        "id": f"file-{t['id']}", "docNo": t["id"], "source": "เก่า", "synced": True,
+        "date": t["d"], "branch": t["br"], "docType": t["t"], "routeType": t["dir"],
+        "origin": t["o"], "dest": t["de"], "dist": t["km"] or 0,
+        "plate": t["pl"], "fleetType": t["ft"], "vehicle": t["vk"],
+        "revenue": t["rev"], "normal": round(t["cost"] - t["waste"], 2), "waste": t["waste"],
+        "sheetTotal": t["cost"], "repTotal": t["repair"], "profit": t["profit"],
+        "bills": [], "_csDone": True, "_dispatchDone": True, "_accountDone": True,
+    } for t in matched]
+
+    old_debtors = [b for t in matched for b in rev_bills.get(t["id"], [])]
+
+    dates = sorted(t["d"] for t in trips)
+    manifest = {
+        "dataset": dataset,
+        "isSample": dataset == "sample",
+        "generatedAt": datetime.now().isoformat(timespec="seconds"),
+        "costFiles": [p.name for p in cost_files],
+        "revenueFiles": rev_files,
+        "rows": len(trips),
+        "matched": len(matched),
+        "revenueDocs": len(rev_docs),
+        "dateRange": {"min": dates[0], "max": dates[-1]},
+        "years": sorted({t["y"] for t in trips}),
+        "routeDistance": {"routes": len(route_pairs), "matched": route_hit,
+                          "tripsWithKm": trips_with_km,
+                          "pct": round(100 * trips_with_km / len(trips), 1)},
+        "skipped": {"noDoc": skipped_no_doc, "noDate": skipped_no_date},
+        "emptyTypes": sorted(EMPTY_TYPES),
+        "debtorBills": len(old_debtors),
+    }
+    dump("manifest.json", manifest)
+    dump("trips.json", trips)
+    dump("old_records.json", old_records)
+    dump("old_debtors.json", old_debtors)
+
+    print(f"เขียน {out_dir.relative_to(ROOT)}")
+    print(f"  เที่ยว {len(trips):,} · จับคู่กับข้อมูลรายได้ได้ {len(matched):,} ({100*len(matched)/len(trips):.1f}%)")
+    print(f"  ช่วงวันที่ {dates[0]} → {dates[-1]} · ปี {manifest['years']}")
+    print(f"  ระยะทางจาก routes.json: เส้นทาง {route_hit}/{len(route_pairs)} · เที่ยวที่มี กม. {trips_with_km:,} ({manifest['routeDistance']['pct']}%)")
+    print(f"  เที่ยวตีเปล่า {sum(1 for t in trips if t['empty']):,} · บิลเคลียร์ {sum(1 for t in trips if t['clear']):,}")
+    print(f"  บิลลูกหนี้จากไฟล์รายได้ (เฉพาะใบที่จับคู่ได้) {len(old_debtors):,} รายการ")
+    if skipped_no_doc or skipped_no_date:
+        print(f"  [!] ข้ามแถว: ไม่มีเลขที่ใบรายการ {skipped_no_doc} · อ่านวันที่ไม่ออก {skipped_no_date}")
+    tot = sum(t["cost"] for t in trips)
+    grp = {k: sum(t[k] for t in trips) for k in ["waste", "fuel", "allow", "fee", "repair", "dep", "rent"]}
+    grp["other"] = tot - sum(grp.values())
+    print("  ตรวจผลรวมกลุ่มต้นทุน (ต้องบวกกันได้เท่าต้นทุนทั้งหมด):")
+    print("   " + " / ".join(f"{k} {v:,.0f}" for k, v in grp.items()) + f" = {sum(grp.values()):,.0f} vs ต้นทุน {tot:,.0f}")
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="แปลงไฟล์ต้นทุน+รายได้รายเที่ยวเป็น JSON")
+    ap.add_argument("--dataset", choices=["sample", "real"], default="sample")
+    a = ap.parse_args()
+    build(a.dataset)
+
+
+if __name__ == "__main__":
+    main()

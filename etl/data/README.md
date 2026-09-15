@@ -8,6 +8,7 @@
 | `revenue/` | ไฟล์บิลขนส่งรายเดือน (.xlsx) | ใช้งานได้แล้ว |
 | `repair/`  | ค่าซ่อมแซม | ยังไม่มีข้อมูล — รอ schema |
 | `travel/`  | ค่าเดินทาง | ยังไม่มีข้อมูล — รอ schema |
+| `Dashboard real data/` | ไฟล์ต้นทุน+รายได้รายเที่ยว `RealCostandRevenue.xlsx` (realalldata) | ใช้งานได้แล้ว — ดู README ในโฟลเดอร์ |
 
 ## วิธีใช้
 

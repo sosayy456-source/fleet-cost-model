@@ -35,7 +35,18 @@ python etl/build_custmap.py "แปลงรหัสลูกหนี้รว
 
 ```bash
 python etl/build_fleet.py "ทะเบียนในกองรถ.xlsx"   # → refdata/fleet.json (274 คัน) + เติมสาขาใน enums.json
+python etl/build_costrev.py --dataset sample|real  # ต้นทุน+รายได้รายเที่ยว → public/data/<ds>/costrev/ (openpyxl ล้วน)
 ```
+
+**pandas ใน venv ของ Streamlit ถูก Windows Application Control บล็อก DLL ของ pyarrow ตั้งแต่ 16 ก.ย. 2569** — `build_json.py` (ETL รายได้) รันไม่ได้บนเครื่องนี้จนกว่าจะแก้ `build_costrev.py`/`build_fleet.py`/`build_custmap.py` ใช้ openpyxl ล้วนจึงยังรันได้ อย่าเขียน ETL ใหม่ที่ import pandas
+
+### Executive Dashboard / Dashboard รวม (`features/dash-costrev/`)
+
+อ่าน `data/<ds>/costrev/trips.json` (1 แถว = 1 เที่ยว คีย์สั้น ดู `interface Trip` ใน `lib/data/useCostRev.ts`) ไม่ผ่าน `computeCost`/`recCost` เพราะต้นทุนเป็นยอดสำเร็จรูปจากไฟล์บริษัท · `mode="exec"` กรอง `m === true` (เลขที่ใบรายการตรงกับไฟล์รายได้) `mode="all"` ทุกแถว · เลือกชุดข้อมูลแยกจากแดชบอร์ดรายได้ (ตรวจ `data/real/costrev/manifest.json`) · **แยกขาดจาก `dash-fleet` ห้ามแก้แดชบอร์ดเดิมเพราะเมนูนี้** ใช้ร่วมแค่คอมโพเนนต์ใน `dash-fleet/parts.tsx` และ `lib/chart/dcharts.tsx`
+
+นิยามที่ตกลงกับเจ้าของข้อมูล (16 ก.ย. 2569) อยู่ใน docstring ของ `etl/build_costrev.py` — รายได้ = `ราคารวมจากรายได้` ถ้าว่างใช้ `ค่าบรรทุกทั้งใบรายการ` · ต้นทุน = คอลัมน์ `ต้นทุน` · เที่ยวตีเปล่าดูจาก `ประเภทใบรายการ` · สูญเปล่า = 4 คอลัมน์นอกเส้นทาง · น้ำมัน 8 คอลัมน์ (ไม่มีแก๊ส/Fleet Card) · ค่าเช่าเป็นต้นทุนเฉพาะแถว `หมายเหตุต้นทุน=ค่าเช่า` · **`วันที่ปล่อยรถ` ปนปี ค.ศ./พ.ศ. ในคอลัมน์เดียว** และ**เลขที่ใบรายการต้องเทียบเป็นสตริง** ห้ามแปลงเป็นตัวเลข
+
+"ข้อมูลเก่า" ในหน้ารายการทั้งหมด/ลูกหนี้มาจาก `costrev/old_records.json`/`old_debtors.json` (`state.fileOld`) แทนแท็บชีต — แต่ `state.oldRecords`/`oldDebtors` (จากชีต) ยังอยู่ให้แดชบอร์ดเดิมใช้ อย่าสลับ
 
 ทะเบียนรถในกองรถ: ไฟล์ต้นทางเป็นบันทึกปล่อยรถรายเที่ยว (81k แถว) ยุบเหลือ 1 ระเบียนต่อคันใน `refdata/fleet.json` — `start` = วันปล่อยรถครั้งแรก (วิ่งครั้งแรกใน ม.ค. 2567 → 1 ม.ค. 2567) · วันที่ว่างเติมจากแถวบน**ตามลำดับแถวในไฟล์** · `kinds[]` = ทุกคู่ (ประเภทรถ, ชนิดรถ) ที่คันนั้นเคยวิ่ง ฟอร์มใช้กรองทะเบียนด้วย `matchesKind()` ส่วน `fleetType/vehicle` หลักคือคู่ที่วิ่งบ่อยสุด · ชนิดรถในไฟล์ที่แอปไม่มีถูกเพิ่มใน `vehicles.json` พร้อม `approxFrom` (ยืมอัตราน้ำมัน/ความจุ) `repairKey` ใช้ชื่อเดิมเพราะ `repair.json` มีคีย์นั้นอยู่แล้ว · 4 ชนิดจาก v5 ที่ไม่มีรถวิ่งจริง (รถ 10 ล้อสั้น / รถ 12 ล้อตู้แห้ง / รถ 6 ล้อตู้เย็น / รถ 6 ล้อกลาง) ติดธง `retired` — **ห้ามลบออกจาก `vehicles.json`** เพราะ golden test 123 เคสและใบเก่าใช้อยู่ UI ใช้ `ACTIVE_VEHICLES` / `vehicleOptions(current)` แทน `REF.vehicles` · `lib/store/roster.ts` = ฐานจาก fleet.json ทับด้วย localStorage (`fleetRoster` เก็บเฉพาะส่วนต่าง, `fleetRoster.removed` เก็บที่ลบ)
 
