@@ -40,9 +40,31 @@ export const todayISO = (): string => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
+/**
+ * เวลาปัจจุบันตามเครื่อง รูปแบบ 'YYYY-MM-DD HH:mm' — ใช้ประทับว่าฝ่ายไหนกรอกเมื่อไหร่
+ * เหตุผลเดียวกับ todayISO() ห้ามใช้ toISOString() เพราะเป็น UTC
+ * ผู้ใช้ในไทย (UTC+7) จะได้เวลาย้อนหลังไป 7 ชั่วโมง และก่อนเจ็ดโมงเช้าวันที่จะเป็นเมื่อวาน
+ */
+export const nowStamp = (): string => {
+  const d = new Date();
+  return `${todayISO()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export function daysBetween(a: string | null | undefined, b: string | null | undefined): number | null {
   if (!a || !b) return null;
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
+}
+
+/**
+ * บวก/ลบวันจากวันที่ ISO แล้วคืนเป็น ISO — เหตุผลเดียวกับ todayISO()
+ * ต้องประกอบสตริงจาก getter ของเวลาเครื่อง ห้ามใช้ toISOString()
+ * (new Date(y, m-1, d) เป็นเที่ยงคืนเวลาเครื่อง พอ toISOString() จะถอย 7 ชม. กลายเป็นเมื่อวาน)
+ */
+export function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
 }
 
 /** id ของใบรายการ — รูปแบบเดียวกับ genId() เดิม (v5:1294) */

@@ -20,16 +20,19 @@ import { billIsPaid, recBills } from "../../lib/record/payment";
 import { debtStatus, unifyDebtRows } from "../../lib/record/debtRows";
 import type { DebtRow } from "../../lib/record/debtRows";
 import { daysBetween, thDateSafe, todayISO, TH_MONTHS } from "../../lib/record/date";
+import { KM_PER_DAY, tripProgress, tripStart } from "../../lib/record/tripEta";
+import { finishTrip } from "../../lib/store/finishTrip";
 import { ShortId, custLabel } from "../../lib/custmap/ShortId";
 import { useRoster } from "../../lib/store/roster";
 import type { OldDebtor, RecordsState } from "../../lib/store/useRecords";
-import type { TripRecord } from "../../types/record";
+import type { RoleKey, TripRecord } from "../../types/record";
 
 const TABS = [
   { id: "main", label: "หลัก" },
   { id: "trip", label: "กำไรรายเที่ยว" },
   { id: "customer", label: "กำไรลูกค้า" },
   { id: "fleet", label: "การใช้ประโยชน์กองรถ" },
+  { id: "status", label: "สถานะกองรถ" },
   { id: "service", label: "Service Performance" },
   { id: "debt", label: "ลูกหนี้" },
 ] as const;
@@ -81,7 +84,7 @@ function YearFF({ rows, value, onChange }: {
 }
 
 /* ============================ ตัวหลัก ============================ */
-export default function FleetDash({ state }: { state: RecordsState }) {
+export default function FleetDash({ state, role }: { state: RecordsState; role: RoleKey }) {
   const [tab, setTab] = useState<TabId>("main");
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, tab);
@@ -130,6 +133,7 @@ export default function FleetDash({ state }: { state: RecordsState }) {
       {tab === "trip" && <TripPane state={state} />}
       {tab === "customer" && <CustomerPane state={state} />}
       {tab === "fleet" && <FleetPane state={state} />}
+      {tab === "status" && <StatusPane state={state} role={role} />}
       {tab === "service" && <ServicePane state={state} />}
       {tab === "debt" && <DebtPane state={state} />}
     </>
@@ -140,6 +144,9 @@ export default function FleetDash({ state }: { state: RecordsState }) {
 const MAIN_F0 = { src: "", year: "", branch: "", fleet: "", veh: "", plate: "", rectype: "", origin: "", dest: "" };
 
 function MainPane({ state }: { state: RecordsState }) {
+  /** สลับเนื้อหาในแท็บ "หลัก" เอง แทนที่จะแยกเป็นแท็บใหม่ — ปุ่มอยู่กลางแถวตัวกรอง
+   * ต่อจากช่อง "ทะเบียนรถ" ตามดีไซน์ที่ขอมา */
+  const [view, setView] = useState<"main" | "ops">("main");
   const [f, setF] = useState(MAIN_F0);
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const base = useSourced(state, f.src);
@@ -227,96 +234,360 @@ function MainPane({ state }: { state: RecordsState }) {
 
   const nNew = recs.filter((r) => r.source !== "เก่า").length;
 
+  const modeSwitch = (
+    <div className="op-modesw">
+      <button type="button" className={view === "main" ? "active" : ""} onClick={() => setView("main")}>หลัก</button>
+      <button type="button" className={view === "ops" ? "active" : ""} onClick={() => setView("ops")}>หน้างาน</button>
+    </div>
+  );
+
   return (
     <>
       <div className="dz-filters">
-        <SrcFF value={f.src} onChange={set("src")} />
-        <YearFF rows={base} value={f.year} onChange={set("year")} />
-        <ListFF label="สาขา" all="ทุกสาขา" value={f.branch} onChange={set("branch")} opts={duniq(base.map((r) => r.branch))} />
-        <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.fleet} onChange={set("fleet")} opts={duniq(base.map((r) => r.fleetType))} />
-        <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.veh} onChange={set("veh")} opts={duniq(base.map((r) => r.vehicle))} />
-        <ListFF label="ทะเบียนรถ" all="ทุกทะเบียน" value={f.plate} onChange={set("plate")} opts={duniq(base.map((r) => r.plate))} />
-        <ListFF label="ประเภทใบรายการ" all="ทุกประเภทใบรายการ" value={f.rectype} onChange={set("rectype")} opts={duniq(base.map((r) => r.docType))} />
-        <ListFF label="จุดขึ้น (ต้นทาง)" all="ทุกต้นทาง" value={f.origin} onChange={set("origin")} opts={duniq(base.map((r) => r.origin))} />
-        <ListFF label="จุดลง (ปลายทาง)" all="ทุกปลายทาง" value={f.dest} onChange={set("dest")} opts={duniq(base.map((r) => r.dest))} />
-        <ResetBtn onClick={() => setF(MAIN_F0)} />
+        {view === "main" && <>
+          <SrcFF value={f.src} onChange={set("src")} />
+          <YearFF rows={base} value={f.year} onChange={set("year")} />
+          <ListFF label="สาขา" all="ทุกสาขา" value={f.branch} onChange={set("branch")} opts={duniq(base.map((r) => r.branch))} />
+          <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.fleet} onChange={set("fleet")} opts={duniq(base.map((r) => r.fleetType))} />
+          <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.veh} onChange={set("veh")} opts={duniq(base.map((r) => r.vehicle))} />
+          <ListFF label="ทะเบียนรถ" all="ทุกทะเบียน" value={f.plate} onChange={set("plate")} opts={duniq(base.map((r) => r.plate))} />
+        </>}
+        {modeSwitch}
+        {view === "main" && <>
+          <ListFF label="ประเภทใบรายการ" all="ทุกประเภทใบรายการ" value={f.rectype} onChange={set("rectype")} opts={duniq(base.map((r) => r.docType))} />
+          <ListFF label="จุดขึ้น (ต้นทาง)" all="ทุกต้นทาง" value={f.origin} onChange={set("origin")} opts={duniq(base.map((r) => r.origin))} />
+          <ListFF label="จุดลง (ปลายทาง)" all="ทุกปลายทาง" value={f.dest} onChange={set("dest")} opts={duniq(base.map((r) => r.dest))} />
+          <ResetBtn onClick={() => setF(MAIN_F0)} />
+        </>}
       </div>
 
-      <Pane deps={[recs, f]}>
-        <div className="dz-heroes">
-          <Hero kind="cost" l="ค่าใช้จ่ายรวม" v={fmt(k.cost)} s="บาท · ปกติ + สูญเปล่า" />
-          <Hero kind="rev" l="รายได้รวม" v={fmt(k.rev)} s="บาท" />
-          <Hero kind={k.profit < 0 ? "loss" : "profit"} l="กำไรสุทธิ"
-            v={(k.profit < 0 ? "−" : "") + fmt(Math.abs(k.profit))}
-            s="บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร" />
+      {view === "ops" ? <OpsPane state={state} /> : (
+        <Pane deps={[recs, f]}>
+          <div className="dz-heroes">
+            <Hero kind="cost" l="ค่าใช้จ่ายรวม" v={fmt(k.cost)} s="บาท · ปกติ + สูญเปล่า" />
+            <Hero kind="rev" l="รายได้รวม" v={fmt(k.rev)} s="บาท" />
+            <Hero kind={k.profit < 0 ? "loss" : "profit"} l="กำไรสุทธิ"
+              v={(k.profit < 0 ? "−" : "") + fmt(Math.abs(k.profit))}
+              s="บาท · รายได้ − ค่าใช้จ่ายรวม − ค่าบริหาร" />
+          </div>
+
+          <div className="dz-cards">
+            <KC dot={D.indigo} l="จำนวนเที่ยววิ่ง" v={fmt(k.trips)} s="เที่ยว" />
+            <KC dot={D.amber} l="ค่าน้ำมันรวม" v={fmt(k.fuel)} s="บาท · ค่าน้ำมันเหมา + แก๊ส" />
+            <KC dot={D.teal} l="ค่าเบี้ยเลี้ยงคนขับรวม" v={fmt(k.driver)} s="บาท" />
+            <KC dot={D.violet} l="ค่าธรรมเนียมอื่นๆ" v={fmt(k.other)} s="บาท" />
+            <KC dot={D.orange} l="ค่าซ่อมแซม" v={fmt(k.repair)} s="บาท" />
+            <KC dot={D.rose} tone="bad" l="ต้นทุนสูญเปล่า" v={fmt(k.waste)} s="บาท · นอกเส้นทาง + วิ่งอ้อม" />
+            <KC dot={D.slateDeep} l="ค่าบริหาร (บิลเคลียร์)" v={fmt(k.admin)} s="บาท" />
+            <KC dot={D.pink} l="ลูกหนี้ค้างชำระ" v={fmt(k.ar)} s="บาท" />
+            <KC dot={D.emeraldLight} tone="good" l="กำไรเฉลี่ย/เที่ยว" v={fmt(k.avg)}
+              s={<>บาท · อัตรากำไร {k.margin}%</>} />
+          </div>
+
+          <ZT>แนวโน้ม &amp; โครงสร้างต้นทุน</ZT>
+          <div className="dz-row dz-2">
+            <CC title="แนวโน้มต้นทุนรายเดือน">
+              <DLine data={trend} xKey="m" series={[{ key: "cost", label: "ต้นทุนรวม", color: D.indigo }]} />
+            </CC>
+            <CC title="สัดส่วนค่าใช้จ่าย">
+              <DPie data={breakdown}
+                colors={[D.violet, D.indigo, D.indigo, D.slate, D.slateDeep]} />
+            </CC>
+          </div>
+
+          <div className="dz-row dz-11" style={{ marginTop: 14 }}>
+            <CC title="ต้นทุน vs รายได้ รายปี (เส้น = กำไร)">
+              <DMixed data={byYear} xKey="y"
+                bars={[{ key: "rev", label: "รายได้", color: D.indigo },
+                       { key: "cost", label: "ต้นทุน", color: D.indigo }]}
+                line={{ key: "profit", label: "กำไร", color: D.emerald }} />
+            </CC>
+            <CC title="แนวโน้มรายได้ · ต้นทุน · กำไร รายเดือน">
+              <DLine data={trend} xKey="m" series={[
+                { key: "rev", label: "รายได้", color: D.indigo },
+                { key: "cost", label: "ต้นทุน", color: D.indigo },
+                { key: "profit", label: "กำไร", color: D.emerald }]} />
+            </CC>
+          </div>
+
+          <div style={{ marginTop: 14 }}>
+            <CC title="ต้นทุน vs รายได้ และกำไร ตามชนิดรถ">
+              <DMixed data={byVeh} xKey="v"
+                bars={[{ key: "rev", label: "รายได้", color: D.indigo },
+                       { key: "cost", label: "ต้นทุน", color: D.indigo }]}
+                line={{ key: "profit", label: "กำไร", color: D.emerald }} />
+            </CC>
+          </div>
+
+          <div className="dz-row dz-11" style={{ marginTop: 14 }}>
+            <CC title="ต้นทุนแยกตามสาขา (Top 10)" tall>
+              <DBar data={byBranch} xKey="name" horiz
+                series={[{ key: "v", label: "ต้นทุน", color: D.violet }]} />
+            </CC>
+            <CC title="ต้นทุนทุกประเภท (มาก → น้อย)" tall>
+              <DBar data={allCost} xKey="name" horiz
+                series={[{ key: "v", label: "ต้นทุน", color: D.pink }]} />
+            </CC>
+          </div>
+
+          <Note>
+            นับจาก {fmt(recs.length)} เที่ยว (ข้อมูลใหม่ {fmt(nNew)} · ข้อมูลเก่า {fmt(recs.length - nNew)}) ·
+            ค่าน้ำมันใช้ช่อง “ค่าน้ำมันเหมา” เป็นต้นทุนจริง
+            ส่วนน้ำมันนอกเส้นทาง/วิ่งอ้อม นับเป็นต้นทุนสูญเปล่าแยกต่างหาก
+          </Note>
+        </Pane>
+      )}
+    </>
+  );
+}
+
+/* ====================== มุมมอง "หน้างาน" ในแท็บ "หลัก" ======================
+ * สลับด้วยปุ่ม op-modesw ข้างช่องตัวกรอง "ทะเบียนรถ" — ไม่ใช่แท็บแยก
+ * สรุปคุณภาพงานปฏิบัติการรายวัน/รายสัปดาห์/รายเดือน — สีเขียว/เหลือง/แดง
+ * ยึดโทนสีจากดีไซน์ "Dashboard ผู้บริหาร" (เขียว #2C6B44 · เหลือง #B4762A · แดง #A63A3A)
+ *
+ * เกณฑ์ต้นแบบให้ดู 3 อย่าง (เวลาปล่อยจริง vs แผน / Load Factor / ของตกค้าง) แต่ฟอร์มปัจจุบัน
+ * มีแค่ Load Factor ต่อเที่ยวจริง ๆ (เวลาปล่อยรถตามแผนกับของตกค้างยังไม่มีช่องกรอก) จึงให้สี
+ * ต่อเที่ยวจาก Load Factor อย่างเดียวไปก่อน ส่วน On-time delivery / Damage ที่มีข้อมูลอยู่แล้ว
+ * (จากฝั่งบิลลูกหนี้) แสดงเป็นการ์ดแยกต่างหาก ไม่ปนกับสีของเที่ยว
+ */
+const OPS_F0 = { src: "", period: "today", branch: "", tier: "" };
+const shiftISO = (iso: string, days: number): string => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y!, (m ?? 1) - 1, d ?? 1);
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+};
+const tierMeta = { green: { label: "เขียว · ผ่านเกณฑ์", ink: "var(--op-green)" },
+  amber: { label: "เหลือง · เฝ้าระวัง", ink: "var(--op-amber)" },
+  red: { label: "แดง · ไม่ผ่านเกณฑ์", ink: "var(--op-red)" } } as const;
+
+function OpsPane({ state }: { state: RecordsState }) {
+  const [f, setF] = useState(OPS_F0);
+  const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+  const base = useSourced(state, f.src);
+  const { oldDebtors } = state;
+
+  const today = todayISO();
+  const periodStart = f.period === "today" ? today
+    : f.period === "7d" ? shiftISO(today, -6)
+    : `${today.slice(0, 7)}-01`;
+  const periodLabel = f.period === "today" ? "วันนี้" : f.period === "7d" ? "7 วันล่าสุด" : "เดือนนี้";
+
+  const recs = useMemo(() => base.filter((r) =>
+    (r.date ?? "") >= periodStart && (r.date ?? "") <= today
+    && (!f.branch || (r.branch ?? "") === f.branch)), [base, f.branch, periodStart, today]);
+
+  /** ให้สีต่อเที่ยวจาก Load Factor — เกณฑ์เดียวกับแท็บ "การใช้ประโยชน์กองรถ" (_v4 เท่านั้นถึงจะมีช่องความจุ) */
+  const scored = useMemo(() => recs
+    .filter((r) => r._v4 && (num(r.capacity) > 0 || r.emptyLeg))
+    .map((r) => {
+      const factor = r.emptyLeg ? 0 : Math.min(100, Math.round(num(r.loadActual) / num(r.capacity) * 100));
+      const tier: "green" | "amber" | "red" = r.emptyLeg ? "red" : factor >= 70 ? "green" : factor >= 40 ? "amber" : "red";
+      const cost = recCost(r).total, rev = num(r.revenue);
+      return { r, factor, tier, cost, rev, profit: rev - cost };
+    }), [recs]);
+
+  const nScored = scored.length;
+  const cnt = (t: "green" | "amber" | "red") => scored.filter((x) => x.tier === t).length;
+  const nGreen = cnt("green"), nAmber = cnt("amber"), nRed = cnt("red");
+  const pct = (n: number) => nScored ? Math.round(n / nScored * 100) : 0;
+  const passPct = pct(nGreen);
+  const passTier: "green" | "amber" | "red" = passPct >= 80 ? "green" : passPct >= 70 ? "amber" : "red";
+  const noData = recs.length - nScored;
+
+  /** On-time delivery / Damage rate — จากบิลของใบในช่วงเดียวกัน (รวมข้อมูลเก่า) เหมือนแท็บ Service Performance */
+  const bills = useMemo(() => {
+    type B = { plannedDate: string | null; actualDate: string | null; damageStatus: string; damageQty: number };
+    const out: B[] = [];
+    const take = (b: Record<string, unknown>): B => ({
+      plannedDate: (b.plannedDate as string) ?? null, actualDate: (b.actualDate as string) ?? null,
+      damageStatus: String(b.damageStatus ?? ""), damageQty: num(b.damageQty) });
+    if (f.src !== "เก่า") for (const r of recs) for (const b of recBills(r)) out.push(take(b as unknown as Record<string, unknown>));
+    if (f.src !== "ใหม่") for (const d of oldDebtors)
+      if ((d.date ?? "") >= periodStart && (d.date ?? "") <= today) out.push(take(d as unknown as Record<string, unknown>));
+    return out;
+  }, [recs, oldDebtors, f.src, periodStart, today]);
+  const otBills = bills.filter((b) => b.plannedDate && b.actualDate);
+  const onTimePct = otBills.length
+    ? Math.round(otBills.filter((b) => (b.actualDate ?? "") <= (b.plannedDate ?? "")).length / otBills.length * 100) : null;
+  const dmgBills = bills.filter((b) => b.damageStatus);
+  const dmgPct = dmgBills.length
+    ? Math.round(dmgBills.filter((b) => b.damageStatus !== "ปกติ").length / dmgBills.length * 100) : null;
+  const dmgQty = bills.reduce((s, b) => s + b.damageQty, 0);
+
+  const byBranch = useMemo(() => {
+    const m = new Map<string, { g: number; a: number; r: number }>();
+    for (const x of scored) {
+      const key = x.r.branch || "(ไม่ระบุสาขา)";
+      const cur = m.get(key) ?? { g: 0, a: 0, r: 0 };
+      if (x.tier === "green") cur.g++; else if (x.tier === "amber") cur.a++; else cur.r++;
+      m.set(key, cur);
+    }
+    return [...m.entries()].map(([name, v]) => {
+      const t = v.g + v.a + v.r, p = t ? Math.round(v.g / t * 100) : 0;
+      return { name, ...v, t, p, tier: (p >= 80 ? "green" : p >= 70 ? "amber" : "red") as "green" | "amber" | "red" };
+    }).sort((a, b) => b.t - a.t);
+  }, [scored]);
+
+  const tripRows = useMemo(() => {
+    const rows = f.tier ? scored.filter((x) => x.tier === f.tier) : scored;
+    return rows.slice().sort((a, b) => (b.r.date ?? "").localeCompare(a.r.date ?? ""));
+  }, [scored, f.tier]);
+
+  return (
+    <div className="opsview">
+      <div className="dz-filters">
+        <SrcFF value={f.src} onChange={set("src")} />
+        <div className="ff">
+          <label>ช่วงเวลา</label>
+          <select value={f.period} onChange={(e) => set("period")(e.target.value)}>
+            <option value="today">วันนี้</option>
+            <option value="7d">7 วันล่าสุด</option>
+            <option value="month">เดือนนี้</option>
+          </select>
+        </div>
+        <ListFF label="สาขา" all="ทุกสาขา" value={f.branch} onChange={set("branch")} opts={duniq(base.map((r) => r.branch))} />
+        <ResetBtn onClick={() => setF(OPS_F0)} />
+      </div>
+
+      {/* คีย์ตาม f เพื่อให้แอนิเมชันเข้าเฟรม/แถบโต replay ใหม่ทุกครั้งที่เปลี่ยนตัวกรอง — ดูมีชีวิตขึ้นแทนที่จะโชว์ค้าง */}
+      <Pane key={`${f.src}|${f.period}|${f.branch}|${f.tier}`} deps={[scored, f]}>
+        <div className="op-tiles">
+          <div className="op-tile green" style={{ animationDelay: ".02s" }}>
+            <div className="op-head"><i className="op-dot" /><span>เขียว · ผ่านเกณฑ์</span></div>
+            <div className="op-val"><b key={nGreen} data-real={fmt(nGreen)}>{fmt(nGreen)}</b><span className="op-unit">เที่ยว</span>
+              <span className="op-pct">{pct(nGreen)}%</span></div>
+            <div className="op-kbar"><i style={{ width: `${pct(nGreen)}%`, background: "var(--op-green)" }} /></div>
+            <div className="op-sub">Load Factor ≥ 70% · ไม่ใช่เที่ยวเปล่า</div>
+          </div>
+          <div className="op-tile amber" style={{ animationDelay: ".08s" }}>
+            <div className="op-head"><i className="op-dot" /><span>เหลือง · เฝ้าระวัง</span></div>
+            <div className="op-val"><b key={nAmber} data-real={fmt(nAmber)}>{fmt(nAmber)}</b><span className="op-unit">เที่ยว</span>
+              <span className="op-pct">{pct(nAmber)}%</span></div>
+            <div className="op-kbar"><i style={{ width: `${pct(nAmber)}%`, background: "var(--op-amber)" }} /></div>
+            <div className="op-sub">Load Factor 40–70%</div>
+          </div>
+          <div className="op-tile red" style={{ animationDelay: ".14s" }}>
+            <div className="op-head"><i className="op-dot" /><span>แดง · ไม่ผ่านเกณฑ์</span></div>
+            <div className="op-val"><b key={nRed} data-real={fmt(nRed)}>{fmt(nRed)}</b><span className="op-unit">เที่ยว</span>
+              <span className="op-pct">{pct(nRed)}%</span></div>
+            <div className="op-kbar"><i style={{ width: `${pct(nRed)}%`, background: "var(--op-red)" }} /></div>
+            <div className="op-sub">Load Factor &lt; 40% หรือเที่ยวเปล่า</div>
+          </div>
+          <div className="dz-kc" style={{ animationDelay: ".2s" }}>
+            <div className="l">เที่ยวที่ยังไม่มีข้อมูล Load Factor</div>
+            <div className="v">{fmt(noData)}</div>
+            <div className="s">จากทั้งหมด {fmt(recs.length)} เที่ยว · ยังไม่ได้กรอกความจุ/น้ำหนักบรรทุก</div>
+          </div>
         </div>
 
+        <div className="op-passcard" style={{ animationDelay: ".24s" }}>
+          <div className="op-passhead">
+            <h3><i className="op-livedot" style={{ background: tierMeta[passTier].ink }} />อัตราผ่านเกณฑ์ {periodLabel}</h3>
+            <span className="op-passline">
+              เป้าหมาย เขียว ≥ 80% ของเที่ยวที่มีข้อมูล Load Factor · ทำได้{" "}
+              <b key={passPct} data-real={`${passPct}%`} style={{ fontFamily: "var(--d-num)", color: tierMeta[passTier].ink }}>{passPct}%</b>
+            </span>
+          </div>
+          <div className="op-bar">
+            <span style={{ width: `${pct(nGreen)}%`, background: "var(--op-green)" }} />
+            <span style={{ width: `${pct(nAmber)}%`, background: "var(--op-amber)", transitionDelay: ".06s", animationDelay: ".06s" }} />
+            <span style={{ width: `${pct(nRed)}%`, background: "var(--op-red)", transitionDelay: ".12s", animationDelay: ".12s" }} />
+          </div>
+          <div className="op-legend">
+            <span><i style={{ background: "var(--op-green)" }} />เขียว = Load Factor ≥ 70% และไม่ใช่เที่ยวเปล่า</span>
+            <span><i style={{ background: "var(--op-amber)" }} />เหลือง = Load Factor 40–70%</span>
+            <span><i style={{ background: "var(--op-red)" }} />แดง = Load Factor &lt; 40% หรือเที่ยวเปล่า</span>
+          </div>
+        </div>
+
+        <ZT>คุณภาพการส่งสินค้า ({periodLabel})</ZT>
         <div className="dz-cards">
-          <KC dot={D.indigo} l="จำนวนเที่ยววิ่ง" v={fmt(k.trips)} s="เที่ยว" />
-          <KC dot={D.amber} l="ค่าน้ำมันรวม" v={fmt(k.fuel)} s="บาท · ค่าน้ำมันเหมา + แก๊ส" />
-          <KC dot={D.teal} l="ค่าเบี้ยเลี้ยงคนขับรวม" v={fmt(k.driver)} s="บาท" />
-          <KC dot={D.violet} l="ค่าธรรมเนียมอื่นๆ" v={fmt(k.other)} s="บาท" />
-          <KC dot={D.orange} l="ค่าซ่อมแซม" v={fmt(k.repair)} s="บาท" />
-          <KC dot={D.rose} tone="bad" l="ต้นทุนสูญเปล่า" v={fmt(k.waste)} s="บาท · นอกเส้นทาง + วิ่งอ้อม" />
-          <KC dot={D.slateDeep} l="ค่าบริหาร (บิลเคลียร์)" v={fmt(k.admin)} s="บาท" />
-          <KC dot={D.pink} l="ลูกหนี้ค้างชำระ" v={fmt(k.ar)} s="บาท" />
-          <KC dot={D.emeraldLight} tone="good" l="กำไรเฉลี่ย/เที่ยว" v={fmt(k.avg)}
-            s={<>บาท · อัตรากำไร {k.margin}%</>} />
+          <KC dot={D.violet} l="On-time Delivery" v={onTimePct == null ? "–" : `${onTimePct}%`}
+            s="ของบิลที่มีทั้งกำหนดส่งและเวลาส่งจริงในช่วงนี้"
+            bar={onTimePct == null ? undefined : D.violet} />
+          <KC dot={D.rose} tone="bad" l="Damage Rate" v={dmgPct == null ? "–" : `${dmgPct}%`}
+            s="ของบิลที่มีข้อมูลสถานะสินค้าในช่วงนี้" />
+          <KC dot={D.orange} tone="warn" l="จำนวนชิ้นเสียหาย" v={fmt(dmgQty)} s="ชิ้น" />
         </div>
 
-        <ZT>แนวโน้ม &amp; โครงสร้างต้นทุน</ZT>
-        <div className="dz-row dz-2">
-          <CC title="แนวโน้มต้นทุนรายเดือน">
-            <DLine data={trend} xKey="m" series={[{ key: "cost", label: "ต้นทุนรวม", color: D.indigo }]} />
-          </CC>
-          <CC title="สัดส่วนค่าใช้จ่าย">
-            <DPie data={breakdown}
-              colors={[D.violet, D.indigo, D.indigo, D.slate, D.slateDeep]} />
-          </CC>
+        <ZT>สรุปรายสาขา ({periodLabel})</ZT>
+        <div className="dz-cc" style={{ marginTop: 14 }}>
+          <div className="scroll">
+            <table className="dz-tbl">
+              <thead><tr>
+                <th>สาขา</th><th className="n">เที่ยวที่มีข้อมูล</th>
+                <th className="n">เขียว</th><th className="n">เหลือง</th><th className="n">แดง</th>
+                <th className="n">ผ่านเกณฑ์</th>
+              </tr></thead>
+              <tbody>
+                {byBranch.length === 0 ? <Empty cols={6} text="ไม่พบเที่ยวที่มีข้อมูล Load Factor ในช่วงนี้" /> : byBranch.map((b) => (
+                  <tr key={b.name}>
+                    <td style={{ fontWeight: 600 }}>{b.name}</td>
+                    <td className="n">{fmt(b.t)}</td>
+                    <td className="n" style={{ color: "var(--op-green)", fontWeight: 600 }}>{fmt(b.g)}</td>
+                    <td className="n" style={{ color: "var(--op-amber)", fontWeight: 600 }}>{fmt(b.a)}</td>
+                    <td className="n" style={{ color: "var(--op-red)", fontWeight: 600 }}>{fmt(b.r)}</td>
+                    <td className="n"><span className={`op-status ${b.tier}`}><i />{b.p}%</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        <div className="dz-row dz-11" style={{ marginTop: 14 }}>
-          <CC title="ต้นทุน vs รายได้ รายปี (เส้น = กำไร)">
-            <DMixed data={byYear} xKey="y"
-              bars={[{ key: "rev", label: "รายได้", color: D.indigo },
-                     { key: "cost", label: "ต้นทุน", color: D.indigo }]}
-              line={{ key: "profit", label: "กำไร", color: D.emerald }} />
-          </CC>
-          <CC title="แนวโน้มรายได้ · ต้นทุน · กำไร รายเดือน">
-            <DLine data={trend} xKey="m" series={[
-              { key: "rev", label: "รายได้", color: D.indigo },
-              { key: "cost", label: "ต้นทุน", color: D.indigo },
-              { key: "profit", label: "กำไร", color: D.emerald }]} />
-          </CC>
-        </div>
-
-        <div style={{ marginTop: 14 }}>
-          <CC title="ต้นทุน vs รายได้ และกำไร ตามชนิดรถ">
-            <DMixed data={byVeh} xKey="v"
-              bars={[{ key: "rev", label: "รายได้", color: D.indigo },
-                     { key: "cost", label: "ต้นทุน", color: D.indigo }]}
-              line={{ key: "profit", label: "กำไร", color: D.emerald }} />
-          </CC>
-        </div>
-
-        <div className="dz-row dz-11" style={{ marginTop: 14 }}>
-          <CC title="ต้นทุนแยกตามสาขา (Top 10)" tall>
-            <DBar data={byBranch} xKey="name" horiz
-              series={[{ key: "v", label: "ต้นทุน", color: D.violet }]} />
-          </CC>
-          <CC title="ต้นทุนทุกประเภท (มาก → น้อย)" tall>
-            <DBar data={allCost} xKey="name" horiz
-              series={[{ key: "v", label: "ต้นทุน", color: D.pink }]} />
-          </CC>
+        <div className="dz-cc" style={{ marginTop: 14 }}>
+          <TableHead title={`รายเที่ยว ${periodLabel} (มีข้อมูล Load Factor)`}>
+            <select style={selectStyle} value={f.tier} onChange={(e) => set("tier")(e.target.value)}>
+              <option value="">ทุกสี</option>
+              <option value="green">เขียว</option>
+              <option value="amber">เหลือง</option>
+              <option value="red">แดง</option>
+            </select>
+          </TableHead>
+          <div className="scroll">
+            <table className="dz-tbl">
+              <thead><tr>
+                <th>สถานะ</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>สาขา</th><th>เส้นทาง</th>
+                <th className="n">Load Factor</th><th className="n">รายได้</th><th className="n">ต้นทุน</th>
+                <th className="n">กำไร/ขาดทุน</th>
+              </tr></thead>
+              <tbody>
+                {tripRows.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยวตามเงื่อนไข" /> : tripRows.slice(0, 300).map((x, i) => (
+                  <tr key={i}>
+                    <td><span className={`op-status op-status-dot ${x.tier}`} title={tierMeta[x.tier].label}><i /></span></td>
+                    <td>{thDateSafe(x.r.date)}</td>
+                    <td>{x.r.docNo || "–"}</td>
+                    <td>{x.r.branch || "–"}</td>
+                    <td>{routeLabel(x.r)}</td>
+                    <td className="n" style={{ fontWeight: 600, color: tierMeta[x.tier].ink }}>
+                      {x.r.emptyLeg ? "เที่ยวเปล่า" : `${x.factor}%`}
+                    </td>
+                    <td className="n">{fmt(x.rev)}</td>
+                    <td className="n">{fmt(x.cost)}</td>
+                    <td className="n" style={{ fontWeight: 700, color: x.profit < 0 ? "var(--red)" : "var(--green)" }}>
+                      {(x.profit < 0 ? "−" : "") + fmt(Math.abs(x.profit))}
+                    </td>
+                  </tr>
+                ))}
+                {tripRows.length > 300 && (
+                  <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
+                    …แสดง 300 รายการแรกจากทั้งหมด {fmt(tripRows.length)} รายการ
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <Note>
-          นับจาก {fmt(recs.length)} เที่ยว (ข้อมูลใหม่ {fmt(nNew)} · ข้อมูลเก่า {fmt(recs.length - nNew)}) ·
-          ค่าน้ำมันใช้ช่อง “ค่าน้ำมันเหมา” เป็นต้นทุนจริง
-          ส่วนน้ำมันนอกเส้นทาง/วิ่งอ้อม นับเป็นต้นทุนสูญเปล่าแยกต่างหาก
+          สีของแต่ละเที่ยวตัดสินจาก Load Factor เพียงอย่างเดียว (บรรทุกจริง ÷ ความจุ) เพราะฟอร์มยังไม่มีช่อง
+          “เวลาปล่อยรถตามแผน/จริง” และ “ของตกค้าง/ลืมส่งลูกค้า” ให้คำนวณ — นับเฉพาะใบที่กรอกความจุรถแล้ว (ตั้งแต่เวอร์ชันฟอร์มที่มีช่องนี้) ·
+          On-time Delivery / Damage Rate คำนวณจากข้อมูลบิลลูกหนี้ในช่วงเวลาเดียวกัน แยกจากสีของเที่ยวข้างต้น
         </Note>
       </Pane>
-    </>
+    </div>
   );
 }
 
@@ -831,6 +1102,164 @@ function FleetPane({ state }: { state: RecordsState }) {
           สำหรับเที่ยวเปล่า = ต้นทุนรวมทั้งเที่ยว (เพราะไม่มีรายได้เลย) ·
           เป็นค่าประมาณเชิงเปรียบเทียบ ไม่ใช่มูลค่าความเสียหายที่แท้จริง 100% ·
           แสดงเฉพาะเที่ยวที่กรอกความจุรถ/น้ำหนักบรรทุกแล้วเท่านั้น
+        </Note>
+      </Pane>
+    </>
+  );
+}
+
+/* ================= แท็บ: สถานะกองรถ =================
+ * ยังไม่มี GPS/telematics เชื่อมจริง จึง "เดา" สถานะจากใบรายการล่าสุดของรถแต่ละคัน
+ * เหมือนเปิดสมุดบันทึกเดินรถดูว่าใบล่าสุดของคันนี้ออกวันไหน ไปไหน ไกลเท่าไหร่:
+ *   - รถที่ status ในทะเบียนรถไม่ใช่ "ใช้งาน" (ซ่อมบำรุง/จอด/ปลดระวาง) → ไม่ต้องดูใบเลย
+ *   - ยังไม่ถึงวันที่ประมาณว่าจะถึงปลายทาง (tripProgress) → กำลังเดินทาง ตำแหน่ง = ต้นทาง→ปลายทาง
+ *   - เลยวันประมาณการ / คนขับกดจบงานแล้ว / ไม่มีใบเลย → ว่าง ตำแหน่ง = จุดลงของเที่ยวล่าสุด
+ * ข้อจำกัด: สดใหม่แค่เท่าที่มีคนกรอกใบหรือกดจบงาน ไม่ใช่ตำแหน่งเรียลไทม์บนแผนที่
+ */
+type FleetStatusKey = "idle" | "moving" | "down";
+const STATUS_META: Record<FleetStatusKey, { label: string; badge: string }> = {
+  idle: { label: "ว่างอยู่ที่คลัง", badge: "paid" },
+  moving: { label: "กำลังเดินทาง", badge: "b1" },
+  down: { label: "ไม่พร้อมใช้งาน", badge: "unpaid" },
+};
+
+function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
+  const [src, setSrc] = useState("");
+  const [q, setQ] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"" | FleetStatusKey>("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const base = useSourced(state, src);
+  const [roster] = useRoster();
+  const today = todayISO();
+
+  const rows = useMemo(() => roster.map((v) => {
+    // เรียงด้วยวันที่เริ่มวิ่งจริง (วันปล่อยรถก่อน ไม่มีค่อยใช้วันที่ใบ) ไม่ใช่วันที่ใบอย่างเดียว
+    const trips = base.filter((r) => r.plate === v.plate)
+      .slice().sort((a, b) => tripStart(b).localeCompare(tripStart(a)));
+    const latest = trips[0] ?? null;
+    const p = latest ? tripProgress(latest, today) : null;
+    // เที่ยวที่ออกไปแล้วจริง ๆ — ใบที่ลงวันปล่อยรถไว้ล่วงหน้ายังไม่พารถไปไหน
+    // ถ้าเอา dest ของใบอนาคตมาโชว์ จะกลายเป็นบอกว่ารถอยู่ปลายทางทั้งที่ยังจอดรออยู่
+    const arrived = trips.find((r) => { const s = tripStart(r); return !!s && s <= today; }) ?? null;
+
+    let statusKey: FleetStatusKey;
+    let position: string;
+    if (v.status !== "ใช้งาน") {
+      statusKey = "down";
+      position = v.status || "–";
+    } else if (p?.moving) {
+      statusKey = "moving";
+      position = routeLabel(latest!);
+    } else {
+      statusKey = "idle";
+      // จุดลงของเที่ยวล่าสุดที่ออกไปแล้ว = ที่ที่รถน่าจะจอดอยู่ตอนนี้
+      position = arrived?.dest || (arrived ? "ไม่ระบุปลายทาง"
+        : latest ? "รอออกเดินทาง" : "ไม่มีประวัติ");
+    }
+
+    // ว่างมากี่วัน — นับจากวันที่จบงานจริง ถ้าไม่มีก็วันที่ประมาณว่าถึง
+    const since = arrived
+      ? (arrived._tripDoneDate ?? tripProgress(arrived, today).eta ?? tripStart(arrived)) : null;
+    const idleDays = statusKey === "idle" && since
+      ? Math.max(0, daysBetween(since, today) ?? 0) : null;
+
+    return { v, latest, idleDays, statusKey, position, eta: p?.eta ?? null };
+  }), [roster, base, today]);
+
+  async function onFinish(r: TripRecord) {
+    if (!confirm(`ยืนยันว่าเที่ยวนี้จบแล้ว?\n${r.plate} · ${routeLabel(r)}`)) return;
+    setBusy(r.id);
+    try {
+      await finishTrip(r, role);
+      state.reload();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const cnt = (k: FleetStatusKey) => rows.filter((x) => x.statusKey === k).length;
+  const nIdle = cnt("idle"), nMoving = cnt("moving"), nDown = cnt("down");
+
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows.filter((x) =>
+      (!filterStatus || x.statusKey === filterStatus)
+      && (!needle || `${x.v.plate} ${x.v.vehicle} ${x.position}`.toLowerCase().includes(needle)));
+  }, [rows, filterStatus, q]);
+
+  return (
+    <>
+      <div className="dz-filters">
+        <SrcFF value={src} onChange={setSrc} />
+        <div className="ff">
+          <label>สถานะ</label>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "" | FleetStatusKey)}>
+            <option value="">ทุกสถานะ</option>
+            <option value="idle">ว่างอยู่ที่คลัง</option>
+            <option value="moving">กำลังเดินทาง</option>
+            <option value="down">ไม่พร้อมใช้งาน</option>
+          </select>
+        </div>
+        <ResetBtn onClick={() => { setSrc(""); setFilterStatus(""); setQ(""); }} />
+      </div>
+
+      <Pane deps={[rows, filterStatus, q]}>
+        <div className="dz-heroes">
+          <Hero kind="fleet" l="รถในกองรถทั้งหมด" v={fmt(roster.length)}
+            s={<>คัน · ว่าง {fmt(nIdle)} · เดินทาง {fmt(nMoving)} · ไม่พร้อมใช้งาน {fmt(nDown)}</>} />
+        </div>
+        <div className="dz-cards">
+          <KC dot={D.emeraldLight} tone="good" l="ว่างอยู่ที่คลัง" v={fmt(nIdle)}
+            s={<>คัน · {roster.length ? Math.round(nIdle / roster.length * 100) : 0}% ของกองรถ</>} />
+          <KC dot={D.indigo} l="กำลังเดินทาง" v={fmt(nMoving)}
+            s={<>คัน · {roster.length ? Math.round(nMoving / roster.length * 100) : 0}% ของกองรถ</>} />
+          <KC dot={D.rose} tone="bad" l="ไม่พร้อมใช้งาน" v={fmt(nDown)} s="คัน · ซ่อมบำรุง/จอด/ปลดระวาง" />
+        </div>
+
+        <div className="dz-cc" style={{ marginTop: 14 }}>
+          <TableHead title="สถานะรายคัน (เดาจากใบรายการล่าสุด)">
+            <input style={searchStyle} value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="🔍 ค้นหา ทะเบียน / ชนิดรถ / ตำแหน่ง" />
+          </TableHead>
+          <div className="scroll">
+            <table className="dz-tbl">
+              <thead><tr>
+                <th>ทะเบียนรถ</th><th>ชนิดรถ</th><th>สถานะ</th><th>ตำแหน่งปัจจุบัน</th>
+                <th>ใบล่าสุด</th><th>ประมาณการเสร็จ</th><th className="n">ว่างมาแล้ว</th><th />
+              </tr></thead>
+              <tbody>
+                {shown.length === 0 ? <Empty cols={8} text="ไม่พบรถตามเงื่อนไข" /> : shown.map((x) => (
+                  <tr key={x.v.plate}>
+                    <td style={{ fontWeight: 700 }}>{x.v.plate}</td>
+                    <td>{x.v.vehicle || "–"}</td>
+                    <td><span className={`badge ${STATUS_META[x.statusKey].badge}`}>{STATUS_META[x.statusKey].label}</span></td>
+                    <td>{x.position}</td>
+                    <td>{x.latest ? `${thDateSafe(x.latest.date)} · ${x.latest.docNo || "–"}` : "ไม่มีประวัติ"}</td>
+                    <td>{x.statusKey === "moving" ? (x.eta ? thDateSafe(x.eta) : "ไม่ทราบ") : "–"}</td>
+                    <td className="n">{x.idleDays == null ? "–" : `${fmt(x.idleDays)} วัน`}</td>
+                    <td>
+                      {/* ใบข้อมูลเก่าจากชีตแก้ไม่ได้ จึงไม่มีปุ่มให้กด */}
+                      {x.statusKey === "moving" && x.latest && x.latest.source !== "เก่า" && (
+                        <button type="button" className="btn-mini" disabled={busy === x.latest.id}
+                          onClick={() => onFinish(x.latest!)}>
+                          {busy === x.latest.id ? "กำลังบันทึก..." : "จบงาน"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <Note>
+          ทุกอย่างในหน้านี้เดาจากใบรายการล่าสุดของรถคันนั้น ไม่ใช่ตำแหน่ง GPS จริง ·
+          “ประมาณการเสร็จ” = วันปล่อยรถ + (ระยะทาง ÷ {fmt(KM_PER_DAY)} กม./วัน) ปัดขึ้น ·
+          ระหว่างที่ยังไม่ถึงวันนั้นถือว่ากำลังเดินทาง พอเลยวันแล้วถือว่าถึงปลายทาง กลายเป็นรถว่าง
+          ที่จุดลงของเที่ยวนั้น · กด “จบงาน” เพื่อปิดงานก่อนกำหนดได้ (คนขับกดเองได้ที่หน้า “เที่ยวรถของฉัน”) ·
+          ใบที่ไม่ได้กรอกระยะทางและไม่มีเส้นทางในตาราง จะประมาณไม่ได้ ต้องกดจบงานเอง ·
+          รถที่ตั้ง “สถานะ” เป็นอื่นนอกจาก “ใช้งาน” ในหน้าทะเบียนรถจะขึ้นว่าไม่พร้อมใช้งานทันทีโดยไม่ดูใบ
         </Note>
       </Pane>
     </>
