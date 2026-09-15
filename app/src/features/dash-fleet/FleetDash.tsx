@@ -20,16 +20,19 @@ import { billIsPaid, recBills } from "../../lib/record/payment";
 import { debtStatus, unifyDebtRows } from "../../lib/record/debtRows";
 import type { DebtRow } from "../../lib/record/debtRows";
 import { daysBetween, thDateSafe, todayISO, TH_MONTHS } from "../../lib/record/date";
+import { KM_PER_DAY, tripProgress, tripStart } from "../../lib/record/tripEta";
+import { finishTrip } from "../../lib/store/finishTrip";
 import { ShortId, custLabel } from "../../lib/custmap/ShortId";
 import { useRoster } from "../../lib/store/roster";
 import type { OldDebtor, RecordsState } from "../../lib/store/useRecords";
-import type { TripRecord } from "../../types/record";
+import type { RoleKey, TripRecord } from "../../types/record";
 
 const TABS = [
   { id: "main", label: "หลัก" },
   { id: "trip", label: "กำไรรายเที่ยว" },
   { id: "customer", label: "กำไรลูกค้า" },
   { id: "fleet", label: "การใช้ประโยชน์กองรถ" },
+  { id: "status", label: "สถานะกองรถ" },
   { id: "service", label: "Service Performance" },
   { id: "debt", label: "ลูกหนี้" },
 ] as const;
@@ -81,7 +84,7 @@ function YearFF({ rows, value, onChange }: {
 }
 
 /* ============================ ตัวหลัก ============================ */
-export default function FleetDash({ state }: { state: RecordsState }) {
+export default function FleetDash({ state, role }: { state: RecordsState; role: RoleKey }) {
   const [tab, setTab] = useState<TabId>("main");
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, tab);
@@ -130,6 +133,7 @@ export default function FleetDash({ state }: { state: RecordsState }) {
       {tab === "trip" && <TripPane state={state} />}
       {tab === "customer" && <CustomerPane state={state} />}
       {tab === "fleet" && <FleetPane state={state} />}
+      {tab === "status" && <StatusPane state={state} role={role} />}
       {tab === "service" && <ServicePane state={state} />}
       {tab === "debt" && <DebtPane state={state} />}
     </>
@@ -552,7 +556,7 @@ function OpsPane({ state }: { state: RecordsState }) {
               <tbody>
                 {tripRows.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยวตามเงื่อนไข" /> : tripRows.slice(0, 300).map((x, i) => (
                   <tr key={i}>
-                    <td><span className={`op-status ${x.tier}`}><i />{tierMeta[x.tier].label.split(" · ")[0]}</span></td>
+                    <td><span className={`op-status op-status-dot ${x.tier}`} title={tierMeta[x.tier].label}><i /></span></td>
                     <td>{thDateSafe(x.r.date)}</td>
                     <td>{x.r.docNo || "–"}</td>
                     <td>{x.r.branch || "–"}</td>
@@ -1098,6 +1102,164 @@ function FleetPane({ state }: { state: RecordsState }) {
           สำหรับเที่ยวเปล่า = ต้นทุนรวมทั้งเที่ยว (เพราะไม่มีรายได้เลย) ·
           เป็นค่าประมาณเชิงเปรียบเทียบ ไม่ใช่มูลค่าความเสียหายที่แท้จริง 100% ·
           แสดงเฉพาะเที่ยวที่กรอกความจุรถ/น้ำหนักบรรทุกแล้วเท่านั้น
+        </Note>
+      </Pane>
+    </>
+  );
+}
+
+/* ================= แท็บ: สถานะกองรถ =================
+ * ยังไม่มี GPS/telematics เชื่อมจริง จึง "เดา" สถานะจากใบรายการล่าสุดของรถแต่ละคัน
+ * เหมือนเปิดสมุดบันทึกเดินรถดูว่าใบล่าสุดของคันนี้ออกวันไหน ไปไหน ไกลเท่าไหร่:
+ *   - รถที่ status ในทะเบียนรถไม่ใช่ "ใช้งาน" (ซ่อมบำรุง/จอด/ปลดระวาง) → ไม่ต้องดูใบเลย
+ *   - ยังไม่ถึงวันที่ประมาณว่าจะถึงปลายทาง (tripProgress) → กำลังเดินทาง ตำแหน่ง = ต้นทาง→ปลายทาง
+ *   - เลยวันประมาณการ / คนขับกดจบงานแล้ว / ไม่มีใบเลย → ว่าง ตำแหน่ง = จุดลงของเที่ยวล่าสุด
+ * ข้อจำกัด: สดใหม่แค่เท่าที่มีคนกรอกใบหรือกดจบงาน ไม่ใช่ตำแหน่งเรียลไทม์บนแผนที่
+ */
+type FleetStatusKey = "idle" | "moving" | "down";
+const STATUS_META: Record<FleetStatusKey, { label: string; badge: string }> = {
+  idle: { label: "ว่างอยู่ที่คลัง", badge: "paid" },
+  moving: { label: "กำลังเดินทาง", badge: "b1" },
+  down: { label: "ไม่พร้อมใช้งาน", badge: "unpaid" },
+};
+
+function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
+  const [src, setSrc] = useState("");
+  const [q, setQ] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"" | FleetStatusKey>("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const base = useSourced(state, src);
+  const [roster] = useRoster();
+  const today = todayISO();
+
+  const rows = useMemo(() => roster.map((v) => {
+    // เรียงด้วยวันที่เริ่มวิ่งจริง (วันปล่อยรถก่อน ไม่มีค่อยใช้วันที่ใบ) ไม่ใช่วันที่ใบอย่างเดียว
+    const trips = base.filter((r) => r.plate === v.plate)
+      .slice().sort((a, b) => tripStart(b).localeCompare(tripStart(a)));
+    const latest = trips[0] ?? null;
+    const p = latest ? tripProgress(latest, today) : null;
+    // เที่ยวที่ออกไปแล้วจริง ๆ — ใบที่ลงวันปล่อยรถไว้ล่วงหน้ายังไม่พารถไปไหน
+    // ถ้าเอา dest ของใบอนาคตมาโชว์ จะกลายเป็นบอกว่ารถอยู่ปลายทางทั้งที่ยังจอดรออยู่
+    const arrived = trips.find((r) => { const s = tripStart(r); return !!s && s <= today; }) ?? null;
+
+    let statusKey: FleetStatusKey;
+    let position: string;
+    if (v.status !== "ใช้งาน") {
+      statusKey = "down";
+      position = v.status || "–";
+    } else if (p?.moving) {
+      statusKey = "moving";
+      position = routeLabel(latest!);
+    } else {
+      statusKey = "idle";
+      // จุดลงของเที่ยวล่าสุดที่ออกไปแล้ว = ที่ที่รถน่าจะจอดอยู่ตอนนี้
+      position = arrived?.dest || (arrived ? "ไม่ระบุปลายทาง"
+        : latest ? "รอออกเดินทาง" : "ไม่มีประวัติ");
+    }
+
+    // ว่างมากี่วัน — นับจากวันที่จบงานจริง ถ้าไม่มีก็วันที่ประมาณว่าถึง
+    const since = arrived
+      ? (arrived._tripDoneDate ?? tripProgress(arrived, today).eta ?? tripStart(arrived)) : null;
+    const idleDays = statusKey === "idle" && since
+      ? Math.max(0, daysBetween(since, today) ?? 0) : null;
+
+    return { v, latest, idleDays, statusKey, position, eta: p?.eta ?? null };
+  }), [roster, base, today]);
+
+  async function onFinish(r: TripRecord) {
+    if (!confirm(`ยืนยันว่าเที่ยวนี้จบแล้ว?\n${r.plate} · ${routeLabel(r)}`)) return;
+    setBusy(r.id);
+    try {
+      await finishTrip(r, role);
+      state.reload();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const cnt = (k: FleetStatusKey) => rows.filter((x) => x.statusKey === k).length;
+  const nIdle = cnt("idle"), nMoving = cnt("moving"), nDown = cnt("down");
+
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows.filter((x) =>
+      (!filterStatus || x.statusKey === filterStatus)
+      && (!needle || `${x.v.plate} ${x.v.vehicle} ${x.position}`.toLowerCase().includes(needle)));
+  }, [rows, filterStatus, q]);
+
+  return (
+    <>
+      <div className="dz-filters">
+        <SrcFF value={src} onChange={setSrc} />
+        <div className="ff">
+          <label>สถานะ</label>
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as "" | FleetStatusKey)}>
+            <option value="">ทุกสถานะ</option>
+            <option value="idle">ว่างอยู่ที่คลัง</option>
+            <option value="moving">กำลังเดินทาง</option>
+            <option value="down">ไม่พร้อมใช้งาน</option>
+          </select>
+        </div>
+        <ResetBtn onClick={() => { setSrc(""); setFilterStatus(""); setQ(""); }} />
+      </div>
+
+      <Pane deps={[rows, filterStatus, q]}>
+        <div className="dz-heroes">
+          <Hero kind="fleet" l="รถในกองรถทั้งหมด" v={fmt(roster.length)}
+            s={<>คัน · ว่าง {fmt(nIdle)} · เดินทาง {fmt(nMoving)} · ไม่พร้อมใช้งาน {fmt(nDown)}</>} />
+        </div>
+        <div className="dz-cards">
+          <KC dot={D.emeraldLight} tone="good" l="ว่างอยู่ที่คลัง" v={fmt(nIdle)}
+            s={<>คัน · {roster.length ? Math.round(nIdle / roster.length * 100) : 0}% ของกองรถ</>} />
+          <KC dot={D.indigo} l="กำลังเดินทาง" v={fmt(nMoving)}
+            s={<>คัน · {roster.length ? Math.round(nMoving / roster.length * 100) : 0}% ของกองรถ</>} />
+          <KC dot={D.rose} tone="bad" l="ไม่พร้อมใช้งาน" v={fmt(nDown)} s="คัน · ซ่อมบำรุง/จอด/ปลดระวาง" />
+        </div>
+
+        <div className="dz-cc" style={{ marginTop: 14 }}>
+          <TableHead title="สถานะรายคัน (เดาจากใบรายการล่าสุด)">
+            <input style={searchStyle} value={q} onChange={(e) => setQ(e.target.value)}
+              placeholder="🔍 ค้นหา ทะเบียน / ชนิดรถ / ตำแหน่ง" />
+          </TableHead>
+          <div className="scroll">
+            <table className="dz-tbl">
+              <thead><tr>
+                <th>ทะเบียนรถ</th><th>ชนิดรถ</th><th>สถานะ</th><th>ตำแหน่งปัจจุบัน</th>
+                <th>ใบล่าสุด</th><th>ประมาณการเสร็จ</th><th className="n">ว่างมาแล้ว</th><th />
+              </tr></thead>
+              <tbody>
+                {shown.length === 0 ? <Empty cols={8} text="ไม่พบรถตามเงื่อนไข" /> : shown.map((x) => (
+                  <tr key={x.v.plate}>
+                    <td style={{ fontWeight: 700 }}>{x.v.plate}</td>
+                    <td>{x.v.vehicle || "–"}</td>
+                    <td><span className={`badge ${STATUS_META[x.statusKey].badge}`}>{STATUS_META[x.statusKey].label}</span></td>
+                    <td>{x.position}</td>
+                    <td>{x.latest ? `${thDateSafe(x.latest.date)} · ${x.latest.docNo || "–"}` : "ไม่มีประวัติ"}</td>
+                    <td>{x.statusKey === "moving" ? (x.eta ? thDateSafe(x.eta) : "ไม่ทราบ") : "–"}</td>
+                    <td className="n">{x.idleDays == null ? "–" : `${fmt(x.idleDays)} วัน`}</td>
+                    <td>
+                      {/* ใบข้อมูลเก่าจากชีตแก้ไม่ได้ จึงไม่มีปุ่มให้กด */}
+                      {x.statusKey === "moving" && x.latest && x.latest.source !== "เก่า" && (
+                        <button type="button" className="btn-mini" disabled={busy === x.latest.id}
+                          onClick={() => onFinish(x.latest!)}>
+                          {busy === x.latest.id ? "กำลังบันทึก..." : "จบงาน"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <Note>
+          ทุกอย่างในหน้านี้เดาจากใบรายการล่าสุดของรถคันนั้น ไม่ใช่ตำแหน่ง GPS จริง ·
+          “ประมาณการเสร็จ” = วันปล่อยรถ + (ระยะทาง ÷ {fmt(KM_PER_DAY)} กม./วัน) ปัดขึ้น ·
+          ระหว่างที่ยังไม่ถึงวันนั้นถือว่ากำลังเดินทาง พอเลยวันแล้วถือว่าถึงปลายทาง กลายเป็นรถว่าง
+          ที่จุดลงของเที่ยวนั้น · กด “จบงาน” เพื่อปิดงานก่อนกำหนดได้ (คนขับกดเองได้ที่หน้า “เที่ยวรถของฉัน”) ·
+          ใบที่ไม่ได้กรอกระยะทางและไม่มีเส้นทางในตาราง จะประมาณไม่ได้ ต้องกดจบงานเอง ·
+          รถที่ตั้ง “สถานะ” เป็นอื่นนอกจาก “ใช้งาน” ในหน้าทะเบียนรถจะขึ้นว่าไม่พร้อมใช้งานทันทีโดยไม่ดูใบ
         </Note>
       </Pane>
     </>

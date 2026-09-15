@@ -782,6 +782,8 @@ input[type="checkbox"]{width:auto;padding:0}
 .op-status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;
   border-radius:999px;padding:4px 12px;white-space:nowrap}
 .op-status i{width:8px;height:8px;border-radius:50%;flex:none}
+/* ---- ใช้แค่จุดสี ไม่มีข้อความ (คอลัมน์ "สถานะ" ของตารางรายเที่ยว) ---- */
+.op-status-dot{padding:6px;gap:0}
 .op-status.green{color:var(--op-green);background:var(--op-green-tint)}
 .op-status.green i{background:var(--op-green)}
 .op-status.amber{color:var(--op-amber);background:var(--op-amber-tint)}

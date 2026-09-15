@@ -1,8 +1,8 @@
 /** ชนิดข้อมูลของใบรายการเดินรถ — ถอดจาก buildRecord() ใน v5:2116 */
 import type { FleetType } from "../lib/cost/types";
 
-/** manager/admin เป็นตำแหน่งดูอย่างเดียว/ดูแลระบบ ไม่นับในความครบถ้วนของใบ */
-export type RoleKey = "cs" | "dispatch" | "account" | "manager" | "admin";
+/** manager/admin/driver ไม่ได้กรอกใบ จึงไม่นับในความครบถ้วนของใบ */
+export type RoleKey = "cs" | "dispatch" | "account" | "manager" | "admin" | "driver";
 /** เฉพาะตำแหน่งที่กรอกใบจริง — ใช้กับ stampRole และการแบ่งโซนในฟอร์ม */
 export type EntryRoleKey = "cs" | "dispatch" | "account";
 
@@ -128,6 +128,19 @@ export interface TripRecord {
   _dispatchAt?: string;
   _accountDone?: boolean;
   _accountAt?: string;
+
+  /**
+   * ---- คนขับกดจบงาน ----
+   * แยกจากธง workflow ข้างบนโดยตั้งใจ — ไม่นับในความครบถ้วนของใบ (ROLE_ORDER)
+   * เป็นแค่ตัวบอกว่ารถคันนี้วิ่งจบแล้ว กลับมาว่างก่อนวันที่ประมาณการไว้
+   * ไม่มีคอลัมน์ในชีต เดินทางไป-กลับในคอลัมน์ _DATA (JSON) ที่ Apps Script อ่านกลับอยู่แล้ว
+   */
+  _tripDone?: boolean;
+  /** เวลาที่กด 'YYYY-MM-DD HH:mm' */
+  _tripDoneAt?: string;
+  /** วันที่จบงาน (ISO) — ใช้นับว่ารถว่างมากี่วัน */
+  _tripDoneDate?: string;
+  _tripDoneBy?: RoleKey;
 }
 
 /** ใบที่ยังกรอกไม่ครบ ยังไม่นับเป็นข้อมูลสมบูรณ์ */

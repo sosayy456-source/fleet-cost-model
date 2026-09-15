@@ -15,7 +15,7 @@
               │                                    ▼
 ┌─────────┐  ┌┴──────────────┐   HTTP POST   ┌──────────────────┐
 │ ผู้ใช้กรอก│─▶│  React SPA    │◀─────────────│ Apps Script /exec│
-│  ฟอร์ม   │  │  (Vite)       │     JSON      │  v10 → Google Sheet│
+│  ฟอร์ม   │  │  (Vite)       │     JSON      │  v11 → Google Sheet│
 └─────────┘  └┬──────────────┘               └──────────────────┘
               │
               │ fetch() ไฟล์ static
@@ -56,7 +56,7 @@ etl/                    Python + pandas
 ├─ sample_data/         ไฟล์ตัวอย่าง commit ได้
 └─ data/                ★ gitignore — วางไฟล์ Excel จริงที่นี่
 
-apps-script/Code.gs     ★ โค้ดที่ deploy จริง (v10) — ตัวนี้เท่านั้นที่ใช้ได้
+apps-script/Code.gs     ★ โค้ดที่ deploy จริง (v11) — ตัวนี้เท่านั้นที่ใช้ได้
 .github/workflows/      deploy ขึ้น GitHub Pages
 ```
 
@@ -67,7 +67,7 @@ apps-script/Code.gs     ★ โค้ดที่ deploy จริง (v10) — 
 - `AppsScript-โมเดลเดินรถ/` — รุ่นที่รัน UI บน Apps Script โดยตรง เลิกใช้แล้ว
 - `RevenueDashboard/` — แดชบอร์ด Streamlit เดิม ยุบเข้า React หมดแล้ว
 
-> ⚠️ **เวอร์ชันต้องตรงกัน** — `apps-script/Code.gs` มี `VERSION = 10` และ frontend เช็ค `GS_VERSION = 10` ถ้าไม่ตรงจะบันทึกไม่ได้และขึ้นข้อความบอกให้ Deploy ใหม่
+> ⚠️ **เวอร์ชันต้องตรงกัน** — `apps-script/Code.gs` มี `VERSION = 11` และ frontend เช็ค `GS_VERSION = 11` ถ้าไม่ตรงจะบันทึกไม่ได้และขึ้นข้อความบอกให้ Deploy ใหม่
 
 ---
 

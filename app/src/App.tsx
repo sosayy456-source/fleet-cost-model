@@ -14,6 +14,7 @@ import Drafts from "./features/drafts/Drafts";
 import Debtors from "./features/debtors/Debtors";
 import CustCode from "./features/custcode/CustCode";
 import Settings from "./features/settings/Settings";
+import DriverJobs from "./features/driver/DriverJobs";
 // แดชบอร์ดลากไลบรารีกราฟมาด้วยราว 400 KB แยกเป็นก้อนต่างหาก
 // คนที่เข้ามาแค่กรอกข้อมูลจะได้ไม่ต้องโหลดตาม
 const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
@@ -36,6 +37,7 @@ const I = {
   search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
   chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
   split: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4" /></svg>,
+  truck: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17V6h11v11" /><path d="M14 10h4l3 3v4h-7" /><circle cx="7.5" cy="17.5" r="2" /><circle cx="17.5" cy="17.5" r="2" /></svg>,
   gear: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>,
 };
 
@@ -65,6 +67,8 @@ const PAGES: PageDef[] = [
   // สองหน้านี้ไม่มีใน index.html บน main — เป็นของที่โปรเจ็กต์นี้เพิ่ม (Phase 6-8)
   { id: "dash-revenue", view: "dash", label: "แดชบอร์ดรายได้", icon: I.chart, h1: "แดชบอร์ดรายได้" },
   { id: "route-profit", view: "dash", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง" },
+  // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
+  { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
 ];
 
 export default function App() {
@@ -163,11 +167,12 @@ export default function App() {
             {page === "debtors" && <Debtors state={state} />}
             {page === "settings" && <Settings />}
             <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
-              {page === "dash-fleet" && <FleetDash state={state} />}
+              {page === "dash-fleet" && <FleetDash state={state} role={role} />}
               {page === "dash-revenue" && <RevenueDash />}
               {page === "route-profit" && <RouteProfit state={state} />}
             </Suspense>
-            {page === "custcode" && <CustCode />}
+            {page === "driver" && <DriverJobs state={state} role={role} />}
+          {page === "custcode" && <CustCode />}
           </ErrorBoundary>
         </section>
 

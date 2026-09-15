@@ -41,6 +41,12 @@ export const ROLES: Record<RoleKey, RoleDef> = {
     desc: "ภาพรวมทั้งหมด รายงาน และการอนุมัติ",
     fields: [],
   },
+  driver: {
+    label: "คนขับ", en: "Driver", icon: "🧑‍✈️",
+    desc: "ดูงานที่กำลังวิ่ง และกดจบงานเมื่อส่งของเสร็จ",
+    // ไม่ได้กรอกช่องไหนในใบ — กดจบงานเขียนตรงผ่าน finishTrip() ไม่ผ่าน saveRecord()
+    fields: [],
+  },
   admin: {
     label: "ผู้ดูแลระบบ", en: "Admin", icon: "🛠️",
     desc: "เข้าถึงได้ทุกหน้า และกรอกแทนได้ทุกฝ่าย",
@@ -51,18 +57,20 @@ export const ROLES: Record<RoleKey, RoleDef> = {
 /** ตำแหน่งที่กรอกใบ — ใช้ตัดสินว่าใบครบหรือยัง */
 export const ROLE_ORDER: RoleKey[] = ["cs", "dispatch", "account"];
 
-/** ลำดับการ์ดในหน้าเลือกหน้าที่ */
-export const ROLE_PICK: RoleKey[] = ["cs", "dispatch", "account", "manager", "admin"];
+/** ลำดับการ์ดในหน้าเลือกหน้าที่ — admin อยู่ท้ายสุดเสมอ เพราะการ์ดใบนั้นกว้างเต็มแถว */
+export const ROLE_PICK: RoleKey[] = ["cs", "dispatch", "driver", "account", "manager", "admin"];
 
 /** หน้าที่แต่ละตำแหน่งเข้าได้ — ตัวแรกคือหน้าที่เปิดให้ตอนเข้าระบบ */
 export const ROLE_VIEWS: Record<RoleKey, string[]> = {
   cs: ["entry"],
   dispatch: ["entry"],
   account: ["entry", "records", "drafts", "debtors", "settings"],
+  // คนขับเห็นหน้าเดียว — เปิดแอปมาก็เจองานของตัวเองเลย
+  driver: ["driver"],
   // main ให้ผู้จัดการเห็นแค่ dash กับ records — สองหน้าท้ายเป็นของที่เวอร์ชันนี้เพิ่มเข้ามา
-  manager: ["dash-fleet", "records", "dash-revenue", "route-profit"],
+  manager: ["dash-fleet", "records", "dash-revenue", "route-profit", "driver"],
   admin: ["dash-fleet", "entry", "records", "drafts", "debtors", "custcode", "settings",
-          "dash-revenue", "route-profit"],
+          "dash-revenue", "route-profit", "driver"],
 };
 
 export const isEntryRole = (r: RoleKey): boolean => ROLE_ORDER.includes(r);

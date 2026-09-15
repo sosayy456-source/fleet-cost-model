@@ -67,6 +67,19 @@ describe("duplicateRecord", () => {
     expect(d.releaseDate).toBe("");
   });
 
+  it("สถานะจบงานของเที่ยวเดิมต้องไม่ติดมาด้วย ไม่งั้นรถจะดูว่างทั้งที่ยังไม่ได้ออกวิ่ง", () => {
+    const d = duplicateRecord({
+      ...src(),
+      _tripDone: true, _tripDoneAt: "2026-09-10 18:00",
+      _tripDoneDate: "2026-09-10", _tripDoneBy: "driver",
+    });
+
+    expect(d._tripDone).toBeUndefined();
+    expect(d._tripDoneAt).toBeUndefined();
+    expect(d._tripDoneDate).toBeUndefined();
+    expect(d._tripDoneBy).toBeUndefined();
+  });
+
   it("บิลต้องไม่ติดสถานะชำระแล้วมาด้วย ไม่งั้นได้หนี้ที่ไม่มีใครตามเก็บ", () => {
     const b = duplicateRecord(src()).bills[0]!;
 

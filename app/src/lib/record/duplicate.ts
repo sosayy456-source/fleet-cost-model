@@ -37,5 +37,11 @@ export function duplicateRecord(src: TripRecord): TripRecord {
     delete copy[`_${k}At`];
   }
 
+  // สถานะจบงานของเที่ยวเดิม ไม่ใช่ของเที่ยวใหม่ — ไม่ล้างแล้วรถจะดูว่างทั้งที่ยังไม่ได้ออกวิ่ง
+  delete copy._tripDone;
+  delete copy._tripDoneAt;
+  delete copy._tripDoneDate;
+  delete copy._tripDoneBy;
+
   return copy as unknown as TripRecord;
 }

@@ -13,7 +13,7 @@ import { recordBillRows, recordToRow } from "./serialize";
 import type { Cell } from "./serialize";
 
 /** ต้องตรงกับ var VERSION ใน apps-script/Code.gs */
-export const GS_VERSION = 10;
+export const GS_VERSION = 11;
 
 const LS_URL = "gsWebAppUrl";
 const URL_PATTERN = /^https:\/\/script\.google\.com\/.*\/exec$/;
@@ -174,4 +174,14 @@ export function pushRecords(list: TripRecord[]): Promise<PushResult> {
     bills,
     billOwners: list.map((r) => r.id),
   });
+}
+
+/**
+ * เขียน log การจบงานลงแท็บ "จบงาน" — เขียนต่อท้ายอย่างเดียว ไม่ upsert
+ * แยกจาก pushRecords() เพราะเป็นคนละแท็บและคนละความหมาย:
+ * ใบรายการถือ "สถานะปัจจุบัน" ส่วนแท็บนี้คือ "ประวัติว่าใครกดจบเมื่อไหร่"
+ * ผู้เรียกต้องห่อ try/catch แยก — log ที่เขียนไม่ได้ต้องไม่ทำให้การบันทึกใบล้มไปด้วย
+ */
+export function pushFinishLog(rows: Cell[][]): Promise<SheetResponse & { logged?: number }> {
+  return postToSheet<SheetResponse & { logged?: number }>({ finishLog: rows });
 }

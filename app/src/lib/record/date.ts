@@ -55,6 +55,18 @@ export function daysBetween(a: string | null | undefined, b: string | null | und
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);
 }
 
+/**
+ * บวก/ลบวันจากวันที่ ISO แล้วคืนเป็น ISO — เหตุผลเดียวกับ todayISO()
+ * ต้องประกอบสตริงจาก getter ของเวลาเครื่อง ห้ามใช้ toISOString()
+ * (new Date(y, m-1, d) เป็นเที่ยงคืนเวลาเครื่อง พอ toISOString() จะถอย 7 ชม. กลายเป็นเมื่อวาน)
+ */
+export function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+}
+
 /** id ของใบรายการ — รูปแบบเดียวกับ genId() เดิม (v5:1294) */
 export const genId = (): string =>
   "R" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
