@@ -249,6 +249,14 @@ function autoEtl(): Plugin {
         timers[job] = setTimeout(() => { want[job] = true; pump(log); }, delay);
       };
 
+      // ★ ต้องดัก error ของ watcher ไว้เสมอ ไม่งั้น dev server ตายทั้งตัว
+      //   วางไฟล์ใหญ่ (OneDrive/Excel ยังถือ handle อยู่) แล้ว chokidar เรียก fs.watch
+      //   ได้ EBUSY แล้ว emit 'error' ซึ่งถ้าไม่มีใครฟัง node จะโยนทิ้งทั้งโปรเซส
+      //   (เกิดจริงตอนวาง "ลบข้อมูลซ้ำ68-01.xlsx" 25 MB — หน้าเว็บขึ้น Failed to fetch)
+      server.watcher.on("error", (e) => {
+        log(`(ข้าม) เฝ้าไฟล์ไม่ได้ชั่วคราว: ${(e as NodeJS.ErrnoException).code ?? e} — ETL ยังทำงานต่อได้`);
+      });
+
       const watch = (dir: string, onHit: () => void) => {
         server.watcher.add(dir);
         const handler = (file: string) => {
