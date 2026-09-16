@@ -20,6 +20,8 @@ export interface AllocManifest {
   dataset: AllocDataset;
   isSample: boolean;
   generatedAt: string;
+  /** ที่มาของตัวเลข — ไฟล์ที่ปันเสร็จแล้วจากเครื่องปันส่วนต้นทุน หรือคำนวณในระบบ */
+  source: string;
   costFiles: string[];
   billFiles: number;
   items: number;

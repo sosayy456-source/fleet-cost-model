@@ -119,6 +119,10 @@ class Item:
     sender: str = ""         # ผู้ส่ง_encoded
     receiver: str = ""       # ผู้รับ_encoded
     goods: str = ""          # ประเภทสินค้า
+    #: เดือนของบิล YYYY-MM (จากคอลัมน์ วันที่) — ตัวเรียกใช้เติมให้
+    month: str = ""
+    #: คอลัมน์เพิ่มเฉพาะกิจของตัวเรียกใช้ เช่น ต้นทุนจัดสรรที่เครื่องภายนอกคิดมาแล้ว
+    extra: dict[str, object] = field(default_factory=dict)
 
     # ผลการคำนวณ — เติมโดย allocate_trip()
     dist: float | None = None

@@ -15,10 +15,11 @@ import { fileURLToPath } from "node:url";
  * มีสามงาน:
  *   rev  etl/data/revenue/              -> build_json.py     -> public/data/real/
  *   cr   etl/data/Dashboard real data/  -> build_costrev.py  -> public/data/real/costrev/
- *   al   etl/data/travel/               -> build_alloc.py    -> public/data/real/alloc/
+ *   al   etl/data/allocated/            -> build_alloc.py    -> public/data/real/alloc/
+ *        (ไม่มีไฟล์ในนั้นก็ถอยไปคำนวณเองจาก etl/data/travel/ + etl/data/revenue/)
  *
- * งาน al กินไฟล์บิลใน etl/data/revenue/ ด้วย (ปันต้นทุนเที่ยวเข้าบิลลูกค้า)
- * จึงถูกขอให้รันใหม่ทั้งตอนไฟล์รายงานค่าเดินทางเปลี่ยนและตอนไฟล์บิลเปลี่ยน
+ * งาน al กินได้สามโฟลเดอร์ — ไฟล์ที่ปันเสร็จแล้วจากเครื่องปันส่วนต้นทุน (ทางหลัก)
+ * หรือรายงานค่าเดินทาง + ไฟล์บิลเพื่อคำนวณเอง จึงเฝ้าทั้งสามที่และรันใหม่เมื่ออันไหนเปลี่ยนก็ได้
  *
  * ★ งานเหล่านี้ต้องรันทีละตัว ห้ามพร้อมกัน
  *   ข้อมูลจริงรวมกันเกือบ 700 MB / 5 ล้านแถว งานแรกใช้หน่วยความจำหลาย GB
@@ -41,6 +42,7 @@ function autoEtl(): Plugin {
   const costDir = resolve(etlDir, "data", "Dashboard real data");
   const costOut = resolve(revOut, "costrev");
   const travelDir = resolve(etlDir, "data", "travel");
+  const allocDir = resolve(etlDir, "data", "allocated");
   const allocOut = resolve(revOut, "alloc");
   const isXlsx = (f: string) => /\.xlsx$/i.test(f) && !/^~\$/.test(f) && !/\.backup\./i.test(f);
   const hasXlsx = (dir: string) => existsSync(dir) && readdirSync(dir).some(isXlsx);
@@ -108,6 +110,8 @@ function autoEtl(): Plugin {
   type Spec = {
     script: string;
     dir: string;
+    /** โฟลเดอร์สำรองที่ทำให้งานนี้ยังมีของให้ทำ แม้ dir จะว่าง (งาน al คำนวณเองได้จากไฟล์ดิบ) */
+    altDir?: string;
     out: string;
     emptyLog: string;
     emptyMsg: string;
@@ -140,13 +144,15 @@ function autoEtl(): Plugin {
       doneMsg: "ข้อมูลต้นทุน+รายได้รายเที่ยวพร้อมแล้ว",
     },
     al: {
-      script: "build_alloc.py", dir: travelDir, out: allocOut,
-      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/travel/ — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
-      emptyMsg: "ไม่มีไฟล์รายงานค่าเดินทางแล้ว — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
+      // dir ใช้ตัดสินแค่ว่า "ยังมีไฟล์ให้ทำอยู่ไหม" — ไฟล์ที่ปันเสร็จแล้วมาก่อน
+      // ไม่มีก็ยังทำได้จากรายงานค่าเดินทาง ตัวสคริปต์เลือกทางเอง (--source auto)
+      script: "build_alloc.py", dir: allocDir, altDir: travelDir, out: allocOut,
+      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/allocated/ และ etl/data/travel/ — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
+      emptyMsg: "ไม่มีไฟล์ให้ปันส่วนแล้ว — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
       clearFailLog: "✗ ลบ public/data/real/alloc/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
       clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/alloc/manifest.json เองแล้วกดรีเฟรช",
-      startLog: (n) => `▶ กำลังปันส่วนต้นทุนเข้าบิลลูกค้า จากรายงานค่าเดินทาง ${n} ไฟล์ (python build_alloc.py --dataset real) …`,
-      startMsg: (n) => `กำลังปันส่วนต้นทุนเข้าบิลลูกค้า (รายงานค่าเดินทาง ${n} ไฟล์ × ไฟล์บิลทั้งหมด) — เดินไฟล์บิลสองรอบ`,
+      startLog: () => "▶ กำลังทำข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน (python build_alloc.py --dataset real) …",
+      startMsg: () => "กำลังทำข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน",
       doneMsg: "ข้อมูลกำไรลูกค้า (ปันส่วนต้นทุน) พร้อมแล้ว",
     },
   };
@@ -160,7 +166,7 @@ function autoEtl(): Plugin {
 
     // ลบไฟล์ออกจนหมด = ไม่มีข้อมูลจริงแล้ว → ล้าง JSON เก่าทิ้ง ไม่งั้นแดชบอร์ดยังโชว์ชุดเดิมค้างอยู่
     // ลบเฉพาะไฟล์ข้างใน ไม่ลบโฟลเดอร์ — Windows ถือ handle ของโฟลเดอร์ใต้ public/ ไว้ (watcher)
-    if (!hasXlsx(spec.dir)) {
+    if (!hasXlsx(spec.dir) && !(spec.altDir && hasXlsx(spec.altDir))) {
       const { ok, failed } = clearOut(spec.out, "manifest.json");
       if (ok) {
         log(spec.emptyLog + (failed.length ? ` (ลบไม่ได้ ${failed.length} ไฟล์ ไม่เป็นไร แอปไม่อ่านแล้ว)` : ""));
@@ -263,12 +269,13 @@ function autoEtl(): Plugin {
       });
       if (existsSync(costDir)) watch(costDir, () => request("cr", 2500));
       if (existsSync(travelDir)) watch(travelDir, () => request("al", 2500));
+      if (existsSync(allocDir)) watch(allocDir, () => request("al", 2500));
 
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
       const pendingRev = hasXlsx(revDir) && !existsSync(resolve(revOut, "manifest.json"));
       const pendingCr = hasXlsx(costDir) && !existsSync(resolve(costOut, "manifest.json"));
-      const pendingAl = hasXlsx(travelDir) && hasXlsx(revDir)
+      const pendingAl = (hasXlsx(allocDir) || (hasXlsx(travelDir) && hasXlsx(revDir)))
         && !existsSync(resolve(allocOut, "manifest.json"));
       if (pendingRev || pendingCr || pendingAl) {
         server.httpServer?.once("listening", () => setTimeout(() => {

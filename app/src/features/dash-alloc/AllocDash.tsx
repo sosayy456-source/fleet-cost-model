@@ -84,8 +84,9 @@ function InfoBar({ data, refresh }: { data: AllocData; refresh: React.ReactNode 
     <div className="card" style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <span className="muted" style={{ fontSize: 12.5 }}>
-          ปันต้นทุน {fmt(m.trips.matched)} เที่ยวที่จับคู่ได้ จาก {fmt(m.trips.inBills)} เที่ยวในไฟล์บิล
-          {" · "}รายงานค่าเดินทาง {m.costFiles.length} ไฟล์ · ไฟล์บิล {m.billFiles} ไฟล์ · {months}
+          ปันต้นทุน {fmt(m.trips.matched)} เที่ยว จาก {fmt(m.trips.inBills)} เที่ยวในไฟล์บิล
+          {" · "}{m.costFiles.length} ไฟล์ · {months}
+          {" · ที่มา: "}<b>{m.source ?? "ไม่ระบุ"}</b>
           {m.isSample && <> · <b style={{ color: "var(--red)" }}>ข้อมูลตัวอย่าง</b></>}
         </span>
         <span style={{ marginLeft: "auto" }}>{refresh}</span>
