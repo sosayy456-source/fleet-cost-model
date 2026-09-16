@@ -190,6 +190,40 @@ def basis_of(weight_kg: float, cbm: float, qty: float) -> tuple[float, int]:
     return qty, 4
 
 
+W_WORKLOAD = "ภาระงาน"
+W_REVENUE = "ราคารวม"
+W_QTY = "จำนวน"
+W_EQUAL = "หารเท่ากัน"
+
+
+def divisor_of(workload_sum: float, revenue_sum: float, qty_sum: float, n: int
+               ) -> tuple[float, str]:
+    """ตัวหารของเที่ยว + ชื่อตัวถ่วงที่ใช้ (ข้อ 5 ขั้นที่ 5 พร้อมลำดับสำรอง)
+
+    ใช้ร่วมกันระหว่าง allocate_trip() (ทั้งเที่ยวอยู่ในหน่วยความจำ) กับ build_alloc.py
+    (เดินไฟล์สองรอบ ไม่เก็บรายการไว้) — กฎสำรองต้องมีที่อยู่ที่เดียว ไม่งั้นสองทาง
+    ปันไม่เท่ากันแล้วไม่มีอะไรจับได้
+    """
+    if workload_sum > 0:
+        return workload_sum, W_WORKLOAD
+    if revenue_sum > 0:
+        return revenue_sum, W_REVENUE
+    if qty_sum > 0:
+        return qty_sum, W_QTY
+    return float(n), W_EQUAL
+
+
+def weight_of(it: Item, source: str) -> float:
+    """น้ำหนักของรายการตามตัวถ่วงที่ divisor_of() เลือกไว้"""
+    if source == W_WORKLOAD:
+        return it.workload
+    if source == W_REVENUE:
+        return it.revenue
+    if source == W_QTY:
+        return it.qty
+    return 1.0
+
+
 def payer_of(it: Item) -> tuple[str, str]:
     """ลูกค้าของรายการนี้ = ผู้จ่ายเงิน → (ฝ่าย, รหัสลูกค้า)"""
     p = it.payment.strip()
@@ -242,20 +276,14 @@ def allocate_trip(items: list[Item], trip_cost: float | None,
 
     # ขั้นที่ 5 · ตัวถ่วง — ภาระงาน แล้วสำรองเป็น ราคารวม → จำนวน → เท่ากันทุกรายการ
     # (ข้อ 10.3: ทั้งเที่ยวภาระงาน 0 ต้องไม่กลายเป็นหารด้วยศูนย์ ต้นทุนเที่ยวต้องถูกปันครบเสมอ)
-    weights = [it.workload for it in items]
-    res.weights_from = "ภาระงาน"
-    if sum(weights) <= 0:
-        weights = [it.revenue for it in items]
-        res.weights_from = "ราคารวม"
-    if sum(weights) <= 0:
-        weights = [it.qty for it in items]
-        res.weights_from = "จำนวน"
-    if sum(weights) <= 0:
-        weights = [1.0] * len(items)
-        res.weights_from = "หารเท่ากัน"
-
-    total = sum(weights)
-    for it, w in zip(items, weights):
+    total, res.weights_from = divisor_of(
+        sum(it.workload for it in items),
+        sum(it.revenue for it in items),
+        sum(it.qty for it in items),
+        len(items),
+    )
+    for it in items:
+        w = weight_of(it, res.weights_from)
         if trip_cost is None:
             it.share = it.alloc = it.profit = None
             continue
