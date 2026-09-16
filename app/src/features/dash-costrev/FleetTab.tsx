@@ -26,7 +26,15 @@ import type { Trip } from "../../lib/data/useCostRev";
 
 const TOP_PLATES = 10;
 const TOP_RANK = 5;
-/** ป้ายความคุ้มค่า — เกณฑ์ตามคำอธิบายใต้กราฟในรูปตัวอย่าง ใช้เกณฑ์เดียวกันทั้งสองมุมมอง */
+/**
+ * ป้ายความคุ้มค่า — เกณฑ์ตามคำอธิบายใต้กราฟในรูปตัวอย่าง: กำไรดี ≥ 5,000 · พอประมาณ 0–4,999 · ขาดทุน < 0
+ *
+ * ★ ตัดสินจาก "กำไรเฉลี่ยต่อเที่ยว" เสมอ แม้อยู่ในมุมมองกำไร/คัน
+ *   กำไร/คัน = กำไร/เที่ยว × เที่ยวต่อคัน ตัวเลขจึงขึ้นกับว่ารถคันหนึ่งวิ่งกี่เที่ยวในช่วงที่กรอง —
+ *   ชุดตัวอย่างกลุ่มละ ~1 เที่ยว/คัน แต่ข้อมูลจริงเป็นหลายสิบเที่ยว/คัน เกณฑ์ตัวเลขตายตัวจึงไม่มีทาง
+ *   เหมาะทั้งสองชุด (เจ้าของให้หาเกณฑ์ 16 ก.ย. 2569) ป้ายจึงบอก "คุณภาพกำไร" ส่วนแท่งบอก "ขนาด"
+ *   เทียบเท่า กำไร/คัน ≥ 5,000 × เที่ยวต่อคันของกลุ่มนั้น
+ */
 const GOOD_FROM = 5000;
 type RankMode = "trip" | "vehicle";
 const rankTone = (v: number): { label: string; color: string; cls: string } =>
@@ -81,6 +89,7 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
       .map((a) => {
         const vehicles = plates.get(a.key)?.size ?? 1;
         return { key: a.key, label: a.key.split("|").join(" · "), n: a.n, vehicles,
+                 perTrip: a.profit / a.n,
                  v: rankMode === "trip" ? a.profit / a.n : a.profit / vehicles };
       })
       .sort((a, b) => b.v - a.v)
@@ -184,7 +193,7 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
             {ranked.length === 0 ? <p className="dz-note">ไม่มีข้อมูลตามตัวกรองที่เลือก</p> : (
               <ol className="fl-top">
                 {ranked.map((r, i) => {
-                  const tone = rankTone(r.v);
+                  const tone = rankTone(r.perTrip);
                   return (
                     <li key={r.key} style={{ animationDelay: `${i * 60}ms` }}>
                       <div className="fl-tname">
@@ -196,16 +205,20 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
                       <div className="fl-rbar fat">
                         <i style={{ width: `${pctOf(Math.abs(r.v), rankMax)}%`, background: tone.color }} />
                       </div>
-                      <div className="fl-tsub">{fmt(r.n)} เที่ยว{rankMode === "vehicle" ? ` · ${fmt(r.vehicles)} คัน` : ""}</div>
+                      <div className="fl-tsub">
+                        {fmt(r.n)} เที่ยว
+                        {rankMode === "vehicle" && <> · {fmt(r.vehicles)} คัน · เฉลี่ย {signed(Math.round(r.perTrip))} ฿/เที่ยว</>}
+                      </div>
                     </li>
                   );
                 })}
               </ol>
             )}
             <div className="fl-legend">
-              <span><i style={{ background: D.emeraldLight }} />กำไรดี · ตั้งแต่ {fmt(GOOD_FROM)} ฿</span>
-              <span><i style={{ background: D.orange }} />พอประมาณ · 0 ถึง {fmt(GOOD_FROM - 1)} ฿</span>
-              <span><i style={{ background: D.rose }} />ขาดทุน · ต่ำกว่า 0 ฿</span>
+              <span><i style={{ background: D.emeraldLight }} />กำไรดี · ตั้งแต่ {fmt(GOOD_FROM)} ฿/เที่ยว</span>
+              <span><i style={{ background: D.orange }} />พอประมาณ · 0 ถึง {fmt(GOOD_FROM - 1)} ฿/เที่ยว</span>
+              <span><i style={{ background: D.rose }} />ขาดทุน · ต่ำกว่า 0 ฿/เที่ยว</span>
+              {rankMode === "vehicle" && <span style={{ color: "var(--d-ink5)" }}>ป้ายดูจากกำไรเฉลี่ยต่อเที่ยว · แท่งและตัวเลขคือกำไรรวมต่อคัน</span>}
             </div>
           </div>
           <div className="dz-cc">
