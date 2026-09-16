@@ -790,3 +790,55 @@ input[type="checkbox"]{width:auto;padding:0}
 .op-status.amber i{background:var(--op-amber)}
 .op-status.red{color:var(--op-red);background:var(--op-red-tint)}
 .op-status.red i{background:var(--op-red)}
+
+/* ================= แท็บ "กองรถ" ของ Executive Dashboard / Dashboard รวม =================
+   ใช้โทเคน --d-* ของ #view-dash ทั้งหมด ไม่มีสีสถานะใหม่ (สีแถบมาจากพาเลตกราฟ D ผ่าน inline style) */
+.fl-health{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px 28px;
+  background:var(--d-card);border:1px solid var(--d-line);border-radius:18px;padding:18px 22px;
+  margin-bottom:14px;animation:dFadeUp .5s var(--d-ease) .08s both}
+.fl-hhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:10px;
+  font-size:13.5px;color:var(--d-ink3)}
+.fl-hhead b{font-size:15px;color:var(--d-ink);font-family:var(--d-num);font-variant-numeric:tabular-nums}
+.fl-stack{display:flex;height:14px;border-radius:999px;overflow:hidden;background:var(--d-rail)}
+.fl-stack span{display:block;height:100%;transform-origin:left;animation:dBarGrow .9s var(--d-ease) both}
+.fl-stack span+span{box-shadow:inset 2px 0 0 var(--d-card)}
+.fl-legend{display:flex;gap:6px 16px;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--d-ink3)}
+.fl-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
+.fl-legend b{color:var(--d-ink);font-family:var(--d-num);font-variant-numeric:tabular-nums}
+
+/* ---- ตารางอันดับทะเบียน ---- */
+.fl-rank{list-style:none;margin:4px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.fl-rank li{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:12px;
+  animation:dFadeUp .45s var(--d-ease) both;transition:background-color .16s var(--d-ease)}
+.fl-rank li:hover{background:var(--d-soft)}
+.fl-badge{width:28px;height:28px;border-radius:9px;flex:none;display:grid;place-items:center;
+  font-size:13px;font-weight:700;font-family:var(--d-num);color:var(--d-ink3);background:var(--d-rail)}
+.fl-badge.top1{color:#fff;background:linear-gradient(140deg,#F59E0B,#EA580C)}
+.fl-badge.top2{color:#fff;background:linear-gradient(140deg,#94A3B8,#475569)}
+.fl-badge.top3{color:#fff;background:linear-gradient(140deg,#C2410C,#9A3412)}
+.fl-rmain{flex:1;min-width:0}
+.fl-rname{display:flex;align-items:baseline;gap:8px;font-size:13.5px;color:var(--d-ink)}
+.fl-rname b{white-space:nowrap}
+.fl-rname small{color:var(--d-ink5);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl-rbar{height:6px;border-radius:999px;background:var(--d-rail);margin-top:6px;overflow:hidden}
+.fl-rbar i{display:block;height:100%;border-radius:999px;transform-origin:left;animation:dBarGrow .9s var(--d-ease) both}
+.fl-rval{display:flex;flex-direction:column;align-items:flex-end;flex:none;font-family:var(--d-num);
+  font-variant-numeric:tabular-nums}
+.fl-rval b{font-size:15px;color:var(--d-ink)}
+.fl-rval b small{font-size:11.5px;font-weight:400;color:var(--d-ink5)}
+.fl-rval>small{font-size:11.5px;font-weight:600}
+.fl-cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:900px){.fl-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.fl-cards{grid-template-columns:1fr}}
+.fl-rbar.fat{height:10px}
+.fl-share{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:20px}
+.fl-share li{animation:dFadeUp .45s var(--d-ease) both}
+.fl-shead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14px;color:var(--d-ink)}
+.fl-shead span{display:flex;align-items:center;gap:8px;font-weight:600}
+.fl-shead i{width:10px;height:10px;border-radius:3px;flex:none}
+.fl-shead b{font-size:20px;font-family:var(--d-num);font-variant-numeric:tabular-nums}
+.fl-ssub{font-size:12.5px;color:var(--d-ink5);margin-top:6px}
+.fl-ssub b{font-family:var(--d-num)}
+/* ตารางอันดับเต็มแถว — แบ่ง 2 คอลัมน์ไล่ลงทีละคอลัมน์ (1–5 ซ้าย · 6–10 ขวา) */
+@media(min-width:900px){.fl-rank.wide{display:grid;grid-template-rows:repeat(5,auto);grid-auto-flow:column;
+  grid-auto-columns:minmax(0,1fr);column-gap:28px}}
