@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -225,23 +225,44 @@ function autoEtl(): Plugin {
         timers[job] = setTimeout(() => { want[job] = true; pump(log); }, delay);
       };
 
-      const watch = (dir: string, onHit: () => void) => {
-        server.watcher.add(dir);
-        const handler = (file: string) => {
-          if (!file.startsWith(dir) || !isXlsx(file.slice(dir.length + 1))) return;
-          onHit();
-        };
-        server.watcher.on("add", handler);
-        server.watcher.on("change", handler);
-        server.watcher.on("unlink", handler);
+      /**
+       * ★ ห้ามใช้ server.watcher.add() กับโฟลเดอร์ข้อมูล — โพลเอง
+       *
+       * chokidar ของ Vite บน Windows เฝ้า "รายไฟล์" ด้วย fs.watch ตอนที่ Explorer ยังคัดลอก
+       * ไฟล์ .xlsx ขนาดใหญ่ไม่เสร็จ ไฟล์ถูกล็อก → fs.watch โยน EBUSY → chokidar emit 'error'
+       * ที่ไม่มีใครดัก → **node ตายทั้งโปรเซสทันที** (อาการที่ผู้ใช้เห็น: หน้าเว็บขึ้น
+       * "Failed to fetch" แล้วรีเฟรชอีกทีก็ localhost ปฏิเสธการเชื่อมต่อ) เกิดขึ้นจริงมาแล้ว
+       * ตอนวางไฟล์จริง 29 ไฟล์ ยังไม่ทันได้รัน ETL ด้วยซ้ำ
+       *
+       * วิธีใหม่: อ่านรายชื่อ+ขนาด+เวลาแก้ไขของไฟล์ทุก 2 วินาที เทียบกับรอบก่อน
+       * เปลี่ยน = มีการวาง/ลบ/เขียนไฟล์ · ไฟล์ที่กำลังคัดลอกอยู่ขนาดจะเปลี่ยนทุกรอบ
+       * จึงไม่มีทางเริ่ม ETL จนกว่าจะคัดลอกเสร็จจริง (ดีกว่าเดิมที่ยิงตอนเห็นไฟล์โผล่)
+       * statSync บนไฟล์ที่ล็อกอยู่โยน error ได้ → ถือว่า "ยังเปลี่ยนอยู่" แล้วรอรอบหน้า
+       */
+      const signature = (dir: string): string | null => {
+        if (!existsSync(dir)) return "";
+        try {
+          return readdirSync(dir).filter(isXlsx).sort()
+            .map((f) => { const st = statSync(resolve(dir, f)); return `${f}|${st.size}|${st.mtimeMs}`; })
+            .join("\n");
+        } catch { return null; }
       };
-
-      watch(revDir, () => {
-        request("rev", 2000);
-        // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย (ต่อคิวไว้ ไม่รันซ้อน)
-        if (hasXlsx(costDir)) request("cr", 2500);
-      });
-      if (existsSync(costDir)) watch(costDir, () => request("cr", 2500));
+      const last: Record<Job, string | null> = { rev: signature(revDir), cr: signature(costDir) };
+      const tick = () => {
+        for (const job of ["rev", "cr"] as Job[]) {
+          const dir = job === "rev" ? revDir : costDir;
+          const sig = signature(dir);
+          if (sig === null || sig === last[job]) continue;
+          last[job] = sig;
+          request(job, 2000);
+          // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย (ต่อคิวไว้ ไม่รันซ้อน)
+          if (job === "rev" && hasXlsx(costDir)) request("cr", 2500);
+        }
+      };
+      const poll = setInterval(() => { try { tick(); } catch (e) { log(`✗ ${(e as Error).message}`); } }, 2000);
+      server.httpServer?.once("close", () => clearInterval(poll));
+      // กันไว้อีกชั้น: error จาก watcher ของ Vite เองต้องไม่ล้ม dev server
+      server.watcher.on("error", (e) => log(`✗ watcher: ${(e as Error).message}`));
 
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
