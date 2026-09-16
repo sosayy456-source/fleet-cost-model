@@ -16,6 +16,7 @@ import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev } from "../../lib/data/useCostRev";
 import { fmt } from "./common";
+import AllocDash from "../dash-alloc/AllocDash";
 import FleetTab from "./FleetTab";
 import ProfitTab from "./ProfitTab";
 import CostTab from "./CostTab";
@@ -25,6 +26,9 @@ export type CostRevMode = "exec" | "all";
 const TABS = [
   { id: "fleet", label: "กองรถ" },
   { id: "profit", label: "กำไรรายเที่ยว" },
+  // แท็บนี้ไม่ใช้ trips เลย — อ่านชุด alloc/ ของตัวเอง (ปันส่วนต้นทุนเข้าบิลลูกค้า)
+  // มีเฉพาะ Executive Dashboard ตามที่เจ้าของข้อมูลสั่ง ส่วน Dashboard รวม ไม่มี
+  { id: "cust", label: "กำไรลูกค้า (ปันส่วนต้นทุน)", execOnly: true },
   { id: "cost", label: "ต้นทุน" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -94,13 +98,14 @@ export default function CostRevDash({ mode }: { mode: CostRevMode }) {
         <>
           <div className="dash-tabs" ref={barRef}>
             <span className="dink" />
-            {TABS.map((t) => (
+            {TABS.filter((t) => !("execOnly" in t && t.execOnly) || mode === "exec").map((t) => (
               <button key={t.id} type="button" className={"dtab" + (tab === t.id ? " active" : "")}
                 onClick={() => setTab(t.id)}>{t.label}</button>
             ))}
           </div>
           {tab === "fleet" && <FleetTab trips={trips} />}
           {tab === "profit" && <ProfitTab trips={trips} />}
+          {tab === "cust" && mode === "exec" && <AllocDash embedded />}
           {tab === "cost" && <CostTab trips={trips} />}
         </>
       )}

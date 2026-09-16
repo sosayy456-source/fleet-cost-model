@@ -21,7 +21,6 @@ const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
 const RevenueDash = lazy(() => import("./features/dash-revenue/RevenueDash"));
 const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
 const CostRevDash = lazy(() => import("./features/dash-costrev/CostRevDash"));
-const AllocDash = lazy(() => import("./features/dash-alloc/AllocDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
 import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
 import { billIsPaid, recBills } from "./lib/record/payment";
@@ -72,8 +71,8 @@ const PAGES: PageDef[] = [
   // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) — หน้าตาเดียวกัน ต่างกันที่ข้อมูล
   { id: "exec-dash", view: "dash", label: "Executive Dashboard", icon: I.dash, h1: "Executive Dashboard" },
   { id: "all-dash", view: "dash", label: "Dashboard รวม", icon: I.dash, h1: "Dashboard รวม" },
-  // ปันต้นทุนเที่ยวรถเข้าบิลลูกค้า (วิธี ค) — คนละชุดข้อมูลและคนละสูตรกับแท็บ "กำไรลูกค้า" ใน dash-fleet
-  { id: "alloc-dash", view: "dash", label: "กำไรลูกค้า (ปันส่วนต้นทุน)", icon: I.person, h1: "กำไรลูกค้า (ปันส่วนต้นทุน)" },
+  // กำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีเมนูของตัวเอง — อยู่เป็นแท็บใน Executive Dashboard
+  // ถัดจาก "กำไรรายเที่ยว" (features/dash-costrev/CostRevDash.tsx)
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
   { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
 ];
@@ -179,7 +178,6 @@ export default function App() {
               {page === "route-profit" && <RouteProfit state={state} />}
               {page === "exec-dash" && <CostRevDash mode="exec" />}
               {page === "all-dash" && <CostRevDash mode="all" />}
-              {page === "alloc-dash" && <AllocDash />}
             </Suspense>
             {page === "driver" && <DriverJobs state={state} role={role} />}
           {page === "custcode" && <CustCode />}

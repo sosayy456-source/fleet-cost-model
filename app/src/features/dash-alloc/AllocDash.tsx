@@ -36,7 +36,11 @@ interface Filter {
 }
 const F0: Filter = { side: "", q: "", only: "", minBills: "" };
 
-export default function AllocDash() {
+/**
+ * @param embedded true = ถูกฝังเป็นแท็บใน Executive Dashboard — ไม่วาดแถบสรุปเป็นการ์ดซ้ำ
+ *   เพราะหน้าแม่มีแถบของตัวเองอยู่แล้ว เหลือบรรทัดเดียวบอกที่มาของตัวเลขชุดนี้
+ */
+export default function AllocDash({ embedded }: { embedded?: boolean } = {}) {
   const { data, error, loading, reload } = useAlloc();
   // วางไฟล์ใน etl/data/travel/ แล้ว dev server ปันใหม่ให้เอง — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("alloc");
@@ -69,9 +73,26 @@ export default function AllocDash() {
   return (
     <>
       <EtlBanner status={etl} />
-      <InfoBar data={data} refresh={refresh} />
+      {embedded ? <SourceLine data={data} refresh={refresh} /> : <InfoBar data={data} refresh={refresh} />}
       <Body data={data} f={f} set={set} reset={() => setF(F0)} />
     </>
+  );
+}
+
+/** บรรทัดเดียวสำหรับตอนฝังเป็นแท็บ — ที่มาของตัวเลข + ปุ่มรีเฟรชของชุด alloc เอง */
+function SourceLine({ data, refresh }: { data: AllocData; refresh: React.ReactNode }) {
+  const m = data.manifest;
+  const months = m.months.length
+    ? `${m.months[0]}${m.months.length > 1 ? ` → ${m.months[m.months.length - 1]}` : ""}`
+    : "ไม่มีเดือน";
+  return (
+    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", margin: "2px 0 12px" }}>
+      <span className="muted" style={{ fontSize: 12.5 }}>
+        ชุดข้อมูลปันส่วนต้นทุน: {fmt(m.trips.matched)} เที่ยว · {months} · ที่มา <b>{m.source ?? "ไม่ระบุ"}</b>
+        {m.isSample && <> · <b style={{ color: "var(--red)" }}>ข้อมูลตัวอย่าง</b></>}
+      </span>
+      <span style={{ marginLeft: "auto" }}>{refresh}</span>
+    </div>
   );
 }
 
