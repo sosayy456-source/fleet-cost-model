@@ -447,7 +447,20 @@ def build(dataset: str) -> None:
     print("   " + " / ".join(f"{k} {v:,.0f}" for k, v in grp.items()) + f" = {sum(grp.values()):,.0f} vs ต้นทุน {tot:,.0f}")
 
 
+def utf8_stdout() -> None:
+    """บังคับ stdout/stderr เป็น UTF-8 — คอนโซลไทยบน Windows เป็น cp874 ซึ่งไม่มีตัว "·"
+    ที่ log ใช้คั่นข้อความ พิมพ์แล้วจะ UnicodeEncodeError ตายกลางทางทั้งที่แปลงไฟล์ไปได้แล้ว
+    (plugin autoEtl ตั้ง PYTHONUTF8=1 ให้อยู่แล้ว ที่นี่กันเคสผู้ใช้รันเองใน terminal)
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):   # stdout ถูก redirect ไปที่อื่น — ปล่อยไป
+            pass
+
+
 def main() -> None:
+    utf8_stdout()
     ap = argparse.ArgumentParser(description="แปลงไฟล์ต้นทุน+รายได้รายเที่ยวเป็น JSON")
     ap.add_argument("--dataset", choices=["sample", "real"], default="sample")
     a = ap.parse_args()

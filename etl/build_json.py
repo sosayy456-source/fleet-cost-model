@@ -254,7 +254,20 @@ def build(dataset: str, out_dir: str | None = None) -> int:
     return 0
 
 
+def utf8_stdout() -> None:
+    """บังคับ stdout/stderr เป็น UTF-8 — คอนโซลไทยบน Windows เป็น cp874 ซึ่งไม่มีตัว "·"
+    ที่ log ใช้คั่นข้อความ พิมพ์แล้วจะ UnicodeEncodeError ตายกลางทางทั้งที่แปลงไฟล์ไปได้แล้ว
+    (plugin autoEtl ตั้ง PYTHONUTF8=1 ให้อยู่แล้ว ที่นี่กันเคสผู้ใช้รันเองใน terminal)
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError):   # stdout ถูก redirect ไปที่อื่น — ปล่อยไป
+            pass
+
+
 def main() -> int:
+    utf8_stdout()
     p = argparse.ArgumentParser(description="แปลง Excel เป็น JSON ให้ frontend")
     p.add_argument("--dataset", choices=["sample", "real"], default="sample")
     p.add_argument("--out", help="โฟลเดอร์ปลายทาง (ปกติไม่ต้องระบุ)")
