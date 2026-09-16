@@ -62,7 +62,7 @@ function Drill({ title, trips, valOf, unit = "บาท", dims = DIMS }: {
           ))}
         </div>
       </TableHead>
-      <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.key} empty="ไม่มีรายการในกลุ่มนี้ตามเงื่อนไข" limit={200} />
+      <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.key} empty="ไม่มีรายการในกลุ่มนี้ตามเงื่อนไข" />
     </div>
   );
 }

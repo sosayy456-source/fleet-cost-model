@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { fmtN } from "../../lib/chart/theme";
 import { FF } from "../dash-fleet/parts";
+import GrowBox from "../../lib/ui/GrowBox";
 import type { Trip } from "../../lib/data/useCostRev";
 
 export const fmt = (n: number, d = 0): string => fmtN(n, d);
@@ -127,12 +128,12 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
   return { sorted, sort, toggle };
 }
 
-export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, limit = 300 }: {
+export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty }: {
   rows: T[]; cols: Col<T>[]; sort: { key: string; dir: 1 | -1 };
-  onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string; limit?: number;
+  onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;
 }) {
   return (
-    <div className="scroll">
+    <GrowBox rows={rows} render={(shown) => (
       <table className="dz-tbl">
         <thead><tr>
           {cols.map((c) => (
@@ -149,26 +150,19 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, limit = 
           {rows.length === 0 ? (
             <tr><td colSpan={cols.length} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 16 }}>{empty}</td></tr>
           ) : (
-            <>
-              {rows.slice(0, limit).map((r, i) => (
-                <tr key={rowKey(r, i)}>
-                  {cols.map((c) => (
-                    <td key={c.key} className={c.num ? "n" : undefined}>
-                      {c.render ? c.render(r) : (() => { const v = c.get(r); return typeof v === "number" ? fmt(v) : (v ?? "–"); })()}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              {rows.length > limit && (
-                <tr><td colSpan={cols.length} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                  …แสดง {fmt(limit)} รายการแรกจากทั้งหมด {fmt(rows.length)} รายการ · ใช้ตัวกรองเพื่อดูรายการอื่น
-                </td></tr>
-              )}
-            </>
+            shown.map((r, i) => (
+              <tr key={rowKey(r, i)}>
+                {cols.map((c) => (
+                  <td key={c.key} className={c.num ? "n" : undefined}>
+                    {c.render ? c.render(r) : (() => { const v = c.get(r); return typeof v === "number" ? fmt(v) : (v ?? "–"); })()}
+                  </td>
+                ))}
+              </tr>
+            ))
           )}
         </tbody>
       </table>
-    </div>
+    )} />
   );
 }
 

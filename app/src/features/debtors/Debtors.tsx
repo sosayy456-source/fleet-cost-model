@@ -12,6 +12,7 @@ import { put } from "../../lib/store/records";
 import { pushRecords, getUrl } from "../../lib/sheet/client";
 import { ShortId } from "../../lib/custmap/ShortId";
 import RefreshBtn from "../../lib/ui/RefreshBtn";
+import GrowBox from "../../lib/ui/GrowBox";
 import ThaiDateInput from "../entry/ThaiDateInput";
 import type { RecordsState, OldDebtor } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
@@ -100,8 +101,9 @@ export default function Debtors({ state }: { state: RecordsState }) {
         .some((v) => String(v ?? "").toLowerCase().includes(needle)));
   }, [records, oldDebtors, q, src]);
 
-  const outstanding = rows.filter((r) => !r.paid);
-  const paidRows = rows.filter((r) => r.paid);
+  // memo ไว้ให้ GrowBox รู้ว่าข้อมูลเปลี่ยนจริง ไม่ใช่แค่ render ซ้ำ
+  const outstanding = useMemo(() => rows.filter((r) => !r.paid), [rows]);
+  const paidRows = useMemo(() => rows.filter((r) => r.paid), [rows]);
 
   const openPay = (row: Row) => {
     setTarget(row); setPayDate(todayISO()); setModalMsg("");
@@ -150,7 +152,7 @@ export default function Debtors({ state }: { state: RecordsState }) {
       <div style={{ padding: "14px 16px 6px", fontWeight: 700, fontSize: 15 }}>
         {pending ? "🔴 ค้างชำระ" : "🟢 ประวัติการชำระ"} ({list.length})
       </div>
-      <div className="scroll">
+      <GrowBox rows={list} render={(shown) => (
         <table className="rec-table">
           <thead><tr>
             <th>แหล่งข้อมูล</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>เลขที่บิล</th><th>ประเภทสินค้า</th>
@@ -160,7 +162,7 @@ export default function Debtors({ state }: { state: RecordsState }) {
             <th className={pending ? undefined : "num"}>{pending ? "ชำระ" : "ใช้เวลา (วัน)"}</th>
           </tr></thead>
           <tbody>
-            {list.slice(0, 300).map((r) => (
+            {shown.map((r) => (
               <tr key={r.key} className={r.src === "เก่า" ? "oldrow" : undefined}>
                 <td><span className={"badge " + (r.src === "เก่า" ? "src-old" : "src-new")}>
                   {r.src === "เก่า" ? "ข้อมูลเก่า" : "ข้อมูลใหม่"}</span></td>
@@ -204,7 +206,7 @@ export default function Debtors({ state }: { state: RecordsState }) {
             ))}
           </tbody>
         </table>
-      </div>
+      )} />
       {list.length === 0 && (
         <div className="rec-empty">{pending ? "ไม่มีบิลค้างชำระ 🎉" : "ยังไม่มีบิลที่ชำระแล้ว"}</div>
       )}

@@ -790,3 +790,10 @@ input[type="checkbox"]{width:auto;padding:0}
 .op-status.amber i{background:var(--op-amber)}
 .op-status.red{color:var(--op-red);background:var(--op-red-tint)}
 .op-status.red i{background:var(--op-red)}
+
+/* กล่องตารางเลื่อนในตัว (lib/ui/GrowBox.tsx) — หัวตารางติดบนตอนเลื่อน ต้องมีพื้นทึบไม่งั้นแถวลอดทะลุ */
+.scroll-y{overflow-y:auto;overscroll-behavior:contain}
+.scroll-y thead th{position:sticky;top:0;z-index:1}
+.scroll-y .rec-table thead th{background:var(--field-bg)}
+.scroll-y .dz-tbl thead th{background:var(--d-card,#fff)}
+.grow-more{text-align:center;color:var(--ink-faint);font-size:12px;padding:10px}
