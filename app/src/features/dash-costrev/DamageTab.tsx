@@ -16,8 +16,9 @@
 import { useMemo, useState } from "react";
 import { DBar, DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
-import { CC, Hero, KC, Note, Pane, ResetBtn } from "../dash-fleet/parts";
-import { BASE_F0, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, monthLabel, passBase, pct, routeArrow, useSort } from "./common";
+import { CC, Hero, KC, Note, Pane } from "../dash-fleet/parts";
+import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, monthLabel, passBase, pct, routeArrow, useSort } from "./common";
+import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import type { CostRevMode } from "./CostRevDash";
 import type { Trip } from "../../lib/data/useCostRev";
@@ -140,15 +141,15 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <YearFF trips={base} value={f.year} onChange={set("year")} />
         <MonthFF value={f.month} onChange={set("month")} />
         <ListFF label="จุดขึ้น" all="ทุกจุดขึ้น" value={f.o} onChange={set("o")} opts={duniq(base.map((t) => t.o))} />
         <ListFF label="จุดลง" all="ทุกจุดลง" value={f.de} onChange={set("de")} opts={duniq(base.map((t) => t.de))} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(base.map((t) => t.ft))} />
         <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")} opts={duniq(base.map((t) => t.vk))} />
-        <ResetBtn onClick={() => setF(BASE_F0)} />
-      </div>
+        <ClearFiltersBtn active={isFiltered(f, BASE_F0)} onClick={() => setF(BASE_F0)} />
+      </FilterBar>
 
       <Pane deps={[rows]}>
         <div className="dz-heroes">

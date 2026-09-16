@@ -14,11 +14,11 @@
  * ใช้ร่วมกันทั้ง Executive Dashboard และ Dashboard รวม — ต่างกันแค่ trips ที่ส่งเข้ามา
  */
 import { useMemo, useState } from "react";
-import type { CSSProperties } from "react";
 import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
-import { CC, Hero, Note, Pane, ResetBtn } from "../dash-fleet/parts";
-import { BASE_F0, ListFF, MonthFF, YearFF, duniq, fmt, groupBy, passBase, pct, signed } from "./common";
+import { CC, Hero, Note, Pane } from "../dash-fleet/parts";
+import { BASE_F0, isFiltered, ListFF, Meter, MonthFF, YearFF, duniq, fmt, groupBy, passBase, pct, signed } from "./common";
+import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 
@@ -80,15 +80,15 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <YearFF trips={trips} value={f.year} onChange={set("year")} />
         <MonthFF value={f.month} onChange={set("month")} />
         <ListFF label="จุดขึ้น" all="ทุกจุดขึ้น" value={f.o} onChange={set("o")} opts={duniq(trips.map((t) => t.o))} />
         <ListFF label="จุดลง" all="ทุกจุดลง" value={f.de} onChange={set("de")} opts={duniq(trips.map((t) => t.de))} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(trips.map((t) => t.ft))} />
         <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")} opts={duniq(trips.map((t) => t.vk))} />
-        <ResetBtn onClick={() => setF(BASE_F0)} />
-      </div>
+        <ClearFiltersBtn active={isFiltered(f, BASE_F0)} onClick={() => setF(BASE_F0)} />
+      </FilterBar>
 
       <Pane deps={[rows]}>
         {/* [VISUAL-01] ตัวเลขหลัก 3 ตัว */}
@@ -202,22 +202,6 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
         </Note>
       </Pane>
     </>
-  );
-}
-
-/** การ์ดตัวเลข + แถบสัดส่วน — รูปเดียวกับ KC แต่แถบยาวตามค่าจริง (KC วาดแถบเต็มเสมอ) */
-function Meter({ l, v, s, dot, tone, fill }: {
-  l: string; v: string; s: string; dot: string; tone?: "good" | "warn" | "bad"; fill: number;
-}) {
-  const w = Math.max(0, Math.min(100, fill));
-  return (
-    <div className={"dz-kc" + (tone ? ` t-${tone}` : "")} style={{ "--dot": dot } as CSSProperties}>
-      <div className="l"><i className="d" />{l}</div>
-      {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
-      <div className="v" key={v} data-real={v}>{v}</div>
-      <div className="s">{s}</div>
-      <div className="kbar"><i style={{ width: `${w}%`, background: dot }} /></div>
-    </div>
   );
 }
 

@@ -6,8 +6,11 @@
  * เพราะเป้าหมายคือหน้าตาตรงกับต้นฉบับ ไม่ใช่ดีไซน์ใหม่
  */
 
-/** ฟอนต์ในกราฟ — main ตั้งเป็น DFONT ทุกจุด (แกน/legend/tooltip) */
-export const DFONT = "Anuphan, 'Noto Sans Thai', system-ui, sans-serif";
+/**
+ * ฟอนต์ในกราฟ — main ตั้งเป็น DFONT ทุกจุด (แกน/legend/tooltip)
+ * main ใช้ Anuphan · ตอนนี้ทั้งโมเดลเปลี่ยนเป็น LINE Seed Sans TH ตามที่เจ้าของงานขอ (ดู src/fonts.css)
+ */
+export const DFONT = "'LINE Seed Sans TH', 'Noto Sans Thai', system-ui, sans-serif";
 
 /** ระยะและจังหวะแอนิเมชัน — main: animation:{duration:950,easing:"easeOutQuart"} */
 export const DUR = 950;

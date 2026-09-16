@@ -5,7 +5,7 @@
  * เพราะต้นทุนมาเป็นยอดสำเร็จรูปจากไฟล์บริษัท ไม่ใช่จากสูตรของโมเดล
  */
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { fmtN } from "../../lib/chart/theme";
 import { FF } from "../dash-fleet/parts";
 import type { Trip } from "../../lib/data/useCostRev";
@@ -63,6 +63,10 @@ export function ListFF({ label, all, value, onChange, opts }: {
 /** เงื่อนไขที่ทุกแท็บใช้ร่วม — เดือนใช้ 2 หลัก "01".."12" · ค่าว่าง = ไม่กรองมิตินั้น */
 export interface BaseFilter { year: string; month: string; o: string; de: string; ft: string; vk: string }
 export const BASE_F0: BaseFilter = { year: "", month: "", o: "", de: "", ft: "", vk: "" };
+
+/** เลือกตัวกรองอะไรไว้ไหม (เทียบกับค่าเริ่มต้นของแท็บนั้น) — ใช้ซ่อนปุ่ม "ล้างตัวกรอง" ตอนไม่มีอะไรให้ล้าง */
+export const isFiltered = <T extends object>(f: T, f0: T): boolean =>
+  (Object.keys(f0) as (keyof T)[]).some((k) => f[k] !== f0[k]);
 
 export const passBase = (t: Trip, f: BaseFilter, opts: { ignoreYear?: boolean; ignoreMonth?: boolean } = {}): boolean =>
   (opts.ignoreYear || !f.year || String(t.y) === f.year)
@@ -179,3 +183,25 @@ export const marginTone = (m: number | null): string =>
 /** ป้ายเส้นทางแบบมีลูกศร — ให้ตรงกับที่แดชบอร์ดเดิมใช้ */
 export const routeArrow = (t: { o: string; de: string }): string =>
   t.o && t.de ? `${t.o}→${t.de}` : t.o || t.de || "(ไม่ระบุ)";
+
+/**
+ * การ์ดตัวเลขรอง + แถบสัดส่วน (ดีไซน์ 1A) — รูปเดียวกับ KC แต่แถบยาวตามค่าจริง (KC วาดแถบเต็มเสมอ)
+ * ลำดับ: ป้าย → ตัวเลข → แถบ → คำอธิบาย · แถบใช้สี `bar` (ไม่ส่ง = สีเดียวกับจุด) บนรางสีเดียวกันจาง ๆ
+ */
+export function Meter({ l, v, s, dot, bar, tone, fill }: {
+  l: string; v: string; s: string; dot: string; bar?: string;
+  tone?: "good" | "warn" | "bad"; fill: number;
+}) {
+  const w = Math.max(0, Math.min(100, fill));
+  const c = bar ?? dot;
+  return (
+    <div className={"dz-kc meter" + (tone ? ` t-${tone}` : "")}
+      style={{ "--dot": dot, "--bar": c } as CSSProperties}>
+      <div className="l"><i className="d" />{l}</div>
+      {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
+      <div className="v" key={v} data-real={v}>{v}</div>
+      <div className="kbar"><i style={{ width: `${w}%` }} /></div>
+      <div className="s">{s}</div>
+    </div>
+  );
+}

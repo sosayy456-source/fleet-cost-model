@@ -11,8 +11,9 @@ import { useMemo, useState } from "react";
 import { DBar, DPie } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { thDateSafe } from "../../lib/record/date";
-import { CC, Hero, KC, Note, Pane, ResetBtn, TableHead, searchStyle } from "../dash-fleet/parts";
-import { BASE_F0, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, passBase, pct, routeArrow, sumBy, useSort } from "./common";
+import { CC, Hero, KC, Note, Pane, TableHead, searchStyle } from "../dash-fleet/parts";
+import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, passBase, pct, routeArrow, sumBy, useSort } from "./common";
+import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import { fixedOf, normalOf, otherOf, variableOf } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
@@ -118,7 +119,7 @@ export default function CostTab({ trips }: { trips: Trip[] }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <YearFF trips={trips} value={f.year} onChange={set("year")} />
         <MonthFF value={f.month} onChange={set("month")} />
         <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(trips.map((t) => t.o))} />
@@ -129,8 +130,8 @@ export default function CostTab({ trips }: { trips: Trip[] }) {
           <label>เที่ยวรถ</label>
           <input style={{ ...searchStyle, minWidth: 180 }} value={f.q} onChange={(e) => set("q")(e.target.value)} placeholder="เลขที่ใบรายการ" />
         </div>
-        <ResetBtn onClick={() => setF(F0)} />
-      </div>
+        <ClearFiltersBtn active={isFiltered(f, F0)} onClick={() => setF(F0)} />
+      </FilterBar>
 
       <Pane deps={[rows]}>
         {/* KPI หลัก 8 ตัว */}

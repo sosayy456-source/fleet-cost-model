@@ -5,7 +5,7 @@
  * เพราะมันทิ้ง DataFrame แล้วเก็บแต่ผลรวมสำเร็จรูป ที่นี่กรองบน cube.json
  * ที่ ETL ยุบไว้ให้ (144,993 แถว → 2,916) แล้วรวมยอดใหม่ในเบราว์เซอร์
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -13,7 +13,9 @@ import {
 import { ChartCard, InsightCard, Stat } from "../../lib/chart/primitives";
 import { fmtBaht, fmtPct, fmtShort, rankedShades, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
-import RefreshBtn from "../../lib/ui/RefreshBtn";
+import { useDashInk } from "../../lib/chart/dashfx";
+import DashShell, { Meta } from "../../lib/ui/DashShell";
+import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import type { CubeRow, Dataset } from "../../lib/data/useDataset";
@@ -54,64 +56,72 @@ export default function RevenueDash() {
   const [tab, setTab] = useState<Tab>("ภาพรวม");
   const [month, setMonth] = useState<string>("all");
 
-  /* ไฟล์ชุดนี้ ETL สร้างไว้ล่วงหน้า — กดรีเฟรชหลังรัน build_json.py ใหม่
-     แล้วเห็นตัวเลขชุดใหม่ได้เลย ไม่ต้องรีโหลดทั้งหน้า */
-  const refresh = (
-    <RefreshBtn className="dash-reload" onClick={reload} loading={loading}
-      title="ดึงไฟล์ข้อมูลที่ ETL สร้างไว้มาใหม่" />
-  );
+  const barRef = useRef<HTMLElement>(null);
+  useDashInk(barRef, `${tab}:${!!data}`);
 
-  if (error) {
-    return (
-      <div className="card">
-        <h2>แดชบอร์ดรายได้</h2>
-        <div className="banner">{error}</div>
-        <p className="muted">
-          สร้างไฟล์ข้อมูลด้วย <code>python etl/build_json.py --dataset sample</code> ก่อน
-        </p>
-        <div style={{ marginTop: 12 }}>{refresh}</div>
-      </div>
-    );
-  }
-  if (!data) return <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>;
-
-  const months = data.monthly.map((m) => m.month);
+  const months = data ? data.monthly.map((m) => m.month) : [];
   const selected = month === "all" ? null : [month];
 
+  const meta = data && (
+    <Meta parts={[
+      <><b>{data.manifest.rowCount.toLocaleString("th-TH")}</b> รายการ</>,
+      `${data.manifest.sourceFiles.length} ไฟล์`,
+      `ยุบเป็น cube ${data.manifest.cube.cube_rows.toLocaleString("th-TH")} แถว`,
+    ]} />
+  );
+
+  const tabs = data && (
+    <nav className="dash-tabs" ref={barRef}>
+      <span className="dink" />
+      {TABS.map((t) => (
+        <button key={t} type="button"
+          className={"dtab" + (tab === t ? " active" : "")}
+          onClick={() => setTab(t)}>{t}</button>
+      ))}
+    </nav>
+  );
+
+  /* ไฟล์ชุดนี้ ETL สร้างไว้ล่วงหน้า — กดรีเฟรชหลังรัน build_json.py ใหม่
+     แล้วเห็นตัวเลขชุดใหม่ได้เลย ไม่ต้องรีโหลดทั้งหน้า (ปุ่มอยู่ในหัว กดได้ทุกสถานะ) */
   return (
     <>
       <EtlBanner status={etl} />
-      <div className="card">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <select value={month} onChange={(e) => setMonth(e.target.value)}>
-            <option value="all">ทุกเดือน</option>
-            {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
-          </select>
-          <span className="muted" style={{ fontSize: 12 }}>
-            {data.manifest.rowCount.toLocaleString("th-TH")} รายการ ·{" "}
-            {data.manifest.sourceFiles.length} ไฟล์ ·{" "}
-            ยุบเป็น cube {data.manifest.cube.cube_rows.toLocaleString("th-TH")} แถว
-          </span>
-          <span style={{ marginLeft: "auto" }}>{refresh}</span>
-        </div>
-        <nav className="dash-tabs" style={{ marginTop: 12 }}>
-          {TABS.map((t) => (
-            <button key={t} type="button"
-              className={"dtab" + (tab === t ? " active" : "")}
-              onClick={() => setTab(t)}>{t}</button>
-          ))}
-        </nav>
-      </div>
+      <DashShell sample={data?.manifest.isSample} meta={meta} tabs={tabs || undefined}
+        onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ข้อมูลที่ ETL สร้างไว้มาใหม่">
+        {error ? (
+          <div className="card">
+            <div className="banner">{error}</div>
+            <p className="muted">
+              สร้างไฟล์ข้อมูลด้วย <code>python etl/build_json.py --dataset sample</code> ก่อน
+            </p>
+          </div>
+        ) : !data ? (
+          <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>
+        ) : (
+          <>
+            <FilterBar>
+              <div className="ff">
+                <label>เดือน</label>
+                <select value={month} onChange={(e) => setMonth(e.target.value)}>
+                  <option value="all">ทุกเดือน</option>
+                  {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+                </select>
+              </div>
+              <ClearFiltersBtn active={month !== "all"} onClick={() => setMonth("all")} />
+            </FilterBar>
 
-      {tab === "ภาพรวม" && <Overview data={data} months={selected} />}
-      {tab === "แนวโน้มรายได้" && <Trend data={data} />}
-      {tab === "การชำระเงิน" && <Ranked data={data} months={selected}
-        dim="ประเภทการชำระเงิน" title="รายได้ตามประเภทการชำระเงิน" />}
-      {tab === "วิเคราะห์บิล" && <Bills data={data} months={selected} />}
-      {tab === "ลูกหนี้คงค้าง" && <Unpaid data={data} months={selected} />}
-      {tab === "ลูกค้า" && <Customers data={data} />}
-      {tab === "คุณภาพข้อมูล" && <Quality data={data} />}
-      {tab === "ข้อสังเกต" && <Insights data={data} />}
+            {tab === "ภาพรวม" && <Overview data={data} months={selected} />}
+            {tab === "แนวโน้มรายได้" && <Trend data={data} />}
+            {tab === "การชำระเงิน" && <Ranked data={data} months={selected}
+              dim="ประเภทการชำระเงิน" title="รายได้ตามประเภทการชำระเงิน" />}
+            {tab === "วิเคราะห์บิล" && <Bills data={data} months={selected} />}
+            {tab === "ลูกหนี้คงค้าง" && <Unpaid data={data} months={selected} />}
+            {tab === "ลูกค้า" && <Customers data={data} />}
+            {tab === "คุณภาพข้อมูล" && <Quality data={data} />}
+            {tab === "ข้อสังเกต" && <Insights data={data} />}
+          </>
+        )}
+      </DashShell>
     </>
   );
 }

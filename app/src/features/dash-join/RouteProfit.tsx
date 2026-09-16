@@ -17,7 +17,8 @@ import { ACTIVE_VEHICLES, REF, distanceFor } from "../../lib/refdata";
 import { Stat } from "../../lib/chart/primitives";
 import { fmtBaht, fmtPct, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
-import RefreshBtn from "../../lib/ui/RefreshBtn";
+import DashShell from "../../lib/ui/DashShell";
+import FilterBar from "../../lib/ui/FilterBar";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import type { RecordsState } from "../../lib/store/useRecords";
@@ -108,21 +109,22 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
   /* หน้านี้ join ข้อมูลสองทาง — ไฟล์รายได้จาก ETL กับใบรายการจากชีต/เครื่อง
      ปุ่มเดียวจึงต้องสั่งดึงใหม่ทั้งคู่ ไม่งั้นตัวเลขสองฝั่งจะคนละรุ่นกัน */
   const refreshBoth = () => { reload(); state.reload(); };
-  const refresh = (
-    <RefreshBtn className="dash-reload" onClick={refreshBoth} loading={loading || state.loading}
-      title="ดึงไฟล์รายได้จาก ETL และใบรายการล่าสุดมาคำนวณใหม่ทั้งคู่" />
-  );
+  const refreshTitle = "ดึงไฟล์รายได้จาก ETL และใบรายการล่าสุดมาคำนวณใหม่ทั้งคู่";
+  const meta = <>รวมรายได้จากไฟล์บิล เข้ากับต้นทุนจากโมเดลเดินรถ โดยใช้ "ต้นทาง → ปลายทาง" เป็นตัวเชื่อม</>;
 
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="card">
-        <h2>กำไรรายเส้นทาง</h2>
-        <div className="banner">{error}</div>
-        <div style={{ marginTop: 12 }}>{refresh}</div>
-      </div>
+      <>
+        <EtlBanner status={etl} />
+        <DashShell sample={data?.manifest.isSample} meta={meta}
+          onRefresh={refreshBoth} loading={loading || state.loading} refreshTitle={refreshTitle}>
+          {error
+            ? <div className="card"><div className="banner">{error}</div></div>
+            : <div className="card"><p className="muted">กำลังโหลด...</p></div>}
+        </DashShell>
+      </>
     );
   }
-  if (!data) return <div className="card"><p className="muted">กำลังโหลด...</p></div>;
 
   const matched = rows.filter((r) => r.distance != null);
   const revTotal = rows.reduce((s, r) => s + r.revenue, 0);
@@ -132,14 +134,34 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
   return (
     <>
       <EtlBanner status={etl} />
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <h2 style={{ marginRight: "auto" }}>กำไรรายเส้นทาง</h2>
-          {refresh}
+      <DashShell sample={data.manifest.isSample} meta={meta}
+        onRefresh={refreshBoth} loading={loading || state.loading} refreshTitle={refreshTitle}>
+      <FilterBar>
+        <div className="ff">
+          <label>เดือน</label>
+          <select value={month} onChange={(e) => setMonth(e.target.value)}>
+            <option value="all">ทุกเดือน</option>
+            {data.monthly.map((m) => (
+              <option key={m.month} value={m.month}>{monthLabel(m.month)}</option>
+            ))}
+          </select>
         </div>
-        <p className="muted" style={{ marginTop: 0 }}>
-          รวมรายได้จากไฟล์บิล เข้ากับต้นทุนจากโมเดลเดินรถ โดยใช้ "ต้นทาง → ปลายทาง" เป็นตัวเชื่อม
-        </p>
+        <div className="ff">
+          <label>สมมติใช้รถ</label>
+          <select value={fleetType} onChange={(e) => setFleetType(e.target.value as FleetType)}>
+            <option value="รถบริษัท">รถบริษัท</option>
+            <option value="รถร่วม">รถร่วม</option>
+          </select>
+        </div>
+        <div className="ff">
+          <label>ชนิดรถ</label>
+          <select value={vehicle} onChange={(e) => setVehicle(e.target.value)}>
+            {ACTIVE_VEHICLES.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
+          </select>
+        </div>
+      </FilterBar>
+
+      <div className="card">
         <div className="grid">
           <Stat label="เส้นทางทั้งหมด" value={String(rows.length)} />
           <Stat label="เส้นทางที่รู้ระยะทาง" value={`${matched.length}`}
@@ -148,25 +170,6 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
             tone={t.status.good} sub="ของรายได้ทั้งหมด" />
           <Stat label="เส้นทางที่มีใบรายการจริง" value={String(withActual.length)}
             sub={withActual.length ? "ใช้ต้นทุนจริง" : "ยังไม่มี ใช้ประมาณการ"} />
-        </div>
-      </div>
-
-      <div className="card">
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <select value={month} onChange={(e) => setMonth(e.target.value)}>
-            <option value="all">ทุกเดือน</option>
-            {data.monthly.map((m) => (
-              <option key={m.month} value={m.month}>{monthLabel(m.month)}</option>
-            ))}
-          </select>
-          <label className="muted" style={{ fontSize: 12 }}>สมมติใช้รถ</label>
-          <select value={fleetType} onChange={(e) => setFleetType(e.target.value as FleetType)}>
-            <option value="รถบริษัท">รถบริษัท</option>
-            <option value="รถร่วม">รถร่วม</option>
-          </select>
-          <select value={vehicle} onChange={(e) => setVehicle(e.target.value)}>
-            {ACTIVE_VEHICLES.map((v) => <option key={v.name} value={v.name}>{v.name}</option>)}
-          </select>
         </div>
         <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 10 }}>
           ต้นทุนประมาณการคิดเฉพาะส่วนที่ผูกกับระยะทาง (ค่าน้ำมันตามอัตราสิ้นเปลือง +
@@ -241,6 +244,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
           </div>
         </div>
       )}
+      </DashShell>
     </>
   );
 }

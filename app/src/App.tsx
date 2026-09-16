@@ -22,6 +22,7 @@ const RevenueDash = lazy(() => import("./features/dash-revenue/RevenueDash"));
 const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
 const CostRevDash = lazy(() => import("./features/dash-costrev/CostRevDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
+import { DashPageContext } from "./lib/ui/dashContext";
 import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
 import { billIsPaid, recBills } from "./lib/record/payment";
 import { useRecords } from "./lib/store/useRecords";
@@ -49,7 +50,7 @@ interface PageDef {
   h1: string;
   /**
    * id ของ <section class="view"> ตามที่ main ตั้งไว้
-   * สำคัญมาก: โทเคนสีทั้งชุดของแดชบอร์ด (--d-card, --d-ink, ฟอนต์ Anuphan ฯลฯ)
+   * สำคัญมาก: โทเคนสีทั้งชุดของแดชบอร์ด (--d-card, --d-ink, ฟอนต์ ฯลฯ)
    * ถูกประกาศไว้ใต้ #view-dash เท่านั้น ถ้าไม่มี element นี้ครอบ กราฟจะได้สีว่างเปล่า
    */
   view: string;
@@ -105,10 +106,13 @@ export default function App() {
     const first = allowed[0] ?? "entry";
     location.hash = `#/${first}`;
     setPage(first);
+    // ใบที่ฝ่ายก่อนหน้าเพิ่งบันทึกต้องขึ้นทันทีที่เลือกหน้าที่ ไม่ต้องกดรีเฟรชเอง
+    state.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
-  const goto = (p: string) => { location.hash = `#/${p}`; setPage(p); };
+  // เปลี่ยนเมนูแล้วโหลดใบใหม่แบบเบาด้วย — หน้าถัดไปเห็นของล่าสุดเสมอ
+  const goto = (p: string) => { location.hash = `#/${p}`; setPage(p); state.refresh(); };
 
   // main:2355 — นับเฉพาะใบที่ยังไม่ครบ "และฝ่ายของเรายังไม่ได้กรอก" จึงเปลี่ยนตามตำแหน่ง
   const draftCount = state.records.filter((r) => !roleAllDone(r) && !(role && roleDone(r, role))).length;
@@ -119,6 +123,9 @@ export default function App() {
   if (!role) return <RolePicker onPick={setRole} />;
 
   const cur = pages.find((p) => p.id === page) ?? pages[0];
+  // หน้าแดชบอร์ดมีการ์ดหัวของตัวเอง (DashShell · ดีไซน์ 1A) ที่รวมหัวเรื่อง ชิปข้อมูลตัวอย่าง
+  // และปุ่มเปลี่ยนหน้าที่ไว้แล้ว — จึงไม่วาดแถบตำแหน่ง/แถบเตือน/หัวเรื่องของ App ซ้ำ
+  const isDash = cur?.view === "dash";
 
   return (
     <>
@@ -144,12 +151,14 @@ export default function App() {
       </aside>
 
       <main className="app">
-        <div className="rolebar">
-          <span className="who">{ROLES[role].en ?? ROLES[role].label}</span>
-          <button type="button" className="sw" onClick={() => setRole(null)}>เปลี่ยนหน้าที่</button>
-        </div>
+        {!isDash && (
+          <div className="rolebar">
+            <span className="who">{ROLES[role].en ?? ROLES[role].label}</span>
+            <button type="button" className="sw" onClick={() => setRole(null)}>เปลี่ยนหน้าที่</button>
+          </div>
+        )}
 
-        {isSample && (
+        {isSample && !isDash && (
           <div className="banner">ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท</div>
         )}
 
@@ -161,7 +170,7 @@ export default function App() {
         )}
 
         <section className="view active" id={`view-${cur?.view ?? "form"}`}>
-          {cur && <div className="page-h"><h1>{cur.h1}</h1></div>}
+          {cur && !isDash && <div className="page-h"><h1>{cur.h1}</h1></div>}
 
           {/* ครอบเฉพาะเนื้อหน้า เพื่อให้หน้าที่พังไม่ลากเมนูซ้ายไปด้วย — เปลี่ยนหน้าแล้วลองใหม่ได้เลย */}
           <ErrorBoundary resetKey={page} where={cur ? `หน้า “${cur.h1}”` : undefined}>
@@ -170,13 +179,19 @@ export default function App() {
             {page === "records" && <RecordsList role={role} state={state} />}
             {page === "debtors" && <Debtors state={state} />}
             {page === "settings" && <Settings />}
-            <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
-              {page === "dash-fleet" && <FleetDash state={state} role={role} />}
-              {page === "dash-revenue" && <RevenueDash />}
-              {page === "route-profit" && <RouteProfit state={state} />}
-              {page === "exec-dash" && <CostRevDash mode="exec" />}
-              {page === "all-dash" && <CostRevDash mode="all" />}
-            </Suspense>
+            <DashPageContext.Provider value={isDash && cur ? {
+              title: cur.h1,
+              roleLabel: ROLES[role].en ?? ROLES[role].label,
+              onSwitchRole: () => setRole(null),
+            } : null}>
+              <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
+                {page === "dash-fleet" && <FleetDash state={state} role={role} sample={isSample} />}
+                {page === "dash-revenue" && <RevenueDash />}
+                {page === "route-profit" && <RouteProfit state={state} />}
+                {page === "exec-dash" && <CostRevDash mode="exec" />}
+                {page === "all-dash" && <CostRevDash mode="all" />}
+              </Suspense>
+            </DashPageContext.Provider>
             {page === "driver" && <DriverJobs state={state} role={role} />}
           {page === "custcode" && <CustCode />}
           </ErrorBoundary>
