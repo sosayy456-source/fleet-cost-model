@@ -19,6 +19,7 @@ import { fmt } from "./common";
 import FleetTab from "./FleetTab";
 import ProfitTab from "./ProfitTab";
 import CostTab from "./CostTab";
+import DamageTab from "./DamageTab";
 
 export type CostRevMode = "exec" | "all";
 
@@ -26,6 +27,7 @@ const TABS = [
   { id: "fleet", label: "กองรถ" },
   { id: "profit", label: "กำไรรายเที่ยว" },
   { id: "cost", label: "ต้นทุน" },
+  { id: "damage", label: "Damage Rate" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -102,6 +104,8 @@ export default function CostRevDash({ mode }: { mode: CostRevMode }) {
           {tab === "fleet" && <FleetTab trips={trips} />}
           {tab === "profit" && <ProfitTab trips={trips} />}
           {tab === "cost" && <CostTab trips={trips} />}
+          {/* ความเสียหายมาจากบิลในไฟล์รายได้ จึงมีตัวเลขเฉพาะโหมด exec — โหมด all ขึ้นข้อจำกัดแทน */}
+          {tab === "damage" && <DamageTab trips={trips} mode={mode} matchedTotal={m.matched} isSample={m.isSample} />}
         </>
       )}
     </>

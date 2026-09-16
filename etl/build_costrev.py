@@ -94,6 +94,7 @@ COL_REV1 = "ราคารวมจากรายได้"
 COL_REV2 = "ค่าบรรทุกทั้งใบรายการ"
 
 PAYMENT_UNPAID = "ยังไม่ได้ชำระ"   # ตรงกับ PAYMENT_STATUS_UNPAID ใน etl/src/cleaning.py
+GOODS_CLEARED = "บิลเคลียร์"       # ตรงกับ CLEARED_GOODS ใน app/src/lib/cost/recCost.ts
 
 
 def num(v) -> float:
@@ -210,13 +211,16 @@ def xlsx_files(folder: Path) -> list[Path]:
 # ---------------------------------------------------------------- รายได้
 def load_revenue(rev_dir: Path, want: set[str]):
     """
-    อ่านไฟล์รายได้ แล้วคืน (ใบรายการที่ตรงกับ want, บิลของใบเหล่านั้น, จำนวนไฟล์, จำนวนแถว)
+    อ่านไฟล์รายได้ แล้วคืน (ใบรายการที่ตรงกับ want, บิลของใบเหล่านั้น, จำนวนไฟล์, จำนวนแถว,
+    ยอดที่ชำระแล้ว, มูลค่าบิลเคลียร์ต่อใบ, จำนวนรายการบิลเคลียร์ต่อใบ)
 
     ★ เก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (want) — ข้อมูลรายได้จริง 29 ไฟล์รวมเกือบ 2 ล้านแถว
       ถ้าเก็บทุกใบไว้ในหน่วยความจำจะกินหลาย GB ทั้งที่ใช้จริงแค่ไม่กี่พันใบ
     """
     doc_set: set[str] = set()
     bills: dict[str, list[dict]] = {}
+    clr_amt: dict[str, float] = {}
+    clr_n: dict[str, int] = {}
     rows_seen = 0
     paid_seen = 0
     paid_total = 0.0
@@ -237,6 +241,13 @@ def load_revenue(rev_dir: Path, want: set[str]):
             if not doc or doc not in want:
                 continue
             doc_set.add(doc)
+            # มูลค่าความเสียหาย = ราคารวมของบิลที่ประเภทสินค้าเป็น "บิลเคลียร์" (นิยามเดียวกับ
+            # adminWriteOff ฝั่งแอป) — ต้องนับ ★ ก่อน ★ ตัวกรองสถานะชำระเงินข้างล่าง เพราะบิลที่
+            # ชำระแล้วจะถูก continue ทิ้ง ถ้านับทีหลังบิลเคลียร์ที่ชำระแล้วจะหายไปเงียบ ๆ แล้ว
+            # Damage Rate ต่ำกว่าจริง (ชุดตัวอย่างบังเอิญเป็น "ยังไม่ได้ชำระ" ครบ ข้อมูลจริงไม่รับประกัน)
+            if text(g(r, "ประเภทสินค้า")) == GOODS_CLEARED:
+                clr_amt[doc] = clr_amt.get(doc, 0.0) + num(g(r, "ราคารวม"))
+                clr_n[doc] = clr_n.get(doc, 0) + 1
             status = text(g(r, "สถานะการชำระเงิน"))
             if status != PAYMENT_UNPAID:
                 # ★ เก็บเฉพาะบิลที่ยังค้างชำระ (เจ้าของข้อมูลเลือกทางนี้ 16 ก.ย. 2569)
@@ -265,7 +276,8 @@ def load_revenue(rev_dir: Path, want: set[str]):
                 "billStatus": text(g(r, "สถานะบิล")),
             })
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
-    return doc_set, bills, len(files), rows_seen, {"bills": paid_seen, "total": round(paid_total, 2)}
+    return (doc_set, bills, len(files), rows_seen,
+            {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n)
 
 
 # ---------------------------------------------------------------- ต้นทุน
@@ -361,6 +373,8 @@ def build(dataset: str) -> None:
                 "empty": ttype in EMPTY_TYPES,
                 "clear": text(g(r, "เป็นบิลเคลียร์")) == "ใช่",
                 "m": False,   # เติมทีหลังเมื่ออ่านไฟล์รายได้เสร็จ
+                # มูลค่า/จำนวนรายการบิลเคลียร์ — เติมทีหลังเหมือน m เพราะอยู่ในไฟล์รายได้คนละฝั่ง
+                "clrAmt": 0.0, "clrN": 0,
                 # กลุ่มต้นทุน — ยอดที่คำนวณต่อได้ (ปกติ/ผันแปร/อื่น ๆ) ไม่เก็บ ให้ฝั่งแอปคิดเอง ไฟล์จะได้เล็ก
                 "waste": waste, "fuel": fuel_t, "allow": allow_t, "fee": fee_t,
                 "repair": repair, "dep": dep, "rent": rent,
@@ -375,10 +389,15 @@ def build(dataset: str) -> None:
     # อ่านรายได้ทีหลัง แล้วเก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (ดูเหตุผลใน load_revenue)
     print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
     cost_docs = {t["id"] for t in trips}
-    rev_docs, rev_bills, rev_files, rev_rows, rev_paid = load_revenue(rev_dir, cost_docs)
+    rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n = load_revenue(rev_dir, cost_docs)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
     for t in trips:
         t["m"] = t["id"] in rev_docs
+        # ★ ธง clear (จากไฟล์ต้นทุน) กับ clrN (จากบิลจริง) ไม่เท่ากัน — ชุดตัวอย่างมีใบที่ธง "ใช่" 59 ใบ
+        #   แต่หาบิลเคลียร์เจอแค่ 10 ใบ เพราะไฟล์รายได้ตัวอย่างถูกสุ่มมาบางส่วน
+        #   แท็บ Damage Rate คิดจาก clrAmt/clrN เท่านั้น (มูลค่าจริง) ไม่ใช่ธง clear
+        t["clrAmt"] = round(clr_amt.get(t["id"], 0.0), 2)
+        t["clrN"] = clr_n.get(t["id"], 0)
 
     matched = [t for t in trips if t["m"]]
     route_pairs = {(t["o"], t["de"]) for t in trips if t["o"] and t["de"]}
@@ -423,6 +442,10 @@ def build(dataset: str) -> None:
         "skipped": {"noDoc": skipped_no_doc, "noDate": skipped_no_date},
         "emptyTypes": sorted(EMPTY_TYPES),
         "debtorBills": len(old_debtors),
+        # สรุปบิลเคลียร์เฉพาะฝั่งที่จับคู่ได้ — แท็บ Damage Rate ใช้ตรวจว่ายอดในหน้าเว็บตรงกับไฟล์
+        "clear": {"trips": sum(1 for t in matched if t["clrN"]),
+                  "bills": sum(t["clrN"] for t in matched),
+                  "amount": round(sum(t["clrAmt"] for t in matched), 2)},
         # บิลที่ชำระแล้วไม่ได้เขียนลงไฟล์ (ดูเหตุผลใน load_revenue) เก็บไว้แค่จำนวนกับยอดรวม
         "debtorPaid": rev_paid,
     }
@@ -436,6 +459,9 @@ def build(dataset: str) -> None:
     print(f"  ช่วงวันที่ {dates[0]} → {dates[-1]} · ปี {manifest['years']}")
     print(f"  ระยะทางจาก routes.json: เส้นทาง {route_hit}/{len(route_pairs)} · เที่ยวที่มี กม. {trips_with_km:,} ({manifest['routeDistance']['pct']}%)")
     print(f"  เที่ยวตีเปล่า {sum(1 for t in trips if t['empty']):,} · บิลเคลียร์ {sum(1 for t in trips if t['clear']):,}")
+    clr = manifest["clear"]
+    print(f"  บิลเคลียร์จากไฟล์รายได้ (เฉพาะใบที่จับคู่ได้) {clr['bills']:,} รายการ "
+          f"ใน {clr['trips']:,} เที่ยว รวม {clr['amount']:,.2f} บาท")
     print(f"  บิลลูกหนี้ค้างชำระจากไฟล์รายได้ (เฉพาะใบที่จับคู่ได้) {len(old_debtors):,} รายการ")
     print(f"  บิลที่ชำระแล้ว {rev_paid['bills']:,} รายการ (ไม่เขียนลงไฟล์ เก็บแค่ยอดรวมใน manifest)")
     if skipped_no_doc or skipped_no_date:

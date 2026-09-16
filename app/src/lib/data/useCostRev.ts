@@ -29,8 +29,14 @@ export interface Trip {
   rev: number; cost: number; profit: number;
   /** เที่ยวตีเปล่า (ประเภทใบรายการ = ของเหมาตีเปล่า / รถว่างไปสาขา) */
   empty: boolean;
-  /** เป็นบิลเคลียร์ */
+  /** ธง "เป็นบิลเคลียร์" จากไฟล์ต้นทุน — ไม่ใช่มูลค่า และไม่ตรงกับ clrN เสมอไป (ดู clrAmt) */
   clear: boolean;
+  /**
+   * มูลค่าบิลเคลียร์ของใบนี้ = Σ ราคารวมของบิลที่ประเภทสินค้า = "บิลเคลียร์" ในไฟล์รายได้
+   * (นิยามเดียวกับ CLEARED_GOODS/adminWriteOff ใน lib/cost/recCost.ts) · clrN = จำนวนรายการ
+   * มีค่าเฉพาะใบที่ m = true เท่านั้น เพราะมูลค่ามาจากฝั่งรายได้
+   */
+  clrAmt: number; clrN: number;
   /** เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — Executive Dashboard ใช้เฉพาะแถวที่ m = true */
   m: boolean;
   /** กลุ่มต้นทุน (ยอดที่คำนวณต่อได้ดู helpers ด้านล่าง) */
@@ -57,6 +63,10 @@ export interface CostRevManifest {
   skipped: { noDoc: number; noDate: number };
   emptyTypes: string[];
   debtorBills: number;
+  /** บิลที่ชำระแล้ว ไม่ได้เขียนลงไฟล์ เก็บแค่ยอดรวม */
+  debtorPaid?: { bills: number; total: number };
+  /** สรุปบิลเคลียร์เฉพาะเที่ยวที่จับคู่ได้ — ไฟล์รุ่นก่อนแท็บ Damage Rate ไม่มีคีย์นี้ */
+  clear?: { trips: number; bills: number; amount: number };
 }
 
 export interface CostRevData {
