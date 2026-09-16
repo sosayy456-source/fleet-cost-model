@@ -849,3 +849,22 @@ input[type="checkbox"]{width:auto;padding:0}
 /* ตารางอันดับเต็มแถว — แบ่ง 2 คอลัมน์ไล่ลงทีละคอลัมน์ (1–5 ซ้าย · 6–10 ขวา) */
 @media(min-width:900px){.fl-rank.wide{display:grid;grid-template-rows:repeat(5,auto);grid-auto-flow:column;
   grid-auto-columns:minmax(0,1fr);column-gap:28px}}
+
+/* ---- อันดับความคุ้มค่า 5 อันดับแรก (FleetTab VISUAL-02) — ตามรูปตัวอย่างของเจ้าของ ---- */
+.fl-tophead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.fl-tophead h4{margin:0}
+.fl-toggle{display:inline-flex;background:var(--d-rail);border-radius:10px;padding:3px;flex:none}
+.fl-toggle button{border:0;background:none;padding:6px 12px;border-radius:8px;font:inherit;font-size:12.5px;
+  font-weight:600;color:var(--d-ink3);cursor:pointer;transition:background-color .16s var(--d-ease),color .16s var(--d-ease)}
+.fl-toggle button.on{background:var(--d-indigo,#4F46E5);color:#fff}
+.fl-top{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:18px}
+.fl-top li{animation:dFadeUp .45s var(--d-ease) both}
+.fl-tname{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--d-ink);margin-bottom:8px}
+.fl-tname b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.fl-tno{color:var(--d-ink5);font-family:var(--d-num);width:16px;flex:none}
+.fl-tbadge{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;flex:none}
+.fl-tbadge.good{color:#166534;background:#DCFCE7}
+.fl-tbadge.ok{color:#9A3412;background:#FFEDD5}
+.fl-tbadge.loss{color:#991B1B;background:#FEE2E2}
+.fl-tval{font-family:var(--d-num);font-variant-numeric:tabular-nums;font-weight:700;font-size:15px;flex:none;min-width:80px;text-align:right}
+.fl-tsub{font-size:12px;color:var(--d-ink5);margin-top:6px}

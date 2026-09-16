@@ -3,8 +3,11 @@
  *
  *   1.1 ตัวกรอง  ปี เดือน · จุดขึ้น–จุดลง · ประเภทรถ/ชนิดรถ   (กลุ่มบริการตัดออก — ไฟล์ไม่มีคอลัมน์)
  *   1.2 KPI 9 ตัว — 3 ตัวหลักเป็นการ์ดเด่น อีก 6 ตัวเป็นการ์ดที่มีแถบสัดส่วนบอกว่า "มากหรือน้อยเมื่อเทียบกับอะไร"
- *   1.3 VISUAL-02 อันดับความคุ้มค่าของชนิดรถ (กำไรเฉลี่ย/เที่ยว)
- *       VISUAL-03 ตัดออก (ต้องใช้กลุ่มบริการ)
+ *   1.3 VISUAL-02 อันดับความคุ้มค่า 5 อันดับแรก — แถวละ ประเภทรถ · กลุ่มบริการ · เส้นทาง
+ *       สลับมุมมอง กำไร/เที่ยว ↔ กำไร/คัน · จำนวนเที่ยวใต้แท่ง · ป้าย กำไรดี/พอประมาณ/ขาดทุน
+ *       (ตามรูปตัวอย่างของเจ้าของ 16 ก.ย. 2569) กลุ่มบริการ = ประเภทสินค้าที่พบมากสุดในบิลรายได้ของใบนั้น
+ *       เที่ยวที่จับคู่บิลไม่ได้เป็น "ไม่ระบุ" — Dashboard รวม จะเห็นกลุ่มนี้ ส่วน Executive ไม่มี
+ *       VISUAL-03 ตัดออก (ต้องใช้กลุ่มบริการรายเที่ยวจากไฟล์ต้นทุน ซึ่งไม่มี)
  *       VISUAL-04 รถที่ถูกใช้งานมากที่สุด (จำนวนเที่ยว) — เป็นตารางอันดับแทนกราฟแท่ง อ่านกำไรคู่กันได้
  *
  * ส่วนเสริมที่ไม่ได้อยู่ในสเปก แต่ตอบคำถามเดียวกันจากข้อมูลชุดเดิม:
@@ -15,14 +18,21 @@
  */
 import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
-import { CC, Hero, Note, Pane, ResetBtn } from "../dash-fleet/parts";
+import { Hero, Note, Pane, ResetBtn } from "../dash-fleet/parts";
 import { BASE_F0, ListFF, MonthFF, YearFF, duniq, fmt, groupBy, passBase, pct, signed } from "./common";
 import type { BaseFilter } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 
 const TOP_PLATES = 10;
+const TOP_RANK = 5;
+/** ป้ายความคุ้มค่า — เกณฑ์ตามคำอธิบายใต้กราฟในรูปตัวอย่าง ใช้เกณฑ์เดียวกันทั้งสองมุมมอง */
+const GOOD_FROM = 5000;
+type RankMode = "trip" | "vehicle";
+const rankTone = (v: number): { label: string; color: string; cls: string } =>
+  v >= GOOD_FROM ? { label: "กำไรดี", color: D.emeraldLight, cls: "good" }
+  : v >= 0 ? { label: "พอประมาณ", color: D.orange, cls: "ok" }
+  : { label: "ขาดทุน", color: D.rose, cls: "loss" };
 /** สีวนของกราฟหลายหมวด — ลำดับเดียวกับแท็บอื่นของแดชบอร์ด */
 const PALETTE = [D.indigo, D.violet, D.teal, D.cyan, D.emeraldLight, D.amber, D.orange, D.pink, D.rose, D.slateDeep];
 const FLEET_COLORS = [D.indigo, D.teal, D.amber, D.pink, D.slateDeep];
@@ -59,10 +69,24 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
     };
   }, [rows]);
 
-  /** VISUAL-02 — กำไรเฉลี่ยต่อเที่ยว ตามชนิดรถ เรียงมาก → น้อย */
-  const byKind = useMemo(() => groupBy(rows, (t) => t.vk)
-    .map((a) => ({ name: a.key, v: Math.round(a.profit / a.n), n: a.n }))
-    .sort((a, b) => b.v - a.v), [rows]);
+  /** VISUAL-02 — กำไรต่อเที่ยว/ต่อคัน ตาม ประเภทรถ · กลุ่มบริการ · เส้นทาง เอา 5 อันดับแรก */
+  const [rankMode, setRankMode] = useState<RankMode>("trip");
+  const ranked = useMemo(() => {
+    const plates = new Map<string, Set<string>>();
+    for (const t of rows) {
+      const k = `${t.ft}|${t.sg || "ไม่ระบุ"}|${t.rt}`;
+      (plates.get(k) ?? plates.set(k, new Set()).get(k)!).add(t.pl);
+    }
+    return groupBy(rows, (t) => `${t.ft}|${t.sg || "ไม่ระบุ"}|${t.rt}`)
+      .map((a) => {
+        const vehicles = plates.get(a.key)?.size ?? 1;
+        return { key: a.key, label: a.key.split("|").join(" · "), n: a.n, vehicles,
+                 v: rankMode === "trip" ? a.profit / a.n : a.profit / vehicles };
+      })
+      .sort((a, b) => b.v - a.v)
+      .slice(0, TOP_RANK);
+  }, [rows, rankMode]);
+  const rankMax = Math.max(1, ...ranked.map((r) => Math.abs(r.v)));
 
   /** สัดส่วนเที่ยวตามประเภทรถ (รถบริษัท / รถร่วม / …) พร้อมกำไรเฉลี่ยต่อเที่ยวของแต่ละประเภท */
   const byFleet = useMemo(() => groupBy(rows, (t) => t.ft)
@@ -144,10 +168,46 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
 
         <div className="dz-row dz-2" style={{ marginTop: 14 }}>
           {/* [VISUAL-02] */}
-          <CC title="อันดับความคุ้มค่าของรถแต่ละชนิด · กำไรเฉลี่ยต่อเที่ยว" tall>
-            <DBar data={byKind} xKey="name" horiz colors={PALETTE}
-              series={[{ key: "v", label: "กำไรเฉลี่ย/เที่ยว", color: D.indigo }]} />
-          </CC>
+          <div className="dz-cc">
+            <div className="fl-tophead">
+              <div>
+                <h4>อันดับความคุ้มค่าตามประเภทรถ · {TOP_RANK} อันดับแรก</h4>
+                <p className="dz-note">
+                  {rankMode === "trip" ? "กำไรเฉลี่ยต่อเที่ยว" : "กำไรรวมต่อคัน (÷ ทะเบียนไม่ซ้ำในกลุ่ม)"} แยกตามประเภทรถ กลุ่มบริการ และเส้นทาง
+                </p>
+              </div>
+              <div className="fl-toggle" role="group" aria-label="มุมมอง">
+                <button type="button" className={rankMode === "trip" ? "on" : ""} onClick={() => setRankMode("trip")}>กำไร/เที่ยว</button>
+                <button type="button" className={rankMode === "vehicle" ? "on" : ""} onClick={() => setRankMode("vehicle")}>กำไร/คัน</button>
+              </div>
+            </div>
+            {ranked.length === 0 ? <p className="dz-note">ไม่มีข้อมูลตามตัวกรองที่เลือก</p> : (
+              <ol className="fl-top">
+                {ranked.map((r, i) => {
+                  const tone = rankTone(r.v);
+                  return (
+                    <li key={r.key} style={{ animationDelay: `${i * 60}ms` }}>
+                      <div className="fl-tname">
+                        <span className="fl-tno">{i + 1}</span>
+                        <b>{r.label}</b>
+                        <span className={"fl-tbadge " + tone.cls}>{tone.label}</span>
+                        <span className="fl-tval" style={{ color: tone.color }}>{signed(Math.round(r.v))} ฿</span>
+                      </div>
+                      <div className="fl-rbar fat">
+                        <i style={{ width: `${pctOf(Math.abs(r.v), rankMax)}%`, background: tone.color }} />
+                      </div>
+                      <div className="fl-tsub">{fmt(r.n)} เที่ยว{rankMode === "vehicle" ? ` · ${fmt(r.vehicles)} คัน` : ""}</div>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+            <div className="fl-legend">
+              <span><i style={{ background: D.emeraldLight }} />กำไรดี · ตั้งแต่ {fmt(GOOD_FROM)} ฿</span>
+              <span><i style={{ background: D.orange }} />พอประมาณ · 0 ถึง {fmt(GOOD_FROM - 1)} ฿</span>
+              <span><i style={{ background: D.rose }} />ขาดทุน · ต่ำกว่า 0 ฿</span>
+            </div>
+          </div>
           <div className="dz-cc">
             <h4>สัดส่วนเที่ยวตามประเภทรถ</h4>
             <ul className="fl-share">
