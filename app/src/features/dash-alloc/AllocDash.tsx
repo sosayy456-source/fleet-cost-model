@@ -226,18 +226,41 @@ function Body({ data, f, set, reset }: {
   );
 }
 
-/** บล็อกล่างสุด — ของที่ไม่ได้เข้ากำไรลูกค้า เก็บไว้ให้ตรวจได้แต่ไม่เด่น */
+/**
+ * บล็อกล่างสุด — ค่าใช้จ่ายที่ไม่เข้าลูกค้า + ของที่ตรวจไม่ผ่าน เก็บไว้ให้ตรวจแต่ไม่เด่น
+ *
+ * ต้นทุนที่ตกกับบิลเคลียร์และเที่ยวตีเปล่า "ไม่เข้าใครเลย" ตามที่เจ้าของข้อมูลกับผู้ทำ
+ * เรื่องบิลเคลียร์สรุปกันมา — เป็นค่าใช้จ่ายของบริษัทต่างหาก (คชจ.บิลเคลียร์)
+ * ไม่ใช่ยอดค้างที่รอปันเข้าลูกค้าในภายหลัง จึงเขียนเป็น "ค่าใช้จ่าย" ให้อ่านตรงตามนั้น
+ */
 function Bottom({ data }: { data: Pick<AllocData, "manifest" | "unlinked"> }) {
   const { manifest: m, unlinked: u } = data;
   const nl = u.notLinked;
   const excluded = Object.entries(u.excludedCost);
+  const excludedTotal = excluded.reduce((s, [, v]) => s + v, 0);
   return (
     <div className="dz-cc" style={{ marginTop: 14, opacity: .92 }}>
-      <h4 style={{ fontSize: 14 }}>รายการที่ไม่ได้เข้ากำไรลูกค้า</h4>
+      <h4 style={{ fontSize: 14 }}>ค่าใช้จ่ายที่ไม่เข้าลูกค้า และรายการที่ควรตรวจ</h4>
       <p className="dz-sub" style={{ fontSize: 12 }}>
-        ส่วนนี้แยกไว้ไม่ให้ปนกับตัวเลขข้างบน — ตรวจก่อนใช้ตัวเลขจริง
+        ส่วนนี้แยกไว้ไม่ให้ปนกับตัวเลขข้างบน — ไม่มีลูกค้ารายไหนถูกคิดต้นทุนก้อนนี้
       </p>
       <ul className="dq" style={{ fontSize: 12.5 }}>
+        {excluded.map(([reason, cost]) => (
+          <li key={reason}>
+            <span className="n">{fmt(cost)}</span>
+            <span>
+              บาท = <b>คชจ.{reason}</b> ({fmt(u.excludedItems[reason] ?? 0)} รายการ) —
+              รับต้นทุนตามภาระงานของตัวเองปกติ แต่ไม่เข้าลูกค้ารายไหน
+              ถือเป็นค่าใช้จ่ายของบริษัทต่างหาก
+            </span>
+          </li>
+        ))}
+        {excluded.length > 1 && (
+          <li>
+            <span className="n">{fmt(excludedTotal)}</span>
+            <span>บาท รวมค่าใช้จ่ายที่ไม่เข้าลูกค้าทั้งหมด</span>
+          </li>
+        )}
         <li>
           <span className="n">{fmt(nl.items)}</span>
           <span>
@@ -246,15 +269,6 @@ function Bottom({ data }: { data: Pick<AllocData, "manifest" | "unlinked"> }) {
             แต่ไม่มีต้นทุน ถ้านับรวมลูกค้ากลุ่มนี้จะดูกำไรเกินจริง
           </span>
         </li>
-        {excluded.map(([reason, cost]) => (
-          <li key={reason}>
-            <span className="n">{fmt(cost)}</span>
-            <span>
-              บาท คือต้นทุนที่ตกกับ{reason} ({fmt(u.excludedItems[reason] ?? 0)} รายการ) —
-              รับต้นทุนตามภาระงานของตัวเองปกติ แต่ไม่นับเป็นลูกค้า
-            </span>
-          </li>
-        ))}
         {u.noPayer.items > 0 && (
           <li>
             <span className="n">{fmt(u.noPayer.items)}</span>
