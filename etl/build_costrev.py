@@ -11,7 +11,7 @@
     manifest.json      สรุปจำนวน ช่วงวันที่ %จับคู่ระยะทาง
     trips.json         1 แถว = 1 เที่ยว (ทุกแถวในไฟล์) มีธง m = เลขที่ใบรายการตรงกับข้อมูลรายได้
     old_records.json   เที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้ารายการทั้งหมด
-    old_debtors.json   บิลจากไฟล์รายได้ของเที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้าลูกหนี้
+    old_debtors.json   บิล "ที่ยังค้างชำระ" จากไฟล์รายได้ของเที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้าลูกหนี้
 
 กติกา (ตกลงกับเจ้าของข้อมูล 16 ก.ย. 2569):
     รายได้เที่ยว    = ราคารวมจากรายได้ ถ้าว่างใช้ ค่าบรรทุกทั้งใบรายการ
@@ -136,9 +136,11 @@ def parse_date(v) -> date | None:
     if v is None:
         return None
     if isinstance(v, datetime):
-        return v.date()
+        v = v.date()
     if isinstance(v, date):
-        return v
+        # ★ เซลล์ที่เป็นวันที่จริง ๆ ก็มีปี พ.ศ. ปนมาได้ (เจอ 1 แถวใน 4.6 ล้าน เป็นปี 2567)
+        #   ถ้าไม่แปลงจะหลุดเป็น "2567-09-.." ใน JSON แล้วตัวกรองปีมีปีประหลาดโผล่มา
+        return v.replace(year=v.year - 543) if v.year > 2400 else v
     s = str(v).strip()
     for sep in ("/", "-"):
         parts = s.split(sep)
@@ -216,6 +218,8 @@ def load_revenue(rev_dir: Path, want: set[str]):
     doc_set: set[str] = set()
     bills: dict[str, list[dict]] = {}
     rows_seen = 0
+    paid_seen = 0
+    paid_total = 0.0
     files = xlsx_files(rev_dir)
     for p in files:
         hdr, rows = iter_sheet(p, 0)
@@ -233,8 +237,17 @@ def load_revenue(rev_dir: Path, want: set[str]):
             if not doc or doc not in want:
                 continue
             doc_set.add(doc)
-            d = parse_date(g(r, "วันที่"))
             status = text(g(r, "สถานะการชำระเงิน"))
+            if status != PAYMENT_UNPAID:
+                # ★ เก็บเฉพาะบิลที่ยังค้างชำระ (เจ้าของข้อมูลเลือกทางนี้ 16 ก.ย. 2569)
+                #   ข้อมูลจริงเกือบทุกใบที่จับคู่ได้มีบิลติดมาด้วย ค้างชำระจริงราว 0.5%
+                #   ถ้าเขียนลงไฟล์ทั้งหมด old_debtors.json จะใหญ่ระดับ GB — เบราว์เซอร์โหลดไม่ไหว
+                #   และ ETL เองต้องถือ dict หลายล้านก้อนจนหน่วยความจำไม่พอ
+                #   ที่ชำระแล้วยังนับจำนวนกับยอดรวมเก็บไว้ใน manifest.debtorPaid ไม่ได้หายเฉย ๆ
+                paid_seen += 1
+                paid_total += num(g(r, "ราคารวม"))
+                continue
+            d = parse_date(g(r, "วันที่"))
             bills.setdefault(doc, []).append({
                 "docNo": doc,
                 "no": text(g(r, "เลขที่บิล")),
@@ -252,7 +265,7 @@ def load_revenue(rev_dir: Path, want: set[str]):
                 "billStatus": text(g(r, "สถานะบิล")),
             })
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
-    return doc_set, bills, len(files), rows_seen
+    return doc_set, bills, len(files), rows_seen, {"bills": paid_seen, "total": round(paid_total, 2)}
 
 
 # ---------------------------------------------------------------- ต้นทุน
@@ -362,7 +375,7 @@ def build(dataset: str) -> None:
     # อ่านรายได้ทีหลัง แล้วเก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (ดูเหตุผลใน load_revenue)
     print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
     cost_docs = {t["id"] for t in trips}
-    rev_docs, rev_bills, rev_files, rev_rows = load_revenue(rev_dir, cost_docs)
+    rev_docs, rev_bills, rev_files, rev_rows, rev_paid = load_revenue(rev_dir, cost_docs)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
     for t in trips:
         t["m"] = t["id"] in rev_docs
@@ -410,6 +423,8 @@ def build(dataset: str) -> None:
         "skipped": {"noDoc": skipped_no_doc, "noDate": skipped_no_date},
         "emptyTypes": sorted(EMPTY_TYPES),
         "debtorBills": len(old_debtors),
+        # บิลที่ชำระแล้วไม่ได้เขียนลงไฟล์ (ดูเหตุผลใน load_revenue) เก็บไว้แค่จำนวนกับยอดรวม
+        "debtorPaid": rev_paid,
     }
     dump("manifest.json", manifest)
     dump("trips.json", trips)
@@ -421,7 +436,8 @@ def build(dataset: str) -> None:
     print(f"  ช่วงวันที่ {dates[0]} → {dates[-1]} · ปี {manifest['years']}")
     print(f"  ระยะทางจาก routes.json: เส้นทาง {route_hit}/{len(route_pairs)} · เที่ยวที่มี กม. {trips_with_km:,} ({manifest['routeDistance']['pct']}%)")
     print(f"  เที่ยวตีเปล่า {sum(1 for t in trips if t['empty']):,} · บิลเคลียร์ {sum(1 for t in trips if t['clear']):,}")
-    print(f"  บิลลูกหนี้จากไฟล์รายได้ (เฉพาะใบที่จับคู่ได้) {len(old_debtors):,} รายการ")
+    print(f"  บิลลูกหนี้ค้างชำระจากไฟล์รายได้ (เฉพาะใบที่จับคู่ได้) {len(old_debtors):,} รายการ")
+    print(f"  บิลที่ชำระแล้ว {rev_paid['bills']:,} รายการ (ไม่เขียนลงไฟล์ เก็บแค่ยอดรวมใน manifest)")
     if skipped_no_doc or skipped_no_date:
         print(f"  [!] ข้ามแถว: ไม่มีเลขที่ใบรายการ {skipped_no_doc} · อ่านวันที่ไม่ออก {skipped_no_date}")
     tot = sum(t["cost"] for t in trips)

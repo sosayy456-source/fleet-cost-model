@@ -15,6 +15,7 @@ build_json.py
 from __future__ import annotations
 
 import argparse
+import gc
 import logging
 import os
 import sys
@@ -67,30 +68,92 @@ def inspect(folder: str) -> int:
     return 0
 
 
+def merge_validation(parts: list[dict]) -> dict:
+    """รวมรายงานคุณภาพข้อมูลรายไฟล์เข้าด้วยกัน — ตัวเลขทุกตัวเป็นผลรวมจึงบวกกันตรง ๆ ได้"""
+    out: dict = {"bad_date_samples": [], "bad_date_rows": 0,
+                 "numeric_unparseable": {}, "comma_numbers": {}}
+    for p in parts:
+        out["bad_date_rows"] += int(p.get("bad_date_rows", 0))
+        for s in p.get("bad_date_samples", []):
+            if s not in out["bad_date_samples"] and len(out["bad_date_samples"]) < 10:
+                out["bad_date_samples"].append(s)
+        for key in ("numeric_unparseable", "comma_numbers"):
+            for col, n in p.get(key, {}).items():
+                out[key][col] = out[key].get(col, 0) + int(n)
+    return out
+
+
+def merge_id_formats(parts: list[dict]) -> dict:
+    """รวมผลตรวจรูปแบบรหัสลูกค้า — by_file แยกตามไฟล์อยู่แล้วจึงไม่มีทางชนกัน"""
+    out: dict = {"by_file": {}, "formats_seen": set(), "mixed": False}
+    for p in parts:
+        out["by_file"].update(p.get("by_file", {}))
+        out["formats_seen"].update(p.get("formats_seen", []))
+    out["formats_seen"] = sorted(out["formats_seen"])
+    out["mixed"] = len([f for f in out["formats_seen"] if f in ("sha256", "cus")]) > 1
+    return out
+
+
 def build(dataset: str, out_dir: str | None = None) -> int:
     data_dir = SAMPLE_DIR if dataset == "sample" else REAL_DIRS["revenue"]
     out_dir = out_dir or os.path.join(OUT_ROOT, dataset)
 
     log.info("อ่านข้อมูลจาก %s", data_dir)
-    df_raw, files, missing_cols = revenue_loader.load_raw(data_dir)
+    found = revenue_loader.discover_files(data_dir)
 
-    if df_raw.empty:
+    # ★ อ่าน → ตรวจ → ล้าง → ยุบชนิดข้อมูล ทีละไฟล์ แล้วค่อยต่อกันตอนท้าย
+    #   ของเดิมอ่านครบทุกไฟล์ก่อนแล้วค่อย clean_data ทำให้ชุดดิบกับชุดที่ล้างแล้ว
+    #   อยู่ในหน่วยความจำพร้อมกัน ข้อมูลจริง 29 ไฟล์กินเกิน 10 GB แล้วถูก OS ฆ่าทิ้ง
+    #   พร้อม dev server ที่เป็นแม่ของมัน (ดู CATEGORICAL_COLUMNS ใน loaders/revenue.py)
+    frames: list = []
+    files: list = []
+    val_parts: list[dict] = []
+    fmt_parts: list[dict] = []
+    for f in found:
+        try:
+            one = revenue_loader.read_one_file(f.path)
+        except Exception as e:
+            # ไฟล์เสียหรือรูปแบบไม่ตรง -> ข้ามแต่บอกให้รู้ ไม่ทำให้ทั้ง build ล่ม
+            log.error("ข้ามไฟล์ %s อ่านไม่สำเร็จ: %s", f.name, e)
+            continue
+
+        lacks = revenue_loader.missing_required(one)
+        if lacks:
+            log.warning("ข้ามไฟล์ %s ไม่ใช่ไฟล์บิล (ขาดคอลัมน์ %s)", f.name, ", ".join(lacks))
+            continue
+
+        # ตรวจคุณภาพจากข้อมูลดิบ ก่อนที่ค่าที่อ่านไม่ออกจะกลายเป็น NaN
+        val_parts.append(validation_report(one))
+        fmt_parts.append(revenue_loader.customer_id_formats(one))
+
+        frames.append(revenue_loader.shrink(clean_data(one)))
+        files.append(f)
+        log.info("อ่าน %s — %s แถว (%.1f MB)", f.name, f"{len(frames[-1]):,}", f.size / 1048576)
+        del one
+        gc.collect()
+
+    if not frames:
         log.error("ไม่มีข้อมูลให้ประมวลผล — วางไฟล์ .xlsx ใน %s ก่อน", data_dir)
         return 1
 
-    log.info("รวมได้ %s แถว จาก %d ไฟล์", f"{len(df_raw):,}", len(files))
+    df = revenue_loader.concat_shared(frames)
+    frames.clear()
+    gc.collect()
 
-    # ตรวจคุณภาพจากข้อมูลดิบ ก่อนที่ค่าที่อ่านไม่ออกจะกลายเป็น NaN
-    validation = validation_report(df_raw)
-    id_formats = revenue_loader.customer_id_formats(df_raw)
+    missing_cols = [c for c in revenue_loader.EXPECTED_COLUMNS if c not in df.columns]
+    if missing_cols:
+        log.warning("ไฟล์ข้อมูลขาดคอลัมน์: %s — บางส่วนของแดชบอร์ดจะไม่ครบ", ", ".join(missing_cols))
+
+    log.info("รวมได้ %s แถว จาก %d ไฟล์", f"{len(df):,}", len(files))
+
+    validation = merge_validation(val_parts)
+    id_formats = merge_id_formats(fmt_parts)
     if id_formats.get("mixed"):
         log.warning(
             "รหัสลูกค้าปนกันหลายรูปแบบ (%s) — ลูกค้าคนเดียวจะถูกนับเป็นหลายคน "
             "ทำให้จำนวนลูกค้าและ Pareto เพี้ยน ดูรายละเอียดใน dq.json",
             ", ".join(id_formats["formats_seen"]),
         )
-
-    df = clean_data(df_raw)
 
     # ---- ตัวเลขสรุป (คำนวณจากแถวดิบ จึงเป็นค่าที่เชื่อได้เป๊ะ) ----
     overview = kpi.overview_kpis(df)

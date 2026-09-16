@@ -6,7 +6,8 @@ loaders/travel.py — ค่าเดินทาง (ยังไม่มี�
 
     python build_json.py --inspect travel
 
-จะพิมพ์ชื่อคอลัมน์จริงออกมา เอามาเติมใน EXPECTED_COLUMNS แล้วเขียน load_raw()
+จะพิมพ์ชื่อคอลัมน์จริงออกมา เอามาเติมใน EXPECTED_COLUMNS แล้วเขียนตัวอ่านทีละไฟล์
+แบบเดียวกับ loaders/revenue.py (read_one_file + shrink + concat_shared)
 โดยลอกโครงจาก loaders/revenue.py ได้เลย (discover_files กับ read_one_file ใช้ร่วมกันได้)
 """
 

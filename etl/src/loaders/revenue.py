@@ -1,7 +1,11 @@
 """
 loaders/revenue.py
 ==================
-อ่านไฟล์บิลขนส่งรายเดือน (.xlsx) จากโฟลเดอร์เดียว แล้วรวมเป็น DataFrame เดียว
+อ่านไฟล์บิลขนส่งรายเดือน (.xlsx) จากโฟลเดอร์เดียว
+
+build_json.py เป็นคนวนอ่านทีละไฟล์เอง (read_one_file -> clean_data -> shrink) แล้วค่อย
+เรียก concat_shared() ต่อกันตอนท้าย — ที่นี่ไม่มีฟังก์ชันที่อ่านทุกไฟล์รวดเดียวแล้ว
+เพราะข้อมูลจริงใหญ่เกินกว่าจะถือทั้งชุดดิบและชุดที่ล้างแล้วพร้อมกัน (ดูหมายเหตุท้ายไฟล์)
 
 เขียนใหม่จาก RevenueDashboard/src/data_loader.py โดยตัด Streamlit ออกทั้งหมด:
 - ไม่มี @st.cache_data — ETL เป็น batch job รันครั้งเดียวจบ ไม่มี rerun ให้ต้อง cache
@@ -150,37 +154,63 @@ def customer_id_formats(df: pd.DataFrame) -> dict:
     return out
 
 
-def load_raw(data_dir: str) -> tuple[pd.DataFrame, list[DiscoveredFile], list[str]]:
-    """คืน (DataFrame รวม, ไฟล์ที่อ่าน, คอลัมน์ที่ขาด)"""
-    files = discover_files(data_dir)
-    if not files:
-        log.warning("ไม่พบไฟล์ .xlsx ในโฟลเดอร์ %s", data_dir)
-        return pd.DataFrame(columns=EXPECTED_COLUMNS + ["source_file"]), [], list(EXPECTED_COLUMNS)
+# ---------------------------------------------------------------------------
+# ประหยัดหน่วยความจำ
+#
+# ★ ข้อมูลจริง 29 ไฟล์ = ~5.2 ล้านแถว วัดจริงแล้วกิน 1.06 GB ต่อล้านแถว = 5.5 GB
+#   บวกกับตอน pd.concat ที่ต้องมีทั้งก้อนเก่าและก้อนใหม่พร้อมกัน แล้วเกิน 10 GB
+#   เครื่องพัฒนา 16 GB จะหมดหน่วยความจำ แล้ว Windows ฆ่าทั้ง python และ dev server
+#   ที่เป็นแม่ของมันทิ้ง (อาการที่เห็น: หน้าเว็บขึ้น "Failed to fetch" แล้ว localhost
+#   ปฏิเสธการเชื่อมต่อ) — คอลัมน์ข้างล่างค่าซ้ำกันเยอะ เก็บเป็น category เหลือ 4 ไบต์/แถว
+# ---------------------------------------------------------------------------
 
-    frames, used = [], []
-    for f in files:
-        try:
-            one = read_one_file(f.path)
-        except Exception as e:
-            # ไฟล์เสียหรือรูปแบบไม่ตรง -> ข้ามแต่บอกให้รู้ ไม่ทำให้ทั้ง build ล่ม
-            log.error("ข้ามไฟล์ %s อ่านไม่สำเร็จ: %s", f.name, e)
-            continue
+CATEGORICAL_COLUMNS = [
+    "วันที่", "ประเภทการชำระเงิน", "ประเภทสินค้า", "ต้นทาง", "ปลายทาง",
+    "ชื่อสินค้า", "หน่วย", "ประเภทการคิดราคา", "สายกระจาย",
+    "สถานะบิล", "สถานะการชำระเงิน", "เลขที่ใบรายการ",
+    "ผู้รับ_encoded", "ผู้ส่ง_encoded", "source_file",
+    # คอลัมน์ที่ clean_data สร้างเพิ่ม
+    "month", "month_th", "dow", "route",
+]
+# "เลขที่บิล" ไม่อยู่ในรายการ — เกือบทุกแถวไม่ซ้ำ ทำเป็น category แล้วกินกว่าเดิม
 
-        lacks = [c for c in REQUIRED_COLUMNS if c not in one.columns]
-        if lacks:
-            log.warning("ข้ามไฟล์ %s ไม่ใช่ไฟล์บิล (ขาดคอลัมน์ %s)", f.name, ", ".join(lacks))
-            continue
 
-        frames.append(one)
-        used.append(f)
-        log.info("อ่าน %s — %s แถว (%.1f MB)", f.name, f"{len(one):,}", f.size / 1048576)
+def _is_cat(s: pd.Series) -> bool:
+    return isinstance(s.dtype, pd.CategoricalDtype)
 
+
+def shrink(df: pd.DataFrame) -> pd.DataFrame:
+    """ยุบคอลัมน์ที่ค่าซ้ำเยอะเป็น category — เรียกทีละไฟล์ก่อนเอาไปต่อกัน"""
+    for c in CATEGORICAL_COLUMNS:
+        if c in df.columns and not _is_cat(df[c]):
+            df[c] = df[c].astype("category")
+    return df
+
+
+def concat_shared(frames: list[pd.DataFrame]) -> pd.DataFrame:
+    """
+    ต่อ DataFrame ที่ผ่าน shrink() แล้วเข้าด้วยกัน
+
+    ★ pd.concat จะคลาย category กลับเป็นสตริงถ้าแต่ละก้อนมีชุดหมวดไม่ตรงกัน
+      ที่ประหยัดมาทั้งหมดจะหายในบรรทัดเดียว จึงต้องรวมชุดหมวดให้ตรงกันก่อน
+      (ชุดหมวดเรียงแล้ว การ sort_values("month") จึงยังได้ลำดับเวลาเหมือนเดิม)
+    """
     if not frames:
-        return pd.DataFrame(columns=EXPECTED_COLUMNS + ["source_file"]), [], list(EXPECTED_COLUMNS)
+        return pd.DataFrame()
+    if len(frames) == 1:
+        return frames[0]
 
-    df = pd.concat(frames, ignore_index=True)
-    missing = [c for c in EXPECTED_COLUMNS if c not in df.columns]
-    if missing:
-        log.warning("ไฟล์ข้อมูลขาดคอลัมน์: %s — บางส่วนของแดชบอร์ดจะไม่ครบ", ", ".join(missing))
+    for c in frames[0].columns:
+        if not all(c in f.columns and _is_cat(f[c]) for f in frames):
+            continue
+        cats = sorted(set().union(*(set(f[c].cat.categories) for f in frames)))
+        dtype = pd.CategoricalDtype(cats)
+        for f in frames:
+            f[c] = f[c].astype(dtype)
 
-    return df, used, missing
+    return pd.concat(frames, ignore_index=True)
+
+
+def missing_required(df: pd.DataFrame) -> list[str]:
+    """คอลัมน์บังคับที่ไฟล์นี้ไม่มี — ถ้าไม่ว่างแปลว่าไม่ใช่ไฟล์บิล"""
+    return [c for c in REQUIRED_COLUMNS if c not in df.columns]

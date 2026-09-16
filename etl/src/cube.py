@@ -46,10 +46,15 @@ def build_cube(df: pd.DataFrame, dimensions: list[str] | None = None) -> pd.Data
     if df.empty or not dims:
         return pd.DataFrame(columns=[*dims, "revenue", "lines", "bills"])
 
-    work = df.copy()
+    # ★ ก๊อปเฉพาะคอลัมน์ที่ใช้ ไม่ใช่ทั้งตาราง — ข้อมูลจริงมี 5 ล้านแถว
+    #   df.copy() ทั้งก้อนคือการจองหน่วยความจำเพิ่มอีกเท่าตัวโดยไม่ได้ใช้
+    measures = [c for c in ("ราคารวม", "เลขที่บิล") if c in df.columns]
+    work = df[[*dims, *measures]].copy()
     for d in dims:
-        work[d] = work[d].astype("string").fillna("(ไม่ระบุ)")
-        work.loc[work[d].str.strip() == "", d] = "(ไม่ระบุ)"
+        # แปลงเป็นสตริงทีละคอลัมน์แล้วยุบกลับเป็น category ทันที
+        # ถ้าปล่อยทุกคอลัมน์เป็นสตริงค้างไว้ จะกินเพิ่มอีกหลายร้อย MB
+        s = work[d].astype("string").fillna("(ไม่ระบุ)")
+        work[d] = s.where(s.str.strip() != "", "(ไม่ระบุ)").astype("category")
 
     cube = (
         work.groupby(dims, dropna=False, observed=True)

@@ -245,7 +245,7 @@ export default function Debtors({ state }: { state: RecordsState }) {
       {table(paidRows, false)}
 
       <div className="locknote" style={{ marginTop: 8 }}>
-        ค้างชำระ {outstanding.length} · ชำระแล้ว {paidRows.length} · ลูกหนี้เก่าจากไฟล์รายได้จริง {oldDebtors.length} รายการ
+        ค้างชำระ {outstanding.length} · ชำระแล้ว {paidRows.length} · ลูกหนี้เก่าจากไฟล์รายได้จริง {oldDebtors.length} รายการ (เฉพาะที่ยังค้างชำระ)
         {q ? ` · กรองด้วยคำค้น “${q}”` : ""}
       </div>
 
