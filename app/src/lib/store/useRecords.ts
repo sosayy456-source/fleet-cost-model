@@ -54,7 +54,13 @@ export interface RecordsState {
   /** จำนวนใบที่เพิ่งย้ายมาจาก localStorage ของเวอร์ชันเดิม — null = ไม่ได้ย้ายรอบนี้ */
   migrated: number | null;
   connected: boolean;
+  /** โหลดใหม่ทุกแหล่ง รวมแท็บข้อมูลเก่า (ช้า) — ปุ่ม "↻ รีเฟรช" */
   reload: () => void;
+  /**
+   * โหลดเฉพาะใบใหม่ (เครื่อง + loadTrips) ไม่อ่านแท็บข้อมูลเก่า — เรียกอัตโนมัติตอนเลือก/เปลี่ยนหน้าที่
+   * เปลี่ยนเมนู บันทึกเสร็จ และกลับมาที่แท็บเบราว์เซอร์ ใบที่ฝ่ายก่อนหน้าเพิ่งบันทึกจึงขึ้นเองโดยไม่ต้องกดรีเฟรช
+   */
+  refresh: () => void;
 }
 
 /** รวมใบจากเครื่องกับจากชีต โดยใบที่ยังไม่ sync ให้ของในเครื่องชนะ */
@@ -78,7 +84,55 @@ export function useRecords(): RecordsState {
   const [migrated, setMigrated] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
 
+  const [liteTick, setLiteTick] = useState(0);
+
   const reload = useCallback(() => setTick((t) => t + 1), []);
+  const refresh = useCallback(() => setLiteTick((t) => t + 1), []);
+
+  // โหลดแบบเบา — ข้ามรอบแรก (tick ข้างล่างโหลดครบอยู่แล้ว)
+  useEffect(() => {
+    if (liteTick === 0) return;
+    let alive = true;
+    setLoading(true);
+    (async () => {
+      // migration เรียกซ้ำได้ (ครั้งถัดไปจบทันที) — ต้องรอให้จบก่อนอ่าน IndexedDB เหมือนรอบเต็ม
+      await migrateFromLocalStorage().catch(() => null);
+      const local = await getAll().catch(() => [] as TripRecord[]);
+      if (!alive) return;
+      if (!getUrl()) {
+        setRecords(local);
+        setLoading(false);
+        return;
+      }
+      try {
+        const trips = await loadTrips();
+        if (!alive) return;
+        setRecords(mergeRecords(local, trips));
+        setSheetError(null);
+      } catch (err) {
+        if (!alive) return;
+        // ชีตล่ม — ยังแสดงของในเครื่องล่าสุด (รวมใบที่เพิ่งบันทึก) แทนที่จะค้างของเก่า
+        setRecords((prev) => mergeRecords(local, prev.filter((r) => r.synced !== false)));
+        setSheetError((err as Error).message);
+      }
+      setLoading(false);
+    })();
+    return () => { alive = false; };
+  }, [liteTick]);
+
+  // กลับมาที่แท็บนี้ (สลับไปทำอย่างอื่นมา) — ฝ่ายอื่นอาจบันทึกไปแล้ว · เว้นอย่างน้อย 15 วินาทีต่อครั้ง
+  useEffect(() => {
+    let last = 0;
+    const on = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = Date.now();
+      if (now - last < 15_000) return;
+      last = now;
+      refresh();
+    };
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
+  }, [refresh]);
 
   useEffect(() => {
     let alive = true;
@@ -131,6 +185,6 @@ export function useRecords(): RecordsState {
 
   return {
     records, oldRecords, oldDebtors, fileOld, loading, sheetError, migrated,
-    connected: !!getUrl(), reload,
+    connected: !!getUrl(), reload, refresh,
   };
 }

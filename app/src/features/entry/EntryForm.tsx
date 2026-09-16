@@ -22,7 +22,7 @@ import { useOverrides } from "../../lib/store/overrides";
 import { matchesKind, useRoster } from "../../lib/store/roster";
 import { getUrl } from "../../lib/sheet/client";
 import { emptyBill, emptyRecord } from "./emptyRecord";
-import { randomRecord } from "./randomRecord";
+import { randomFor } from "./randomRecord";
 import ThaiDateInput from "./ThaiDateInput";
 import FleetRoster from "./panels/FleetRoster";
 import type { RecordsState } from "../../lib/store/useRecords";
@@ -245,6 +245,9 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     );
   };
 
+  /** โซนที่ปุ่มสุ่มเติมให้ — ชุดเดียวกับที่ saveRecord() จะเขียนและประทับตอนบันทึก */
+  const randomZones: RoleKey[] = role === "admin" ? ROLE_ORDER : ROLE_ORDER.filter((k) => k === role || editZones.has(k));
+
   /** โซนนี้เปิดให้กรอกไหม — ผู้ดูแลระบบเปิดทุกโซน */
   const zoneOpen = (k: RoleKey) => role === "admin" || k === role || editZones.has(k);
   /** โซนนี้แสดงไหม — main ซ่อนโซนที่กรอกไม่ได้ทิ้งไปเลย */
@@ -330,6 +333,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       });
       setRec(res.record);
       setEditing(null);
+      // ให้รายการ/ชิปใบที่รอกรอกเห็นใบนี้ทันที (เดิมต้องกดรีเฟรชเอง)
+      state.refresh();
       setMsg({
         text: offline
           ? "บันทึกลงเครื่องแล้ว (ยังไม่ได้ตั้งค่า Google Sheet จึงยังไม่ส่งขึ้นชีต)"
@@ -764,10 +769,11 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
             onClick={() => { setRec(emptyRecord()); setEditing(null); setEditZones(new Set()); setMsg(null); }}>
             เริ่มใบใหม่
           </button>
-          {/* สำหรับเทสต์เท่านั้น — สุ่มกรอกทุกโซนให้ทันที ไม่ต้องพิมพ์เองตอนลองระบบ */}
-          <button className="btn-ghost" type="button"
-            onClick={() => { setRec(randomRecord()); setEditing(null); setEditZones(new Set()); setMsg(null); }}>
-            🎲 สุ่มข้อมูล
+          {/* สำหรับเทสต์เท่านั้น — สุ่มเฉพาะโซนที่ฝ่ายนี้กรอกได้ ทับบนใบที่เปิดอยู่ (ไม่สร้างใบใหม่)
+              ต้องคง editing/editZones ไว้ ไม่งั้นฝ่ายจัดรถที่เปิดใบของ cs มาสุ่มจะหลุดจากใบนั้น */}
+          <button className="btn-ghost" type="button" title={`สุ่มเฉพาะช่องของ${randomZones.map((k) => ROLES[k].label).join(" / ")}`}
+            onClick={() => { setRec((r) => randomFor(r, randomZones)); setMsg(null); }}>
+            🎲 สุ่มข้อมูล{role === "admin" ? "" : ` (${ROLES[role].label})`}
           </button>
           {msg && <span className="msg" style={{ color: tone[msg.tone] }}>{msg.text}</span>}
         </div>

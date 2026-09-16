@@ -4,7 +4,7 @@
  * แสดงเฉพาะใบที่กรอกครบทั้ง 3 ฝ่าย (ใบร่างอยู่หน้า “ใบที่ยังไม่ครบ”) เหมือน v5
  * กดที่ป้ายสถานะ = กางแถวรายละเอียดลูกหนี้ของใบนั้น
  */
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { billIsPaid, billPayDate, recBills, recStatus } from "../../lib/record/payment";
 import { thDateSafe, todayISO } from "../../lib/record/date";
 import { roleAllDone } from "../../lib/record/roles";
@@ -27,6 +27,15 @@ type Src = "all" | "new" | "old";
 
 /** locked = แถวอ่านอย่างเดียวจากชีตโดยตรง (ข้อมูลเก่า หรือข้อมูลใหม่ที่พิมพ์ตรงในชีตเอง) แก้ในแอปไม่ได้ */
 interface Row { r: TripRecord; locked: boolean }
+
+/**
+ * เวลาบันทึกของใบ = เวลาที่ฝ่ายบัญชีกดบันทึก (_accountAt) เพราะเป็นฝ่ายสุดท้ายของ workflow
+ * ค่าเก็บเป็น "YYYY-MM-DD HH:mm" เวลาเครื่อง (nowStamp) → "16 ก.ย. 2569 14:32"
+ */
+const savedAt = (stamp: string): string => {
+  const [d, t] = stamp.trim().split(/\s+/);
+  return `${thDateSafe(d)}${t ? ` ${t}` : ""}`;
+};
 
 export default function RecordsList({ role, state }: { role: RoleKey; state: RecordsState }) {
   const { records, loading, sheetError, connected, reload, fileOld } = state;
@@ -59,7 +68,11 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
       out.push({ r, locked: true });
     }
     const bySrc = src === "all" ? out : out.filter(({ r }) => isOld(r) === (src === "old"));
-    bySrc.sort((a, b) => String(b.r.date ?? "").localeCompare(String(a.r.date ?? "")));
+    // บันทึกล่าสุดขึ้นก่อน — เวลาบันทึก (_accountAt "YYYY-MM-DD HH:mm") เรียงเป็นสตริงได้ตรง
+    // ใบที่ไม่มีเวลาบันทึก (ข้อมูลเก่า / แถวที่พิมพ์ในชีต) ต่อท้าย แล้วเรียงตามวันที่ในใบเหมือนเดิม
+    bySrc.sort((a, b) =>
+      String(b.r._accountAt ?? "").localeCompare(String(a.r._accountAt ?? ""))
+      || String(b.r.date ?? "").localeCompare(String(a.r.date ?? "")));
     const needle = q.trim().toLowerCase();
     if (!needle) return bySrc;
     return bySrc.filter(({ r }) => {
@@ -174,7 +187,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
               <th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
               <th className="num">รายได้</th><th className="num">ต้นทุนรวม</th>
               <th className="num">สูญเปล่า</th><th className="num">กำไร/ขาดทุน</th>
-              <th>สถานะ</th><th>แก้ไข</th>
+              <th>สถานะ</th><th>แก้ไข</th><th>เวลาบันทึก</th>
             </tr></thead>
             <tbody>
               {list.slice(0, 300).map(({ r, locked }, i) => {
@@ -187,8 +200,9 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                 const st = recStatus(r);
                 const old = isOld(r);
                 return (
-                  <>
-                    <tr key={`${r.id}-${i}`} className={locked ? "oldrow" : undefined}>
+                  // key ต้องอยู่ที่ Fragment (ตัวที่ map คืน) ไม่ใช่ที่ <tr> ข้างใน
+                  <Fragment key={`${r.id}-${i}`}>
+                    <tr className={locked ? "oldrow" : undefined}>
                       <td>
                         <span className={"badge " + (old ? "src-old" : "src-new")}>
                           {old ? "ข้อมูลเก่า" : "ข้อมูลใหม่"}
@@ -248,13 +262,18 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                           </span>
                         )}
                       </td>
+                      <td>
+                        {old ? "–" : r._accountAt
+                          ? <span title="เวลาที่ฝ่ายบัญชีบันทึก (ขั้นสุดท้ายของใบ)">{savedAt(r._accountAt)}</span>
+                          : <span className="locknote">รอฝ่ายบัญชี</span>}
+                      </td>
                     </tr>
                     {!locked && open.has(r.id) && (
                       <tr className="detail-row" key={`${r.id}-d`}>
-                        <td colSpan={14}><DetailBills r={r} onPay={setPaid} /></td>
+                        <td colSpan={15}><DetailBills r={r} onPay={setPaid} /></td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
