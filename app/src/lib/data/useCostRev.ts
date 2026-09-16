@@ -48,7 +48,9 @@ export interface CostRevManifest {
   revenueFiles: number;
   rows: number;
   matched: number;
-  revenueDocs: number;
+  /** จำนวนแถวในไฟล์รายได้ที่อ่านทั้งหมด · ใบรายการที่ตรงกับไฟล์ต้นทุน */
+  revenueRows: number;
+  matchedDocs: number;
   dateRange: { min: string; max: string };
   years: number[];
   routeDistance: { routes: number; matched: number; tripsWithKm: number; pct: number };

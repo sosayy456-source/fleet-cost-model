@@ -47,6 +47,26 @@ function autoEtl(): Plugin {
     return "python";
   };
 
+  /**
+   * ล้างไฟล์ JSON ที่ ETL เคยสร้าง — คืน true ถ้า keyFile หายไปแล้ว (แอปจะสลับกลับไปใช้ sample)
+   *
+   * ★ ลบ keyFile ก่อนเสมอ และลบทีละไฟล์ในบล็อก try ของตัวเอง
+   *   Windows ล็อกไฟล์ที่ dev server เพิ่งเสิร์ฟไว้ ทำให้ rmSync ได้ EPERM เป็นบางไฟล์
+   *   ของเดิมครอบทั้งลูปด้วย try เดียว พอไฟล์ที่สองพังก็ข้ามการแจ้งสถานะไปทั้งหมด
+   *   แล้วหน้าเว็บค้างอยู่กับข้อมูลเก่าโดยไม่มีอะไรบอก
+   */
+  const clearOut = (dir: string, keyFile: string): { ok: boolean; failed: string[] } => {
+    if (!existsSync(dir)) return { ok: true, failed: [] };
+    const failed: string[] = [];
+    const names = readdirSync(dir);
+    for (const f of [keyFile, ...names.filter((n) => n !== keyFile)]) {
+      const full = resolve(dir, f);
+      if (!existsSync(full)) continue;
+      try { rmSync(full, { force: true }); } catch { failed.push(f); }
+    }
+    return { ok: !existsSync(resolve(dir, keyFile)), failed };
+  };
+
   let timer: NodeJS.Timeout | null = null;
   let running = false;
   let queued = false;
@@ -70,16 +90,14 @@ function autoEtl(): Plugin {
     // ลบเฉพาะไฟล์ข้างใน ไม่ลบโฟลเดอร์ — Windows ถือ handle ของโฟลเดอร์ใต้ public/ ไว้ (watcher)
     // ลบทั้งโฟลเดอร์จะได้ EPERM แล้ว exception ในตัวจับเวลาจะล้ม dev server ทั้งตัว
     if (!readdirSync(watchDir).some(isXlsx)) {
-      const realDir = resolve(realOut, "..");
-      try {
-        if (existsSync(realDir)) {
-          for (const f of readdirSync(realDir)) rmSync(resolve(realDir, f), { force: true });
-        }
-        log("ไม่มีไฟล์ .xlsx ใน etl/data/revenue/ แล้ว — กลับไปใช้ข้อมูลตัวอย่าง");
+      const { ok, failed } = clearOut(resolve(realOut, ".."), "manifest.json");
+      if (ok) {
+        log("ไม่มีไฟล์ .xlsx ใน etl/data/revenue/ แล้ว — กลับไปใช้ข้อมูลตัวอย่าง"
+          + (failed.length ? ` (ลบไม่ได้ ${failed.length} ไฟล์ ไม่เป็นไร แอปไม่อ่านแล้ว)` : ""));
         setStatus("cleared", "ไม่มีไฟล์รายได้จริงแล้ว กลับไปใช้ข้อมูลตัวอย่าง");
-      } catch (e) {
-        log(`✗ ล้าง public/data/real/ ไม่ได้ (${(e as Error).message}) — ลบเองแล้วกดรีเฟรช`);
-        setStatus("error", `ล้างข้อมูลเก่าไม่ได้: ${(e as Error).message}`);
+      } else {
+        log("✗ ลบ public/data/real/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช");
+        setStatus("error", "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/manifest.json เองแล้วกดรีเฟรช");
       }
       return;
     }
@@ -125,12 +143,14 @@ function autoEtl(): Plugin {
   const runCostRev = (log: (m: string) => void) => {
     if (crRunning) { crQueued = true; return; }
     if (!existsSync(costDir) || !readdirSync(costDir).some(isXlsx)) {
-      try {
-        if (existsSync(costOut)) for (const f of readdirSync(costOut)) rmSync(resolve(costOut, f), { force: true });
-        log("ไม่มีไฟล์ .xlsx ใน etl/data/Dashboard real data/ — Executive/Dashboard รวม กลับไปใช้ข้อมูลตัวอย่าง");
+      const { ok, failed } = clearOut(costOut, "manifest.json");
+      if (ok) {
+        log("ไม่มีไฟล์ .xlsx ใน etl/data/Dashboard real data/ — Executive/Dashboard รวม กลับไปใช้ข้อมูลตัวอย่าง"
+          + (failed.length ? ` (ลบไม่ได้ ${failed.length} ไฟล์ ไม่เป็นไร แอปไม่อ่านแล้ว)` : ""));
         setCr("cleared", "ไม่มีไฟล์ต้นทุน+รายได้จริงแล้ว กลับไปใช้ข้อมูลตัวอย่าง");
-      } catch (e) {
-        log(`✗ ล้าง public/data/real/costrev/ ไม่ได้ (${(e as Error).message})`);
+      } else {
+        log("✗ ลบ public/data/real/costrev/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช");
+        setCr("error", "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/costrev/manifest.json เองแล้วกดรีเฟรช");
       }
       return;
     }

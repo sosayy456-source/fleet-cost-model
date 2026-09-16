@@ -43,6 +43,11 @@ from pathlib import Path
 
 import openpyxl
 
+try:                      # calamine อ่าน .xlsx เร็วกว่า openpyxl ราว 10 เท่า
+    import python_calamine as _calamine   # ไฟล์รายได้จริงเดือนละ ~110k แถว 29 ไฟล์
+except ImportError:       # ไม่มีก็ยังรันได้ แค่ช้ากว่า (openpyxl อยู่ใน requirements อยู่แล้ว)
+    _calamine = None
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
@@ -110,7 +115,20 @@ def num_or_none(v) -> float | None:
 
 
 def text(v) -> str:
-    return "" if v is None else str(v).strip()
+    """
+    ค่าในเซลล์ → ข้อความ
+
+    ★ calamine คืนเซลล์ตัวเลขเป็น float เสมอ — เลขที่ใบรายการ 13 หลักจะกลายเป็น
+      "6250753132426.0" ถ้าปล่อยให้ str() ทำงานตรง ๆ แล้วจับคู่กับไฟล์อีกฝั่งไม่ได้
+      (ตอนพบ: จับคู่ได้ 526 แทนที่จะเป็น 536) จำนวนเต็มจึงต้องตัด .0 ทิ้งก่อน
+    """
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return str(v).strip()
 
 
 def parse_date(v) -> date | None:
@@ -139,17 +157,30 @@ def parse_date(v) -> date | None:
     return None
 
 
-def read_sheet(path: Path, header_row: int):
-    """คืน (หัวคอลัมน์, แถวข้อมูล) — header_row นับจาก 0"""
+def iter_sheet(path: Path, header_row: int):
+    """คืน (หัวคอลัมน์, ตัวไล่แถวข้อมูล) — header_row นับจาก 0
+
+    ★ คืนเป็น iterator ไม่ใช่ list เพราะไฟล์รายได้จริงรวมกันเกือบ 2 ล้านแถว
+      ถ้าอ่านเข้าหน่วยความจำทั้งก้อนพร้อมกันจะกินหลาย GB
+    """
+    if _calamine is not None:
+        rows = _calamine.CalamineWorkbook.from_path(str(path)).get_sheet_by_index(0).to_python(skip_empty_area=False)
+        hdr = [text(c) for c in rows[header_row]]
+        body = (r for r in rows[header_row + 1:] if any(c is not None and str(c).strip() != "" for c in r))
+        return hdr, body
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    ws = wb.worksheets[0]
-    it = ws.iter_rows(values_only=True)
+    it = wb.worksheets[0].iter_rows(values_only=True)
     for _ in range(header_row):
         next(it)
     hdr = [text(c) for c in next(it)]
-    rows = [r for r in it if any(c is not None and str(c).strip() != "" for c in r)]
-    wb.close()
-    return hdr, rows
+    body = (r for r in it if any(c is not None and str(c).strip() != "" for c in r))
+    return hdr, body
+
+
+def read_sheet(path: Path, header_row: int):
+    """เหมือน iter_sheet แต่คืนแถวเป็น list — ใช้กับไฟล์ต้นทุนที่แถวไม่เยอะ"""
+    hdr, body = iter_sheet(path, header_row)
+    return hdr, list(body)
 
 
 def find_header_row(path: Path, must_have: str) -> int:
@@ -175,13 +206,19 @@ def xlsx_files(folder: Path) -> list[Path]:
 
 
 # ---------------------------------------------------------------- รายได้
-def load_revenue(rev_dir: Path):
-    """คืน (set เลขที่ใบรายการ, รายการบิลต่อใบรายการ, จำนวนไฟล์)"""
+def load_revenue(rev_dir: Path, want: set[str]):
+    """
+    อ่านไฟล์รายได้ แล้วคืน (ใบรายการที่ตรงกับ want, บิลของใบเหล่านั้น, จำนวนไฟล์, จำนวนแถว)
+
+    ★ เก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (want) — ข้อมูลรายได้จริง 29 ไฟล์รวมเกือบ 2 ล้านแถว
+      ถ้าเก็บทุกใบไว้ในหน่วยความจำจะกินหลาย GB ทั้งที่ใช้จริงแค่ไม่กี่พันใบ
+    """
     doc_set: set[str] = set()
     bills: dict[str, list[dict]] = {}
+    rows_seen = 0
     files = xlsx_files(rev_dir)
     for p in files:
-        hdr, rows = read_sheet(p, 0)
+        hdr, rows = iter_sheet(p, 0)
         col = {h: i for i, h in enumerate(hdr)}
         need = ["เลขที่ใบรายการ", "เลขที่บิล", "วันที่", "ราคารวม", "สถานะการชำระเงิน"]
         missing = [c for c in need if c not in col]
@@ -189,9 +226,11 @@ def load_revenue(rev_dir: Path):
             print(f"  [!] ข้าม {p.name}: ขาดคอลัมน์ {missing}")
             continue
         g = lambda r, name: r[col[name]] if name in col else None  # noqa: E731
+        n0 = rows_seen
         for r in rows:
+            rows_seen += 1
             doc = text(g(r, "เลขที่ใบรายการ"))
-            if not doc:
+            if not doc or doc not in want:
                 continue
             doc_set.add(doc)
             d = parse_date(g(r, "วันที่"))
@@ -212,7 +251,8 @@ def load_revenue(rev_dir: Path):
                 "total": num(g(r, "ราคารวม")),
                 "billStatus": text(g(r, "สถานะบิล")),
             })
-    return doc_set, bills, len(files)
+        print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
+    return doc_set, bills, len(files), rows_seen
 
 
 # ---------------------------------------------------------------- ต้นทุน
@@ -233,10 +273,6 @@ def build(dataset: str) -> None:
         if v is None:
             v = routes.get(d, {}).get(o)
         return float(v) if v is not None else None
-
-    print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
-    rev_docs, rev_bills, rev_files = load_revenue(rev_dir)
-    print(f"  {rev_files} ไฟล์ · ใบรายการไม่ซ้ำ {len(rev_docs):,}")
 
     trips: list[dict] = []
     skipped_no_doc = skipped_no_date = 0
@@ -311,7 +347,7 @@ def build(dataset: str) -> None:
                 "profit": round(revenue - cost, 2),
                 "empty": ttype in EMPTY_TYPES,
                 "clear": text(g(r, "เป็นบิลเคลียร์")) == "ใช่",
-                "m": doc in rev_docs,
+                "m": False,   # เติมทีหลังเมื่ออ่านไฟล์รายได้เสร็จ
                 # กลุ่มต้นทุน — ยอดที่คำนวณต่อได้ (ปกติ/ผันแปร/อื่น ๆ) ไม่เก็บ ให้ฝั่งแอปคิดเอง ไฟล์จะได้เล็ก
                 "waste": waste, "fuel": fuel_t, "allow": allow_t, "fee": fee_t,
                 "repair": repair, "dep": dep, "rent": rent,
@@ -322,6 +358,14 @@ def build(dataset: str) -> None:
 
     if not trips:
         sys.exit("ไม่มีเที่ยวให้ประมวลผล")
+
+    # อ่านรายได้ทีหลัง แล้วเก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (ดูเหตุผลใน load_revenue)
+    print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
+    cost_docs = {t["id"] for t in trips}
+    rev_docs, rev_bills, rev_files, rev_rows = load_revenue(rev_dir, cost_docs)
+    print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
+    for t in trips:
+        t["m"] = t["id"] in rev_docs
 
     matched = [t for t in trips if t["m"]]
     route_pairs = {(t["o"], t["de"]) for t in trips if t["o"] and t["de"]}
@@ -356,7 +400,8 @@ def build(dataset: str) -> None:
         "revenueFiles": rev_files,
         "rows": len(trips),
         "matched": len(matched),
-        "revenueDocs": len(rev_docs),
+        "revenueRows": rev_rows,
+        "matchedDocs": len(rev_docs),
         "dateRange": {"min": dates[0], "max": dates[-1]},
         "years": sorted({t["y"] for t in trips}),
         "routeDistance": {"routes": len(route_pairs), "matched": route_hit,
