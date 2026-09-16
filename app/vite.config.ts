@@ -12,11 +12,15 @@ import { fileURLToPath } from "node:url";
  * ผู้ใช้ไม่ต้องเปิด terminal พิมพ์คำสั่ง python เอง — ลากไฟล์ใส่โฟลเดอร์ รอสักครู่
  * แดชบอร์ดขึ้นแถบ "กำลังแปลง…" แล้วรีเฟรชตัวเองเมื่อเสร็จ
  *
- * มีสองงาน:
+ * มีสามงาน:
  *   rev  etl/data/revenue/              -> build_json.py     -> public/data/real/
  *   cr   etl/data/Dashboard real data/  -> build_costrev.py  -> public/data/real/costrev/
+ *   al   etl/data/travel/               -> build_alloc.py    -> public/data/real/alloc/
  *
- * ★ สองงานนี้ต้องรันทีละตัว ห้ามพร้อมกัน
+ * งาน al กินไฟล์บิลใน etl/data/revenue/ ด้วย (ปันต้นทุนเที่ยวเข้าบิลลูกค้า)
+ * จึงถูกขอให้รันใหม่ทั้งตอนไฟล์รายงานค่าเดินทางเปลี่ยนและตอนไฟล์บิลเปลี่ยน
+ *
+ * ★ งานเหล่านี้ต้องรันทีละตัว ห้ามพร้อมกัน
  *   ข้อมูลจริงรวมกันเกือบ 700 MB / 5 ล้านแถว งานแรกใช้หน่วยความจำหลาย GB
  *   ถ้าปล่อยให้รันซ้อนกัน เครื่อง 16 GB จะหมดหน่วยความจำ แล้ว Windows ฆ่าทั้ง
  *   python และ dev server ที่เป็นแม่ของมันทิ้ง (อาการ: หน้าเว็บขึ้น "Failed to fetch"
@@ -36,6 +40,8 @@ function autoEtl(): Plugin {
   const revOut = resolve(here, "public", "data", "real");
   const costDir = resolve(etlDir, "data", "Dashboard real data");
   const costOut = resolve(revOut, "costrev");
+  const travelDir = resolve(etlDir, "data", "travel");
+  const allocOut = resolve(revOut, "alloc");
   const isXlsx = (f: string) => /\.xlsx$/i.test(f) && !/^~\$/.test(f) && !/\.backup\./i.test(f);
   const hasXlsx = (dir: string) => existsSync(dir) && readdirSync(dir).some(isXlsx);
 
@@ -81,12 +87,13 @@ function autoEtl(): Plugin {
    * แดชบอร์ดจะได้ขึ้น "กำลังแปลง…" และรีเฟรชเองตอนเสร็จ ไม่ต้องเดาว่าเสร็จหรือยัง
    */
   type Status = { state: "idle" | "running" | "done" | "error" | "cleared"; message: string; at: number };
-  type Job = "rev" | "cr";
-  const EVENT: Record<Job, string> = { rev: "etl:status", cr: "costrev:status" };
+  type Job = "rev" | "cr" | "al";
+  const EVENT: Record<Job, string> = { rev: "etl:status", cr: "costrev:status", al: "alloc:status" };
 
   const status: Record<Job, Status> = {
     rev: { state: "idle", message: "", at: Date.now() },
     cr: { state: "idle", message: "", at: Date.now() },
+    al: { state: "idle", message: "", at: Date.now() },
   };
   let emit: (job: Job, s: Status) => void = () => {};
   const setStatus = (job: Job, state: Status["state"], message: string) => {
@@ -96,7 +103,7 @@ function autoEtl(): Plugin {
 
   /** งานที่รันอยู่ตอนนี้ (null = ว่าง) กับคิวของงานที่ขอไว้ */
   let busy: Job | null = null;
-  const want: Record<Job, boolean> = { rev: false, cr: false };
+  const want: Record<Job, boolean> = { rev: false, cr: false, al: false };
 
   type Spec = {
     script: string;
@@ -131,6 +138,16 @@ function autoEtl(): Plugin {
       startLog: () => "▶ กำลังแปลงไฟล์ต้นทุน+รายได้รายเที่ยว (python build_costrev.py --dataset real) …",
       startMsg: () => "กำลังแปลงไฟล์ต้นทุน+รายได้รายเที่ยว และจับคู่กับข้อมูลรายได้จริง",
       doneMsg: "ข้อมูลต้นทุน+รายได้รายเที่ยวพร้อมแล้ว",
+    },
+    al: {
+      script: "build_alloc.py", dir: travelDir, out: allocOut,
+      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/travel/ — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
+      emptyMsg: "ไม่มีไฟล์รายงานค่าเดินทางแล้ว — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
+      clearFailLog: "✗ ลบ public/data/real/alloc/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
+      clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/alloc/manifest.json เองแล้วกดรีเฟรช",
+      startLog: (n) => `▶ กำลังปันส่วนต้นทุนเข้าบิลลูกค้า จากรายงานค่าเดินทาง ${n} ไฟล์ (python build_alloc.py --dataset real) …`,
+      startMsg: (n) => `กำลังปันส่วนต้นทุนเข้าบิลลูกค้า (รายงานค่าเดินทาง ${n} ไฟล์ × ไฟล์บิลทั้งหมด) — เดินไฟล์บิลสองรอบ`,
+      doneMsg: "ข้อมูลกำไรลูกค้า (ปันส่วนต้นทุน) พร้อมแล้ว",
     },
   };
 
@@ -194,7 +211,7 @@ function autoEtl(): Plugin {
   /** หยิบงานถัดไปจากคิวมารัน — งานรายได้มาก่อนเพราะ build_costrev อ่านผลของมันไปจับคู่ */
   const pump = (log: (m: string) => void) => {
     if (busy) return;
-    const job: Job | null = want.rev ? "rev" : want.cr ? "cr" : null;
+    const job: Job | null = want.rev ? "rev" : want.cr ? "cr" : want.al ? "al" : null;
     if (!job) return;
     want[job] = false;
     busy = job;
@@ -218,8 +235,9 @@ function autoEtl(): Plugin {
       // แท็บที่เพิ่งเปิด/รีโหลดขอสถานะล่าสุด — ไม่งั้นจะไม่รู้ว่ากำลังแปลงอยู่
       server.ws.on("etl:hello", (_d, c) => c.send({ type: "custom", event: EVENT.rev, data: status.rev }));
       server.ws.on("costrev:hello", (_d, c) => c.send({ type: "custom", event: EVENT.cr, data: status.cr }));
+      server.ws.on("alloc:hello", (_d, c) => c.send({ type: "custom", event: EVENT.al, data: status.al }));
 
-      const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null };
+      const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null, al: null };
       const request = (job: Job, delay: number) => {
         if (timers[job]) clearTimeout(timers[job]!);
         timers[job] = setTimeout(() => { want[job] = true; pump(log); }, delay);
@@ -240,17 +258,23 @@ function autoEtl(): Plugin {
         request("rev", 2000);
         // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย (ต่อคิวไว้ ไม่รันซ้อน)
         if (hasXlsx(costDir)) request("cr", 2500);
+        // ไฟล์บิลคือฝั่งรายได้ของการปันส่วนต้นทุน → ปันใหม่ด้วย
+        if (hasXlsx(travelDir)) request("al", 3000);
       });
       if (existsSync(costDir)) watch(costDir, () => request("cr", 2500));
+      if (existsSync(travelDir)) watch(travelDir, () => request("al", 2500));
 
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
       const pendingRev = hasXlsx(revDir) && !existsSync(resolve(revOut, "manifest.json"));
       const pendingCr = hasXlsx(costDir) && !existsSync(resolve(costOut, "manifest.json"));
-      if (pendingRev || pendingCr) {
+      const pendingAl = hasXlsx(travelDir) && hasXlsx(revDir)
+        && !existsSync(resolve(allocOut, "manifest.json"));
+      if (pendingRev || pendingCr || pendingAl) {
         server.httpServer?.once("listening", () => setTimeout(() => {
           if (pendingRev) want.rev = true;
           if (pendingCr) want.cr = true;
+          if (pendingAl) want.al = true;
           pump(log);
         }, 600));
       }
