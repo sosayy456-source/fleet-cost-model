@@ -1,5 +1,5 @@
 /**
- * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 11)
+ * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 16)
  * ใช้คู่กับไฟล์ โมเดลเดินรถ-gsheet.html
  *
  * ── วิธีติดตั้ง ──────────────────────────────────────────────
@@ -11,7 +11,7 @@
  *      - กด Deploy → กดอนุญาตสิทธิ์ (Authorize) ให้เรียบร้อย
  * 3) คัดลอก "URL ของเว็บแอป" ที่ลงท้ายด้วย /exec
  * 4) เปิดหน้าเว็บโมเดล → แท็บ "รายการทั้งหมด" → ⚙ ตั้งค่าการเชื่อม Google Sheet
- *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v11")
+ *    → วาง URL → กดบันทึกลิงก์ → กดทดสอบการเชื่อมต่อ (ต้องขึ้นว่า "โค้ด v16")
  *
  * ── แก้โค้ดภายหลัง ─────────────────────────────────────────
  * บันทึก → Deploy → จัดการการทำให้ใช้งานได้ (Manage deployments) → กดดินสอ ✏
@@ -27,7 +27,7 @@
  * "ข้อมูลเก่า" คือขึ้นในโมเดลทันที อ่านอย่างเดียว ไม่ต้องรอสถานะ 3 ฝ่ายครบ
  */
 
-var VERSION = 11;                        // ต้องตรงกับ GS_VERSION ใน app/src/lib/sheet/client.ts
+var VERSION = 16;                        // ต้องตรงกับ GS_VERSION ใน app/src/lib/sheet/client.ts
 
 // ★ ชีตปลายทางที่จะเขียนข้อมูลลง
 //   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
@@ -104,6 +104,7 @@ var DONE_HEADERS = [
 var SEQ_COL   = 1;                                  // คอลัมน์ "ลำดับ" — ระบบใส่ให้เอง
 var ID_COL    = HEADERS.indexOf('ID') + 1;          // คีย์สำหรับ upsert
 var DATA_COL  = HEADERS.indexOf(DATA_COL_NAME) + 1; // เก็บ JSON เต็มของใบ ไว้ให้หน้าเว็บอ่านกลับ
+var DOC_COL   = HEADERS.indexOf('เลขที่ใบรายการ') + 1;
 var OWNER_COL = DEBT_HEADERS.indexOf('ID ใบรายการ') + 1;
 
 function doGet() {
@@ -133,6 +134,18 @@ function doPost(e) {
   if (body.loadTrips) {
     try {
       return json({ ok: true, version: VERSION, records: readTripRecords_() });
+    } catch (err) {
+      return json({ ok: false, version: VERSION, error: String(err) });
+    }
+  }
+
+  // โหลดใบเดียว (ตามไอดี หรือเลขที่ใบ) — หน้าเว็บเรียกก่อนบันทึกทุกครั้งเพื่อรวมงานของฝ่ายอื่น
+  // ★ แยกจาก loadTrips เพราะการบันทึกต้องการใบเดียว ส่ง JSON ทุกใบกลับไปทุกครั้งทำให้บันทึกช้าลงเรื่อย ๆ
+  //   ตามจำนวนใบในชีต — อ่านแค่คอลัมน์ ID/เลขที่ใบ แล้วค่อยเปิด _DATA ของแถวที่ตรง
+  if (body.loadTrip) {
+    try {
+      return json({ ok: true, version: VERSION,
+        record: readTripRecord_(String(body.loadTrip.id || ''), String(body.loadTrip.docNo || '')) });
     } catch (err) {
       return json({ ok: false, version: VERSION, error: String(err) });
     }
@@ -192,11 +205,14 @@ function doPost(e) {
     }
 
     var billsWritten = writeBills_(body.bills || [], body.billOwners || []);
-    renumber_(sh);
+    // แก้แถวเดิมไม่ได้ทำให้ตำแหน่งเปลี่ยน — เรียงเลขลำดับใหม่เฉพาะตอนมีแถวเพิ่ม
+    if (added) renumber_(sh);
 
-    // อัปเดตแท็บรวมสำหรับ Dashboard — ถ้าพลาดก็ไม่ให้กระทบการบันทึก
+    // ★ ไม่สร้างแท็บ "รวมทั้งหมด" ในการบันทึกแล้ว (v16) — ตัวนั้นอ่านทุกแท็บข้อมูลเก่า
+    //   แล้วเขียนแท็บรวมใหม่ทั้งแท็บ เป็นส่วนที่ทำให้กดบันทึกแล้วรอนานที่สุด และถือล็อกไว้
+    //   ระหว่างนั้นจนฝ่ายอื่นบันทึกไม่ได้ · ตอนนี้อัปเดตตามเวลา (ติดตั้งตัวตั้งเวลาครั้งเดียว
+    //   จากเมนู "โมเดลเดินรถ → ตั้งเวลาอัปเดตแท็บรวม") หรือกดเมนู "อัปเดตแท็บรวมทั้งหมด" เอง
     var merged = -1, mergeErr = '';
-    try { merged = rebuildMerged_(); } catch (e2) { mergeErr = String(e2); }
 
     return json({ ok: true, version: VERSION, added: added, updated: updated,
       bills: billsWritten, merged: merged, mergeError: mergeErr });
@@ -459,6 +475,40 @@ function readTripRecords_() {
   return out;
 }
 
+/**
+ * อ่านใบเดียวจากแท็บ "ข้อมูลใหม่" — ตามไอดีก่อน ไม่เจอค่อยตามเลขที่ใบรายการ (ใบเดียวกันที่สร้างคนละเครื่อง)
+ * อ่านแค่สองคอลัมน์ทั้งแท็บ แล้วเปิด _DATA เฉพาะแถวที่ตรง · ไม่เจอ = null (ใบใหม่)
+ * ลำดับการจับคู่ต้องตรงกับ saveRecord() ฝั่งหน้าเว็บ (app/src/lib/store/save.ts)
+ */
+function readTripRecord_(id, docNo) {
+  var sh = getSheet_(SHEET_NAME, HEADERS);
+  var last = sh.getLastRow();
+  if (last < 2 || (!id && !docNo)) return null;
+  var n = last - 1;
+  var ids = sh.getRange(2, ID_COL, n, 1).getValues();
+  var docs = sh.getRange(2, DOC_COL, n, 1).getValues();
+  var dataRange = sh.getRange(2, DATA_COL, n, 1);
+
+  var tryRow = function (i) {
+    var raw = String(dataRange.getCell(i + 1, 1).getValue() || '').trim();
+    if (!raw) return null;                         // แถวที่พิมพ์ตรงในชีต — ไม่ใช่ใบของแอป
+    try {
+      var rec = JSON.parse(raw);
+      if (!rec.id) rec.id = String(ids[i][0] || '');
+      return rec;
+    } catch (e) { return null; }
+  };
+
+  var i;
+  if (id) {
+    for (i = 0; i < n; i++) if (String(ids[i][0]) === id) { var a = tryRow(i); if (a) return a; }
+  }
+  if (docNo) {
+    for (i = 0; i < n; i++) if (String(docs[i][0]).trim() === docNo) { var b = tryRow(i); if (b) return b; }
+  }
+  return null;
+}
+
 /** อ่านแท็บลูกหนี้เก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่าลูกหนี้" */
 function readOldDebtors_() {
   var ss = getSpreadsheet_();
@@ -584,13 +634,37 @@ function rebuildMerged_() {
   return rows.length;
 }
 
-/** ★ กดจากเมนูเพื่ออัปเดตแท็บรวมเอง (ปกติระบบอัปเดตให้ทุกครั้งที่บันทึกอยู่แล้ว) */
+/** ★ กดจากเมนูเพื่ออัปเดตแท็บรวมเองทันที (ปกติตัวตั้งเวลาอัปเดตให้ทุก 10 นาที — ดู ตั้งเวลาอัปเดตแท็บรวม) */
 function อัปเดตแท็บรวมทั้งหมด() {
   var n = rebuildMerged_();
   var msg = 'อัปเดตแท็บ "' + MERGED_SHEET_NAME + '" แล้ว ' + n + ' แถว';
   Logger.log(msg);
   try { SpreadsheetApp.getActiveSpreadsheet().toast(msg, 'เสร็จแล้ว', 5); } catch (e) {}
   return msg;
+}
+
+/**
+ * ★ ติดตั้งตัวตั้งเวลาให้อัปเดตแท็บรวมเองทุก 10 นาที — กดครั้งเดียวพอ (กดซ้ำไม่ซ้อน ลบของเดิมก่อน)
+ *   แทนการอัปเดตทุกครั้งที่บันทึก (ดูเหตุผลใน doPost) · แท็บรวมจึงช้ากว่าการบันทึกได้ไม่เกินราว 10 นาที
+ */
+function ตั้งเวลาอัปเดตแท็บรวม() {
+  var fn = 'อัปเดตแท็บรวมตามเวลา_';
+  var ts = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < ts.length; i++) {
+    if (ts[i].getHandlerFunction() === fn) ScriptApp.deleteTrigger(ts[i]);
+  }
+  ScriptApp.newTrigger(fn).timeBased().everyMinutes(10).create();
+  var msg = 'ตั้งเวลาแล้ว — แท็บ "' + MERGED_SHEET_NAME + '" จะอัปเดตเองทุก 10 นาที';
+  Logger.log(msg);
+  try { SpreadsheetApp.getActiveSpreadsheet().toast(msg, 'เสร็จแล้ว', 5); } catch (e) {}
+  return msg;
+}
+
+/** ตัวที่ตัวตั้งเวลาเรียก — ถือล็อกเดียวกับการบันทึก ไม่ให้อ่านชีตระหว่างที่มีคนกำลังเขียน */
+function อัปเดตแท็บรวมตามเวลา_() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return;              // มีคนบันทึกอยู่ — รอบหน้าค่อยทำ
+  try { rebuildMerged_(); } finally { lock.releaseLock(); }
 }
 
 /**
@@ -642,6 +716,7 @@ function onOpen() {
     SpreadsheetApp.getUi()
       .createMenu('โมเดลเดินรถ')
       .addItem('อัปเดตแท็บรวมทั้งหมด', 'อัปเดตแท็บรวมทั้งหมด')
+      .addItem('ตั้งเวลาอัปเดตแท็บรวม (ทุก 10 นาที)', 'ตั้งเวลาอัปเดตแท็บรวม')
       .addItem('ตรวจสอบวันที่', 'ตรวจสอบวันที่')
       .addItem('ตรวจสอบชีตปลายทาง', 'ตรวจสอบชีตปลายทาง')
       .addToUi();
@@ -689,13 +764,21 @@ function getSheet_(name, headers) {
     sh.setFrozenRows(1);
   } else {
     // หัวตารางเก่า/สั้นกว่า → เขียนทับให้ตรงเวอร์ชันปัจจุบัน
-    var width = Math.max(sh.getLastColumn(), headers.length);
-    if (sh.getMaxColumns() < width) sh.insertColumnsAfter(sh.getMaxColumns(), width - sh.getMaxColumns());
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    // ★ อ่านเทียบก่อน เขียนเฉพาะตอนต่างจริง — ของเดิมเขียนหัว + ตัวหนา + ซ่อนคอลัมน์ทุกครั้งที่เรียก
+    //   (หลายครั้งต่อการบันทึกหนึ่งครั้ง) การเขียนช้ากว่าการอ่านมาก
+    if (sh.getMaxColumns() < headers.length) {
+      sh.insertColumnsAfter(sh.getMaxColumns(), headers.length - sh.getMaxColumns());
+    }
+    var cur = sh.getRange(1, 1, 1, headers.length).getValues()[0];
+    if (cur.join('|') !== headers.join('|')) {
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    }
   }
   // ซ่อนคอลัมน์ _DATA ไม่ให้เกะกะ (ยังอยู่ครบ แค่ไม่แสดง)
   var di = headers.indexOf(DATA_COL_NAME);
-  if (di >= 0) { try { sh.hideColumns(di + 1); } catch (e) {} }
+  if (di >= 0) {
+    try { if (!sh.isColumnHiddenByUser(di + 1)) sh.hideColumns(di + 1); } catch (e) {}
+  }
   return sh;
 }
 
