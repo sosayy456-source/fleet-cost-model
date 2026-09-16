@@ -4,7 +4,8 @@
  *   Executive Dashboard  (mode "exec")  เฉพาะเที่ยวที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง (m = true)
  *   Dashboard รวม         (mode "all")   ทุกเที่ยวในไฟล์
  *
- * สามแท็บ: กองรถ (สเปกส่วนที่ 1) · กำไรรายเที่ยว (ส่วนที่ 2) · ต้นทุน (เอกสารจัดประเภทต้นทุน)
+ * สี่แท็บ: กำไรรายเที่ยว (สเปกส่วนที่ 2) · กองรถ (ส่วนที่ 1) · ต้นทุน (เอกสารจัดประเภทต้นทุน) · Damage Rate
+ * กำไรรายเที่ยวขึ้นก่อนตามที่ผู้บริหารขอ — เป็นคำถามแรกที่เปิดหน้านี้มาดู
  * ทั้งสองเมนูไม่มีส่วนรายการลูกหนี้ — บิลจากไฟล์รายได้ไปแสดงที่เมนู "รายการลูกหนี้" เป็นข้อมูลเก่าแทน
  *
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
@@ -24,8 +25,8 @@ import DamageTab from "./DamageTab";
 export type CostRevMode = "exec" | "all";
 
 const TABS = [
-  { id: "fleet", label: "กองรถ" },
   { id: "profit", label: "กำไรรายเที่ยว" },
+  { id: "fleet", label: "กองรถ" },
   { id: "cost", label: "ต้นทุน" },
   { id: "damage", label: "Damage Rate" },
 ] as const;
@@ -36,7 +37,7 @@ export default function CostRevDash({ mode }: { mode: CostRevMode }) {
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/Dashboard real data/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("costrev");
   useAutoReloadOnEtl(etl, reload);
-  const [tab, setTab] = useState<TabId>("fleet");
+  const [tab, setTab] = useState<TabId>("profit");
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, tab);
 
