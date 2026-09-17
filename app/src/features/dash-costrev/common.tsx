@@ -5,9 +5,10 @@
  * เพราะต้นทุนมาเป็นยอดสำเร็จรูปจากไฟล์บริษัท ไม่ใช่จากสูตรของโมเดล
  */
 import { useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { fmtN } from "../../lib/chart/theme";
 import { FF } from "../dash-fleet/parts";
+import GrowBox from "../../lib/ui/GrowBox";
 import type { Trip } from "../../lib/data/useCostRev";
 
 export const fmt = (n: number, d = 0): string => fmtN(n, d);
@@ -63,6 +64,10 @@ export function ListFF({ label, all, value, onChange, opts }: {
 /** เงื่อนไขที่ทุกแท็บใช้ร่วม — เดือนใช้ 2 หลัก "01".."12" · ค่าว่าง = ไม่กรองมิตินั้น */
 export interface BaseFilter { year: string; month: string; o: string; de: string; ft: string; vk: string }
 export const BASE_F0: BaseFilter = { year: "", month: "", o: "", de: "", ft: "", vk: "" };
+
+/** เลือกตัวกรองอะไรไว้ไหม (เทียบกับค่าเริ่มต้นของแท็บนั้น) — ใช้ซ่อนปุ่ม "ล้างตัวกรอง" ตอนไม่มีอะไรให้ล้าง */
+export const isFiltered = <T extends object>(f: T, f0: T): boolean =>
+  (Object.keys(f0) as (keyof T)[]).some((k) => f[k] !== f0[k]);
 
 export const passBase = (t: Trip, f: BaseFilter, opts: { ignoreYear?: boolean; ignoreMonth?: boolean } = {}): boolean =>
   (opts.ignoreYear || !f.year || String(t.y) === f.year)
@@ -127,19 +132,19 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
   return { sorted, sort, toggle };
 }
 
-export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, limit = 300 }: {
+export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty }: {
   rows: T[]; cols: Col<T>[]; sort: { key: string; dir: 1 | -1 };
-  onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string; limit?: number;
+  onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;
 }) {
   return (
-    <div className="scroll">
+    <GrowBox rows={rows} render={(shown) => (
       <table className="dz-tbl">
         <thead><tr>
           {cols.map((c) => (
             <th key={c.key} className={c.num ? "n" : undefined} onClick={() => onSort(c.key)}
               style={{ cursor: "pointer", userSelect: "none" }} title="คลิกเพื่อเรียง">
               {c.label}
-              <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 10 }}>
+              <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 11.5 }}>
                 {sort.key === c.key ? (sort.dir === 1 ? "▲" : "▼") : "▲▼"}
               </span>
             </th>
@@ -149,26 +154,19 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, limit = 
           {rows.length === 0 ? (
             <tr><td colSpan={cols.length} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 16 }}>{empty}</td></tr>
           ) : (
-            <>
-              {rows.slice(0, limit).map((r, i) => (
-                <tr key={rowKey(r, i)}>
-                  {cols.map((c) => (
-                    <td key={c.key} className={c.num ? "n" : undefined}>
-                      {c.render ? c.render(r) : (() => { const v = c.get(r); return typeof v === "number" ? fmt(v) : (v ?? "–"); })()}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              {rows.length > limit && (
-                <tr><td colSpan={cols.length} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                  …แสดง {fmt(limit)} รายการแรกจากทั้งหมด {fmt(rows.length)} รายการ · ใช้ตัวกรองเพื่อดูรายการอื่น
-                </td></tr>
-              )}
-            </>
+            shown.map((r, i) => (
+              <tr key={rowKey(r, i)}>
+                {cols.map((c) => (
+                  <td key={c.key} className={c.num ? "n" : undefined}>
+                    {c.render ? c.render(r) : (() => { const v = c.get(r); return typeof v === "number" ? fmt(v) : (v ?? "–"); })()}
+                  </td>
+                ))}
+              </tr>
+            ))
           )}
         </tbody>
       </table>
-    </div>
+    )} />
   );
 }
 
@@ -179,3 +177,25 @@ export const marginTone = (m: number | null): string =>
 /** ป้ายเส้นทางแบบมีลูกศร — ให้ตรงกับที่แดชบอร์ดเดิมใช้ */
 export const routeArrow = (t: { o: string; de: string }): string =>
   t.o && t.de ? `${t.o}→${t.de}` : t.o || t.de || "(ไม่ระบุ)";
+
+/**
+ * การ์ดตัวเลขรอง + แถบสัดส่วน (ดีไซน์ 1A) — รูปเดียวกับ KC แต่แถบยาวตามค่าจริง (KC วาดแถบเต็มเสมอ)
+ * ลำดับ: ป้าย → ตัวเลข → แถบ → คำอธิบาย · แถบใช้สี `bar` (ไม่ส่ง = สีเดียวกับจุด) บนรางสีเดียวกันจาง ๆ
+ */
+export function Meter({ l, v, s, dot, bar, tone, fill }: {
+  l: string; v: string; s: string; dot: string; bar?: string;
+  tone?: "good" | "warn" | "bad"; fill: number;
+}) {
+  const w = Math.max(0, Math.min(100, fill));
+  const c = bar ?? dot;
+  return (
+    <div className={"dz-kc meter" + (tone ? ` t-${tone}` : "")}
+      style={{ "--dot": dot, "--bar": c } as CSSProperties}>
+      <div className="l"><i className="d" />{l}</div>
+      {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
+      <div className="v" key={v} data-real={v}>{v}</div>
+      <div className="kbar"><i style={{ width: `${w}%` }} /></div>
+      <div className="s">{s}</div>
+    </div>
+  );
+}

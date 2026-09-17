@@ -23,10 +23,12 @@ export function useDashInk(barRef: RefObject<HTMLElement | null>, active: string
       ink.style.transform = `translateX(${on.offsetLeft}px)`;
     };
     move();
-    // ฟอนต์ไทยโหลดทีหลัง ความกว้างปุ่มจึงขยับได้อีกรอบ
+    // ฟอนต์ไทยโหลดทีหลัง ความกว้างปุ่มจึงขยับได้อีกรอบ — วัดซ้ำทั้งตามเวลาและตอนฟอนต์โหลดเสร็จจริง
     const t = setTimeout(move, 250);
+    let alive = true;
+    document.fonts?.ready.then(() => { if (alive) move(); });
     window.addEventListener("resize", move);
-    return () => { clearTimeout(t); window.removeEventListener("resize", move); };
+    return () => { alive = false; clearTimeout(t); window.removeEventListener("resize", move); };
   }, [barRef, active]);
 }
 
@@ -59,7 +61,8 @@ export function useCountUp(paneRef: RefObject<HTMLElement | null>, deps: unknown
       const target = parseFloat(m[0].replace(/,/g, ""));
       if (!Number.isFinite(target) || target === 0) return;
       const dec = (m[0].split(".")[1] ?? "").length;
-      const dur = 900, delay = 120 + i * 55;
+      // ดีไซน์ 1A: 1400ms easeOutQuart ไล่เริ่มทีละใบ (main เดิม 900ms easeOutCubic)
+      const dur = 1400, delay = 110 + i * 60;
       let t0: number | null = null;
       const finish = () => { if (runId.current === +run) el.textContent = txt; };
       const step = (now: number) => {
@@ -67,7 +70,7 @@ export function useCountUp(paneRef: RefObject<HTMLElement | null>, deps: unknown
         if (t0 === null) { t0 = now; el.textContent = txt.replace(m[0], (0).toFixed(dec)); }
         const p = Math.min(1, Math.max(0, (now - t0 - delay) / dur));
         if (p >= 1) { finish(); return; }
-        const v = target * (1 - Math.pow(1 - p, 3));
+        const v = target * (1 - Math.pow(1 - p, 4));
         el.textContent = txt.replace(m[0],
           v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }));
         requestAnimationFrame(step);

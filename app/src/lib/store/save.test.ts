@@ -13,7 +13,12 @@ const pushRecords = vi.fn();
 const put = vi.fn();
 
 vi.mock("../sheet/client", () => ({
-  loadTrips: () => loadTrips(),
+  // loadTrips คือ "ใบทั้งหมดบนชีต" ของเทสต์ — loadTrip จำลองการค้นหาของ readTripRecord_ ใน Code.gs
+  // (ไอดีก่อน แล้วค่อยเลขที่ใบ) เทสต์ทุกตัวจึงยังเขียนเป็นรายการใบบนชีตได้เหมือนเดิม
+  loadTrip: async (id: string, docNo: string) => {
+    const all = (await loadTrips()) as { id: string; docNo: string }[];
+    return all.find((r) => r.id === id) ?? all.find((r) => docNo && r.docNo === docNo) ?? null;
+  },
   pushRecords: (list: unknown) => pushRecords(list),
 }));
 

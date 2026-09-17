@@ -13,7 +13,7 @@ import { recordBillRows, recordToRow } from "./serialize";
 import type { Cell } from "./serialize";
 
 /** ต้องตรงกับ var VERSION ใน apps-script/Code.gs */
-export const GS_VERSION = 11;
+export const GS_VERSION = 16;
 
 const LS_URL = "gsWebAppUrl";
 const URL_PATTERN = /^https:\/\/script\.google\.com\/.*\/exec$/;
@@ -45,7 +45,7 @@ export class SheetError extends Error {}
 
 /**
  * เกินเวลานี้แล้วยังไม่ตอบ ถือว่าค้าง — ตัดทิ้งแทนที่จะรอเงียบ ๆ ไม่รู้จบ
- * ★ ตั้งไว้สูง (90s) เพราะ Apps Script cold start + สแกนหลายแท็บ (loadOld/rebuildMerged)
+ * ★ ตั้งไว้สูง (90s) เพราะ Apps Script cold start + สแกนหลายแท็บ (loadOld)
  *   บางครั้งใช้เวลาเกิน 30 วินาทีได้จริงโดยที่ยังไม่ได้ค้างจริง ๆ — ค่าที่ต่ำเกินไปเคยตัด
  *   การบันทึกที่กำลังจะสำเร็จทิ้งไปก่อน (อ่านใบล่าสุดจากชีตไม่สำเร็จ → SaveAbortedError)
  */
@@ -91,11 +91,21 @@ export async function postToSheet<T extends SheetResponse>(payload: unknown): Pr
     data = JSON.parse(txt) as T;
   } catch {
     // Google ส่งหน้า HTML ล็อกอินกลับมาเมื่อสิทธิ์ Deploy ไม่ใช่ Anyone
-    const hint = /accounts\.google\.com|Sign in|ต้องขออนุญาต/i.test(txt)
-      ? "Google ขอให้ล็อกอิน = สิทธิ์ Deploy ยังไม่ใช่ Anyone"
-      : "ตอบกลับไม่ใช่ JSON";
+    if (/accounts\.google\.com|Sign in|ต้องขออนุญาต/i.test(txt)) {
+      throw new SheetError(`Google ขอให้ล็อกอิน = สิทธิ์ Deploy ยังไม่ใช่ Anyone (HTTP ${res.status})`);
+    }
+    // ★ 404 = ไม่มี Web App ที่ลิงก์นี้ Google ตอบหน้า "ไม่พบ" ที่เป็น HTML ล้วน (ขึ้นต้นด้วย
+    //   window['ppConfig'] = ...) — ของเดิมโชว์ HTML ดิบให้ผู้ใช้ อ่านแล้วไม่รู้ว่าต้องแก้อะไร
+    //   ที่เจอบ่อยคือกด "New deployment" ตอนอัปเดตโค้ด ลิงก์ /exec จึงเปลี่ยน แล้วตัวเก่าถูก Archive
+    if (res.status === 404) {
+      throw new SheetError(
+        "ไม่พบ Web App ที่ลิงก์ /exec นี้ (HTTP 404) — ลิงก์อาจถูกเปลี่ยนหรือ deployment ถูกลบ/Archive · " +
+        "เปิด Apps Script → Deploy → Manage deployments คัดลอกลิงก์ของตัวที่ Active มาตั้งค่าใหม่ " +
+        "(ครั้งหน้าที่อัปเดตโค้ดให้กด ✏ แก้ไข → Version: New version ลิงก์จะไม่เปลี่ยน)",
+      );
+    }
     throw new SheetError(
-      `${hint} (HTTP ${res.status}) · ${txt.replace(/<[^>]*>/g, " ").trim().slice(0, 110)}`,
+      `ตอบกลับไม่ใช่ JSON (HTTP ${res.status}) · ${txt.replace(/<[^>]*>/g, " ").trim().slice(0, 110)}`,
     );
   }
 
@@ -110,7 +120,7 @@ export async function postToSheet<T extends SheetResponse>(payload: unknown): Pr
   return data;
 }
 
-// ───────────────────────── 4 action ที่ backend รองรับ ─────────────────────────
+// ───────────────────────── action ที่ backend รองรับ ─────────────────────────
 
 export interface PingResult extends SheetResponse {
   pong: boolean;
@@ -127,6 +137,18 @@ export async function loadTrips(): Promise<TripRecord[]> {
   if (!getUrl()) return [];
   const res = await postToSheet<TripsResult>({ loadTrips: true });
   return res.records ?? [];
+}
+
+interface TripResult extends SheetResponse { record?: TripRecord | null }
+
+/**
+ * ใบเดียวจากชีต — ตามไอดีก่อน ไม่เจอค่อยตามเลขที่ใบ · null = ยังไม่มีบนชีต
+ * ใช้ตอนบันทึกแทน loadTrips() ที่ส่ง JSON ทุกใบกลับมา (ยิ่งใบเยอะยิ่งบันทึกช้า)
+ */
+export async function loadTrip(id: string, docNo: string): Promise<TripRecord | null> {
+  if (!getUrl()) return null;
+  const res = await postToSheet<TripResult>({ loadTrip: { id, docNo } });
+  return res.record ?? null;
 }
 
 interface OldResult extends SheetResponse {

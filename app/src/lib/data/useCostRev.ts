@@ -27,16 +27,28 @@ export interface Trip {
   /** ระยะทางจาก routes.json — null ถ้าจับคู่เส้นทางไม่ได้ */
   km: number | null;
   rev: number; cost: number; profit: number;
-  /** เที่ยวตีเปล่า (ประเภทใบรายการ = ของเหมาตีเปล่า / รถว่างไปสาขา) */
+  /**
+   * เที่ยววิ่งเปล่า = ราคารวมจากรายได้ = 0 และ ค่าบรรทุกทั้งใบรายการ = 0 (ไม่จำกัดประเภทใบรายการ)
+   * ETL อ่านสองคอลัมน์แยกกัน — ห้ามใช้ rev === 0 แทน (ดู docs/spec-เที่ยววิ่งเปล่า.md)
+   */
   empty: boolean;
-  /** เป็นบิลเคลียร์ */
+  /** ธง "เป็นบิลเคลียร์" จากไฟล์ต้นทุน — ไม่ใช่มูลค่า และไม่ตรงกับ clrN เสมอไป (ดู clrAmt) */
   clear: boolean;
+  /**
+   * มูลค่าบิลเคลียร์ของใบนี้ = Σ ราคารวมของบิลที่ประเภทสินค้า = "บิลเคลียร์" ในไฟล์รายได้
+   * (นิยามเดียวกับ CLEARED_GOODS/adminWriteOff ใน lib/cost/recCost.ts) · clrN = จำนวนรายการ
+   * มีค่าเฉพาะใบที่ m = true เท่านั้น เพราะมูลค่ามาจากฝั่งรายได้
+   */
+  clrAmt: number; clrN: number;
   /** เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — Executive Dashboard ใช้เฉพาะแถวที่ m = true */
   m: boolean;
   /** กลุ่มต้นทุน (ยอดที่คำนวณต่อได้ดู helpers ด้านล่าง) */
   waste: number; fuel: number; allow: number; fee: number; repair: number; dep: number; rent: number;
   f_cash: number; f_down: number; f_up: number; f_pickup: number; f_call: number;
-  a_drv: number; a_spare: number;
+  /** เบี้ยเลี้ยง พขร. · สำรอง · นอกเส้นทาง (ตัวหลังเคยนับเป็นสูญเปล่า — เอกสารฉบับแก้ 16 ก.ย. 2569 ย้ายมาที่นี่) */
+  a_drv: number; a_spare: number; a_off: number;
+  /** กลุ่มบริการ = ประเภทสินค้าที่พบมากสุดในบิลรายได้ของใบนั้น · "" ถ้าจับคู่ไม่ได้ */
+  sg: string;
   fe_tarp: number; fe_police: number; fe_insure: number; fe_cont: number; fe_port: number; fe_doc: number; fe_toll: number;
 }
 
@@ -55,8 +67,13 @@ export interface CostRevManifest {
   years: number[];
   routeDistance: { routes: number; matched: number; tripsWithKm: number; pct: number };
   skipped: { noDoc: number; noDate: number };
-  emptyTypes: string[];
+  /** คำอธิบายนิยามเที่ยววิ่งเปล่า (ไฟล์รุ่นก่อน 17 ก.ย. 2569 มี emptyTypes แทน) */
+  emptyRule?: string;
   debtorBills: number;
+  /** บิลที่ชำระแล้ว ไม่ได้เขียนลงไฟล์ เก็บแค่ยอดรวม */
+  debtorPaid?: { bills: number; total: number };
+  /** สรุปบิลเคลียร์เฉพาะเที่ยวที่จับคู่ได้ — ไฟล์รุ่นก่อนแท็บ Damage Rate ไม่มีคีย์นี้ */
+  clear?: { trips: number; bills: number; amount: number };
 }
 
 export interface CostRevData {
@@ -67,12 +84,14 @@ export interface CostRevData {
 /* ---------- ยอดที่คำนวณต่อจากกลุ่มต้นทุน (นิยามตามเอกสารจัดประเภทต้นทุน) ---------- */
 /** ต้นทุนปกติ = ต้นทุนทั้งหมด − สูญเปล่า */
 export const normalOf = (t: Trip): number => t.cost - t.waste;
-/** ต้นทุนผันแปร = น้ำมัน + เบี้ยเลี้ยง + ค่าธรรมเนียม + ค่าซ่อม */
-export const variableOf = (t: Trip): number => t.fuel + t.allow + t.fee + t.repair;
+/** ต้นทุนผันแปร = น้ำมัน + เบี้ยเลี้ยง + ค่าธรรมเนียม (ค่าซ่อมแยกไปกึ่งผันแปร — ฉบับแก้ 16 ก.ย. 2569) */
+export const variableOf = (t: Trip): number => t.fuel + t.allow + t.fee;
+/** ต้นทุนคงที่กึ่งผันแปร = ค่าซ่อมรถ (มีทั้งส่วนคงที่ตามเวลาและผันแปรตามระยะทาง — การแยก FC/VC เป็นของทีมค่าซ่อม) */
+export const semiOf = (t: Trip): number => t.repair;
 /** ต้นทุนคงที่ = ค่าเสื่อม */
 export const fixedOf = (t: Trip): number => t.dep;
 /** ที่เหลือที่ไม่เข้ากลุ่มไหน (แก๊ส, Fleet Card เดินทาง, เพิ่มย้อนหลัง, SND) และค่าเช่า */
-export const otherOf = (t: Trip): number => normalOf(t) - variableOf(t) - fixedOf(t) - t.rent;
+export const otherOf = (t: Trip): number => normalOf(t) - variableOf(t) - semiOf(t) - fixedOf(t) - t.rent;
 
 const BASE = import.meta.env.BASE_URL;
 const FORCED = import.meta.env.VITE_DATASET as CostRevDataset | undefined;

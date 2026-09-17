@@ -13,18 +13,56 @@ export const SPARK = (
   </svg>
 );
 
-/** การ์ดเด่นพื้นไล่สี — หนึ่งใบต่อแท็บ ยกเว้นแท็บหลักที่มีสามใบ */
-export function Hero({ kind, l, v, s }: {
+/**
+ * เส้นแนวโน้มจริงของการ์ดเด่น (ดีไซน์ 1A) — ย่อชุดตัวเลขลงกรอบ 160×40 ไม่มีแกน
+ * น้อยกว่า 2 จุดวาดเส้นไม่ได้ → ไม่แสดง
+ */
+function Trend({ data }: { data: number[] }) {
+  const pts = data.filter((v) => Number.isFinite(v));
+  if (pts.length < 2) return null;
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const span = max - min || 1;
+  const W = 160, H = 40;
+  const points = pts
+    .map((v, i) => `${(i / (pts.length - 1) * W).toFixed(1)},${(H - 3 - (v - min) / span * (H - 6)).toFixed(1)}`)
+    .join(" ");
+  return (
+    <svg className="trend" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+      <polyline points={points} />
+    </svg>
+  );
+}
+
+/**
+ * การ์ดเด่นพื้นไล่สี — หนึ่งใบต่อแท็บ ยกเว้นแท็บหลักที่มีสามใบ
+ * unit  = ชิปหน่วยมุมขวาบน (ดีไซน์ 1A) · trend = ชุดตัวเลขจริงสำหรับเส้นแนวโน้ม
+ * ไม่ส่ง trend → ใช้เส้นตกแต่ง SPARK แบบเดิม (หน้าที่ยังไม่มีชุดข้อมูลรายเดือนให้)
+ */
+export function Hero({ kind, l, v, s, unit, trend }: {
   kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc";
   l: string; v: string; s?: ReactNode;
+  unit?: string;
+  trend?: number[];
 }) {
   return (
-    <div className={`dz-kc hero ${kind}`}>
-      <div className="l">{l}</div>
+    <div className={`dz-kc hero ${kind}` + (trend ? " has-trend" : "")}>
+      <div className="hh">
+        <div className="l">{l}</div>
+        {unit && <span className="u">{unit}</span>}
+      </div>
       {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
       <div className="v" key={v} data-real={v}>{v}</div>
-      {s && <div className="s">{s}</div>}
-      {SPARK}
+      {trend ? (
+        <div className="hf">
+          {s && <div className="s">{s}</div>}
+          <Trend data={trend} />
+        </div>
+      ) : (
+        <>
+          {s && <div className="s">{s}</div>}
+          {SPARK}
+        </>
+      )}
     </div>
   );
 }
@@ -43,7 +81,7 @@ export function KC({ l, v, s, dot, tone, small, bar }: {
     <div className={"dz-kc" + (tone ? ` t-${tone}` : "")}
       style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined}>
       <div className="l">{dot && <i className="d" />}{l}</div>
-      <div className="v" key={v} data-real={v} style={small ? { fontSize: 14 } : undefined}>{v}</div>
+      <div className="v" key={v} data-real={v} style={small ? { fontSize: 15.5 } : undefined}>{v}</div>
       {s && <div className="s">{s}</div>}
       {bar && <div className="kbar"><i style={{ background: bar }} /></div>}
     </div>
@@ -130,11 +168,11 @@ export function TableHead({ title, children }: { title: string; children?: React
 }
 
 export const searchStyle: React.CSSProperties = {
-  fontFamily: "inherit", fontSize: 13, padding: "8px 11px",
+  fontFamily: "inherit", fontSize: 14.5, padding: "8px 11px",
   border: "1px solid var(--border)", borderRadius: 9, minWidth: 260,
 };
 export const selectStyle: React.CSSProperties = {
-  fontFamily: "inherit", fontSize: 13, padding: "7px 9px",
+  fontFamily: "inherit", fontSize: 14.5, padding: "7px 9px",
   border: "1px solid var(--border)", borderRadius: 8,
 };
 

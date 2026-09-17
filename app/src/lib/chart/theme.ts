@@ -6,8 +6,11 @@
  * เพราะเป้าหมายคือหน้าตาตรงกับต้นฉบับ ไม่ใช่ดีไซน์ใหม่
  */
 
-/** ฟอนต์ในกราฟ — main ตั้งเป็น DFONT ทุกจุด (แกน/legend/tooltip) */
-export const DFONT = "Anuphan, 'Noto Sans Thai', system-ui, sans-serif";
+/**
+ * ฟอนต์ในกราฟ — main ตั้งเป็น DFONT ทุกจุด (แกน/legend/tooltip)
+ * main ใช้ Anuphan · ตอนนี้ทั้งโมเดลเปลี่ยนเป็น LINE Seed Sans TH ตามที่เจ้าของงานขอ (ดู src/fonts.css)
+ */
+export const DFONT = "'LINE Seed Sans TH', 'Noto Sans Thai', system-ui, sans-serif";
 
 /** ระยะและจังหวะแอนิเมชัน — main: animation:{duration:950,easing:"easeOutQuart"} */
 export const DUR = 950;
@@ -38,6 +41,7 @@ export interface ChartTheme {
   grid: string;
   axis: string;
   ink: string;
+  ink2: string;
   inkMuted: string;
   surface: string;
   tooltipBg: string;
@@ -53,6 +57,7 @@ const DASH: ChartTheme = {
   grid: "#F2EFEA",        // scales.*.grid.color
   axis: "#EAE6DF",        // scales.*.border.color
   ink: "#17161A",         // tooltip.backgroundColor
+  ink2: "#4A463F",        // สีแกน/ป้ายกำกับที่ต้องเข้มกว่า inkMuted ให้อ่านง่ายขึ้น — ตรงกับ --d-ink2 ของ CSS
   inkMuted: "#8A857C",    // ticks.color
   surface: "#FFFFFF",
   tooltipBg: "#17161A",

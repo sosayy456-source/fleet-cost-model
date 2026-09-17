@@ -1,12 +1,19 @@
 /**
- * สุ่มข้อมูลใบรายการทั้งใบ — ใช้ตอนเทสต์เท่านั้น (ปุ่ม "🎲 สุ่มข้อมูล" คู่กับ "เริ่มใบใหม่")
- * สุ่มทุกโซน (cs/dispatch/account) พร้อมกัน ไม่ต้องสลับตำแหน่งเพื่อกรอกทีละฝ่ายตอนทดสอบ
+ * สุ่มข้อมูลใบรายการ — ใช้ตอนเทสต์เท่านั้น (ปุ่ม "🎲 สุ่มข้อมูล" คู่กับ "เริ่มใบใหม่")
+ *
+ * สุ่มเฉพาะโซนของฝ่ายที่กำลังกรอก ทับบนใบที่เปิดอยู่ (randomFor) — ไม่สร้างใบใหม่
+ *   ★ ของเดิมสุ่มทุกโซนเป็นใบใหม่ทุกครั้ง: ฝ่าย cs กดแล้วช่องของฝ่ายจัดรถ/บัญชีถูกเขียนขึ้นชีต
+ *     ทั้งที่ไม่ได้ประทับว่าฝ่ายนั้นกรอกแล้ว · ฝ่ายจัดรถกดแล้วได้ใบใหม่ เลขที่ใบ/วันที่ไม่ตรงกับใบของ cs
+ *   ตอนนี้ฝ่ายจัดรถ/บัญชีเปิดใบที่ cs บันทึกไว้แล้วกดสุ่ม จะได้ค่าเฉพาะช่องของตัวเอง
+ *   เลขที่ใบกับวันที่ (ช่องของ cs) ไม่ถูกแตะ · ผู้ดูแลระบบสุ่มครบทุกโซน (และ saveRecord ประทับครบทั้งสามฝ่าย)
  * ค่าที่สุ่มอิงข้อมูลอ้างอิงจริง (เส้นทาง/ชนิดรถ) ให้พอเดาได้ ไม่ใช่ตัวเลขมั่ว ๆ ล้วน
  */
-import { ACTIVE_VEHICLES, BRANCHES, DOC_TYPES, ORIGINS, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
+import { BRANCHES, DOC_TYPES, ORIGINS, SERVICE_GROUPS, destsFor, distanceFor, vehicleByName } from "../../lib/refdata";
 import { genId, todayISO } from "../../lib/record/date";
+import { fieldsOwnedBy } from "../../lib/store/save";
+import { kindsOf, loadRoster } from "../../lib/store/roster";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
-import type { TripRecord } from "../../types/record";
+import type { RoleKey, TripRecord } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
 import { emptyBill } from "./emptyRecord";
 
@@ -30,22 +37,39 @@ function randomBill(origin: string, dest: string) {
   };
 }
 
+/**
+ * สุ่มคันจากทะเบียนในกองรถจริงเท่านั้น (loadRoster()) — ห้ามสุ่มทะเบียนสมมติขึ้นมาเอง
+ * เลือกคู่ (ประเภทรถ, ชนิดรถ) จาก kindsOf() เพราะคันเดียวอาจวิ่งได้หลายคู่ (เช่นหางพ่วงเปลี่ยนตู้)
+ * แล้วค่อยหาความจุจริงของชนิดรถนั้นจาก refdata — กองรถว่างเปล่า (ผู้ใช้ลบทิ้งหมด) ค่อยถอยไปสุ่มแบบเดิม
+ */
+function pickRosterVehicle() {
+  const roster = loadRoster();
+  if (roster.length === 0) return null;
+  const active = roster.filter((f) => f.status === "ใช้งาน");
+  const v = pick(active.length ? active : roster);
+  const kind = pick(kindsOf(v));
+  return { plate: v.plate, fleetType: kind.fleetType, vehicle: kind.vehicle };
+}
+
 /** สุ่มใบรายการหนึ่งใบ เริ่มจากค่าเปล่าแล้วเติมทุกช่องที่ฟอร์มให้กรอกได้ */
 export function randomRecord(): TripRecord {
   const origin = pick(ORIGINS);
   const dest = pick(destsFor(origin));
   const dist = distanceFor(origin, dest) ?? int(50, 500);
-  const vehicle = pick(ACTIVE_VEHICLES);
-  const capacity = vehicle.capacityKg ?? int(1000, 15000);
+  const roster = pickRosterVehicle();
+  const plate = roster?.plate ?? `ทด.${int(10, 99)}-${int(1000, 9999)}`;
+  const fleetType = (roster?.fleetType ?? pick(["รถบริษัท", "รถร่วม"])) as FleetType;
+  const vehicleName = roster?.vehicle ?? "";
+  const capacity = vehicleByName(vehicleName)?.capacityKg ?? int(1000, 15000);
 
   return {
     id: genId(), docNo: `ทดสอบ${Date.now().toString().slice(-6)}`, source: "ใหม่", synced: false,
     date: todayISO(), routeType: pick(["ขาขึ้น", "ขาล่อง"]), branch: pick(BRANCHES), docType: pick(DOC_TYPES),
     origin, dest, dist, serviceGroup: pick(SERVICE_GROUPS), revenue: round100(int(3000, 40000)),
     bills: [randomBill(origin, dest)],
-    plate: `ทด.${int(10, 99)}-${int(1000, 9999)}`,
-    fleetType: pick(["รถบริษัท", "รถร่วม"]) as FleetType,
-    vehicle: vehicle.name, releaseDate: todayISO(),
+    plate,
+    fleetType,
+    vehicle: vehicleName, releaseDate: todayISO(),
     capacity, loadActual: int(0, capacity), emptyLeg: Math.random() < 0.1,
     gas: int(0, 500), fuelCash: int(0, 3000), fuelDownBill: int(0, 1500), fuelFleet: int(0, 1500),
     fuelPickup: int(0, 800), fuelUpBill: int(0, 1500), fuelSum: 0, fuelAutoOn: true,
@@ -59,4 +83,30 @@ export function randomRecord(): TripRecord {
     fees: 0, labor: 0, normal: 0, waste: 0, sheetTotal: 0, profit: 0,
     _v2: true, _v3: true, _v4: true,
   };
+}
+
+/**
+ * สุ่มเฉพาะช่องของฝ่ายใน zones แล้วทับลงบน base — ช่องของฝ่ายอื่น รวมถึง id ธง workflow
+ * และสถานะซิงก์ คงค่าจาก base ทั้งหมด
+ *
+ * วันปล่อยรถ (ช่องของฝ่ายจัดรถ) = วันที่ในใบเป๊ะ ไม่สุ่มเหลื่อมวัน — ใบที่สุ่มจะได้ขึ้นสถานะ
+ * "กำลังเดินทาง" ในหน้าสถานะกองรถทันทีโดยไม่ต้องรอข้ามวัน (tripEta ถือว่ายังไม่ถึงวันปล่อยรถ
+ * = ยังไม่ออกวิ่ง ถ้าวันปล่อยรถล้ำไปในอนาคตกว่าวันที่ในใบ)
+ */
+export function randomFor(base: TripRecord, zones: RoleKey[]): TripRecord {
+  const full = randomRecord();
+  const out = { ...base } as unknown as Record<string, unknown>;
+  for (const f of zones.flatMap(fieldsOwnedBy)) {
+    out[f] = (full as unknown as Record<string, unknown>)[f];
+  }
+  // บิล (ช่องของ cs) สุ่มเท่าจำนวนแถวที่มีในฟอร์ม — มีลูกหนี้ 3 ราย กด "เพิ่มรายการลูกหนี้" ให้ครบ 3 แถว
+  // ก่อนแล้วค่อยกดสุ่ม ได้ 3 บิล · ใบเปล่ามีแถวว่างอยู่แล้ว 1 แถว (emptyRecord) จึงได้อย่างน้อย 1 บิลเสมอ
+  if (zones.includes("cs")) {
+    const n = Math.max(1, base.bills?.length ?? 0);
+    out.bills = Array.from({ length: n }, () => randomBill(out.origin as string, out.dest as string));
+  }
+  if (zones.includes("dispatch")) {
+    out.releaseDate = (out.date as string) || todayISO();
+  }
+  return out as unknown as TripRecord;
 }

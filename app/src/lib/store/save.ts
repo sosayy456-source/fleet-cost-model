@@ -15,7 +15,7 @@
  */
 import { computeCost } from "../cost/computeCost";
 import { REF } from "../refdata";
-import { loadTrips, pushRecords } from "../sheet/client";
+import { loadTrip, pushRecords } from "../sheet/client";
 import { ROLES, isEntryRole, stampRole } from "../record/roles";
 import { put } from "./records";
 import type { RefOverrides } from "../cost/types";
@@ -99,18 +99,16 @@ export async function saveRecord(draft: TripRecord, opts: SaveOptions): Promise<
   let mergedFromSheet = false;
 
   if (!offline) {
-    let latest: TripRecord[] | null = null;
+    let onSheet: TripRecord | null;
     try {
-      latest = await loadTrips();
+      // อ่านเฉพาะใบนี้ (ไอดีก่อน แล้วค่อยเลขที่ใบ — ลำดับเดียวกับ readTripRecord_ ใน Code.gs)
+      onSheet = await loadTrip(draft.id, draft.docNo || "");
     } catch (err) {
       throw new SaveAbortedError(
         "อ่านใบล่าสุดจากชีตไม่สำเร็จ จึงยังไม่บันทึก เพื่อไม่ให้เขียนทับงานของฝ่ายอื่น · " +
         (err as Error).message,
       );
     }
-
-    const onSheet = latest.find((r) => r.id === draft.id)
-      ?? latest.find((r) => draft.docNo && r.docNo === draft.docNo);
 
     if (onSheet) {
       // เริ่มจากของบนชีต แล้วทับเฉพาะช่องของฝ่ายเรา

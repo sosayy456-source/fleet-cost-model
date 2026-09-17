@@ -11,9 +11,11 @@
 import { useMemo, useRef, useState } from "react";
 import { DBar, DLine, DMixed, DPie } from "../../lib/chart/dcharts";
 import { useDashInk } from "../../lib/chart/dashfx";
-import RefreshBtn from "../../lib/ui/RefreshBtn";
+import DashShell, { Meta } from "../../lib/ui/DashShell";
+import FilterBar from "../../lib/ui/FilterBar";
+import GrowBox from "../../lib/ui/GrowBox";
 import { D, fmtN } from "../../lib/chart/theme";
-import { CC, Empty, Hero, KC, ListFF, Note, Pane, ResetBtn, SrcFF, TableHead, ZT,
+import { CC, Empty, FF, Hero, KC, ListFF, Note, Pane, ResetBtn, SrcFF, TableHead, ZT,
          searchStyle, selectStyle } from "./parts";
 import { recCost, adminWriteOff, CLEARED_GOODS } from "../../lib/cost/recCost";
 import { billIsPaid, recBills } from "../../lib/record/payment";
@@ -84,59 +86,74 @@ function YearFF({ rows, value, onChange }: {
 }
 
 /* ============================ ตัวหลัก ============================ */
-export default function FleetDash({ state, role }: { state: RecordsState; role: RoleKey }) {
+export default function FleetDash({ state, role, sample = false }: {
+  state: RecordsState; role: RoleKey;
+  /** ชุดข้อมูลตัวอย่าง → ชิปเตือนในหัว (ค่าเดียวกับแถบเตือนเดิมของ App) */
+  sample?: boolean;
+}) {
   const [tab, setTab] = useState<TabId>("main");
   const barRef = useRef<HTMLDivElement>(null);
-  useDashInk(barRef, tab);
+  const nothing = !state.loading && state.records.length === 0 && state.oldRecords.length === 0;
+  /**
+   * บล็อกทั้งหน้าด้วย "กำลังโหลด..." เฉพาะตอนยังไม่เคยมีข้อมูลอะไรให้โชว์เลย (เปิดแอปครั้งแรกสุด)
+   * ถ้ามีของเดิมอยู่แล้ว (จากรอบก่อน/แคช) ให้โชว์ค้างไว้เงียบ ๆ ระหว่างรีเฟรช ไม่งั้นทุกครั้งที่กด
+   * "รีเฟรช" หรือเปิดแอปใหม่จะเห็นทั้งหน้าเนื้อหาหายวับไปเป็นการ์ดเปล่าเสมอ ทั้งที่ข้อมูลเก่ายังใช้ดูได้อยู่
+   */
+  const showLoading = state.loading && state.records.length === 0 && state.oldRecords.length === 0;
+  // แท็บโผล่หลังมีข้อมูลแล้ว — ให้เส้นเลื่อนวัดตำแหน่งใหม่ตอนนั้นด้วย
+  useDashInk(barRef, `${tab}:${showLoading || nothing}`);
 
-  /* ปุ่มเดียวกันทุกทางออกของคอมโพเนนต์ รวมถึงตอนยังไม่มีข้อมูล
-     ไม่งั้นแดชบอร์ดที่ว่างอยู่จะดึงใบเข้ามาไม่ได้เลยถ้าไม่รีโหลดทั้งหน้า */
-  const refresh = (
-    <RefreshBtn className="dash-reload" onClick={state.reload} loading={state.loading}
-      title={state.connected
-        ? "ดึงใบรายการล่าสุดจาก Google Sheet มาคำนวณใหม่"
-        : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"} />
+  const newCount = state.records.length;
+  const oldCount = state.oldRecords.length;
+  const meta = (
+    <Meta parts={[
+      <><b>{fmt(newCount)}</b> ใบใหม่</>,
+      <><b>{fmt(oldCount)}</b> แถวข้อมูลเก่าจากชีต</>,
+      state.connected ? "เชื่อม Google Sheet แล้ว" : "ยังไม่ได้เชื่อม Google Sheet — อ่านจากในเครื่องอย่างเดียว",
+    ]} />
   );
 
-  if (state.loading) {
-    return <div className="card"><p className="muted">กำลังโหลด...</p></div>;
-  }
+  const tabs = !showLoading && !nothing && (
+    <div className="dash-tabs" ref={barRef}>
+      <span className="dink" />
+      {TABS.map((t) => (
+        <button key={t.id} type="button"
+          className={"dtab" + (tab === t.id ? " active" : "")}
+          onClick={() => setTab(t.id)}>{t.label}</button>
+      ))}
+    </div>
+  );
 
-  const nothing = state.records.length === 0 && state.oldRecords.length === 0;
-  if (nothing) {
-    return (
-      <div className="card">
-        <h2>ยังไม่มีข้อมูล</h2>
-        <p className="muted">
-          ยังไม่มีใบรายการให้สรุป — กรอกใบแรกที่หน้า “บันทึกข้อมูล”
-          หรือเชื่อม Google Sheet เพื่อดึงใบที่มีอยู่แล้วเข้ามา
-        </p>
-        <div style={{ marginTop: 12 }}>{refresh}</div>
-      </div>
-    );
-  }
-
+  /* ปุ่มรีเฟรชอยู่ในหัว (DashShell) จึงกดได้ทุกสถานะ รวมถึงตอนยังไม่มีข้อมูล
+     ไม่งั้นแดชบอร์ดที่ว่างอยู่จะดึงใบเข้ามาไม่ได้เลยถ้าไม่รีโหลดทั้งหน้า */
   return (
-    <>
-      <div className="dash-tabs" ref={barRef}>
-        <span className="dink" />
-        {TABS.map((t) => (
-          <button key={t.id} type="button"
-            className={"dtab" + (tab === t.id ? " active" : "")}
-            onClick={() => setTab(t.id)}>{t.label}</button>
-        ))}
-        {/* อยู่บนแถบแท็บจึงติดมากับทุกแท็บ ไม่ต้องไปเติมทีละแพน */}
-        {refresh}
-      </div>
-
-      {tab === "main" && <MainPane state={state} />}
-      {tab === "trip" && <TripPane state={state} />}
-      {tab === "customer" && <CustomerPane state={state} />}
-      {tab === "fleet" && <FleetPane state={state} />}
-      {tab === "status" && <StatusPane state={state} role={role} />}
-      {tab === "service" && <ServicePane state={state} />}
-      {tab === "debt" && <DebtPane state={state} />}
-    </>
+    <DashShell sample={sample} meta={meta} tabs={tabs || undefined}
+      onRefresh={state.reload} loading={state.loading}
+      refreshTitle={state.connected
+        ? "ดึงใบรายการล่าสุดจาก Google Sheet มาคำนวณใหม่"
+        : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"}>
+      {showLoading ? (
+        <div className="card"><p className="muted">กำลังโหลด...</p></div>
+      ) : nothing ? (
+        <div className="card">
+          <h2>ยังไม่มีข้อมูล</h2>
+          <p className="muted">
+            ยังไม่มีใบรายการให้สรุป — กรอกใบแรกที่หน้า “บันทึกข้อมูล”
+            หรือเชื่อม Google Sheet เพื่อดึงใบที่มีอยู่แล้วเข้ามา
+          </p>
+        </div>
+      ) : (
+        <>
+          {tab === "main" && <MainPane state={state} />}
+          {tab === "trip" && <TripPane state={state} />}
+          {tab === "customer" && <CustomerPane state={state} />}
+          {tab === "fleet" && <FleetPane state={state} />}
+          {tab === "status" && <StatusPane state={state} role={role} />}
+          {tab === "service" && <ServicePane state={state} />}
+          {tab === "debt" && <DebtPane state={state} />}
+        </>
+      )}
+    </DashShell>
   );
 }
 
@@ -243,7 +260,7 @@ function MainPane({ state }: { state: RecordsState }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         {view === "main" && <>
           <SrcFF value={f.src} onChange={set("src")} />
           <YearFF rows={base} value={f.year} onChange={set("year")} />
@@ -259,7 +276,7 @@ function MainPane({ state }: { state: RecordsState }) {
           <ListFF label="จุดลง (ปลายทาง)" all="ทุกปลายทาง" value={f.dest} onChange={set("dest")} opts={duniq(base.map((r) => r.dest))} />
           <ResetBtn onClick={() => setF(MAIN_F0)} />
         </>}
-      </div>
+      </FilterBar>
 
       {view === "ops" ? <OpsPane state={state} /> : (
         <Pane deps={[recs, f]}>
@@ -437,7 +454,7 @@ function OpsPane({ state }: { state: RecordsState }) {
 
   return (
     <div className="opsview">
-      <div className="dz-filters">
+      <FilterBar>
         <SrcFF value={f.src} onChange={set("src")} />
         <div className="ff">
           <label>ช่วงเวลา</label>
@@ -449,7 +466,7 @@ function OpsPane({ state }: { state: RecordsState }) {
         </div>
         <ListFF label="สาขา" all="ทุกสาขา" value={f.branch} onChange={set("branch")} opts={duniq(base.map((r) => r.branch))} />
         <ResetBtn onClick={() => setF(OPS_F0)} />
-      </div>
+      </FilterBar>
 
       {/* คีย์ตาม f เพื่อให้แอนิเมชันเข้าเฟรม/แถบโต replay ใหม่ทุกครั้งที่เปลี่ยนตัวกรอง — ดูมีชีวิตขึ้นแทนที่จะโชว์ค้าง */}
       <Pane key={`${f.src}|${f.period}|${f.branch}|${f.tier}`} deps={[scored, f]}>
@@ -546,7 +563,7 @@ function OpsPane({ state }: { state: RecordsState }) {
               <option value="red">แดง</option>
             </select>
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={tripRows} render={(shownTripRows) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>สถานะ</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>สาขา</th><th>เส้นทาง</th>
@@ -554,7 +571,7 @@ function OpsPane({ state }: { state: RecordsState }) {
                 <th className="n">กำไร/ขาดทุน</th>
               </tr></thead>
               <tbody>
-                {tripRows.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยวตามเงื่อนไข" /> : tripRows.slice(0, 300).map((x, i) => (
+                {tripRows.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยวตามเงื่อนไข" /> : shownTripRows.map((x, i) => (
                   <tr key={i}>
                     <td><span className={`op-status op-status-dot ${x.tier}`} title={tierMeta[x.tier].label}><i /></span></td>
                     <td>{thDateSafe(x.r.date)}</td>
@@ -571,14 +588,9 @@ function OpsPane({ state }: { state: RecordsState }) {
                     </td>
                   </tr>
                 ))}
-                {tripRows.length > 300 && (
-                  <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                    …แสดง 300 รายการแรกจากทั้งหมด {fmt(tripRows.length)} รายการ
-                  </td></tr>
-                )}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
@@ -604,52 +616,144 @@ const COST_ITEMS: [string, string][] = [
   ["สูญเปล่า: นอกเส้นทาง (Fleet)", "fuelOffFleet"], ["สูญเปล่า: เบี้ยเลี้ยงนอกเส้นทาง", "laborOff"],
 ];
 
-/* ====================== แท็บ: กำไรรายเที่ยว ====================== */
-const TRIP_F0 = { src: "", year: "", branch: "", fleet: "", veh: "", route: "" };
+/* ====================== แท็บ: กำไรรายเที่ยว ======================
+ * ครอบคลุมสเปก "กำไรระดับเที่ยววิ่ง": ตัวกรอง ช่วงเวลา/เส้นทาง/รถ · KPI 6 ตัว ·
+ * แนวโน้มรายเดือน · การกระจายอัตรากำไร · เส้นทางกำไร/ขาดทุนสูงสุด · โครงสร้างต้นทุน ·
+ * ต้นทุนเฉลี่ยตามชนิดรถ · ตารางสรุปรายเส้นทางที่เรียงลำดับได้
+ *
+ * ต้นทุนต่อเที่ยวกับต้นทุนต่อกิโลเมตรแยกเป็นคนละกราฟ ไม่ใช่สองแกนในใบเดียว
+ * เพราะคนละหน่วยกัน — แท่งที่หน่วยต่างกันในแกนเดียวเทียบความสูงกันไม่ได้
+ */
+const TRIP_F0 = { src: "", year: "", month: "", branch: "", fleet: "", veh: "", origin: "", dest: "", svc: "" };
+
+/** ช่วงอัตรากำไรของกราฟการกระจาย — ขอบล่างรวม ขอบบนไม่รวม */
+const MARGIN_BANDS: [number, number, string][] = [
+  [-Infinity, 0, "ขาดทุน"], [0, 10, "0–10%"], [10, 20, "10–20%"],
+  [20, 30, "20–30%"], [30, Infinity, "30%+"]];
+
+type RouteSortKey = "route" | "veh" | "svc" | "trips" | "rev" | "cost" | "profit" | "margin";
 
 function TripPane({ state }: { state: RecordsState }) {
   const [f, setF] = useState(TRIP_F0);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<"asc" | "desc">("asc");
+  const [rsort, setRsort] = useState<{ k: RouteSortKey; dir: "asc" | "desc" }>({ k: "profit", dir: "desc" });
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const base = useSourced(state, f.src);
 
   /** กำไรรายเที่ยวไม่หักค่าบริหาร เพราะบิลเคลียร์เป็นค่าใช้จ่ายระดับบิล ไม่ใช่ระดับเที่ยว */
-  const rows = useMemo(() => base.filter((r) =>
+  const calc = (r: TripRecord) => {
+    const c = recCost(r), rev = num(r.revenue), profit = rev - c.total;
+    return { r, c, rev, cost: c.total, profit, margin: rev ? profit / rev * 100 : null };
+  };
+  /** ignoreMonth ใช้กับกราฟแนวโน้ม ซึ่งต้องเห็นทุกเดือนถึงจะเป็นเส้นแนวโน้มได้ */
+  const pass = (r: TripRecord, ignoreMonth: boolean) =>
     (!f.year || yearOf(r) === f.year)
+    && (ignoreMonth || !f.month || monthOf(r) === f.month)
     && (!f.branch || (r.branch ?? "") === f.branch)
     && (!f.fleet || (r.fleetType ?? "") === f.fleet)
     && (!f.veh || (r.vehicle ?? "") === f.veh)
-    && (!f.route || routeLabel(r) === f.route)
-  ).map((r) => {
-    const cost = recCost(r).total, rev = num(r.revenue), profit = rev - cost;
-    return { r, rev, cost, profit, margin: rev ? profit / rev * 100 : null };
-  }), [base, f]);
+    && (!f.origin || (r.origin ?? "") === f.origin)
+    && (!f.dest || (r.dest ?? "") === f.dest)
+    && (!f.svc || (r.serviceGroup ?? "") === f.svc);
 
+  const rows = useMemo(() => base.filter((r) => pass(r, false)).map(calc), [base, f]);
+  const spanRows = useMemo(() => base.filter((r) => pass(r, true)).map(calc), [base, f]);
+
+  const rev = rows.reduce((s, x) => s + x.rev, 0);
+  const cost = rows.reduce((s, x) => s + x.cost, 0);
+  const profit = rev - cost;
   const lossRows = rows.filter((x) => x.profit < 0);
-  const lossSum = lossRows.reduce((s, x) => s + x.profit, 0);
   const marginRows = rows.filter((x) => x.margin != null);
-  const avgMargin = marginRows.length
-    ? marginRows.reduce((s, x) => s + (x.margin ?? 0), 0) / marginRows.length : 0;
-  const bestProfit = rows.length ? Math.max(...rows.map((x) => x.profit)) : 0;
 
-  const buckets: [number, number, string][] = [
-    [-Infinity, 0, "ขาดทุน"], [0, 10, "0–10%"], [10, 20, "10–20%"],
-    [20, 30, "20–30%"], [30, 40, "30–40%"], [40, Infinity, "40%+"]];
-  const hist = buckets.map(([lo, hi, label]) => ({
+  const hist = MARGIN_BANDS.map(([lo, hi, label]) => ({
     label, n: marginRows.filter((x) => (x.margin ?? 0) >= lo && (x.margin ?? 0) < hi).length }));
-  const histColors = [D.rose, D.amber, D.mint[0], D.mint[1], D.mint[2], D.emerald];
+  const histColors = [D.rose, D.amber, D.mint[1], D.mint[2], D.emerald];
 
+  /** แนวโน้มรายเดือน — ไม่สนตัวกรองเดือน ไม่งั้นเหลือจุดเดียวบนเส้น */
+  const trend = useMemo(() => {
+    const m = new Map<string, { rev: number; cost: number }>();
+    for (const x of spanRows) {
+      const key = monthOf(x.r);
+      if (!key) continue;
+      const cur = m.get(key) ?? { rev: 0, cost: 0 };
+      cur.rev += x.rev; cur.cost += x.cost; m.set(key, cur);
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([k, v]) => ({ m: mLabel(k), rev: v.rev, cost: v.cost, profit: v.rev - v.cost }));
+  }, [spanRows]);
+
+  /** สรุปรายเส้นทาง × ชนิดรถ × กลุ่มบริการ — ใช้ทั้งกราฟ Top 5 และตารางสรุป */
+  const routeRows = useMemo(() => {
+    const m = new Map<string, {
+      route: string; veh: string; svc: string;
+      trips: number; rev: number; cost: number;
+    }>();
+    for (const x of rows) {
+      const route = routeLabel(x.r), veh = x.r.vehicle || "–", svc = x.r.serviceGroup || "–";
+      const key = `${route}\u0000${veh}\u0000${svc}`;
+      const cur = m.get(key) ?? { route, veh, svc, trips: 0, rev: 0, cost: 0 };
+      cur.trips += 1; cur.rev += x.rev; cur.cost += x.cost;
+      m.set(key, cur);
+    }
+    return [...m.values()].map((v) => ({
+      ...v, profit: v.rev - v.cost, margin: v.rev ? (v.rev - v.cost) / v.rev * 100 : null }));
+  }, [rows]);
+
+  /** Top 5 กำไร/ขาดทุน ยุบตามเส้นทางล้วน ไม่แยกชนิดรถ — คำถามคือ "เส้นทางไหน" */
   const byRoute = useMemo(() => {
-    const m = new Map<string, { sum: number; n: number }>();
+    const m = new Map<string, number>();
     for (const x of rows) {
       const key = routeLabel(x.r);
-      const cur = m.get(key) ?? { sum: 0, n: 0 };
-      cur.sum += x.profit; cur.n += 1; m.set(key, cur);
+      m.set(key, (m.get(key) ?? 0) + x.profit);
     }
-    return [...m.entries()].map(([name, v]) => ({ name, v: v.sum / v.n }))
-      .sort((a, b) => b.v - a.v).slice(0, 10);
+    return [...m.entries()].map(([name, v]) => ({ name, v }));
   }, [rows]);
+  const topRoutes = byRoute.filter((x) => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 5);
+  const lossRoutes = byRoute.filter((x) => x.v < 0).sort((a, b) => a.v - b.v).slice(0, 5)
+    .map((x) => ({ name: x.name, v: Math.abs(x.v) }));
+
+  const costMix = [
+    { name: "น้ำมันเชื้อเพลิง", v: rows.reduce((s, x) => s + x.c.fuel, 0) },
+    { name: "เบี้ยเลี้ยงคนขับ", v: rows.reduce((s, x) => s + x.c.driver, 0) },
+    { name: "ค่าซ่อมบำรุง", v: rows.reduce((s, x) => s + x.c.repair, 0) },
+    { name: "ค่าธรรมเนียมอื่นๆ", v: rows.reduce((s, x) => s + x.c.other, 0) },
+    { name: "ต้นทุนสูญเปล่า", v: rows.reduce((s, x) => s + x.c.waste, 0) },
+  ];
+  const costMixColors = [D.violet, D.teal, D.orange, D.indigo, D.rose];
+
+  /** ต้นทุนเฉลี่ยตามชนิดรถ — ต่อกิโลเมตรนับเฉพาะเที่ยวที่กรอกระยะทางไว้ */
+  const byVeh = useMemo(() => {
+    const m = new Map<string, { cost: number; trips: number; kmCost: number; km: number }>();
+    for (const x of rows) {
+      const key = x.r.vehicle || "–";
+      const cur = m.get(key) ?? { cost: 0, trips: 0, kmCost: 0, km: 0 };
+      cur.cost += x.cost; cur.trips += 1;
+      const km = num(x.r.dist);
+      if (km > 0) { cur.km += km; cur.kmCost += x.cost; }
+      m.set(key, cur);
+    }
+    return [...m.entries()].map(([name, v]) => ({
+      name, perTrip: v.trips ? v.cost / v.trips : 0, perKm: v.km ? v.kmCost / v.km : 0 }))
+      .sort((a, b) => b.perTrip - a.perTrip);
+  }, [rows]);
+
+  const sortedRoutes = useMemo(() => {
+    const dir = rsort.dir === "asc" ? 1 : -1;
+    return routeRows.slice().sort((a, b) => {
+      const x = a[rsort.k], y = b[rsort.k];
+      if (typeof x === "string" && typeof y === "string") return dir * x.localeCompare(y, "th");
+      return dir * ((x ?? -Infinity) as number - ((y ?? -Infinity) as number));
+    });
+  }, [routeRows, rsort]);
+
+  const rTh = (k: RouteSortKey, label: string, n?: boolean) => (
+    <th className={n ? "n" : undefined} onClick={() => setRsort((p) => ({
+      k, dir: p.k === k && p.dir === "desc" ? "asc" : "desc" }))}
+      style={{ cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" }}>
+      {label}{rsort.k === k ? (rsort.dir === "desc" ? " ↓" : " ↑") : ""}
+    </th>
+  );
 
   const list = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -659,38 +763,128 @@ function TripPane({ state }: { state: RecordsState }) {
     return out.sort((a, b) => sort === "asc" ? a.profit - b.profit : b.profit - a.profit);
   }, [rows, q, sort]);
 
+  /** เดือนที่เลือกได้ต้องตามปีที่กรองอยู่ ไม่งั้นเลือกแล้วได้ตารางว่าง */
+  const monthOpts = duniq(base.filter((r) => !f.year || yearOf(r) === f.year).map(monthOf));
+
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <SrcFF value={f.src} onChange={set("src")} />
         <YearFF rows={base} value={f.year} onChange={set("year")} />
+        <FF label="เดือน" value={f.month} onChange={set("month")}>
+          <option value="">ทุกเดือน</option>
+          {monthOpts.map((m) => <option key={m} value={m}>{mLabel(m)}</option>)}
+        </FF>
         <ListFF label="สาขา" all="ทุกสาขา" value={f.branch} onChange={set("branch")} opts={duniq(base.map((r) => r.branch))} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.fleet} onChange={set("fleet")} opts={duniq(base.map((r) => r.fleetType))} />
         <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.veh} onChange={set("veh")} opts={duniq(base.map((r) => r.vehicle))} />
-        <ListFF label="เส้นทาง" all="ทุกเส้นทาง" value={f.route} onChange={set("route")} opts={duniq(base.map(routeLabel))} />
+        <ListFF label="จุดขึ้น (ต้นทาง)" all="ทุกต้นทาง" value={f.origin} onChange={set("origin")} opts={duniq(base.map((r) => r.origin))} />
+        <ListFF label="จุดลง (ปลายทาง)" all="ทุกปลายทาง" value={f.dest} onChange={set("dest")} opts={duniq(base.map((r) => r.dest))} />
+        <ListFF label="กลุ่มบริการ" all="ทุกกลุ่มบริการ" value={f.svc} onChange={set("svc")} opts={duniq(base.map((r) => r.serviceGroup))} />
         <ResetBtn onClick={() => setF(TRIP_F0)} />
-      </div>
+      </FilterBar>
 
       <Pane deps={[rows]}>
         <div className="dz-heroes">
-          <Hero kind="loss" l="เที่ยวขาดทุน" v={fmt(lossRows.length)}
-            s={<>เที่ยว จากทั้งหมด {fmt(rows.length)}</>} />
+          <Hero kind="rev" l="รายได้" v={fmt(rev)} s="บาท · จากเที่ยวที่ผ่านตัวกรอง" />
+          <Hero kind="cost" l="ต้นทุน" v={fmt(cost)} s="บาท · ปกติ + สูญเปล่า" />
+          <Hero kind={profit < 0 ? "loss" : "profit"} l="กำไร"
+            v={(profit < 0 ? "−" : "") + fmt(Math.abs(profit))} s="บาท · รายได้ − ต้นทุน" />
         </div>
         <div className="dz-cards">
-          <KC dot={D.rose} tone="bad" l="ขาดทุนรวม (เที่ยวที่ขาดทุน)" v={fmt(Math.abs(lossSum))} s="บาท" />
-          <KC dot={D.indigo} l="อัตรากำไรเฉลี่ย/เที่ยว" v={`${Math.round(avgMargin)}%`} s="ของรายได้ต่อเที่ยว" />
-          <KC dot={D.emeraldLight} tone="good" l="กำไรสูงสุดต่อเที่ยว" v={fmt(bestProfit)} s="บาท" />
+          <KC dot={profit < 0 ? D.rose : D.emeraldLight} tone={profit < 0 ? "bad" : "good"}
+            l="อัตรากำไร" v={`${rev ? Math.round(profit / rev * 100) : 0}%`} s="ของรายได้รวม" />
+          <KC dot={D.indigo} l="จำนวนเที่ยว" v={fmt(rows.length)} s="เที่ยววิ่ง" />
+          <KC dot={D.rose} tone="bad" l="เที่ยวที่ขาดทุน"
+            v={`${rows.length ? Math.round(lossRows.length / rows.length * 100) : 0}%`}
+            s={<>{fmt(lossRows.length)} เที่ยว</>} />
         </div>
 
-        <div className="dz-row dz-11" style={{ marginTop: 14 }}>
-          <CC title="กระจายตัวอัตรากำไรต่อเที่ยว">
+        <ZT>แนวโน้ม &amp; การกระจายกำไร</ZT>
+        <div className="dz-row dz-2">
+          <CC title="รายได้ · ต้นทุน · กำไร รายเดือน">
+            <DLine data={trend} xKey="m" series={[
+              { key: "rev", label: "รายได้", color: D.indigo },
+              { key: "cost", label: "ต้นทุน", color: D.amber },
+              { key: "profit", label: "กำไร", color: D.emerald }]} />
+          </CC>
+          <CC title="การกระจายอัตรากำไรต่อเที่ยว">
             <DBar data={hist} xKey="label" suffix=" เที่ยว" colors={histColors}
               series={[{ key: "n", label: "จำนวนเที่ยว", color: D.indigo }]} />
           </CC>
-          <CC title="กำไรเฉลี่ย/เที่ยว ตามเส้นทาง (Top 10)">
-            <DBar data={byRoute} xKey="name" horiz
-              series={[{ key: "v", label: "กำไรเฉลี่ย/เที่ยว", color: D.indigo }]} />
+        </div>
+
+        <div className="dz-row dz-11" style={{ marginTop: 14 }}>
+          <CC title="5 เส้นทางที่ทำกำไรสูงสุด">
+            <DBar data={topRoutes} xKey="name" horiz
+              series={[{ key: "v", label: "กำไรรวม", color: D.emerald }]} />
           </CC>
+          <CC title="5 เส้นทางที่ขาดทุนสูงสุด">
+            <DBar data={lossRoutes} xKey="name" horiz
+              series={[{ key: "v", label: "ขาดทุนรวม", color: D.rose }]} />
+          </CC>
+        </div>
+
+        <ZT>โครงสร้างต้นทุน</ZT>
+        <div>
+          <CC title="ค่าใช้จ่ายหลักในต้นทุนรวม">
+            <DBar data={costMix} xKey="name" colors={costMixColors}
+              series={[{ key: "v", label: "ต้นทุน", color: D.indigo }]} />
+          </CC>
+        </div>
+
+        <div className="dz-row dz-11" style={{ marginTop: 14 }}>
+          <CC title="ต้นทุนเฉลี่ยต่อเที่ยว ตามชนิดรถ">
+            <DBar data={byVeh} xKey="name"
+              series={[{ key: "perTrip", label: "ต้นทุน/เที่ยว", color: D.violet }]} />
+          </CC>
+          <CC title="ต้นทุนเฉลี่ยต่อกิโลเมตร ตามชนิดรถ">
+            <DBar data={byVeh} xKey="name" digits={2} suffix=" บาท/กม."
+              series={[{ key: "perKm", label: "ต้นทุน/กม.", color: D.teal }]} />
+          </CC>
+        </div>
+
+        <div className="dz-cc" style={{ marginTop: 14 }}>
+          <TableHead title="สรุปรายเส้นทาง · คลิกหัวคอลัมน์เพื่อเรียงลำดับ" />
+          <div className="scroll">
+            <table className="dz-tbl">
+              <thead><tr>
+                {rTh("route", "เส้นทาง")}
+                {rTh("veh", "ชนิดรถ")}
+                {rTh("svc", "กลุ่มบริการ")}
+                {rTh("trips", "จำนวนเที่ยว", true)}
+                {rTh("rev", "รายได้", true)}
+                {rTh("cost", "ต้นทุน", true)}
+                {rTh("profit", "กำไร/ขาดทุน", true)}
+                {rTh("margin", "อัตรากำไร", true)}
+              </tr></thead>
+              <tbody>
+                {sortedRoutes.length === 0 ? <Empty cols={8} text="ไม่พบเส้นทางตามเงื่อนไข" /> : (
+                  <>
+                    {sortedRoutes.slice(0, 200).map((x, i) => (
+                      <tr key={i}>
+                        <td>{x.route}</td>
+                        <td>{x.veh}</td>
+                        <td>{x.svc}</td>
+                        <td className="n">{fmt(x.trips)}</td>
+                        <td className="n">{fmt(x.rev)}</td>
+                        <td className="n">{fmt(x.cost)}</td>
+                        <td className="n" style={{ fontWeight: 700, color: x.profit < 0 ? "var(--red)" : "var(--green)" }}>
+                          {(x.profit < 0 ? "−" : "") + fmt(Math.abs(x.profit))}
+                        </td>
+                        <td className="n">{x.margin == null ? "–" : Math.round(x.margin) + "%"}</td>
+                      </tr>
+                    ))}
+                    {sortedRoutes.length > 200 && (
+                      <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
+                        …แสดง 200 รายการแรกจากทั้งหมด {fmt(sortedRoutes.length)} รายการ · ใช้ตัวกรองเพื่อดูรายการอื่น
+                      </td></tr>
+                    )}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="dz-cc" style={{ marginTop: 14 }}>
@@ -702,7 +896,7 @@ function TripPane({ state }: { state: RecordsState }) {
             <input style={searchStyle} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหา เลขที่ใบรายการ / ทะเบียน / เส้นทาง" />
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={list} render={(shownList) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>วันที่</th><th>เลขที่ใบรายการ</th><th>เส้นทาง</th><th>ชนิดรถ</th><th>ทะเบียน</th>
@@ -712,7 +906,7 @@ function TripPane({ state }: { state: RecordsState }) {
               <tbody>
                 {list.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยววิ่งตามเงื่อนไข" /> : (
                   <>
-                    {list.slice(0, 300).map((x, i) => (
+                    {shownList.map((x, i) => (
                       <tr key={i}>
                         <td>{thDateSafe(x.r.date)}</td>
                         <td>{x.r.docNo || "–"}</td>
@@ -727,21 +921,18 @@ function TripPane({ state }: { state: RecordsState }) {
                         <td className="n">{x.margin == null ? "–" : Math.round(x.margin) + "%"}</td>
                       </tr>
                     ))}
-                    {list.length > 300 && (
-                      <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                        …แสดง 300 รายการแรกจากทั้งหมด {fmt(list.length)} รายการ · ใช้ตัวกรอง/ค้นหาเพื่อดูรายการอื่น
-                      </td></tr>
-                    )}
                   </>
                 )}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
           กำไร/ขาดทุนต่อเที่ยว = รายได้ (ช่อง “รายได้” ในฟอร์มบันทึก) − ต้นทุนรวม (ปกติ + สูญเปล่า) ต่อเที่ยว ·
-          ยังไม่รวมค่าบริหาร (บิลเคลียร์) เพราะเป็นค่าใช้จ่ายระดับบิล ไม่ใช่ระดับเที่ยว
+          ยังไม่รวมค่าบริหาร (บิลเคลียร์) เพราะเป็นค่าใช้จ่ายระดับบิล ไม่ใช่ระดับเที่ยว ·
+          กราฟแนวโน้มรายเดือนไม่สนตัวกรอง “เดือน” เพื่อให้ยังเห็นเส้นตลอดช่วง ·
+          ต้นทุนต่อกิโลเมตรนับเฉพาะเที่ยวที่กรอกระยะทางไว้
         </Note>
       </Pane>
     </>
@@ -799,7 +990,7 @@ function CustomerPane({ state }: { state: RecordsState }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <SrcFF value={src} onChange={setSrc} />
         <YearFF rows={base} value={year} onChange={setYear} />
         <div className="ff">
@@ -817,7 +1008,7 @@ function CustomerPane({ state }: { state: RecordsState }) {
           </select>
         </div>
         <ResetBtn onClick={() => { setSrc(""); setYear(""); setRole("sender"); setSort("desc"); }} />
-      </div>
+      </FilterBar>
 
       <Pane deps={[list, sort]}>
         <div className="dz-heroes">
@@ -845,7 +1036,7 @@ function CustomerPane({ state }: { state: RecordsState }) {
             <input style={{ ...searchStyle, minWidth: 220 }} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหาชื่อลูกค้า" />
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={shown} render={(shownShown) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>ลูกค้า</th><th className="n">จำนวนบิล</th><th className="n">รายได้รวม</th>
@@ -854,7 +1045,7 @@ function CustomerPane({ state }: { state: RecordsState }) {
               <tbody>
                 {shown.length === 0 ? <Empty cols={6} text="ไม่พบข้อมูลลูกค้าตามเงื่อนไข" /> : (
                   <>
-                    {shown.slice(0, 300).map((x) => (
+                    {shownShown.map((x) => (
                       <tr key={x.name}>
                         <td><ShortId v={x.name} /></td>
                         <td className="n">{fmt(x.n)}</td>
@@ -866,16 +1057,11 @@ function CustomerPane({ state }: { state: RecordsState }) {
                         <td className="n">{x.margin == null ? "–" : Math.round(x.margin) + "%"}</td>
                       </tr>
                     ))}
-                    {shown.length > 300 && (
-                      <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                        …แสดง 300 รายการแรกจากทั้งหมด {fmt(shown.length)} รายการ
-                      </td></tr>
-                    )}
                   </>
                 )}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
@@ -969,14 +1155,14 @@ function FleetPane({ state }: { state: RecordsState }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <SrcFF value={f.src} onChange={set("src")} />
         <YearFF rows={base} value={f.year} onChange={set("year")} />
         <ListFF label="เส้นทาง" all="ทุกเส้นทาง" value={f.route} onChange={set("route")} opts={duniq(base.map(routeLabel))} />
         <ListFF label="กลุ่มบริการ" all="ทุกกลุ่มบริการ" value={f.group} onChange={set("group")} opts={duniq(base.map((r) => r.serviceGroup))} />
         <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.veh} onChange={set("veh")} opts={duniq(base.map((r) => r.vehicle))} />
         <ResetBtn onClick={() => setF(FLEET_F0)} />
-      </div>
+      </FilterBar>
 
       <Pane deps={[recs, roster]}>
         <ZT>การใช้ประโยชน์กองรถ (Fleet Utilization)</ZT>
@@ -1070,7 +1256,7 @@ function FleetPane({ state }: { state: RecordsState }) {
 
         <div className="dz-cc" style={{ marginTop: 14 }}>
           <TableHead title="เที่ยวที่ใช้รถไม่คุ้มค่าที่สุด (Load Factor ต่ำสุด / เที่ยวเปล่า) เรียงตามมูลค่าเสียโอกาส" />
-          <div className="scroll">
+          <GrowBox rows={lostRows} render={(shownLostRows) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>วันที่</th><th>เลขที่ใบรายการ</th><th>เส้นทาง</th><th>ชนิดรถ</th><th>สถานะ</th>
@@ -1080,7 +1266,7 @@ function FleetPane({ state }: { state: RecordsState }) {
               <tbody>
                 {lostRows.length === 0
                   ? <Empty cols={9} text="ยังไม่มีเที่ยวที่กรอกข้อมูลความจุ/น้ำหนักบรรทุก" />
-                  : lostRows.slice(0, 50).map((x, i) => (
+                  : shownLostRows.map((x, i) => (
                     <tr key={i}>
                       <td>{thDateSafe(x.r.date)}</td>
                       <td>{x.r.docNo || "–"}</td>
@@ -1095,7 +1281,7 @@ function FleetPane({ state }: { state: RecordsState }) {
                   ))}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
         <Note>
           มูลค่าเสียโอกาส (โดยประมาณ) = ต้นทุนรวมของเที่ยวนั้น × สัดส่วนความจุที่ไม่ได้ใช้ (100% − Load Factor) ·
@@ -1189,7 +1375,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <SrcFF value={src} onChange={setSrc} />
         <div className="ff">
           <label>สถานะ</label>
@@ -1201,7 +1387,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
           </select>
         </div>
         <ResetBtn onClick={() => { setSrc(""); setFilterStatus(""); setQ(""); }} />
-      </div>
+      </FilterBar>
 
       <Pane deps={[rows, filterStatus, q]}>
         <div className="dz-heroes">
@@ -1346,13 +1532,13 @@ function ServicePane({ state }: { state: RecordsState }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <SrcFF value={src} onChange={setSrc} />
         <YearFF rows={raw} value={year} onChange={setYear} />
         <ListFF label="ผู้รับ (ลูกค้า)" all="ทุกลูกค้า (ผู้รับ)" value={receiver} onChange={setReceiver}
           opts={duniq(raw.map((b) => b.receiver))} />
         <ResetBtn onClick={() => { setSrc(""); setYear(""); setReceiver(""); }} />
-      </div>
+      </FilterBar>
 
       <Pane deps={[bills]}>
         <div className="dz-heroes">
@@ -1394,7 +1580,7 @@ function ServicePane({ state }: { state: RecordsState }) {
             <input style={{ ...searchStyle, minWidth: 240 }} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหา ผู้รับ / เลขที่บิล" />
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={list} render={(shownList) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>วันที่</th><th>เลขที่บิล</th><th>ผู้รับ</th><th className="n">จำนวน</th>
@@ -1404,7 +1590,7 @@ function ServicePane({ state }: { state: RecordsState }) {
               <tbody>
                 {list.length === 0
                   ? <Empty cols={9} text="ไม่พบบิลที่ส่งช้าหรือสินค้าเสียหายตามเงื่อนไข" />
-                  : list.slice(0, 300).map((b, i) => {
+                  : shownList.map((b, i) => {
                     const late = b.plannedDate && b.actualDate ? daysBetween(b.plannedDate, b.actualDate) : null;
                     return (
                       <tr key={i}>
@@ -1424,7 +1610,7 @@ function ServicePane({ state }: { state: RecordsState }) {
                   })}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
@@ -1522,7 +1708,7 @@ function DebtPane({ state }: { state: RecordsState }) {
 
   return (
     <>
-      <div className="dz-filters">
+      <FilterBar>
         <SrcFF value={f.src} onChange={set("src")} />
         <div className="ff">
           <label>สถานะ</label>
@@ -1538,7 +1724,7 @@ function DebtPane({ state }: { state: RecordsState }) {
         <ListFF label="ประเภทการชำระเงิน" all="ทุกประเภทการชำระ" value={f.pay} onChange={set("pay")} opts={duniq(all.map((x) => x.payType))} />
         <ListFF label="ประเภทสินค้า" all="ทุกประเภทสินค้า" value={f.prod} onChange={set("prod")} opts={duniq(all.map((x) => x.goodsType))} />
         <ResetBtn onClick={() => setF(DEBT_F0)} />
-      </div>
+      </FilterBar>
 
       <Pane deps={[rows, thresh]}>
         <div className="dz-cards">
@@ -1568,11 +1754,11 @@ function DebtPane({ state }: { state: RecordsState }) {
           <div className="dz-cc">
             <h4 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               ลูกค้าที่จ่ายช้าซ้ำ ๆ
-              <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-faint)" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink-faint)" }}>
                 (ถือว่า “ช้า” ถ้าจ่ายเกิน
                 <input type="number" min={1} value={thresh}
                   onChange={(e) => setThresh(Math.max(1, Number(e.target.value) || 30))}
-                  style={{ width: 48, padding: "3px 5px", fontSize: 11.5, margin: "0 4px",
+                  style={{ width: 48, padding: "3px 5px", fontSize: 13, margin: "0 4px",
                            border: "1px solid var(--border-strong)", borderRadius: 6, textAlign: "center" }} />
                 วันหลังวันที่ในใบรายการ)
               </span>

@@ -4,16 +4,16 @@
  * แสดงเฉพาะใบที่กรอกครบทั้ง 3 ฝ่าย (ใบร่างอยู่หน้า “ใบที่ยังไม่ครบ”) เหมือน v5
  * กดที่ป้ายสถานะ = กางแถวรายละเอียดลูกหนี้ของใบนั้น
  */
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { billIsPaid, billPayDate, recBills, recStatus } from "../../lib/record/payment";
-import { thDateSafe, todayISO } from "../../lib/record/date";
+import { savedAt, thDateSafe, todayISO } from "../../lib/record/date";
 import { roleAllDone } from "../../lib/record/roles";
 import { pushRecords } from "../../lib/sheet/client";
 import { put, remove } from "../../lib/store/records";
 import { ShortId } from "../../lib/custmap/ShortId";
-import SheetSettings from "../settings/SheetSettings";
 import { CASH_ORIGIN, ST_PAID, ST_PARTIAL } from "../../types/record";
 import { duplicateRecord } from "../../lib/record/duplicate";
+import GrowBox from "../../lib/ui/GrowBox";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
 
@@ -59,7 +59,11 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
       out.push({ r, locked: true });
     }
     const bySrc = src === "all" ? out : out.filter(({ r }) => isOld(r) === (src === "old"));
-    bySrc.sort((a, b) => String(b.r.date ?? "").localeCompare(String(a.r.date ?? "")));
+    // บันทึกล่าสุดขึ้นก่อน — เวลาบันทึก (_accountAt "YYYY-MM-DD HH:mm") เรียงเป็นสตริงได้ตรง
+    // ใบที่ไม่มีเวลาบันทึก (ข้อมูลเก่า / แถวที่พิมพ์ในชีต) ต่อท้าย แล้วเรียงตามวันที่ในใบเหมือนเดิม
+    bySrc.sort((a, b) =>
+      String(b.r._accountAt ?? "").localeCompare(String(a.r._accountAt ?? ""))
+      || String(b.r.date ?? "").localeCompare(String(a.r.date ?? "")));
     const needle = q.trim().toLowerCase();
     if (!needle) return bySrc;
     return bySrc.filter(({ r }) => {
@@ -138,9 +142,6 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
 
   return (
     <>
-      {/* main วางแผงตั้งค่าการเชื่อมชีตไว้หน้านี้ (index.html:1073) ไม่ใช่หน้าการตั้งค่า */}
-      <SheetSettings />
-
       <div className="rec-bar">
         <div className="searchbox">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round">
@@ -167,17 +168,17 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
         <div className="banner">โหลดจากชีตไม่สำเร็จ (ยังใช้ข้อมูลในเครื่องได้) · {sheetError}</div>
       )}
       <div className="rec-card">
-        <div className="scroll">
+        <GrowBox rows={list} render={(shown) => (
           <table className="rec-table">
             <thead><tr>
               <th>แหล่งข้อมูล</th><th>เลขที่ใบรายการ</th><th>สาขา</th><th>ทะเบียนรถ</th>
               <th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
               <th className="num">รายได้</th><th className="num">ต้นทุนรวม</th>
               <th className="num">สูญเปล่า</th><th className="num">กำไร/ขาดทุน</th>
-              <th>สถานะ</th><th>แก้ไข</th>
+              <th>สถานะ</th><th>แก้ไข</th><th>เวลาบันทึก</th>
             </tr></thead>
             <tbody>
-              {list.slice(0, 300).map(({ r, locked }, i) => {
+              {shown.map(({ r, locked }, i) => {
                 // main อ่านค่าที่บันทึกไว้ในใบตรง ๆ (normal / waste / profit) ไม่คำนวณใหม่
                 // "ต้นทุนรวม" ในตารางนี้จึงเป็นต้นทุนปกติ ยังไม่รวมสูญเปล่า ซึ่งแยกอยู่คอลัมน์ถัดไป
                 const cost = Number(r.normal) || 0;
@@ -187,8 +188,9 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                 const st = recStatus(r);
                 const old = isOld(r);
                 return (
-                  <>
-                    <tr key={`${r.id}-${i}`} className={locked ? "oldrow" : undefined}>
+                  // key ต้องอยู่ที่ Fragment (ตัวที่ map คืน) ไม่ใช่ที่ <tr> ข้างใน
+                  <Fragment key={`${r.id}-${i}`}>
+                    <tr className={locked ? "oldrow" : undefined}>
                       <td>
                         <span className={"badge " + (old ? "src-old" : "src-new")}>
                           {old ? "ข้อมูลเก่า" : "ข้อมูลใหม่"}
@@ -248,18 +250,23 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                           </span>
                         )}
                       </td>
+                      <td>
+                        {old ? "–" : r._accountAt
+                          ? <span title="เวลาที่ฝ่ายบัญชีบันทึก (ขั้นสุดท้ายของใบ)">{savedAt(r._accountAt)}</span>
+                          : <span className="locknote">รอฝ่ายบัญชี</span>}
+                      </td>
                     </tr>
                     {!locked && open.has(r.id) && (
                       <tr className="detail-row" key={`${r.id}-d`}>
-                        <td colSpan={14}><DetailBills r={r} onPay={setPaid} /></td>
+                        <td colSpan={15}><DetailBills r={r} onPay={setPaid} /></td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
           </table>
-        </div>
+        )} />
         {list.length === 0 && (
           <div className="rec-empty">
             {records.length + oldRecords.length === 0
@@ -270,8 +277,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
       </div>
 
       <div className="locknote" style={{ marginTop: 8 }}>
-        แสดง {Math.min(list.length, 300)} รายการ · ใหม่ {newCount} · เก่า {oldCount}
-        {list.length > 300 && " · จำกัด 300 แถวแรก ใช้ช่องค้นหาเพื่อกรองให้แคบลง"}
+        ทั้งหมด {list.length.toLocaleString("th-TH")} รายการ · ใหม่ {newCount} · เก่า {oldCount} · เลื่อนในกล่องเพื่อดูต่อ
       </div>
       {msg && <div className="msg" style={{ color: "var(--green)", marginTop: 6 }}>{msg}</div>}
     </>

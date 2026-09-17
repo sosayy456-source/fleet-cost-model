@@ -1,0 +1,31 @@
+/*
+ * ฟอนต์หลักของทั้งโมเดล — LINE Seed Sans TH (SIL OFL 1.1 · © LY Corporation · ดู assets/fonts/OFL.txt)
+ * ไฟล์ WOFF2 ชุด Web จาก https://seed.line.me/ ไม่ได้ดัดแปลง
+ *
+ * ★ ฟอนต์นี้มีแค่ 400 / 700 / 800 (ไม่ได้ใช้ Thin/Heavy) — CSS ที่ขอ 500 จะได้ 400 และ 600 จะได้ 700
+ *   ตามกติกาเลือกน้ำหนักของเบราว์เซอร์ ไม่มีตัวหนาสังเคราะห์
+ * ★ ตัวเลขในฟอนต์นี้กว้างไม่เท่ากันและไม่มี feature tnum — tabular-nums จึงไม่มีผล
+ * ★ ไม่มีสัญลักษณ์ ↻ ↺ → ▾ — เบราว์เซอร์ดึงจากฟอนต์ถัดไปใน stack (Noto Sans Thai / ระบบ) เอง
+ * อ้างไฟล์ผ่าน import ของ Vite จึงได้ path ที่ถูกกับ base "/fleet-cost-model/" โดยอัตโนมัติ
+ */
+@font-face {
+  font-family: "LINE Seed Sans TH";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./assets/fonts/LINESeedSansTH_W_Rg.woff2") format("woff2");
+}
+@font-face {
+  font-family: "LINE Seed Sans TH";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./assets/fonts/LINESeedSansTH_W_Bd.woff2") format("woff2");
+}
+@font-face {
+  font-family: "LINE Seed Sans TH";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("./assets/fonts/LINESeedSansTH_W_XBd.woff2") format("woff2");
+}

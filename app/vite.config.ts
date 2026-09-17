@@ -103,8 +103,23 @@ function autoEtl(): Plugin {
   };
   let emit: (job: Job, s: Status) => void = () => {};
   const setStatus = (job: Job, state: Status["state"], message: string) => {
+    // ข้อความเดิมซ้ำ (เช่นโพลเจอไฟล์กำลังคัดลอกทุก 2 วิ) ไม่ส่งซ้ำ — เวลา "เริ่ม" บนแถบจะได้ไม่ขยับ
+    if (status[job].state === state && status[job].message === message) return;
     status[job] = { state, message, at: Date.now() };
     emit(job, status[job]);
+  };
+  /** งานที่ต้องรอคิว — ให้แถบขึ้นตั้งแต่ตอนนี้ ไม่ใช่รอจนถึงคิวของตัวเอง (เจ้าของขอ 16 ก.ย. 2569) */
+  const QUEUED: Record<Job, string> = {
+    rev: "อยู่ในคิว — รอชุดต้นทุน+รายได้รายเที่ยวเสร็จก่อน แล้วจะแปลงไฟล์รายได้",
+    cr: "อยู่ในคิว — รอแปลงไฟล์รายได้ให้เสร็จก่อน แล้วจะจับคู่ต้นทุน+รายได้รายเที่ยวต่อทันที",
+    al: "อยู่ในคิว — รอชุดต้นทุน+รายได้เสร็จก่อน แล้วจะปันส่วนต้นทุนเข้าบิลลูกค้าต่อ",
+    db: "อยู่ในคิว — รองานอื่นเสร็จก่อน แล้วจะแปลงไฟล์ลูกหนี้ให้เอง",
+  };
+  const COPYING: Record<Job, string> = {
+    rev: "พบไฟล์รายได้ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงให้เอง",
+    cr: "พบไฟล์ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงต้นทุน+รายได้รายเที่ยวและจับคู่ให้เอง",
+    al: "พบไฟล์บิลใหม่ — รอคัดลอกให้เสร็จแล้วจะปันส่วนต้นทุนเข้าบิลลูกค้าให้เอง",
+    db: "พบไฟล์ลูกหนี้ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงให้เอง",
   };
 
   /** งานที่รันอยู่ตอนนี้ (null = ว่าง) กับคิวของงานที่ขอไว้ */
@@ -260,7 +275,11 @@ function autoEtl(): Plugin {
       const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null, al: null, db: null };
       const request = (job: Job, delay: number) => {
         if (timers[job]) clearTimeout(timers[job]!);
-        timers[job] = setTimeout(() => { want[job] = true; pump(log); }, delay);
+        timers[job] = setTimeout(() => {
+          want[job] = true;
+          pump(log);
+          if (want[job]) setStatus(job, "running", QUEUED[job]);   // ยังไม่ได้เริ่มเพราะอีกงานรันอยู่
+        }, delay);
       };
 
       /**
@@ -279,9 +298,6 @@ function autoEtl(): Plugin {
        * เปลี่ยน = มีการวาง/ลบ/เขียนไฟล์ · ไฟล์ที่กำลังคัดลอกอยู่ขนาดจะเปลี่ยนทุกรอบ
        * จึงไม่มีทางเริ่ม ETL จนกว่าจะคัดลอกเสร็จจริง (ดีกว่าเดิมที่ยิงตอนเห็นไฟล์โผล่)
        * statSync บนไฟล์ที่ล็อกอยู่โยน error ได้ → ถือว่า "ยังเปลี่ยนอยู่" แล้วรอรอบหน้า
-       *
-       * ★ ตรงกับวิธีที่ branch โมเดล-Anda ใช้ (commit ebcaceb) โดยตั้งใจ — สองสายจะได้
-       *   ไม่ชนกันตอน merge และไม่ต้องเถียงกันว่าจะเอาทางไหน
        */
       const WATCH: Record<Job, string> = { rev: revDir, cr: costDir, al: travelDir, db: debtDir };
       const signature = (dir: string): string | null => {
@@ -302,11 +318,12 @@ function autoEtl(): Plugin {
           if (sig === null || sig === last[job]) continue;
           last[job] = sig;
           request(job, 2000);
+          if (hasXlsx(WATCH[job])) setStatus(job, "running", COPYING[job]);
           if (job === "rev") {
             // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย
-            if (hasXlsx(costDir)) request("cr", 2500);
+            if (hasXlsx(costDir)) { request("cr", 2500); setStatus("cr", "running", COPYING.cr); }
             // ไฟล์บิลคือฝั่งรายได้ของการปันส่วนต้นทุน → ปันใหม่ด้วย
-            if (hasXlsx(travelDir)) request("al", 3000);
+            if (hasXlsx(travelDir)) { request("al", 3000); setStatus("al", "running", COPYING.al); }
           }
           // ไฟล์ลูกหนี้ไม่เกี่ยวกับสามงานข้างบนเลย (คนละเลขเอกสาร) จึงไม่สั่งงานอื่นตาม
         }
@@ -331,6 +348,7 @@ function autoEtl(): Plugin {
           if (pendingAl) want.al = true;
           if (pendingDb) want.db = true;
           pump(log);
+          for (const job of ["rev", "cr", "al", "db"] as Job[]) if (want[job]) setStatus(job, "running", QUEUED[job]);
         }, 600));
       }
     },
