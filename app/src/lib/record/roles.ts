@@ -58,7 +58,7 @@ export const ROLES: Record<RoleKey, RoleDef> = {
 export const ROLE_ORDER: RoleKey[] = ["cs", "dispatch", "account"];
 
 /** ลำดับการ์ดในหน้าเลือกหน้าที่ — admin อยู่ท้ายสุดเสมอ เพราะการ์ดใบนั้นกว้างเต็มแถว */
-export const ROLE_PICK: RoleKey[] = ["cs", "dispatch", "driver", "account", "manager", "admin"];
+export const ROLE_PICK: RoleKey[] = ["cs", "dispatch", "account", "driver", "manager", "admin"];
 
 /** หน้าที่แต่ละตำแหน่งเข้าได้ — ตัวแรกคือหน้าที่เปิดให้ตอนเข้าระบบ */
 export const ROLE_VIEWS: Record<RoleKey, string[]> = {
@@ -91,4 +91,17 @@ export function stampRole<T extends Partial<TripRecord>>(rec: T, k: RoleKey): T 
   // ★ ต้องเป็นเวลาเครื่อง ไม่ใช่ UTC — ของเดิมใช้ toISOString() ทำให้เวลาในชีตช้าไป 7 ชั่วโมง
   out[`_${k}At`] = nowStamp();
   return rec;
+}
+
+/**
+ * เวลาที่ใบนี้ถูกบันทึกล่าสุด — เทียบ _csAt/_dispatchAt/_accountAt ทั้งสามฝ่าย ไม่ใช่ยึด
+ * ฝ่ายบัญชีตัวเดียว เพราะใบที่ยังกรอกไม่ครบ (เช่นฝ่ายจัดรถกรอกแล้วแต่บัญชียังไม่กรอก) ก็ยังไม่มี
+ * _accountAt แต่ควรโชว์เวลาของฝ่ายที่กรอกล่าสุดแทน · รูปแบบ 'YYYY-MM-DD HH:mm' เทียบสตริงตรงได้
+ */
+export function lastEditedAt(r: Partial<TripRecord> | null | undefined): string | null {
+  if (!r) return null;
+  const stamps = ROLE_ORDER
+    .map((k) => r[`_${k}At` as keyof TripRecord] as string | undefined)
+    .filter((s): s is string => !!s);
+  return stamps.length ? stamps.reduce((a, b) => (b > a ? b : a)) : null;
 }

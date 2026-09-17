@@ -11,7 +11,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { finishTrip } from "../../lib/store/finishTrip";
 import { tripProgress } from "../../lib/record/tripEta";
-import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
+import { daysBetween, savedAt, thDateSafe, todayISO } from "../../lib/record/date";
+import { lastEditedAt } from "../../lib/record/roles";
 import { useRoster } from "../../lib/store/roster";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
@@ -118,8 +119,6 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
     }
   }
 
-  if (state.loading) return <div className="card"><p className="muted">กำลังโหลด...</p></div>;
-
   return (
     <>
       <div className="card">
@@ -197,19 +196,21 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
         <div className="scroll">
           <table className="dz-tbl">
             <thead><tr>
-              <th>ทะเบียนรถ</th><th>เส้นทาง</th><th>วันปล่อยรถ</th><th>ประมาณการเสร็จ</th><th />
+              <th>ทะเบียนรถ</th><th>เลขที่ใบรายการ</th><th>เส้นทาง</th><th>วันปล่อยรถ</th><th>ประมาณการเสร็จ</th><th>เวลาล่าสุด</th><th />
             </tr></thead>
             <tbody>
               {moving.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 16 }}>
+                <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 16 }}>
                   ตอนนี้ไม่มีรถคันไหนกำลังวิ่ง
                 </td></tr>
               ) : moving.map(({ r, p }) => (
                 <tr key={r.id}>
                   <td style={{ fontWeight: 700 }}>{r.plate || "–"}</td>
+                  <td>{r.docNo || "–"}</td>
                   <td>{routeLabel(r)}</td>
                   <td>{thDateSafe(p.start)}</td>
                   <td>{p.eta ? thDateSafe(p.eta) : "ไม่ทราบ"}</td>
+                  <td>{(() => { const t = lastEditedAt(r); return t ? savedAt(t) : "–"; })()}</td>
                   <td>
                     <button type="button" className="btn-mini" disabled={busy === r.id}
                       onClick={() => askFinish(r)}>

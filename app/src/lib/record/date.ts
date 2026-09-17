@@ -50,6 +50,12 @@ export const nowStamp = (): string => {
   return `${todayISO()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+/** stamp จาก nowStamp() ('2569-09-17 14:32') -> ข้อความไทยอ่านง่าย ("17 ก.ย. 2569 14:32") */
+export const savedAt = (stamp: string): string => {
+  const [d, t] = stamp.trim().split(/\s+/);
+  return `${thDateSafe(d)}${t ? ` ${t}` : ""}`;
+};
+
 export function daysBetween(a: string | null | undefined, b: string | null | undefined): number | null {
   if (!a || !b) return null;
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000);

@@ -6,12 +6,11 @@
  */
 import { Fragment, useMemo, useState } from "react";
 import { billIsPaid, billPayDate, recBills, recStatus } from "../../lib/record/payment";
-import { thDateSafe, todayISO } from "../../lib/record/date";
+import { savedAt, thDateSafe, todayISO } from "../../lib/record/date";
 import { roleAllDone } from "../../lib/record/roles";
 import { pushRecords } from "../../lib/sheet/client";
 import { put, remove } from "../../lib/store/records";
 import { ShortId } from "../../lib/custmap/ShortId";
-import SheetSettings from "../settings/SheetSettings";
 import { CASH_ORIGIN, ST_PAID, ST_PARTIAL } from "../../types/record";
 import { duplicateRecord } from "../../lib/record/duplicate";
 import type { RecordsState } from "../../lib/store/useRecords";
@@ -27,15 +26,6 @@ type Src = "all" | "new" | "old";
 
 /** locked = แถวอ่านอย่างเดียวจากชีตโดยตรง (ข้อมูลเก่า หรือข้อมูลใหม่ที่พิมพ์ตรงในชีตเอง) แก้ในแอปไม่ได้ */
 interface Row { r: TripRecord; locked: boolean }
-
-/**
- * เวลาบันทึกของใบ = เวลาที่ฝ่ายบัญชีกดบันทึก (_accountAt) เพราะเป็นฝ่ายสุดท้ายของ workflow
- * ค่าเก็บเป็น "YYYY-MM-DD HH:mm" เวลาเครื่อง (nowStamp) → "16 ก.ย. 2569 14:32"
- */
-const savedAt = (stamp: string): string => {
-  const [d, t] = stamp.trim().split(/\s+/);
-  return `${thDateSafe(d)}${t ? ` ${t}` : ""}`;
-};
 
 export default function RecordsList({ role, state }: { role: RoleKey; state: RecordsState }) {
   const { records, loading, sheetError, connected, reload, fileOld } = state;
@@ -151,9 +141,6 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
 
   return (
     <>
-      {/* main วางแผงตั้งค่าการเชื่อมชีตไว้หน้านี้ (index.html:1073) ไม่ใช่หน้าการตั้งค่า */}
-      <SheetSettings />
-
       <div className="rec-bar">
         <div className="searchbox">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round">

@@ -153,8 +153,11 @@ export default function App() {
       <main className="app">
         {!isDash && (
           <div className="rolebar">
-            <span className="who">{ROLES[role].en ?? ROLES[role].label}</span>
-            <button type="button" className="sw" onClick={() => setRole(null)}>เปลี่ยนหน้าที่</button>
+            {/* ใช้ดีไซน์เดียวกับ .dh-role ของหัวแดชบอร์ด (DashShell) ให้หน้าตาตรงกันทุกหน้า */}
+            <div className="dh-role">
+              <span>{ROLES[role].en ?? ROLES[role].label}</span>
+              <button type="button" onClick={() => setRole(null)}>เปลี่ยนหน้าที่</button>
+            </div>
           </div>
         )}
 

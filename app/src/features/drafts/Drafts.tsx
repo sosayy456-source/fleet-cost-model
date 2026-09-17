@@ -9,12 +9,22 @@ import { useMemo, useState } from "react";
 import { ROLE_ORDER, roleAllDone, roleDone } from "../../lib/record/roles";
 import RefreshBtn from "../../lib/ui/RefreshBtn";
 import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
+import { remove } from "../../lib/store/records";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
 
 export default function Drafts({ state }: { state: RecordsState }) {
   const { records, loading, reload } = state;
   const [q, setQ] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  /** ลบใบร่างทิ้ง — เหมือนปุ่มลบในหน้า “รายการทั้งหมด” (ลบเฉพาะในเครื่อง ชีตต้องลบเอง) */
+  async function del(r: TripRecord) {
+    if (!confirm("ลบรายการนี้? (ลบเฉพาะในเครื่อง — แถวใน Google Sheet ต้องลบเองในชีต)")) return;
+    await remove(r.id);
+    setMsg(`ลบใบ ${r.docNo || "–"} ออกจากเครื่องแล้ว`);
+    reload();
+  }
 
   const drafts = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -52,6 +62,9 @@ export default function Drafts({ state }: { state: RecordsState }) {
         </div>
       </div>
 
+      {msg && <div className="edit-banner" style={{ display: "flex" }}>{msg}
+        <button type="button" className="x" onClick={() => setMsg(null)}>ปิด</button></div>}
+
       <div className="rec-card">
         <div className="scroll">
           <table className="rec-table">
@@ -60,7 +73,7 @@ export default function Drafts({ state }: { state: RecordsState }) {
               <th style={{ textAlign: "center" }}>👤 บริการลูกค้า</th>
               <th style={{ textAlign: "center" }}>🚚 จัดรถ</th>
               <th style={{ textAlign: "center" }}>🧾 บัญชี</th>
-              <th className="num">ค้างมา (วัน)</th><th>สถานะ</th>
+              <th className="num">ค้างมา (วัน)</th><th>สถานะ</th><th />
             </tr></thead>
             <tbody>
               {drafts.map((r) => {
@@ -80,6 +93,14 @@ export default function Drafts({ state }: { state: RecordsState }) {
                     ))}
                     <td className="num">{age}</td>
                     <td><span className="badge unpaid">ยังไม่ครบ</span></td>
+                    <td>
+                      <button className="btn-del" type="button" title="ลบ"
+                        onClick={(e) => { e.stopPropagation(); del(r); }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
