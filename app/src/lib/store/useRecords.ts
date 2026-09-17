@@ -15,6 +15,27 @@ import { loadCostRevOld } from "../data/useCostRev";
 import { getAll, migrateFromLocalStorage } from "./records";
 import type { TripRecord } from "../../types/record";
 
+const OLD_CACHE_KEY = "oldRecordsCache";
+
+/**
+ * แคช oldRecords/oldDebtors ไว้ในเครื่อง — loadOld() ไล่อ่านทุกแท็บ "ข้อมูลเก่า*" ผ่าน Apps Script
+ * ซึ่งช้า (cold start + สแกนหลายแท็บ) ต่างจากหน้าอื่นที่ใช้ไฟล์ JSON จาก ETL
+ * เก็บผลลัพธ์ล่าสุดไว้โชว์ค้างก่อนตั้งแต่ render แรก แทนที่จะรอโหลดสดทุกครั้งที่เปิดแอป/กดรีเฟรช
+ */
+function readOldCache(): { records: Record<string, unknown>[]; debtors: OldDebtor[] } {
+  try {
+    const v = JSON.parse(localStorage.getItem(OLD_CACHE_KEY) ?? "null");
+    if (v && Array.isArray(v.records) && Array.isArray(v.debtors)) return v;
+  } catch { /* โควตาเต็ม/private mode — ไม่มีแคชก็แค่โหลดสดตามปกติ */ }
+  return { records: [], debtors: [] };
+}
+
+function writeOldCache(records: Record<string, unknown>[], debtors: OldDebtor[]): void {
+  try {
+    localStorage.setItem(OLD_CACHE_KEY, JSON.stringify({ records, debtors }));
+  } catch { /* โควตาเต็ม — ข้ามการแคชรอบนี้ ไม่กระทบการทำงาน */ }
+}
+
 export interface OldDebtor {
   source: string;
   docNo?: string;
@@ -54,7 +75,11 @@ export interface RecordsState {
   /** จำนวนใบที่เพิ่งย้ายมาจาก localStorage ของเวอร์ชันเดิม — null = ไม่ได้ย้ายรอบนี้ */
   migrated: number | null;
   connected: boolean;
-  /** โหลดใหม่ทุกแหล่ง รวมแท็บข้อมูลเก่า (ช้า) — ปุ่ม "↻ รีเฟรช" */
+  /**
+   * โหลดใหม่ทุกแหล่ง — ปุ่ม "↻ รีเฟรช" · `loading` ปลดทันทีที่ loadTrips (เร็ว) เสร็จ
+   * ส่วนแท็บข้อมูลเก่า (ช้า) วิ่งเบื้องหลังเงียบ ๆ แล้วอัปเดต oldRecords/oldDebtors ทีหลัง
+   * ไม่บล็อก loading — ระหว่างรอจะยังเห็นค่าที่แคชไว้ล่าสุดค้างอยู่ (ดู readOldCache/writeOldCache)
+   */
   reload: () => void;
   /**
    * โหลดเฉพาะใบใหม่ (เครื่อง + loadTrips) ไม่อ่านแท็บข้อมูลเก่า — เรียกอัตโนมัติตอนเลือก/เปลี่ยนหน้าที่
@@ -76,8 +101,8 @@ export function mergeRecords(local: TripRecord[], sheet: TripRecord[]): TripReco
 
 export function useRecords(): RecordsState {
   const [records, setRecords] = useState<TripRecord[]>([]);
-  const [oldRecords, setOldRecords] = useState<Record<string, unknown>[]>([]);
-  const [oldDebtors, setOldDebtors] = useState<OldDebtor[]>([]);
+  const [oldRecords, setOldRecords] = useState<Record<string, unknown>[]>(() => readOldCache().records);
+  const [oldDebtors, setOldDebtors] = useState<OldDebtor[]>(() => readOldCache().debtors);
   const [fileOld, setFileOld] = useState<RecordsState["fileOld"]>({ records: [], debtors: [] });
   const [loading, setLoading] = useState(true);
   const [sheetError, setSheetError] = useState<string | null>(null);
@@ -160,24 +185,22 @@ export function useRecords(): RecordsState {
         return;
       }
 
-      // โหลดจากชีตแบบ best-effort — ล้มเหลวก็ยังใช้ข้อมูลในเครื่องต่อได้
-      const [trips, old] = await Promise.allSettled([loadTrips(), loadOld()]);
-      if (!alive) return;
+      // ข้อมูลใหม่ (loadTrips) เร็ว — ปลดล็อกหน้าทันทีที่เสร็จ ไม่ต้องรอข้อมูลเก่า
+      loadTrips()
+        .then((trips) => { if (alive) setRecords(mergeRecords(local, trips)); })
+        .catch((err) => { if (alive) setSheetError((err as Error).message); })
+        .finally(() => { if (alive) setLoading(false); });
 
-      if (trips.status === "fulfilled") {
-        setRecords(mergeRecords(local, trips.value));
-      } else {
-        setSheetError((trips.reason as Error).message);
-      }
-
-      if (old.status === "fulfilled") {
-        setOldRecords(old.value.records);
-        setOldDebtors(old.value.debtors as OldDebtor[]);
-      } else if (trips.status === "fulfilled") {
-        setSheetError((old.reason as Error).message);
-      }
-
-      setLoading(false);
+      // ข้อมูลเก่า (loadOld) ช้า — ไล่อ่านทุกแท็บ "ข้อมูลเก่า*" ผ่าน Apps Script
+      // แยกเป็นงานเบื้องหลัง ไม่บล็อกหน้าจอ ระหว่างรอใช้ค่าที่แคชไว้ (จาก state เริ่มต้น) ไปพลาง
+      loadOld()
+        .then((old) => {
+          if (!alive) return;
+          setOldRecords(old.records);
+          setOldDebtors(old.debtors as OldDebtor[]);
+          writeOldCache(old.records, old.debtors as OldDebtor[]);
+        })
+        .catch(() => { /* ใช้ค่าที่แคชไว้ต่อไปเงียบ ๆ — ไม่ทับ sheetError ของ loadTrips */ });
     })();
 
     return () => { alive = false; };

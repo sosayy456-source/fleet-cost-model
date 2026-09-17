@@ -93,8 +93,14 @@ export default function FleetDash({ state, role, sample = false }: {
   const [tab, setTab] = useState<TabId>("main");
   const barRef = useRef<HTMLDivElement>(null);
   const nothing = !state.loading && state.records.length === 0 && state.oldRecords.length === 0;
-  // แท็บโผล่หลังโหลดเสร็จ — ให้เส้นเลื่อนวัดตำแหน่งใหม่ตอนนั้นด้วย
-  useDashInk(barRef, `${tab}:${state.loading || nothing}`);
+  /**
+   * บล็อกทั้งหน้าด้วย "กำลังโหลด..." เฉพาะตอนยังไม่เคยมีข้อมูลอะไรให้โชว์เลย (เปิดแอปครั้งแรกสุด)
+   * ถ้ามีของเดิมอยู่แล้ว (จากรอบก่อน/แคช) ให้โชว์ค้างไว้เงียบ ๆ ระหว่างรีเฟรช ไม่งั้นทุกครั้งที่กด
+   * "รีเฟรช" หรือเปิดแอปใหม่จะเห็นทั้งหน้าเนื้อหาหายวับไปเป็นการ์ดเปล่าเสมอ ทั้งที่ข้อมูลเก่ายังใช้ดูได้อยู่
+   */
+  const showLoading = state.loading && state.records.length === 0 && state.oldRecords.length === 0;
+  // แท็บโผล่หลังมีข้อมูลแล้ว — ให้เส้นเลื่อนวัดตำแหน่งใหม่ตอนนั้นด้วย
+  useDashInk(barRef, `${tab}:${showLoading || nothing}`);
 
   const newCount = state.records.length;
   const oldCount = state.oldRecords.length;
@@ -106,7 +112,7 @@ export default function FleetDash({ state, role, sample = false }: {
     ]} />
   );
 
-  const tabs = !state.loading && !nothing && (
+  const tabs = !showLoading && !nothing && (
     <div className="dash-tabs" ref={barRef}>
       <span className="dink" />
       {TABS.map((t) => (
@@ -125,7 +131,7 @@ export default function FleetDash({ state, role, sample = false }: {
       refreshTitle={state.connected
         ? "ดึงใบรายการล่าสุดจาก Google Sheet มาคำนวณใหม่"
         : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"}>
-      {state.loading ? (
+      {showLoading ? (
         <div className="card"><p className="muted">กำลังโหลด...</p></div>
       ) : nothing ? (
         <div className="card">
@@ -1762,11 +1768,11 @@ function DebtPane({ state }: { state: RecordsState }) {
           <div className="dz-cc">
             <h4 style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               ลูกค้าที่จ่ายช้าซ้ำ ๆ
-              <span style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-faint)" }}>
+              <span style={{ fontSize: 12.5, fontWeight: 500, color: "var(--ink-faint)" }}>
                 (ถือว่า “ช้า” ถ้าจ่ายเกิน
                 <input type="number" min={1} value={thresh}
                   onChange={(e) => setThresh(Math.max(1, Number(e.target.value) || 30))}
-                  style={{ width: 48, padding: "3px 5px", fontSize: 11.5, margin: "0 4px",
+                  style={{ width: 48, padding: "3px 5px", fontSize: 13, margin: "0 4px",
                            border: "1px solid var(--border-strong)", borderRadius: 6, textAlign: "center" }} />
                 วันหลังวันที่ในใบรายการ)
               </span>
