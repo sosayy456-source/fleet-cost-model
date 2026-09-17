@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { randomFor } from "./randomRecord";
 import { emptyBill, emptyRecord } from "./emptyRecord";
 import { fieldsOwnedBy } from "../../lib/store/save";
-import { daysBetween } from "../../lib/record/date";
+import { FLEET_BASE } from "../../lib/store/roster";
 import type { TripRecord } from "../../types/record";
 
 /** ใบที่ฝ่าย cs บันทึกไว้แล้ว — เปิดมาให้ฝ่ายถัดไปกรอกต่อ */
@@ -35,13 +35,10 @@ describe("randomFor", () => {
     expect(out.plate).not.toBe("");
   });
 
-  it("วันปล่อยรถอยู่ในช่วงวันที่ในใบ ถึง +2 วัน ไม่ใช่วันนี้", () => {
+  it("วันปล่อยรถตรงกับวันที่ในใบเป๊ะ — สถานะกองรถขึ้น \"กำลังเดินทาง\" ได้ทันทีไม่ต้องรอข้ามวัน", () => {
     for (let i = 0; i < 50; i++) {
       const out = randomFor(csDone(), ["dispatch"]);
-      const d = daysBetween(out.date, out.releaseDate);
-      expect(d).not.toBeNull();
-      expect(d!).toBeGreaterThanOrEqual(0);
-      expect(d!).toBeLessThanOrEqual(2);
+      expect(out.releaseDate).toBe(out.date);
     }
   });
 
@@ -52,14 +49,12 @@ describe("randomFor", () => {
     expect(pickFields(out, others)).toEqual(pickFields(base, others));
   });
 
-  it("ผู้ดูแลระบบ (ครบทุกโซน) ได้ช่องครบทั้งสามฝ่าย และวันปล่อยรถอิงวันที่ใหม่ที่สุ่มได้", () => {
+  it("ผู้ดูแลระบบ (ครบทุกโซน) ได้ช่องครบทั้งสามฝ่าย และวันปล่อยรถตรงกับวันที่ใหม่ที่สุ่มได้", () => {
     const out = randomFor(emptyRecord(), ["cs", "dispatch", "account"]);
     expect(out.docNo).not.toBe("");
     expect(out.origin).not.toBe("");
     expect(out.vehicle).not.toBe("");
-    const d = daysBetween(out.date, out.releaseDate)!;
-    expect(d).toBeGreaterThanOrEqual(0);
-    expect(d).toBeLessThanOrEqual(2);
+    expect(out.releaseDate).toBe(out.date);
   });
 
   it("ฝ่าย cs สุ่มบิลเท่าจำนวนแถวที่เพิ่มไว้ (อย่างน้อย 1)", () => {
@@ -77,6 +72,14 @@ describe("randomFor", () => {
   it("ฝ่ายอื่นกดสุ่ม บิลไม่ถูกแตะ", () => {
     const base = { ...csDone(), bills: [emptyBill(), emptyBill()] };
     expect(randomFor(base, ["dispatch", "account"]).bills).toBe(base.bills);
+  });
+
+  it("ทะเบียนที่สุ่มได้ต้องมาจากกองรถจริง (fleet.json) เท่านั้น ไม่ใช่ทะเบียนสมมติ", () => {
+    const basePlates = new Set(FLEET_BASE.map((f) => f.plate));
+    for (let i = 0; i < 50; i++) {
+      const out = randomFor(emptyRecord(), ["dispatch"]);
+      expect(basePlates.has(out.plate)).toBe(true);
+    }
   });
 
   it("ไม่แก้ใบต้นฉบับ (React state ต้องได้ object ใหม่)", () => {

@@ -8,9 +8,10 @@
  *   เลขที่ใบกับวันที่ (ช่องของ cs) ไม่ถูกแตะ · ผู้ดูแลระบบสุ่มครบทุกโซน (และ saveRecord ประทับครบทั้งสามฝ่าย)
  * ค่าที่สุ่มอิงข้อมูลอ้างอิงจริง (เส้นทาง/ชนิดรถ) ให้พอเดาได้ ไม่ใช่ตัวเลขมั่ว ๆ ล้วน
  */
-import { ACTIVE_VEHICLES, BRANCHES, DOC_TYPES, ORIGINS, SERVICE_GROUPS, destsFor, distanceFor } from "../../lib/refdata";
-import { addDaysISO, genId, todayISO } from "../../lib/record/date";
+import { BRANCHES, DOC_TYPES, ORIGINS, SERVICE_GROUPS, destsFor, distanceFor, vehicleByName } from "../../lib/refdata";
+import { genId, todayISO } from "../../lib/record/date";
 import { fieldsOwnedBy } from "../../lib/store/save";
+import { kindsOf, loadRoster } from "../../lib/store/roster";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
 import type { RoleKey, TripRecord } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
@@ -36,22 +37,39 @@ function randomBill(origin: string, dest: string) {
   };
 }
 
+/**
+ * สุ่มคันจากทะเบียนในกองรถจริงเท่านั้น (loadRoster()) — ห้ามสุ่มทะเบียนสมมติขึ้นมาเอง
+ * เลือกคู่ (ประเภทรถ, ชนิดรถ) จาก kindsOf() เพราะคันเดียวอาจวิ่งได้หลายคู่ (เช่นหางพ่วงเปลี่ยนตู้)
+ * แล้วค่อยหาความจุจริงของชนิดรถนั้นจาก refdata — กองรถว่างเปล่า (ผู้ใช้ลบทิ้งหมด) ค่อยถอยไปสุ่มแบบเดิม
+ */
+function pickRosterVehicle() {
+  const roster = loadRoster();
+  if (roster.length === 0) return null;
+  const active = roster.filter((f) => f.status === "ใช้งาน");
+  const v = pick(active.length ? active : roster);
+  const kind = pick(kindsOf(v));
+  return { plate: v.plate, fleetType: kind.fleetType, vehicle: kind.vehicle };
+}
+
 /** สุ่มใบรายการหนึ่งใบ เริ่มจากค่าเปล่าแล้วเติมทุกช่องที่ฟอร์มให้กรอกได้ */
 export function randomRecord(): TripRecord {
   const origin = pick(ORIGINS);
   const dest = pick(destsFor(origin));
   const dist = distanceFor(origin, dest) ?? int(50, 500);
-  const vehicle = pick(ACTIVE_VEHICLES);
-  const capacity = vehicle.capacityKg ?? int(1000, 15000);
+  const roster = pickRosterVehicle();
+  const plate = roster?.plate ?? `ทด.${int(10, 99)}-${int(1000, 9999)}`;
+  const fleetType = (roster?.fleetType ?? pick(["รถบริษัท", "รถร่วม"])) as FleetType;
+  const vehicleName = roster?.vehicle ?? "";
+  const capacity = vehicleByName(vehicleName)?.capacityKg ?? int(1000, 15000);
 
   return {
     id: genId(), docNo: `ทดสอบ${Date.now().toString().slice(-6)}`, source: "ใหม่", synced: false,
     date: todayISO(), routeType: pick(["ขาขึ้น", "ขาล่อง"]), branch: pick(BRANCHES), docType: pick(DOC_TYPES),
     origin, dest, dist, serviceGroup: pick(SERVICE_GROUPS), revenue: round100(int(3000, 40000)),
     bills: [randomBill(origin, dest)],
-    plate: `ทด.${int(10, 99)}-${int(1000, 9999)}`,
-    fleetType: pick(["รถบริษัท", "รถร่วม"]) as FleetType,
-    vehicle: vehicle.name, releaseDate: todayISO(),
+    plate,
+    fleetType,
+    vehicle: vehicleName, releaseDate: todayISO(),
     capacity, loadActual: int(0, capacity), emptyLeg: Math.random() < 0.1,
     gas: int(0, 500), fuelCash: int(0, 3000), fuelDownBill: int(0, 1500), fuelFleet: int(0, 1500),
     fuelPickup: int(0, 800), fuelUpBill: int(0, 1500), fuelSum: 0, fuelAutoOn: true,
@@ -71,8 +89,9 @@ export function randomRecord(): TripRecord {
  * สุ่มเฉพาะช่องของฝ่ายใน zones แล้วทับลงบน base — ช่องของฝ่ายอื่น รวมถึง id ธง workflow
  * และสถานะซิงก์ คงค่าจาก base ทั้งหมด
  *
- * วันปล่อยรถ (ช่องของฝ่ายจัดรถ) = วันที่ในใบ + 0–2 วัน ไม่ใช่ "วันนี้" — ใบที่ cs เปิดไว้เมื่อวาน
- * จะได้ไม่มีวันปล่อยรถก่อนวันที่ในใบ และสถานะกองรถ (tripEta) เดาได้สมเหตุสมผล
+ * วันปล่อยรถ (ช่องของฝ่ายจัดรถ) = วันที่ในใบเป๊ะ ไม่สุ่มเหลื่อมวัน — ใบที่สุ่มจะได้ขึ้นสถานะ
+ * "กำลังเดินทาง" ในหน้าสถานะกองรถทันทีโดยไม่ต้องรอข้ามวัน (tripEta ถือว่ายังไม่ถึงวันปล่อยรถ
+ * = ยังไม่ออกวิ่ง ถ้าวันปล่อยรถล้ำไปในอนาคตกว่าวันที่ในใบ)
  */
 export function randomFor(base: TripRecord, zones: RoleKey[]): TripRecord {
   const full = randomRecord();
@@ -87,8 +106,7 @@ export function randomFor(base: TripRecord, zones: RoleKey[]): TripRecord {
     out.bills = Array.from({ length: n }, () => randomBill(out.origin as string, out.dest as string));
   }
   if (zones.includes("dispatch")) {
-    const date = (out.date as string) || todayISO();
-    out.releaseDate = addDaysISO(date, int(0, 2));
+    out.releaseDate = (out.date as string) || todayISO();
   }
   return out as unknown as TripRecord;
 }
