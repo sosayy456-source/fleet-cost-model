@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -263,51 +263,59 @@ function autoEtl(): Plugin {
         timers[job] = setTimeout(() => { want[job] = true; pump(log); }, delay);
       };
 
-      // ★ ต้องดัก error ของ watcher ไว้เสมอ ไม่งั้น dev server ตายทั้งตัว
-      //   วางไฟล์ใหญ่ (OneDrive/Excel ยังถือ handle อยู่) แล้ว chokidar เรียก fs.watch
-      //   ได้ EBUSY แล้ว emit 'error' ซึ่งถ้าไม่มีใครฟัง node จะโยนทิ้งทั้งโปรเซส
-      //   (เกิดจริงตอนวาง "ลบข้อมูลซ้ำ68-01.xlsx" 25 MB — หน้าเว็บขึ้น Failed to fetch)
-      //
-      // ★ แค่ดักไว้ยังไม่พอ — พอ fs.watch พังแล้ว path นั้น "หลุดจากการเฝ้าไปเลย"
-      //   ไฟล์ที่แก้ทีหลังจึงไม่มีใครเห็น ETL ไม่รันอีกเลยจนกว่าจะรีสตาร์ท server
-      //   และแถบสถานะบนหน้าเว็บค้างอยู่กับผลของรอบที่พังโดยไม่มีอะไรบอก
-      //   (เกิดจริงตอนวาง "ข้อมูลการรับชำระ.xlsx" — EBUSY แล้วเงียบไปสองรอบ)
-      //   จึงต้องต่อการเฝ้ากลับให้ทุกโฟลเดอร์หลังจากนั้น chokidar กันซ้ำให้เองอยู่แล้ว
-      const watched: string[] = [];
-      let rearm: NodeJS.Timeout | null = null;
-      server.watcher.on("error", (e) => {
-        log(`(ข้าม) เฝ้าไฟล์ไม่ได้ชั่วคราว: ${(e as NodeJS.ErrnoException).code ?? e} — ต่อการเฝ้าให้ใหม่ใน 3 วิ`);
-        if (rearm) clearTimeout(rearm);
-        rearm = setTimeout(() => {
-          for (const d of watched) {
-            try { server.watcher.add(d); } catch { /* ยังไม่ว่างก็รอ error รอบหน้า */ }
-          }
-        }, 3000);
-      });
-
-      const watch = (dir: string, onHit: () => void) => {
-        watched.push(dir);
-        server.watcher.add(dir);
-        const handler = (file: string) => {
-          if (!file.startsWith(dir) || !isXlsx(file.slice(dir.length + 1))) return;
-          onHit();
-        };
-        server.watcher.on("add", handler);
-        server.watcher.on("change", handler);
-        server.watcher.on("unlink", handler);
+      /**
+       * ★ ห้ามใช้ server.watcher.add() กับโฟลเดอร์ข้อมูล — โพลเอง
+       *
+       * chokidar ของ Vite บน Windows เฝ้า "รายไฟล์" ด้วย fs.watch ตอนที่ Explorer ยังคัดลอก
+       * ไฟล์ .xlsx ขนาดใหญ่ไม่เสร็จ ไฟล์ถูกล็อก → fs.watch โยน EBUSY → chokidar emit 'error'
+       * ที่ไม่มีใครดัก → **node ตายทั้งโปรเซสทันที** (อาการ: หน้าเว็บขึ้น "Failed to fetch"
+       * แล้วรีเฟรชอีกทีก็ localhost ปฏิเสธการเชื่อมต่อ) เกิดขึ้นจริงตอนวางไฟล์จริง 29 ไฟล์
+       *
+       * เคยแก้ด้วยการดัก error แล้วต่อการเฝ้ากลับ แต่ยังไม่พอ — หลัง EBUSY path นั้น
+       * หลุดจากการเฝ้าไปเลย ไฟล์ที่แก้ทีหลังไม่มีใครเห็น และแถบสถานะค้างกับผลรอบที่พัง
+       * (เกิดจริงตอนวาง "ข้อมูลการรับชำระ.xlsx" — เงียบไปสองรอบ)
+       *
+       * วิธีที่ใช้อยู่: อ่านรายชื่อ+ขนาด+เวลาแก้ไขของไฟล์ทุก 2 วินาที เทียบกับรอบก่อน
+       * เปลี่ยน = มีการวาง/ลบ/เขียนไฟล์ · ไฟล์ที่กำลังคัดลอกอยู่ขนาดจะเปลี่ยนทุกรอบ
+       * จึงไม่มีทางเริ่ม ETL จนกว่าจะคัดลอกเสร็จจริง (ดีกว่าเดิมที่ยิงตอนเห็นไฟล์โผล่)
+       * statSync บนไฟล์ที่ล็อกอยู่โยน error ได้ → ถือว่า "ยังเปลี่ยนอยู่" แล้วรอรอบหน้า
+       *
+       * ★ ตรงกับวิธีที่ branch โมเดล-Anda ใช้ (commit ebcaceb) โดยตั้งใจ — สองสายจะได้
+       *   ไม่ชนกันตอน merge และไม่ต้องเถียงกันว่าจะเอาทางไหน
+       */
+      const WATCH: Record<Job, string> = { rev: revDir, cr: costDir, al: travelDir, db: debtDir };
+      const signature = (dir: string): string | null => {
+        if (!existsSync(dir)) return "";
+        try {
+          return readdirSync(dir).filter(isXlsx).sort()
+            .map((f) => { const st = statSync(resolve(dir, f)); return `${f}|${st.size}|${st.mtimeMs}`; })
+            .join("\n");
+        } catch { return null; }
       };
-
-      watch(revDir, () => {
-        request("rev", 2000);
-        // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย (ต่อคิวไว้ ไม่รันซ้อน)
-        if (hasXlsx(costDir)) request("cr", 2500);
-        // ไฟล์บิลคือฝั่งรายได้ของการปันส่วนต้นทุน → ปันใหม่ด้วย
-        if (hasXlsx(travelDir)) request("al", 3000);
-      });
-      if (existsSync(costDir)) watch(costDir, () => request("cr", 2500));
-      if (existsSync(travelDir)) watch(travelDir, () => request("al", 2500));
-      // ไฟล์ลูกหนี้ไม่เกี่ยวกับสามงานข้างบนเลย (คนละเลขเอกสาร) จึงไม่ต้องสั่งงานอื่นตาม
-      if (existsSync(debtDir)) watch(debtDir, () => request("db", 2500));
+      const last: Record<Job, string | null> = {
+        rev: signature(revDir), cr: signature(costDir),
+        al: signature(travelDir), db: signature(debtDir),
+      };
+      const tick = () => {
+        for (const job of ["rev", "cr", "al", "db"] as Job[]) {
+          const sig = signature(WATCH[job]);
+          if (sig === null || sig === last[job]) continue;
+          last[job] = sig;
+          request(job, 2000);
+          if (job === "rev") {
+            // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย
+            if (hasXlsx(costDir)) request("cr", 2500);
+            // ไฟล์บิลคือฝั่งรายได้ของการปันส่วนต้นทุน → ปันใหม่ด้วย
+            if (hasXlsx(travelDir)) request("al", 3000);
+          }
+          // ไฟล์ลูกหนี้ไม่เกี่ยวกับสามงานข้างบนเลย (คนละเลขเอกสาร) จึงไม่สั่งงานอื่นตาม
+        }
+      };
+      const poll = setInterval(() => { try { tick(); } catch (e) { log(`✗ ${(e as Error).message}`); } }, 2000);
+      poll.unref();   // ไม่ให้ตัวจับเวลารั้งโปรเซสไว้ — vitest ใช้ config เดียวกัน ถ้าไม่ unref จะปิดไม่ลง
+      server.httpServer?.once("close", () => clearInterval(poll));
+      // กันไว้อีกชั้น: error จาก watcher ของ Vite เองต้องไม่ล้ม dev server
+      server.watcher.on("error", (e) => log(`✗ watcher: ${(e as Error).message}`));
 
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
