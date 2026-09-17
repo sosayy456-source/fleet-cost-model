@@ -11,17 +11,69 @@ from __future__ import annotations
 import pandas as pd
 
 
+# ประเภทสินค้าที่ไม่ใช่ "สินค้า" จริง — นับแยกเป็น KPI ของตัวเอง
+# ★ product_type_summary() ยังส่งออกครบทุกประเภทตามเดิม ให้ตารางเห็นของจริง
+#   ฝั่งหน้าจอเป็นคนกันออกจากโดนัทเอง (เพื่อนถามไว้ในสเปกว่า "บิลเคลียร์ — ? เอาไหมนะ")
+BILL_CLEAR = "บิลเคลียร์"
+# ★ คิดจากฝั่ง "ยังไม่ได้ชำระ" แล้วหักออก ไม่ใช่จับคู่ป้ายฝั่งชำระ
+#   ไฟล์จริงเขียนฝั่งชำระว่า "การเงินรับชำระเงิน" ไม่ใช่ "ชำระแล้ว" อย่างที่คาด
+#   ถ้าจับคู่ป้ายฝั่งชำระตรง ๆ จะได้ยอดชำระ 0 กับ collection rate 0% เงียบ ๆ (เจอจริง)
+#   ฝั่งค้างชำระมีป้ายเดียวมาตลอด เทียบทางนี้จึงทนกว่า
+UNPAID_STATUS = "ยังไม่ได้ชำระ"
+
+
+def _sum_where(df: pd.DataFrame, col: str, value: str) -> tuple[float, int]:
+    """(ยอดรวม, จำนวนบิลไม่ซ้ำ) ของแถวที่คอลัมน์นั้นเท่ากับค่าที่ให้ — ไม่มีคอลัมน์ก็คืนศูนย์"""
+    if col not in df.columns:
+        return 0.0, 0
+    hit = df[df[col].astype("string").str.strip() == value]
+    if hit.empty:
+        return 0.0, 0
+    return float(hit["ราคารวม"].sum()), int(hit["เลขที่บิล"].nunique())
+
+
 def overview_kpis(df: pd.DataFrame) -> dict:
+    """ตัวเลขหัวหน้า Overview
+
+    ★ trips นับจาก "เลขที่ใบรายการ" ที่ไม่ซ้ำ — หนึ่งใบรายการ = หนึ่งเที่ยววิ่ง
+      ไม่ใช่จำนวนบิล (บิลหลายใบขึ้นรถเที่ยวเดียวกันได้) และไม่ใช่จำนวนแถว (หนึ่งบิลมีหลายรายการ)
+    ★ ยอด "ชำระแล้ว/ยังไม่ชำระ" มาจากคอลัมน์ สถานะการชำระเงิน ในไฟล์บิล
+      ซึ่ง **ไม่มีวันครบกำหนด** จึงแยก "เกินกำหนด" ไม่ได้ที่นี่ — อยู่ในชุดใบวางบิลเท่านั้น
+    """
     if df.empty:
         return dict(total_revenue=0, distinct_bills=0, total_line_items=0,
-                     avg_bill_value=0, date_min=None, date_max=None)
+                     avg_bill_value=0, date_min=None, date_max=None,
+                     trips=0, customers=0, avg_trip_value=0, avg_customer_value=0,
+                     paid_amount=0, paid_bills=0, unpaid_amount=0, unpaid_bills=0,
+                     collection_rate=None, bill_clear_amount=0, bill_clear_bills=0,
+                     bill_clear_pct=None)
+
+    total = float(df["ราคารวม"].sum())
+    trips = int(df["เลขที่ใบรายการ"].nunique()) if "เลขที่ใบรายการ" in df.columns else 0
+    customers = int(df["ผู้รับ_encoded"].nunique()) if "ผู้รับ_encoded" in df.columns else 0
+    unpaid_amt, unpaid_bills = _sum_where(df, "สถานะการชำระเงิน", UNPAID_STATUS)
+    clear_amt, clear_bills = _sum_where(df, "ประเภทสินค้า", BILL_CLEAR)
+    bills = int(df["เลขที่บิล"].nunique())
+
     return dict(
-        total_revenue=float(df["ราคารวม"].sum()),
-        distinct_bills=int(df["เลขที่บิล"].nunique()),
+        total_revenue=total,
+        distinct_bills=bills,
         total_line_items=int(len(df)),
         avg_bill_value=float(df.groupby("เลขที่บิล")["ราคารวม"].sum().mean()),
         date_min=df["date"].min(),
         date_max=df["date"].max(),
+        trips=trips,
+        customers=customers,
+        avg_trip_value=total / trips if trips else 0.0,
+        avg_customer_value=total / customers if customers else 0.0,
+        paid_amount=total - unpaid_amt,
+        paid_bills=max(bills - unpaid_bills, 0),
+        unpaid_amount=unpaid_amt,
+        unpaid_bills=unpaid_bills,
+        collection_rate=(total - unpaid_amt) / total * 100 if total else None,
+        bill_clear_amount=clear_amt,
+        bill_clear_bills=clear_bills,
+        bill_clear_pct=clear_bills / bills * 100 if bills else None,
     )
 
 
@@ -79,11 +131,20 @@ def pricing_type_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def top_routes(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
+    """เส้นทางเรียงตามรายได้ — มีจำนวนบิลกับจำนวนเที่ยวกำกับด้วย
+
+    ★ lines = จำนวนแถว (รายการสินค้า) · bills = เลขที่บิลไม่ซ้ำ · trips = เลขที่ใบรายการไม่ซ้ำ
+      สามอย่างนี้ไม่เท่ากันและหมายคนละอย่าง — ของเดิมมีแต่ lines ซึ่งอ่านผิดเป็น "จำนวนบิล" ได้ง่าย
+    """
     if df.empty or "route" not in df.columns:
-        return pd.DataFrame(columns=["route", "revenue", "lines"])
+        return pd.DataFrame(columns=["route", "revenue", "lines", "bills", "trips"])
+    agg = {"revenue": ("ราคารวม", "sum"), "lines": ("เลขที่บิล", "count"),
+           "bills": ("เลขที่บิล", "nunique")}
+    if "เลขที่ใบรายการ" in df.columns:
+        agg["trips"] = ("เลขที่ใบรายการ", "nunique")
     return (
         df.groupby("route")
-        .agg(revenue=("ราคารวม", "sum"), lines=("เลขที่บิล", "count"))
+        .agg(**agg)
         .reset_index()
         .sort_values("revenue", ascending=False)
         .head(n)
@@ -156,6 +217,43 @@ def pareto_analysis(customer_df: pd.DataFrame) -> dict:
         curve=curve,
         concentration=concentration,
     )
+
+
+def customer_segments(customer_df: pd.DataFrame) -> dict:
+    """แบ่งลูกค้าเป็นช่วงอันดับแล้วรวมรายได้ — "REVENUE BY CUSTOMER SEGMENT" ในสเปก
+
+    ★ สเปกต้นฉบับซอยเป็น Top 10 / 11-50 / 51-125 เพราะ mock มีลูกค้าแค่ 125 ราย
+      ข้อมูลจริงมีหลักหมื่นถึงแสน ช่วงท้ายจึงใช้ "ที่เหลือ" แทนเลขตายตัว
+    """
+    if customer_df.empty:
+        return {"segments": [], "total": 0.0}
+    c = customer_df.sort_values("revenue", ascending=False).reset_index(drop=True)
+    total = float(c["revenue"].sum())
+    bounds = [(0, 10, "Top 10"), (10, 50, "อันดับ 11-50"), (50, 100, "อันดับ 51-100")]
+    out = []
+    for lo, hi, label in bounds:
+        part = c.iloc[lo:hi]
+        if part.empty:
+            continue
+        out.append({"label": label, "customers": int(len(part)),
+                    "revenue": float(part["revenue"].sum())})
+    rest = c.iloc[100:]
+    if not rest.empty:
+        out.append({"label": f"ที่เหลือ ({len(rest):,} ราย)", "customers": int(len(rest)),
+                    "revenue": float(rest["revenue"].sum())})
+    return {"segments": out, "total": total}
+
+
+def low_revenue_customers(customer_df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
+    """ลูกค้าที่รายได้ต่ำสุด — "LOW REVENUE CUSTOMERS" ในสเปก
+
+    ★ ตัดรายที่รายได้ <= 0 ออก ไม่งั้นตารางจะเต็มไปด้วยลูกค้าที่ยอดเป็นศูนย์
+      (บิลเคลียร์/ยกเลิก) ซึ่งไม่ใช่ "ลูกค้าที่ซื้อน้อย" ตามที่สเปกต้องการ
+    """
+    if customer_df.empty:
+        return customer_df
+    c = customer_df[customer_df["revenue"] > 0]
+    return c.sort_values("revenue", ascending=True).head(n)
 
 
 def data_quality_report(df: pd.DataFrame) -> dict:

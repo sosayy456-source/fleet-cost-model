@@ -11,6 +11,8 @@ import { Note, Pane } from "../../dash-fleet/parts";
 import { DualAxis, EmptyRow, fmt, PALETTE, pct, Tbl } from "./common";
 import type { Dataset } from "../../../lib/data/useDataset";
 
+const NON_PRODUCT = new Set(["บิลเคลียร์", "ของเหมาตีเปล่า", "รถว่างไปสาขา"]);
+
 export default function TrendTab({ data }: { data: Dataset }) {
   const monthly = useMemo(() => data.monthly.map((m) => ({
     mo: monthLabel(m.month),
@@ -19,12 +21,20 @@ export default function TrendTab({ data }: { data: Dataset }) {
     "มูลค่าเฉลี่ย/บิล": m.avg_bill_value == null ? null : Math.round(m.avg_bill_value),
   })), [data.monthly]);
 
+  /**
+   * ★ กัน "บิลเคลียร์ / ของเหมาตีเปล่า / รถว่างไปสาขา" ออกจากโดนัท
+   *   สามอันนี้ไม่ใช่สินค้า ถ้าปนอยู่สัดส่วนสินค้าจะเพี้ยน (เจ้าของงานถามไว้ในสเปกว่าเอาไหม)
+   *   ฝั่งปันส่วนต้นทุนก็กันออกจากกำไรลูกค้าด้วยเหตุผลเดียวกัน
+   *   ตารางข้างล่างยังแสดงครบทุกประเภทตามเดิม จะได้เห็นว่ามีเท่าไร
+   */
   const product = useMemo(() => data.product.map((p) => ({
     name: String(p["ประเภทสินค้า"] ?? "(ไม่ระบุ)"),
     v: Math.round(p.revenue),
     lines: Number(p.lines ?? 0),
   })), [data.product]);
   const productTotal = product.reduce((s, p) => s + p.v, 0);
+  const donut = useMemo(() => product.filter((p) => !NON_PRODUCT.has(p.name) && p.v > 0),
+    [product]);
 
   return (
     <Pane deps={[data]}>
@@ -44,10 +54,12 @@ export default function TrendTab({ data }: { data: Dataset }) {
         <div className="dz-cc">
           <h4>สัดส่วนประเภทสินค้า</h4>
           <div className="dz-box tall">
-            <DPie data={product} colors={PALETTE} />
+            <DPie data={donut} colors={PALETTE} />
           </div>
           <Note>
-            หมวดที่เล็กกว่า 1% แทบมองไม่เห็นในวง — ดูตัวเลขจริงได้ในตารางข้างล่าง
+            นับเฉพาะประเภทที่เป็นสินค้าจริง — บิลเคลียร์ ของเหมาตีเปล่า และรถว่างไปสาขา
+            ไม่อยู่ในวง เพราะไม่ใช่สินค้า (บิลเคลียร์ดูได้ที่การ์ดในแท็บภาพรวม) ·
+            หมวดที่เล็กกว่า 1% แทบมองไม่เห็น ดูตัวเลขจริงได้ในตารางข้างล่าง
           </Note>
         </div>
       </div>

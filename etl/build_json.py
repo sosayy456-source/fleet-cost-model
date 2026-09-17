@@ -170,6 +170,7 @@ def build(dataset: str, out_dir: str | None = None) -> int:
     dow = kpi.day_of_week_summary(df)
     customer = kpi.customer_summary(df)
     pareto = kpi.pareto_analysis(customer)
+    pareto["segments"] = kpi.customer_segments(customer)["segments"]
     dq = kpi.data_quality_report(df)
 
     # ── เส้นทางรายเดือน ── กุญแจสำหรับ join รายได้เข้ากับต้นทุนฝั่งโมเดลเดินรถ
@@ -232,12 +233,16 @@ def build(dataset: str, out_dir: str | None = None) -> int:
     total += write_json(out_dir, "dow.json", dow)
     # แปลงรหัสต้นฉบับเป็นเลข CUS ตั้งแต่ตอน ETL — แดชบอร์ดจะได้ไม่ต้องโหลด custmap.bin 18 MB
     # ทำเฉพาะ 200 อันดับแรกที่ส่งออกจริง ไม่ใช่ลูกค้าทั้งชุด (หน่วยความจำตอนนี้ตึงอยู่แล้ว)
+    # ลูกค้ารายได้ต่ำสุด — คู่กับ Top 10 ในแท็บลูกค้า (สเปกเพื่อน หน้า 2)
+    low_cust = kpi.low_revenue_customers(customer, n=10).copy()
     top_cust = customer.head(200).copy()
     col = "ผู้รับ_encoded" if "ผู้รับ_encoded" in top_cust.columns else top_cust.columns[0]
-    codes = resolve_codes(Path(ROOT), set(top_cust[col].astype(str)))
+    codes = resolve_codes(Path(ROOT), set(top_cust[col].astype(str)) | set(low_cust[col].astype(str)))
     top_cust["n"] = [codes.get(str(h), 0) for h in top_cust[col]]
+    low_cust["n"] = [codes.get(str(h), 0) for h in low_cust[col]]
     log.info("แปลงรหัสลูกค้าเป็น CUS ได้ %s จาก %s ราย", f"{sum(1 for v in top_cust['n'] if v):,}", f"{len(top_cust):,}")
     total += write_json(out_dir, "customer_top.json", top_cust)
+    total += write_json(out_dir, "customer_low.json", low_cust)
     total += write_json(out_dir, "pareto.json", pareto)
     total += write_json(out_dir, "insights.json", all_insights)
     total += write_json(out_dir, "cube.json", cube)

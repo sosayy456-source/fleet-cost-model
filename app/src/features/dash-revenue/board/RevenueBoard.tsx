@@ -4,7 +4,12 @@
  *
  * แท็บย่อยตามรูป ส่วนอันสุดท้ายย้ายมาจากแท็บบนสุดของ Executive Dashboard
  * ตามที่เจ้าของข้อมูลสั่ง 17 ก.ย. 2569:
- *   แนวโน้ม & สินค้า · การชำระเงิน · ลูกค้า (Pareto) · กำไรลูกค้า (ปันส่วนต้นทุน)
+ *   ภาพรวม · แนวโน้ม & สินค้า · การชำระเงิน · ลูกค้า (Pareto) · กำไรลูกค้า (ปันส่วนต้นทุน)
+ *
+ * ★ "ภาพรวม" มาจากสเปกชุดที่สอง (หน้ารวมของ TRANSPORTATION REVENUE DASHBOARD)
+ *   เอามาเสริมของเดิม ไม่ได้แทนที่ · ส่วน Return/สินค้าตีกลับ กับ Transport Operation
+ *   ในสเปกเดียวกันยังไม่ทำที่นี่ — Return ไม่มีข้อมูลในไฟล์บิลและมีคนอื่นทำอยู่แล้ว
+ *   ส่วน Transport Operation ต้องใช้ไฟล์ต้นทุนรายเที่ยวซึ่งเป็นคนละแท็บ
  *
  * ★ แท็บ "เส้นทาง" (Top 10 เส้นทางที่ทำรายได้สูงสุด) ถูกตัดออก 17 ก.ย. 2569 เพราะซ้ำกับ
  *   เมนู "กำไรรายเส้นทาง" ที่มีตารางเส้นทางเรียงตามรายได้อยู่แล้ว และละเอียดกว่า
@@ -25,12 +30,14 @@ import { useDataset } from "../../../lib/data/useDataset";
 import EtlBanner from "../../../lib/ui/EtlBanner";
 import RefreshBtn from "../../../lib/ui/RefreshBtn";
 import AllocDash from "../../dash-alloc/AllocDash";
+import OverviewTab from "./OverviewTab";
 import ParetoTab from "./ParetoTab";
 import PaymentTab from "./PaymentTab";
 import TrendTab from "./TrendTab";
 import { fmt } from "./common";
 
 const SUB = [
+  { id: "overview", label: "ภาพรวม" },
   { id: "trend", label: "แนวโน้ม & สินค้า" },
   { id: "pay", label: "การชำระเงิน" },
   { id: "pareto", label: "ลูกค้า (Pareto)" },
@@ -44,7 +51,7 @@ export default function RevenueBoard() {
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/revenue/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("etl");
   useAutoReloadOnEtl(etl, reload);
-  const [sub, setSub] = useState<SubId>("trend");
+  const [sub, setSub] = useState<SubId>("overview");
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, sub);
 
@@ -83,6 +90,7 @@ export default function RevenueBoard() {
     if (!data) return <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>;
     return (
       <>
+        {sub === "overview" && <OverviewTab data={data} />}
         {sub === "trend" && <TrendTab data={data} />}
         {sub === "pay" && <PaymentTab data={data} />}
         {sub === "pareto" && <ParetoTab data={data} />}

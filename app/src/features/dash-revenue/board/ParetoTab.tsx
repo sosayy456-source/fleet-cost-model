@@ -13,7 +13,8 @@ import { anim, axisProps, dFade, gridProps, tooltipProps } from "../../../lib/ch
 import { D, useChartTheme } from "../../../lib/chart/theme";
 import { ShortId } from "../../../lib/custmap/ShortId";
 import { KC, Note, Pane } from "../../dash-fleet/parts";
-import { EmptyRow, fmt, pct, Tbl } from "./common";
+import { DBar } from "../../../lib/chart/dcharts";
+import { EmptyRow, fmt, PALETTE, pct, Tbl } from "./common";
 import type { Dataset } from "../../../lib/data/useDataset";
 
 function ParetoCurve({ curve }: { curve: { cust_pct: number; cum_pct: number }[] }) {
@@ -42,6 +43,10 @@ function ParetoCurve({ curve }: { curve: { cust_pct: number; cum_pct: number }[]
 export default function ParetoTab({ data }: { data: Dataset }) {
   const p = data.pareto;
   const top10 = useMemo(() => data.customerTop.slice(0, 10), [data.customerTop]);
+  /** รายได้แยกตามช่วงอันดับลูกค้า — "REVENUE BY CUSTOMER SEGMENT" ในสเปก */
+  const seg = p.segments ?? [];
+  const segTotal = seg.reduce((s, x) => s + x.revenue, 0);
+  const segChart = seg.map((x) => ({ label: x.label, v: Math.round(x.revenue) }));
 
   return (
     <Pane deps={[data]}>
@@ -80,6 +85,49 @@ export default function ParetoTab({ data }: { data: Dataset }) {
           <Note>
             จัดอันดับตาม "ผู้รับ" ของบิล · รหัสถูก hash ไว้ตั้งแต่ต้นทาง กดค้างที่รหัสเพื่อดูค่าเต็ม
           </Note>
+        </div>
+      </div>
+
+      <div className="dz-row dz-11" style={{ marginTop: 14 }}>
+        <div className="dz-cc">
+          <h4>รายได้แยกตามช่วงอันดับลูกค้า</h4>
+          <div className="dz-box">
+            {segChart.length
+              ? <DBar data={segChart} xKey="label" colors={PALETTE}
+                  series={[{ key: "v", label: "รายได้", color: PALETTE[0]! }]} />
+              : <div style={{ padding: 20, color: "var(--ink-faint)", textAlign: "center" }}>ไม่มีข้อมูล</div>}
+          </div>
+          <Tbl head={["ช่วงอันดับ", ["จำนวนลูกค้า", "n"], ["รายได้", "n"], ["สัดส่วน", "n"]]}>
+            {seg.length === 0 ? <EmptyRow cols={4} text="ไม่มีข้อมูล" /> : seg.map((x) => (
+              <tr key={x.label}>
+                <td>{x.label}</td>
+                <td className="n">{fmt(x.customers)}</td>
+                <td className="n">{fmt(x.revenue)} บาท</td>
+                <td className="n">{pct(segTotal ? x.revenue / segTotal * 100 : 0, 2)}</td>
+              </tr>
+            ))}
+          </Tbl>
+          <Note>
+            สเปกต้นฉบับซอยเป็น Top 10 / 11-50 / 51-125 เพราะตัวอย่างมีลูกค้าแค่ 125 ราย ·
+            ข้อมูลจริงมีหลักหมื่น ช่วงท้ายจึงเป็น "ที่เหลือ" แทนเลขตายตัว
+          </Note>
+        </div>
+
+        <div className="dz-cc">
+          <h4>ลูกค้าที่ทำรายได้ต่ำสุด 10 ราย</h4>
+          <Tbl head={[["#", "n"], "รหัสลูกค้า", ["รายได้", "n"], ["จำนวนบิล", "n"]]}>
+            {data.customerLow.length === 0
+              ? <EmptyRow cols={4} text="ไม่มีข้อมูล" />
+              : data.customerLow.map((c, i) => (
+                <tr key={c["ผู้รับ_encoded"]}>
+                  <td className="n">{i + 1}</td>
+                  <td><ShortId v={c["ผู้รับ_encoded"]} n={c.n} /></td>
+                  <td className="n">{fmt(c.revenue)} บาท</td>
+                  <td className="n">{fmt(c.bills)}</td>
+                </tr>
+              ))}
+          </Tbl>
+          <Note>คู่กับ Top 10 ด้านบน — สเปกเรียก "LOW REVENUE CUSTOMERS"</Note>
         </div>
       </div>
     </Pane>
