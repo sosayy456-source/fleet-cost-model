@@ -42,7 +42,10 @@ export interface Trip {
   /** กลุ่มต้นทุน (ยอดที่คำนวณต่อได้ดู helpers ด้านล่าง) */
   waste: number; fuel: number; allow: number; fee: number; repair: number; dep: number; rent: number;
   f_cash: number; f_down: number; f_up: number; f_pickup: number; f_call: number;
-  a_drv: number; a_spare: number;
+  /** เบี้ยเลี้ยง พขร. · สำรอง · นอกเส้นทาง (ตัวหลังเคยนับเป็นสูญเปล่า — เอกสารฉบับแก้ 16 ก.ย. 2569 ย้ายมาที่นี่) */
+  a_drv: number; a_spare: number; a_off: number;
+  /** กลุ่มบริการ = ประเภทสินค้าที่พบมากสุดในบิลรายได้ของใบนั้น · "" ถ้าจับคู่ไม่ได้ */
+  sg: string;
   fe_tarp: number; fe_police: number; fe_insure: number; fe_cont: number; fe_port: number; fe_doc: number; fe_toll: number;
 }
 
@@ -77,12 +80,14 @@ export interface CostRevData {
 /* ---------- ยอดที่คำนวณต่อจากกลุ่มต้นทุน (นิยามตามเอกสารจัดประเภทต้นทุน) ---------- */
 /** ต้นทุนปกติ = ต้นทุนทั้งหมด − สูญเปล่า */
 export const normalOf = (t: Trip): number => t.cost - t.waste;
-/** ต้นทุนผันแปร = น้ำมัน + เบี้ยเลี้ยง + ค่าธรรมเนียม + ค่าซ่อม */
-export const variableOf = (t: Trip): number => t.fuel + t.allow + t.fee + t.repair;
+/** ต้นทุนผันแปร = น้ำมัน + เบี้ยเลี้ยง + ค่าธรรมเนียม (ค่าซ่อมแยกไปกึ่งผันแปร — ฉบับแก้ 16 ก.ย. 2569) */
+export const variableOf = (t: Trip): number => t.fuel + t.allow + t.fee;
+/** ต้นทุนคงที่กึ่งผันแปร = ค่าซ่อมรถ (มีทั้งส่วนคงที่ตามเวลาและผันแปรตามระยะทาง — การแยก FC/VC เป็นของทีมค่าซ่อม) */
+export const semiOf = (t: Trip): number => t.repair;
 /** ต้นทุนคงที่ = ค่าเสื่อม */
 export const fixedOf = (t: Trip): number => t.dep;
 /** ที่เหลือที่ไม่เข้ากลุ่มไหน (แก๊ส, Fleet Card เดินทาง, เพิ่มย้อนหลัง, SND) และค่าเช่า */
-export const otherOf = (t: Trip): number => normalOf(t) - variableOf(t) - fixedOf(t) - t.rent;
+export const otherOf = (t: Trip): number => normalOf(t) - variableOf(t) - semiOf(t) - fixedOf(t) - t.rent;
 
 const BASE = import.meta.env.BASE_URL;
 const FORCED = import.meta.env.VITE_DATASET as CostRevDataset | undefined;

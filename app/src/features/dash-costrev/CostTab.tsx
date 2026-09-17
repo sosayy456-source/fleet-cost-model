@@ -2,9 +2,10 @@
  * แท็บ "ต้นทุน" — ตามเอกสาร "การจัดประเภทต้นทุนสำหรับ Dashboard"
  *
  *   ต้นทุนทั้งหมด = ต้นทุนสูญเปล่า + ต้นทุนปกติ
- *   ต้นทุนปกติ    = ผันแปร (น้ำมัน เบี้ยเลี้ยง ค่าธรรมเนียม ค่าซ่อม) + คงที่ (ค่าเสื่อม) + ค่าเช่า + อื่น ๆ
+ *   ต้นทุนปกติ    = ผันแปร (น้ำมัน เบี้ยเลี้ยง ค่าธรรมเนียม) + กึ่งผันแปร (ค่าซ่อมรถ) + คงที่ (ค่าเสื่อม) + ค่าเช่า + อื่น ๆ
+ *   (ฉบับแก้ 16 ก.ย. 2569: ค่าซ่อมแยกเป็นกลุ่มของตัวเอง · เบี้ยเลี้ยงนอกเส้นทางย้ายจากสูญเปล่ามาอยู่ในเบี้ยเลี้ยง)
  *
- *   KPI 8 ตัว · แต่ละกลุ่มมี "การแสดงผล" ตามเอกสาร · drill-down ตามเส้นทาง / เที่ยว / รถ
+ *   KPI 9 ตัว · แต่ละกลุ่มมี "การแสดงผล" ตามเอกสาร · drill-down ตามเส้นทาง / เที่ยว / รถ
  *   ตัวกรอง: ช่วงเวลา เส้นทาง ประเภทรถ ทะเบียนรถ เที่ยวรถ (พนักงานขับรถตัดออก — ไฟล์ไม่มีคอลัมน์)
  */
 import { useMemo, useState } from "react";
@@ -15,7 +16,7 @@ import { CC, Hero, KC, Note, Pane, TableHead, searchStyle } from "../dash-fleet/
 import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, passBase, pct, routeArrow, sumBy, useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
-import { fixedOf, normalOf, otherOf, variableOf } from "../../lib/data/useCostRev";
+import { fixedOf, normalOf, otherOf, semiOf, variableOf } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
 
 type Dim = "rt" | "pl" | "id";
@@ -63,7 +64,7 @@ function Drill({ title, trips, valOf, unit = "บาท", dims = DIMS }: {
           ))}
         </div>
       </TableHead>
-      <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.key} empty="ไม่มีรายการในกลุ่มนี้ตามเงื่อนไข" limit={200} />
+      <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.key} empty="ไม่มีรายการในกลุ่มนี้ตามเงื่อนไข" />
     </div>
   );
 }
@@ -75,6 +76,7 @@ const FUEL_PARTS: { key: keyof Trip; label: string }[] = [
 ];
 const ALLOW_PARTS: { key: keyof Trip; label: string }[] = [
   { key: "a_drv", label: "เบี้ยเลี้ยงพนักงานขับรถ" }, { key: "a_spare", label: "เบี้ยเลี้ยงพนักงานขับรถสำรอง" },
+  { key: "a_off", label: "เบี้ยเลี้ยงนอกเส้นทาง" },
 ];
 const FEE_PARTS: { key: keyof Trip; label: string }[] = [
   { key: "fe_tarp", label: "ค่าปิดเปิดผ้าใบ" }, { key: "fe_police", label: "ค่าตำรวจ" }, { key: "fe_insure", label: "ค่าประกันสินค้า" },
@@ -105,7 +107,7 @@ export default function CostTab({ trips }: { trips: Trip[] }) {
 
   const k = {
     total: sum((t) => t.cost), normal: sum(normalOf), waste: sum((t) => t.waste),
-    variable: sum(variableOf), fixed: sum(fixedOf), rent: sum((t) => t.rent), other: sum(otherOf),
+    variable: sum(variableOf), semi: sum(semiOf), fixed: sum(fixedOf), rent: sum((t) => t.rent), other: sum(otherOf),
     fuel: sum((t) => t.fuel), allow: sum((t) => t.allow), fee: sum((t) => t.fee),
     repair: sum((t) => t.repair), dep: sum((t) => t.dep),
   };
@@ -141,15 +143,16 @@ export default function CostTab({ trips }: { trips: Trip[] }) {
           <Hero kind="loss" l="ต้นทุนสูญเปล่า" v={fmt(k.waste)} s={<>บาท · {pct(wastePct, 2)} ของต้นทุนทั้งหมด</>} />
         </div>
         <div className="dz-cards">
-          <KC dot={D.rose} tone={wastePct > 0 ? "warn" : undefined} l="ต้นทุนสูญเปล่าต่อต้นทุนทั้งหมด" v={pct(wastePct, 2)} s="น้ำมันนอกเส้นทาง · Fleet Card นอกเส้นทาง · วิ่งอ้อม · เบี้ยเลี้ยงนอกเส้นทาง" />
-          <KC dot={D.indigo} l="ต้นทุนผันแปร" v={fmt(k.variable)} s="บาท · น้ำมัน + เบี้ยเลี้ยง + ค่าธรรมเนียม + ค่าซ่อม" />
+          <KC dot={D.rose} tone={wastePct > 0 ? "warn" : undefined} l="ต้นทุนสูญเปล่าต่อต้นทุนทั้งหมด" v={pct(wastePct, 2)} s="น้ำมันนอกเส้นทาง · Fleet Card นอกเส้นทาง · วิ่งอ้อม" />
+          <KC dot={D.indigo} l="ต้นทุนผันแปร" v={fmt(k.variable)} s="บาท · น้ำมัน + เบี้ยเลี้ยง + ค่าธรรมเนียม" />
+          <KC dot={D.amber} l="ต้นทุนคงที่กึ่งผันแปร" v={fmt(k.semi)} s="บาท · ค่าซ่อมรถ" />
           <KC dot={D.slateDeep} l="ต้นทุนคงที่" v={fmt(k.fixed)} s="บาท · ค่าเสื่อมราคา" />
           <KC dot={D.teal} l="ต้นทุนต่อเที่ยว" v={fmt(n ? k.total / n : 0)} s="บาท/เที่ยว" />
           <KC dot={D.cyan} l="ต้นทุนต่อกิโลเมตร" v={fmt(perKm((t) => t.cost), 2)}
             s={<>บาท/กม. · จากเที่ยวที่รู้ระยะทาง {n ? Math.round(kmRows.length / n * 100) : 0}%</>} />
         </div>
         <Note>
-          ต้นทุนปกติ {fmt(k.normal)} = ผันแปร {fmt(k.variable)} + คงที่ {fmt(k.fixed)} + ค่าเช่ารถ {fmt(k.rent)} +
+          ต้นทุนปกติ {fmt(k.normal)} = ผันแปร {fmt(k.variable)} + กึ่งผันแปร {fmt(k.semi)} + คงที่ {fmt(k.fixed)} + ค่าเช่ารถ {fmt(k.rent)} +
           อื่น ๆ {fmt(k.other)} (แก๊ส · Fleet Card เดินทาง · เพิ่มย้อนหลัง · SND) — ค่าเช่าและอื่น ๆ ไม่อยู่ในกลุ่มใดตามเอกสาร จึงแสดงไว้ให้ยอดบวกกันครบ
         </Note>
 
@@ -207,18 +210,18 @@ export default function CostTab({ trips }: { trips: Trip[] }) {
           </div>
         </div>
 
-        {/* 2.1.4 ค่าซ่อม */}
+        {/* 2.2.1 ค่าซ่อมรถ — ต้นทุนคงที่กึ่งผันแปร (การแยก FC/VC เป็นของทีมค่าซ่อม จึงแสดงแค่ยอดรวม) */}
         <div className="dz-cards" style={{ marginTop: 14 }}>
-          <KC dot={D.amber} l="2.1.4) ค่าซ่อมรวม" v={fmt(k.repair)} s="บาท · ต้นทุนผันแปร (สัมพันธ์กับระยะทาง)" />
+          <KC dot={D.amber} l="2.2.1) ค่าซ่อมรถรวม" v={fmt(k.repair)} s="บาท · ต้นทุนคงที่กึ่งผันแปร (มีทั้งส่วนคงที่ตามเวลาและผันแปรตามระยะทาง)" />
           <KC dot={D.amber} l="ค่าซ่อมต่อกิโลเมตร" v={fmt(perKm((t) => t.repair), 2)} s="บาท/กม." />
           <KC dot={D.amber} l="ค่าซ่อมต่อเที่ยว" v={fmt(n ? k.repair / n : 0)} s="บาท/เที่ยว" />
         </div>
         <Drill title="ค่าซ่อม · แยกตามรถและเส้นทาง" trips={rows} valOf={(t) => t.repair}
           dims={[{ key: "pl", label: "รถแต่ละคัน" }, { key: "rt", label: "เส้นทาง" }]} />
 
-        {/* 2.2.1 ค่าเสื่อม */}
+        {/* 2.3.1 ค่าเสื่อม */}
         <div className="dz-cards" style={{ marginTop: 14 }}>
-          <KC dot={D.slateDeep} l="2.2.1) ค่าเสื่อมราคารวม" v={fmt(k.dep)} s="บาท · ต้นทุนคงที่" />
+          <KC dot={D.slateDeep} l="2.3.1) ค่าเสื่อมราคารวม" v={fmt(k.dep)} s="บาท · ต้นทุนคงที่" />
           <KC dot={D.slateDeep} l="ค่าเสื่อมราคาต่อเดือน" v={fmt(months ? k.dep / months : 0)} s={<>บาท/เดือน · {months} เดือนที่มีข้อมูล</>} />
           <KC dot={D.slateDeep} l="ค่าเสื่อมราคาต่อรถ" v={fmt(plates ? k.dep / plates : 0)} s={<>บาท/คัน · {plates} คัน</>} />
           <KC dot={D.slateDeep} l="ค่าเสื่อมราคาต่อเที่ยว" v={fmt(n ? k.dep / n : 0)} s="บาท/เที่ยว" />

@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -90,8 +90,19 @@ function autoEtl(): Plugin {
   };
   let emit: (job: Job, s: Status) => void = () => {};
   const setStatus = (job: Job, state: Status["state"], message: string) => {
+    // ข้อความเดิมซ้ำ (เช่นโพลเจอไฟล์กำลังคัดลอกทุก 2 วิ) ไม่ส่งซ้ำ — เวลา "เริ่ม" บนแถบจะได้ไม่ขยับ
+    if (status[job].state === state && status[job].message === message) return;
     status[job] = { state, message, at: Date.now() };
     emit(job, status[job]);
+  };
+  /** งานที่ต้องรอคิว — ให้แถบขึ้นตั้งแต่ตอนนี้ ไม่ใช่รอจนถึงคิวของตัวเอง (เจ้าของขอ 16 ก.ย. 2569) */
+  const QUEUED: Record<Job, string> = {
+    rev: "อยู่ในคิว — รอชุดต้นทุน+รายได้รายเที่ยวเสร็จก่อน แล้วจะแปลงไฟล์รายได้",
+    cr: "อยู่ในคิว — รอแปลงไฟล์รายได้ให้เสร็จก่อน แล้วจะจับคู่ต้นทุน+รายได้รายเที่ยวต่อทันที",
+  };
+  const COPYING: Record<Job, string> = {
+    rev: "พบไฟล์รายได้ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงให้เอง",
+    cr: "พบไฟล์ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงต้นทุน+รายได้รายเที่ยวและจับคู่ให้เอง",
   };
 
   /** งานที่รันอยู่ตอนนี้ (null = ว่าง) กับคิวของงานที่ขอไว้ */
@@ -222,26 +233,53 @@ function autoEtl(): Plugin {
       const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null };
       const request = (job: Job, delay: number) => {
         if (timers[job]) clearTimeout(timers[job]!);
-        timers[job] = setTimeout(() => { want[job] = true; pump(log); }, delay);
+        timers[job] = setTimeout(() => {
+          want[job] = true;
+          pump(log);
+          if (want[job]) setStatus(job, "running", QUEUED[job]);   // ยังไม่ได้เริ่มเพราะอีกงานรันอยู่
+        }, delay);
       };
 
-      const watch = (dir: string, onHit: () => void) => {
-        server.watcher.add(dir);
-        const handler = (file: string) => {
-          if (!file.startsWith(dir) || !isXlsx(file.slice(dir.length + 1))) return;
-          onHit();
-        };
-        server.watcher.on("add", handler);
-        server.watcher.on("change", handler);
-        server.watcher.on("unlink", handler);
+      /**
+       * ★ ห้ามใช้ server.watcher.add() กับโฟลเดอร์ข้อมูล — โพลเอง
+       *
+       * chokidar ของ Vite บน Windows เฝ้า "รายไฟล์" ด้วย fs.watch ตอนที่ Explorer ยังคัดลอก
+       * ไฟล์ .xlsx ขนาดใหญ่ไม่เสร็จ ไฟล์ถูกล็อก → fs.watch โยน EBUSY → chokidar emit 'error'
+       * ที่ไม่มีใครดัก → **node ตายทั้งโปรเซสทันที** (อาการที่ผู้ใช้เห็น: หน้าเว็บขึ้น
+       * "Failed to fetch" แล้วรีเฟรชอีกทีก็ localhost ปฏิเสธการเชื่อมต่อ) เกิดขึ้นจริงมาแล้ว
+       * ตอนวางไฟล์จริง 29 ไฟล์ ยังไม่ทันได้รัน ETL ด้วยซ้ำ
+       *
+       * วิธีใหม่: อ่านรายชื่อ+ขนาด+เวลาแก้ไขของไฟล์ทุก 2 วินาที เทียบกับรอบก่อน
+       * เปลี่ยน = มีการวาง/ลบ/เขียนไฟล์ · ไฟล์ที่กำลังคัดลอกอยู่ขนาดจะเปลี่ยนทุกรอบ
+       * จึงไม่มีทางเริ่ม ETL จนกว่าจะคัดลอกเสร็จจริง (ดีกว่าเดิมที่ยิงตอนเห็นไฟล์โผล่)
+       * statSync บนไฟล์ที่ล็อกอยู่โยน error ได้ → ถือว่า "ยังเปลี่ยนอยู่" แล้วรอรอบหน้า
+       */
+      const signature = (dir: string): string | null => {
+        if (!existsSync(dir)) return "";
+        try {
+          return readdirSync(dir).filter(isXlsx).sort()
+            .map((f) => { const st = statSync(resolve(dir, f)); return `${f}|${st.size}|${st.mtimeMs}`; })
+            .join("\n");
+        } catch { return null; }
       };
-
-      watch(revDir, () => {
-        request("rev", 2000);
-        // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย (ต่อคิวไว้ ไม่รันซ้อน)
-        if (hasXlsx(costDir)) request("cr", 2500);
-      });
-      if (existsSync(costDir)) watch(costDir, () => request("cr", 2500));
+      const last: Record<Job, string | null> = { rev: signature(revDir), cr: signature(costDir) };
+      const tick = () => {
+        for (const job of ["rev", "cr"] as Job[]) {
+          const dir = job === "rev" ? revDir : costDir;
+          const sig = signature(dir);
+          if (sig === null || sig === last[job]) continue;
+          last[job] = sig;
+          request(job, 2000);
+          if (hasXlsx(dir)) setStatus(job, "running", COPYING[job]);
+          // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย (ต่อคิวไว้ ไม่รันซ้อน)
+          if (job === "rev" && hasXlsx(costDir)) { request("cr", 2500); setStatus("cr", "running", COPYING.cr); }
+        }
+      };
+      const poll = setInterval(() => { try { tick(); } catch (e) { log(`✗ ${(e as Error).message}`); } }, 2000);
+      poll.unref();   // ไม่ให้ตัวจับเวลารั้งโปรเซสไว้ — vitest ใช้ config เดียวกัน ถ้าไม่ unref จะปิดไม่ลง
+      server.httpServer?.once("close", () => clearInterval(poll));
+      // กันไว้อีกชั้น: error จาก watcher ของ Vite เองต้องไม่ล้ม dev server
+      server.watcher.on("error", (e) => log(`✗ watcher: ${(e as Error).message}`));
 
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
@@ -252,6 +290,7 @@ function autoEtl(): Plugin {
           if (pendingRev) want.rev = true;
           if (pendingCr) want.cr = true;
           pump(log);
+          for (const job of ["rev", "cr"] as Job[]) if (want[job]) setStatus(job, "running", QUEUED[job]);
         }, 600));
       }
     },

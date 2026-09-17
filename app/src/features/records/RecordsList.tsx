@@ -13,6 +13,7 @@ import { put, remove } from "../../lib/store/records";
 import { ShortId } from "../../lib/custmap/ShortId";
 import { CASH_ORIGIN, ST_PAID, ST_PARTIAL } from "../../types/record";
 import { duplicateRecord } from "../../lib/record/duplicate";
+import GrowBox from "../../lib/ui/GrowBox";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
 
@@ -167,7 +168,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
         <div className="banner">โหลดจากชีตไม่สำเร็จ (ยังใช้ข้อมูลในเครื่องได้) · {sheetError}</div>
       )}
       <div className="rec-card">
-        <div className="scroll">
+        <GrowBox rows={list} render={(shown) => (
           <table className="rec-table">
             <thead><tr>
               <th>แหล่งข้อมูล</th><th>เลขที่ใบรายการ</th><th>สาขา</th><th>ทะเบียนรถ</th>
@@ -177,7 +178,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
               <th>สถานะ</th><th>แก้ไข</th><th>เวลาบันทึก</th>
             </tr></thead>
             <tbody>
-              {list.slice(0, 300).map(({ r, locked }, i) => {
+              {shown.map(({ r, locked }, i) => {
                 // main อ่านค่าที่บันทึกไว้ในใบตรง ๆ (normal / waste / profit) ไม่คำนวณใหม่
                 // "ต้นทุนรวม" ในตารางนี้จึงเป็นต้นทุนปกติ ยังไม่รวมสูญเปล่า ซึ่งแยกอยู่คอลัมน์ถัดไป
                 const cost = Number(r.normal) || 0;
@@ -265,7 +266,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
               })}
             </tbody>
           </table>
-        </div>
+        )} />
         {list.length === 0 && (
           <div className="rec-empty">
             {records.length + oldRecords.length === 0
@@ -276,8 +277,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
       </div>
 
       <div className="locknote" style={{ marginTop: 8 }}>
-        แสดง {Math.min(list.length, 300)} รายการ · ใหม่ {newCount} · เก่า {oldCount}
-        {list.length > 300 && " · จำกัด 300 แถวแรก ใช้ช่องค้นหาเพื่อกรองให้แคบลง"}
+        ทั้งหมด {list.length.toLocaleString("th-TH")} รายการ · ใหม่ {newCount} · เก่า {oldCount} · เลื่อนในกล่องเพื่อดูต่อ
       </div>
       {msg && <div className="msg" style={{ color: "var(--green)", marginTop: 6 }}>{msg}</div>}
     </>

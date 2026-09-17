@@ -19,6 +19,7 @@ import { fmtBaht, fmtPct, useChartTheme } from "../../lib/chart/theme";
 import { monthLabel, useDataset } from "../../lib/data/useDataset";
 import DashShell from "../../lib/ui/DashShell";
 import FilterBar from "../../lib/ui/FilterBar";
+import GrowBox from "../../lib/ui/GrowBox";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import type { RecordsState } from "../../lib/store/useRecords";
@@ -105,6 +106,8 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
       };
     }).sort((a, b) => b.revenue - a.revenue);
   }, [data, records, month, vehicle, fleetType]);
+  // เส้นทางที่ไม่มีระยะทางในโมเดล — memo ไว้ให้ GrowBox ไม่เริ่มนับใหม่ทุก render
+  const unmatched = useMemo(() => rows.filter((r) => r.distance == null), [rows]);
 
   /* หน้านี้ join ข้อมูลสองทาง — ไฟล์รายได้จาก ETL กับใบรายการจากชีต/เครื่อง
      ปุ่มเดียวจึงต้องสั่งดึงใหม่ทั้งคู่ ไม่งั้นตัวเลขสองฝั่งจะคนละรุ่นกัน */
@@ -181,7 +184,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
 
       <div className="card">
         <h2>เส้นทางเรียงตามรายได้ <span className="muted">· 40 อันดับแรก</span></h2>
-        <div className="scroll-x">
+        <GrowBox rows={rows} render={(shown) => (
           <table>
             <thead>
               <tr>
@@ -194,7 +197,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 40).map((r) => {
+              {shown.map((r) => {
                 const hasActual = r.actualTrips > 0;
                 const costPerTrip = hasActual ? r.actualCost / r.actualTrips : r.estCostPerTrip;
                 return (
@@ -218,7 +221,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
               })}
             </tbody>
           </table>
-        </div>
+        )} />
       </div>
 
       {rows.length > matched.length && (
@@ -229,11 +232,11 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
             {fmtPct(revTotal ? (revTotal - revMatched) / revTotal * 100 : 0)} ของทั้งหมด
             ถ้าอยากให้ครบต้องเพิ่มคู่เส้นทางเหล่านี้ลง <code>refdata/routes.json</code>
           </p>
-          <div className="scroll-x">
+          <GrowBox rows={unmatched} render={(shown) => (
             <table>
               <thead><tr><th>เส้นทาง</th><th className="n">รายได้</th></tr></thead>
               <tbody>
-                {rows.filter((r) => r.distance == null).slice(0, 25).map((r) => (
+                {shown.map((r) => (
                   <tr key={r.route}>
                     <td>{r.route}</td>
                     <td className="n">{fmtBaht(r.revenue)}</td>
@@ -241,7 +244,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
       )}
       </DashShell>

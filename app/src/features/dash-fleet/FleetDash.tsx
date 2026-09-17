@@ -13,6 +13,7 @@ import { DBar, DLine, DMixed, DPie } from "../../lib/chart/dcharts";
 import { useDashInk } from "../../lib/chart/dashfx";
 import DashShell, { Meta } from "../../lib/ui/DashShell";
 import FilterBar from "../../lib/ui/FilterBar";
+import GrowBox from "../../lib/ui/GrowBox";
 import { D, fmtN } from "../../lib/chart/theme";
 import { CC, Empty, FF, Hero, KC, ListFF, Note, Pane, ResetBtn, SrcFF, TableHead, ZT,
          searchStyle, selectStyle } from "./parts";
@@ -562,7 +563,7 @@ function OpsPane({ state }: { state: RecordsState }) {
               <option value="red">แดง</option>
             </select>
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={tripRows} render={(shownTripRows) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>สถานะ</th><th>วันที่</th><th>เลขที่ใบรายการ</th><th>สาขา</th><th>เส้นทาง</th>
@@ -570,7 +571,7 @@ function OpsPane({ state }: { state: RecordsState }) {
                 <th className="n">กำไร/ขาดทุน</th>
               </tr></thead>
               <tbody>
-                {tripRows.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยวตามเงื่อนไข" /> : tripRows.slice(0, 300).map((x, i) => (
+                {tripRows.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยวตามเงื่อนไข" /> : shownTripRows.map((x, i) => (
                   <tr key={i}>
                     <td><span className={`op-status op-status-dot ${x.tier}`} title={tierMeta[x.tier].label}><i /></span></td>
                     <td>{thDateSafe(x.r.date)}</td>
@@ -587,14 +588,9 @@ function OpsPane({ state }: { state: RecordsState }) {
                     </td>
                   </tr>
                 ))}
-                {tripRows.length > 300 && (
-                  <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                    …แสดง 300 รายการแรกจากทั้งหมด {fmt(tripRows.length)} รายการ
-                  </td></tr>
-                )}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
@@ -900,7 +896,7 @@ function TripPane({ state }: { state: RecordsState }) {
             <input style={searchStyle} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหา เลขที่ใบรายการ / ทะเบียน / เส้นทาง" />
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={list} render={(shownList) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>วันที่</th><th>เลขที่ใบรายการ</th><th>เส้นทาง</th><th>ชนิดรถ</th><th>ทะเบียน</th>
@@ -910,7 +906,7 @@ function TripPane({ state }: { state: RecordsState }) {
               <tbody>
                 {list.length === 0 ? <Empty cols={9} text="ไม่พบเที่ยววิ่งตามเงื่อนไข" /> : (
                   <>
-                    {list.slice(0, 300).map((x, i) => (
+                    {shownList.map((x, i) => (
                       <tr key={i}>
                         <td>{thDateSafe(x.r.date)}</td>
                         <td>{x.r.docNo || "–"}</td>
@@ -925,16 +921,11 @@ function TripPane({ state }: { state: RecordsState }) {
                         <td className="n">{x.margin == null ? "–" : Math.round(x.margin) + "%"}</td>
                       </tr>
                     ))}
-                    {list.length > 300 && (
-                      <tr><td colSpan={9} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                        …แสดง 300 รายการแรกจากทั้งหมด {fmt(list.length)} รายการ · ใช้ตัวกรอง/ค้นหาเพื่อดูรายการอื่น
-                      </td></tr>
-                    )}
                   </>
                 )}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
@@ -1045,7 +1036,7 @@ function CustomerPane({ state }: { state: RecordsState }) {
             <input style={{ ...searchStyle, minWidth: 220 }} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหาชื่อลูกค้า" />
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={shown} render={(shownShown) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>ลูกค้า</th><th className="n">จำนวนบิล</th><th className="n">รายได้รวม</th>
@@ -1054,7 +1045,7 @@ function CustomerPane({ state }: { state: RecordsState }) {
               <tbody>
                 {shown.length === 0 ? <Empty cols={6} text="ไม่พบข้อมูลลูกค้าตามเงื่อนไข" /> : (
                   <>
-                    {shown.slice(0, 300).map((x) => (
+                    {shownShown.map((x) => (
                       <tr key={x.name}>
                         <td><ShortId v={x.name} /></td>
                         <td className="n">{fmt(x.n)}</td>
@@ -1066,16 +1057,11 @@ function CustomerPane({ state }: { state: RecordsState }) {
                         <td className="n">{x.margin == null ? "–" : Math.round(x.margin) + "%"}</td>
                       </tr>
                     ))}
-                    {shown.length > 300 && (
-                      <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 10 }}>
-                        …แสดง 300 รายการแรกจากทั้งหมด {fmt(shown.length)} รายการ
-                      </td></tr>
-                    )}
                   </>
                 )}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
@@ -1270,7 +1256,7 @@ function FleetPane({ state }: { state: RecordsState }) {
 
         <div className="dz-cc" style={{ marginTop: 14 }}>
           <TableHead title="เที่ยวที่ใช้รถไม่คุ้มค่าที่สุด (Load Factor ต่ำสุด / เที่ยวเปล่า) เรียงตามมูลค่าเสียโอกาส" />
-          <div className="scroll">
+          <GrowBox rows={lostRows} render={(shownLostRows) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>วันที่</th><th>เลขที่ใบรายการ</th><th>เส้นทาง</th><th>ชนิดรถ</th><th>สถานะ</th>
@@ -1280,7 +1266,7 @@ function FleetPane({ state }: { state: RecordsState }) {
               <tbody>
                 {lostRows.length === 0
                   ? <Empty cols={9} text="ยังไม่มีเที่ยวที่กรอกข้อมูลความจุ/น้ำหนักบรรทุก" />
-                  : lostRows.slice(0, 50).map((x, i) => (
+                  : shownLostRows.map((x, i) => (
                     <tr key={i}>
                       <td>{thDateSafe(x.r.date)}</td>
                       <td>{x.r.docNo || "–"}</td>
@@ -1295,7 +1281,7 @@ function FleetPane({ state }: { state: RecordsState }) {
                   ))}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
         <Note>
           มูลค่าเสียโอกาส (โดยประมาณ) = ต้นทุนรวมของเที่ยวนั้น × สัดส่วนความจุที่ไม่ได้ใช้ (100% − Load Factor) ·
@@ -1594,7 +1580,7 @@ function ServicePane({ state }: { state: RecordsState }) {
             <input style={{ ...searchStyle, minWidth: 240 }} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหา ผู้รับ / เลขที่บิล" />
           </TableHead>
-          <div className="scroll">
+          <GrowBox rows={list} render={(shownList) => (
             <table className="dz-tbl">
               <thead><tr>
                 <th>วันที่</th><th>เลขที่บิล</th><th>ผู้รับ</th><th className="n">จำนวน</th>
@@ -1604,7 +1590,7 @@ function ServicePane({ state }: { state: RecordsState }) {
               <tbody>
                 {list.length === 0
                   ? <Empty cols={9} text="ไม่พบบิลที่ส่งช้าหรือสินค้าเสียหายตามเงื่อนไข" />
-                  : list.slice(0, 300).map((b, i) => {
+                  : shownList.map((b, i) => {
                     const late = b.plannedDate && b.actualDate ? daysBetween(b.plannedDate, b.actualDate) : null;
                     return (
                       <tr key={i}>
@@ -1624,7 +1610,7 @@ function ServicePane({ state }: { state: RecordsState }) {
                   })}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
