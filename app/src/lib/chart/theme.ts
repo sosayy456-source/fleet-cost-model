@@ -41,6 +41,7 @@ export interface ChartTheme {
   grid: string;
   axis: string;
   ink: string;
+  ink2: string;
   inkMuted: string;
   surface: string;
   tooltipBg: string;
@@ -56,6 +57,7 @@ const DASH: ChartTheme = {
   grid: "#F2EFEA",        // scales.*.grid.color
   axis: "#EAE6DF",        // scales.*.border.color
   ink: "#17161A",         // tooltip.backgroundColor
+  ink2: "#4A463F",        // สีแกน/ป้ายกำกับที่ต้องเข้มกว่า inkMuted ให้อ่านง่ายขึ้น — ตรงกับ --d-ink2 ของ CSS
   inkMuted: "#8A857C",    // ticks.color
   surface: "#FFFFFF",
   tooltipBg: "#17161A",

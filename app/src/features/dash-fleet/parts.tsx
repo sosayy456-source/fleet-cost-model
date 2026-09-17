@@ -81,7 +81,7 @@ export function KC({ l, v, s, dot, tone, small, bar }: {
     <div className={"dz-kc" + (tone ? ` t-${tone}` : "")}
       style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined}>
       <div className="l">{dot && <i className="d" />}{l}</div>
-      <div className="v" key={v} data-real={v} style={small ? { fontSize: 14 } : undefined}>{v}</div>
+      <div className="v" key={v} data-real={v} style={small ? { fontSize: 15.5 } : undefined}>{v}</div>
       {s && <div className="s">{s}</div>}
       {bar && <div className="kbar"><i style={{ background: bar }} /></div>}
     </div>
@@ -168,11 +168,11 @@ export function TableHead({ title, children }: { title: string; children?: React
 }
 
 export const searchStyle: React.CSSProperties = {
-  fontFamily: "inherit", fontSize: 13, padding: "8px 11px",
+  fontFamily: "inherit", fontSize: 14.5, padding: "8px 11px",
   border: "1px solid var(--border)", borderRadius: 9, minWidth: 260,
 };
 export const selectStyle: React.CSSProperties = {
-  fontFamily: "inherit", fontSize: 13, padding: "7px 9px",
+  fontFamily: "inherit", fontSize: 14.5, padding: "7px 9px",
   border: "1px solid var(--border)", borderRadius: 8,
 };
 

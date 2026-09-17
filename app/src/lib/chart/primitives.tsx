@@ -26,7 +26,7 @@ export function ChartCard({ title, note, children, table }: {
       {children}
       {table && (
         <details style={{ marginTop: 10 }}>
-          <summary className="muted" style={{ cursor: "pointer", fontSize: 13 }}>
+          <summary className="muted" style={{ cursor: "pointer", fontSize: 14.5 }}>
             ดูเป็นตารางตัวเลข
           </summary>
           <div className="scroll-x" style={{ marginTop: 8 }}>{table}</div>
@@ -37,12 +37,14 @@ export function ChartCard({ title, note, children, table }: {
 }
 
 /* ---------------------------------------------------------------
-   ค่ามาตรฐานของกราฟ — เทียบบรรทัดต่อบรรทัดกับ dOpts() ของ main
-   scales.x/y = { ticks:{font:{family:DFONT,size:11},color:"#8A857C"},
+   ค่ามาตรฐานของกราฟ — โครงเทียบกับ dOpts() ของ main
+   scales.x/y = { ticks:{font:{family:DFONT,color:"#8A857C"},
                   grid:{color:"#F2EFEA"}, border:{color:"#EAE6DF"} }
+   ขนาดตัวอักษรและสี (fontSize/fill) ปรับให้ใหญ่ขึ้นและเข้มขึ้นตามคำขอให้อ่านง่ายขึ้น
+   (ใช้ t.ink2 แทน t.inkMuted) — ไม่ใช่ค่าที่ต้องตรงกับ main พิกเซลต่อพิกเซล
    --------------------------------------------------------------- */
 export const axisProps = (t: ChartTheme) => ({
-  tick: { fill: t.inkMuted, fontSize: 11, fontFamily: DFONT },
+  tick: { fill: t.ink2, fontSize: 14, fontFamily: DFONT },
   tickLine: false,
   axisLine: { stroke: t.axis },
 });
@@ -67,7 +69,7 @@ export const tooltipProps = (t: ChartTheme, suffix = " บาท", digits = 0) =
     borderRadius: 10,
     padding: 11,
     fontFamily: DFONT,
-    fontSize: 12.5,
+    fontSize: 14,
     boxShadow: "0 8px 24px -8px rgba(0,0,0,.35)",
   },
   labelStyle: { color: "#FFFFFF", marginBottom: 4, fontWeight: 600 },
@@ -87,7 +89,7 @@ export const legendProps = {
   iconType: "circle" as const,
   iconSize: 10,
   height: 34,
-  wrapperStyle: { fontFamily: DFONT, fontSize: 12, color: "#4A463F", lineHeight: "22px" },
+  wrapperStyle: { fontFamily: DFONT, fontSize: 13.5, color: "#4A463F", lineHeight: "22px" },
 };
 
 /** พื้นใต้เส้นกราฟ — dFade() ของ main: สีเดิมที่ความทึบ .09 */
@@ -125,7 +127,7 @@ export function Stat({ label, value, tone, sub }: {
     <div className="stat">
       <div className="label">{label}</div>
       <div className="value" style={tone ? { color: tone } : undefined}>{value}</div>
-      {sub && <div className="muted" style={{ fontSize: 11.5 }}>{sub}</div>}
+      {sub && <div className="muted" style={{ fontSize: 13 }}>{sub}</div>}
     </div>
   );
 }

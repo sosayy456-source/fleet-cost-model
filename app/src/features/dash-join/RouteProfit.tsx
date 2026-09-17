@@ -171,7 +171,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
           <Stat label="เส้นทางที่มีใบรายการจริง" value={String(withActual.length)}
             sub={withActual.length ? "ใช้ต้นทุนจริง" : "ยังไม่มี ใช้ประมาณการ"} />
         </div>
-        <p className="muted" style={{ fontSize: 12, marginBottom: 0, marginTop: 10 }}>
+        <p className="muted" style={{ fontSize: 13.5, marginBottom: 0, marginTop: 10 }}>
           ต้นทุนประมาณการคิดเฉพาะส่วนที่ผูกกับระยะทาง (ค่าน้ำมันตามอัตราสิ้นเปลือง +
           ค่าซ่อมตามเวลาและระยะทาง) <b>ยังไม่รวมเบี้ยเลี้ยงและค่าธรรมเนียม</b>
           เพราะสองอย่างนั้นไม่ได้ขึ้นกับเส้นทาง ต้องดูจากใบรายการจริง

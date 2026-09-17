@@ -124,7 +124,7 @@ export function DPie({ data, colors, suffix = " บาท" }: {
     <ResponsiveContainer width="100%" height="100%">
       <PieChart>
         <Tooltip {...tooltipProps(t, suffix)} />
-        <Legend {...legendProps} wrapperStyle={{ ...legendProps.wrapperStyle, fontFamily: DFONT, fontSize: 11 }} />
+        <Legend {...legendProps} wrapperStyle={{ ...legendProps.wrapperStyle, fontFamily: DFONT, fontSize: 12.5 }} />
         <Pie data={data} dataKey="v" nameKey="name" innerRadius="52%" outerRadius="82%"
           isAnimationActive animationDuration={300} paddingAngle={0} stroke="#FFFFFF" strokeWidth={2}>
           {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]!} />)}

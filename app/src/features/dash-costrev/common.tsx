@@ -143,7 +143,7 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, limit = 
             <th key={c.key} className={c.num ? "n" : undefined} onClick={() => onSort(c.key)}
               style={{ cursor: "pointer", userSelect: "none" }} title="คลิกเพื่อเรียง">
               {c.label}
-              <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 10 }}>
+              <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 11.5 }}>
                 {sort.key === c.key ? (sort.dir === 1 ? "▲" : "▼") : "▲▼"}
               </span>
             </th>

@@ -145,7 +145,7 @@ function Overview({ data, months }: { data: Dataset; months: string[] | null }) 
           <Stat label="รายการทั้งหมด" value={o.total_line_items.toLocaleString("th-TH")} />
           <Stat label="ค่าเฉลี่ยต่อบิล" value={fmtBaht(o.avg_bill_value)} sub="บาท" />
         </div>
-        <p className="muted" style={{ marginBottom: 0, fontSize: 12 }}>
+        <p className="muted" style={{ marginBottom: 0, fontSize: 13.5 }}>
           ข้อมูล {o.date_min} ถึง {o.date_max}
         </p>
       </div>
@@ -159,13 +159,13 @@ function Overview({ data, months }: { data: Dataset; months: string[] | null }) 
           <BarChart data={data.monthly} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
             <CartesianGrid stroke={t.grid} strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="month" tickFormatter={monthLabel} stroke={t.axis}
-              tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+              tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
             <YAxis tickFormatter={fmtShort} stroke={t.axis} width={64}
-              tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+              tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
             <Tooltip
               cursor={{ fill: t.grid, fillOpacity: 0.35 }}
               contentStyle={{ background: t.tooltipBg, border: `1px solid ${t.grid}`,
-                              borderRadius: 8, color: t.ink, fontSize: 12.5 }}
+                              borderRadius: 8, color: t.ink, fontSize: 14 }}
               labelFormatter={monthLabel}
               formatter={(v: number) => [fmtBaht(v) + " บาท", "รายได้"]}
             />
@@ -199,10 +199,10 @@ function Trend({ data }: { data: Dataset }) {
           <LineChart data={data.monthly} margin={{ top: 8, right: 12, left: 8, bottom: 4 }}>
             <CartesianGrid stroke={t.grid} strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="month" tickFormatter={monthLabel} stroke={t.axis}
-              tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
-            <YAxis stroke={t.axis} width={64} tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+              tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
+            <YAxis stroke={t.axis} width={64} tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
             <Tooltip contentStyle={{ background: t.tooltipBg, border: `1px solid ${t.grid}`,
-                                     borderRadius: 8, color: t.ink, fontSize: 12.5 }}
+                                     borderRadius: 8, color: t.ink, fontSize: 14 }}
               labelFormatter={monthLabel}
               formatter={(v: number) => [v.toLocaleString("th-TH") + " บิล", "จำนวนบิล"]} />
             <Line isAnimationActive={false} type="monotone" dataKey="bills" stroke={t.categorical[0]}
@@ -216,12 +216,12 @@ function Trend({ data }: { data: Dataset }) {
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={dow} margin={{ top: 8, right: 8, left: 8, bottom: 4 }}>
             <CartesianGrid stroke={t.grid} strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="name" stroke={t.axis} tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+            <XAxis dataKey="name" stroke={t.axis} tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
             <YAxis tickFormatter={fmtShort} stroke={t.axis} width={64}
-              tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+              tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
             <Tooltip cursor={{ fill: t.grid, fillOpacity: 0.35 }}
               contentStyle={{ background: t.tooltipBg, border: `1px solid ${t.grid}`,
-                              borderRadius: 8, color: t.ink, fontSize: 12.5 }}
+                              borderRadius: 8, color: t.ink, fontSize: 14 }}
               formatter={(v: number) => [fmtBaht(v) + " บาท", "รายได้"]} />
             <Bar isAnimationActive={false} dataKey="revenue" fill={t.categorical[0]} radius={[4, 4, 0, 0]} maxBarSize={44} />
           </BarChart>
@@ -251,12 +251,12 @@ function Ranked({ data, months, dim, title }: {
         <BarChart data={rows} layout="vertical" margin={{ top: 8, right: 60, left: 8, bottom: 4 }}>
           <CartesianGrid stroke={t.grid} strokeDasharray="3 3" horizontal={false} />
           <XAxis type="number" tickFormatter={fmtShort} stroke={t.axis}
-            tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+            tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
           <YAxis type="category" dataKey="name" width={150} stroke={t.axis}
-            tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+            tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
           <Tooltip cursor={{ fill: t.grid, fillOpacity: 0.35 }}
             contentStyle={{ background: t.tooltipBg, border: `1px solid ${t.grid}`,
-                            borderRadius: 8, color: t.ink, fontSize: 12.5 }}
+                            borderRadius: 8, color: t.ink, fontSize: 14 }}
             formatter={(v: number) => [
               `${fmtBaht(v)} บาท (${fmtPct(total ? v / total * 100 : 0)})`, "รายได้"]} />
           <Bar isAnimationActive={false} dataKey="revenue" radius={[0, 4, 4, 0]} maxBarSize={22}>
@@ -297,7 +297,7 @@ function Unpaid({ data, months }: { data: Dataset; months: string[] | null }) {
           <Stat label="สัดส่วนของรายได้"
             value={fmtPct(total ? (unpaid?.revenue ?? 0) / total * 100 : 0)} />
         </div>
-        <p className="muted" style={{ marginBottom: 0, fontSize: 12 }}>
+        <p className="muted" style={{ marginBottom: 0, fontSize: 13.5 }}>
           ข้อมูลชุดนี้ไม่มีคอลัมน์วันครบกำหนดหรือวันที่ชำระจริง จึงทำ aging เป็นช่วงอายุหนี้ไม่ได้
           — ดูอายุหนี้รายบิลได้ที่หน้า "ลูกหนี้" ซึ่งใช้ข้อมูลจาก Google Sheet
         </p>
@@ -332,15 +332,15 @@ function Customers({ data }: { data: Dataset }) {
             <CartesianGrid stroke={t.grid} strokeDasharray="3 3" />
             <XAxis dataKey="cust_pct" type="number" domain={[0, 100]}
               tickFormatter={(v: number) => `${Math.round(v)}%`} stroke={t.axis}
-              tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+              tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
             <YAxis domain={[0, 100]} tickFormatter={(v: number) => `${v}%`} stroke={t.axis}
-              width={50} tick={{ fill: t.inkMuted, fontSize: 11 }} tickLine={false} />
+              width={50} tick={{ fill: t.ink2, fontSize: 14 }} tickLine={false} />
             <Tooltip contentStyle={{ background: t.tooltipBg, border: `1px solid ${t.grid}`,
-                                     borderRadius: 8, color: t.ink, fontSize: 12.5 }}
+                                     borderRadius: 8, color: t.ink, fontSize: 14 }}
               labelFormatter={(v: number) => `ลูกค้า ${Number(v).toFixed(1)}% แรก`}
               formatter={(v: number) => [fmtPct(v), "รายได้สะสม"]} />
             <ReferenceLine y={80} stroke={t.status.serious} strokeDasharray="4 4"
-              label={{ value: "80% ของรายได้", fill: t.inkMuted, fontSize: 11, position: "insideTopRight" }} />
+              label={{ value: "80% ของรายได้", fill: t.ink2, fontSize: 12.5, position: "insideTopRight" }} />
             <Line isAnimationActive={false} type="monotone" dataKey="cum_pct" stroke={t.categorical[0]}
               strokeWidth={2} dot={false} />
           </LineChart>

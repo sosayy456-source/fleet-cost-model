@@ -46,7 +46,7 @@ function Drill({ title, trips, valOf, unit = "บาท", dims = DIMS }: {
   }, [trips, dim, valOf, total]);
   const cols = useMemo<Col<DrillRow>[]>(() => [
     { key: "key", label: dims.find((d) => d.key === dim)?.label ?? "", get: (r) => r.key,
-      render: (r) => <>{r.key}{r.sub && <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{r.sub}</div>}</> },
+      render: (r) => <>{r.key}{r.sub && <div style={{ fontSize: 13, color: "var(--ink-faint)" }}>{r.sub}</div>}</> },
     { key: "n", label: "เที่ยว", get: (r) => r.n, num: true },
     { key: "v", label: `รวม (${unit})`, get: (r) => r.v, num: true },
     { key: "per", label: `ต่อเที่ยว (${unit})`, get: (r) => r.per, num: true },
@@ -56,7 +56,7 @@ function Drill({ title, trips, valOf, unit = "บาท", dims = DIMS }: {
   return (
     <div className="dz-cc" style={{ marginTop: 14 }}>
       <TableHead title={title}>
-        <span style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>ดูตาม</span>
+        <span style={{ fontSize: 14, color: "var(--ink-soft)" }}>ดูตาม</span>
         <div className="srcfilter">
           {dims.map((d) => (
             <button key={d.key} type="button" className={dim === d.key ? "on" : ""} onClick={() => setDim(d.key)}>{d.label}</button>
