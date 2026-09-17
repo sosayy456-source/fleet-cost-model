@@ -31,6 +31,7 @@ import EtlBanner from "../../../lib/ui/EtlBanner";
 import RefreshBtn from "../../../lib/ui/RefreshBtn";
 import AllocDash from "../../dash-alloc/AllocDash";
 import OverviewTab from "./OverviewTab";
+import { useRevFilter } from "./filters";
 import ParetoTab from "./ParetoTab";
 import PaymentTab from "./PaymentTab";
 import TrendTab from "./TrendTab";
@@ -52,6 +53,8 @@ export default function RevenueBoard() {
   const etl = useEtlStatus("etl");
   useAutoReloadOnEtl(etl, reload);
   const [sub, setSub] = useState<SubId>("overview");
+  // ตัวกรองอยู่ระดับนี้เพื่อให้สลับแท็บย่อยแล้วค่าที่เลือกไว้ไม่หาย
+  const [f, setF, resetF] = useRevFilter();
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, sub);
 
@@ -90,7 +93,7 @@ export default function RevenueBoard() {
     if (!data) return <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>;
     return (
       <>
-        {sub === "overview" && <OverviewTab data={data} />}
+        {sub === "overview" && <OverviewTab data={data} f={f} set={setF} reset={resetF} />}
         {sub === "trend" && <TrendTab data={data} />}
         {sub === "pay" && <PaymentTab data={data} />}
         {sub === "pareto" && <ParetoTab data={data} />}

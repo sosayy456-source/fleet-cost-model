@@ -2,10 +2,10 @@
  * โหลดไฟล์ JSON ที่ ETL สร้างไว้
  * เป็น static file ทั้งหมด ไม่มี API ระหว่างทาง — โหลดครั้งเดียวแล้วใช้ซ้ำ
  *
- * ★ โหลดเฉพาะไฟล์ที่มีหน้าจออ่านจริง (11 จาก 19 ไฟล์ที่ build_json.py สร้าง)
- *   ที่ยังไม่ดึง: pricing / distline / bill_status / dow / dq / insights / cube / dimensions
- *   ก้อนใหญ่สุดคือ cube.json (1.47 MB ในชุดตัวอย่าง) ซึ่งมีไว้ให้กรองรายเดือนทุกมิติ
- *   ยังไม่มีหน้าไหนใช้ จึงไม่ดึงมาให้เสียเน็ตเปล่า
+ * ★ โหลดเฉพาะไฟล์ที่มีหน้าจออ่านจริง (13 จาก 19 ไฟล์ที่ build_json.py สร้าง)
+ *   ที่ยังไม่ดึง: pricing / distline / bill_status / dow / dq / insights
+ *   cube.json กับ dimensions.json ดึงกลับมาแล้ว (17 ก.ย. 2569) เพราะแถบตัวกรองต้องใช้ —
+ *   cube คือก้อนเดียวที่ re-aggregate ในเบราว์เซอร์ได้ ตอนนี้เหลือ 5 มิติ 704 แถว 277 KB
  *
  *   ETL ยังสร้างครบเหมือนเดิม ไฟล์ยังอยู่ใน public/data/ ครบ — จะเอาไฟล์ไหนกลับมาใช้
  *   ก็เติมชื่อกลับเข้า FILES กับ interface Dataset อย่างละบรรทัด ไม่ต้องรัน ETL ใหม่
@@ -57,6 +57,17 @@ export interface MonthRow {
 
 export interface NamedRow { revenue: number; bills?: number; lines?: number; [k: string]: unknown }
 
+/** 1 แถว = ยอดรวมของชุดมิติหนึ่ง — ใช้คำนวณใหม่ในเบราว์เซอร์เมื่อผู้ใช้กรอง */
+export interface CubeRow {
+  month: string;
+  revenue: number;
+  lines: number;
+  /** ★ nunique — บวกข้ามเซลล์แล้ว "นับเกิน" เป็นขอบบน ไม่ใช่ค่าจริง */
+  bills: number;
+  trips?: number;
+  [dim: string]: unknown;
+}
+
 export interface Pareto {
   total_customers: number; n_for_80pct: number; pct_customers_for_80pct: number;
   curve: { cust_pct: number; cum_pct: number }[];
@@ -99,6 +110,9 @@ export interface Dataset {
   customerTop: CustomerRow[];
   /** ลูกค้ารายได้ต่ำสุด 10 ราย (ตัดรายที่ยอด 0 ออกแล้ว) */
   customerLow: CustomerRow[];
+  cube: CubeRow[];
+  /** ค่าที่เป็นไปได้ของแต่ละมิติ — ใช้สร้างตัวเลือกในแถบตัวกรอง */
+  dimensions: Record<string, string[]>;
   /** ของเมนู "กำไรรายเส้นทาง" ไม่ใช่ของแท็บ Dashboard รายได้ */
   route_month: RouteMonthRow[];
 }
@@ -108,6 +122,7 @@ const FILES: Record<keyof Dataset, string> = {
   payment: "payment.json", paymentMonthly: "payment_monthly.json",
   product: "product.json", routes: "routes.json", pareto: "pareto.json",
   customerTop: "customer_top.json", customerLow: "customer_low.json",
+  cube: "cube.json", dimensions: "dimensions.json",
   route_month: "route_month.json",
 };
 
