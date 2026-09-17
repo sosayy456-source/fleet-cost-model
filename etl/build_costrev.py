@@ -48,6 +48,9 @@ try:                      # calamine อ่าน .xlsx เร็วกว่า
 except ImportError:       # ไม่มีก็ยังรันได้ แค่ช้ากว่า (openpyxl อยู่ใน requirements อยู่แล้ว)
     _calamine = None
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from src.custcodes import resolve_codes  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
@@ -403,6 +406,13 @@ def build(dataset: str) -> None:
     } for t in matched]
 
     old_debtors = [b for t in matched for b in rev_bills.get(t["id"], [])]
+    # แปลงรหัสต้นฉบับของผู้ส่ง/ผู้รับเป็นเลข CUS ตั้งแต่ตอน ETL
+    # หน้ารายการลูกหนี้กับแท็บ "จากข้อมูลบิล (เดิม)" จะได้ไม่ต้องโหลด custmap.bin 18 MB
+    _codes = resolve_codes(ROOT, {str(b.get(k) or "") for b in old_debtors for k in ("sender", "receiver")})
+    for b in old_debtors:
+        b["senderN"] = _codes.get(str(b.get("sender") or ""), 0)
+        b["receiverN"] = _codes.get(str(b.get("receiver") or ""), 0)
+    print(f"  แปลงรหัสลูกค้าในบิลลูกหนี้เป็น CUS ได้ {len(_codes):,} รหัส")
 
     dates = sorted(t["d"] for t in trips)
     manifest = {

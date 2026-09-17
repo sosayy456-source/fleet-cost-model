@@ -1,21 +1,21 @@
 """สร้างข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน → app/public/data/<ds>/alloc/
 
-รับได้สองทาง — ผลลัพธ์หน้าตาเดียวกัน หน้าจอไม่ต้องรู้ว่ามาจากทางไหน
+คำนวณเองจากไฟล์ดิบเสมอ — ไม่มีทางรับไฟล์ที่ปันเสร็จแล้วอีกแล้ว
+      รายงานค่าเดินทาง etl/data/travel/ + ไฟล์บิล etl/data/revenue/ + routes.json
+      ใช้สูตรใน src/alloc.py (วิธี ค) ซึ่งตรวจแล้วตรงกับเอกสารข้อ 11 ทุกตัว
 
-  1. ไฟล์ที่ปันเสร็จแล้วจากเครื่องปันส่วนต้นทุน V2   (ทางหลัก)
-       etl/data/allocated/*.xlsx   ชีท "การจัดสรรต้นทุน" 33 คอลัมน์ (เอกสารข้อ 8)
-       ระบบอ่านคอลัมน์ "ต้นทุนจัดสรร" ที่คำนวณมาแล้วตรง ๆ ไม่คิดสูตรใหม่
-  2. คำนวณเองจากไฟล์ดิบ                              (ทางสำรอง/ตัวสอบทาน)
-       รายงานค่าเดินทาง etl/data/travel/ + ไฟล์บิล etl/data/revenue/ + routes.json
-       ใช้สูตรใน src/alloc.py (วิธี ค) ซึ่งตรวจแล้วตรงกับเอกสารข้อ 11 ทุกตัว
-
-    python etl/build_alloc.py --dataset real                 # มีไฟล์ที่ปันเสร็จก็ใช้อันนั้น
-    python etl/build_alloc.py --dataset real --source compute # บังคับคำนวณเอง
+    python etl/build_alloc.py --dataset real
     python etl/build_alloc.py --dataset sample
+
+★ เดิม (16 ก.ย. 2569) เคยรับไฟล์จากเครื่องปันส่วนต้นทุน V2 ที่ etl/data/allocated/ เป็นทางหลัก
+  เจ้าของข้อมูลสั่งตัดทิ้ง 17 ก.ย. 2569 เพราะไฟล์นั้นเป็นข้อมูลชุดเดียวกับที่ etl/data/revenue/
+  กับ etl/data/travel/ มีอยู่แล้ว แค่ผ่านการคำนวณมาก่อน — เก็บไว้สองที่คือข้อมูลซ้ำซ้อน
+  **ห้ามเติมทางรับไฟล์ที่ปันเสร็จกลับเข้ามาโดยไม่ถามก่อน**
 
 ผลลัพธ์
     manifest.json   จำนวน/ยอดรวม/ช่วงเดือน/ที่มาของข้อมูล
     customers.json  1 ระเบียน = 1 ลูกค้า (ผู้จ่ายเงิน) เก็บเป็นคอลัมน์เพื่อให้ไฟล์เล็ก
+                    คอลัมน์ n = เลขในรหัส CUS ที่แปลงจาก custmap.bin ให้แล้ว (0 = ไม่มีในไฟล์)
     months.json     ยอดรายเดือน สำหรับกราฟแนวโน้ม
     unlinked.json   กลุ่ม "ข้อมูลไม่เชื่อมกัน" + ต้นทุนที่ไม่ปันเข้าลูกค้า (บล็อกล่างสุดของหน้า)
 
@@ -24,7 +24,6 @@
     บิลเคลียร์ กับ เที่ยวตีเปล่า/รถว่างไปสาขา ไม่นับเป็นลูกค้า (แต่ยังรับต้นทุนของตัวเอง
     แล้วไปโชว์เป็น "ต้นทุนที่ไม่ปันเข้าลูกค้า")
 
-★ ทั้งสองทางยุบก้อนด้วย Rollup ตัวเดียวกัน — ตัวเลขบนหน้าจอจึงนิยามเดียวกันเสมอ
 ★ เลขที่ใบรายการ/เลขที่บิลเทียบเป็นสตริงเสมอ txt() ตัด .0 ที่ calamine ใส่มาให้
 """
 from __future__ import annotations
@@ -38,6 +37,7 @@ from datetime import datetime
 from pathlib import Path
 
 from build_costrev import find_header_row, iter_sheet, parse_date, utf8_stdout, xlsx_files
+from src.custcodes import resolve_codes
 from src.alloc import (
     DIST_EXACT,
     DIST_FALLBACK,
@@ -65,20 +65,12 @@ SAMPLE_COST = HERE / "sample_data" / "ExampleCostandRevenue.xlsx"
 SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
 REAL_COST_DIR = HERE / "data" / "travel"
 REAL_REV_DIR = HERE / "data" / "revenue"
-REAL_ALLOCATED_DIR = HERE / "data" / "allocated"
 
 COL_DOC = "เลขที่ใบรายการ"
 COL_BILL = "เลขที่บิล"
 COL_COST = "ต้นทุน"
 COL_TTYPE = "ประเภทใบรายการ"
 #: คอลัมน์ผลการจัดสรรจากเครื่อง V2 (เอกสารข้อ 8 คอลัมน์ 25-33)
-COL_ALLOC = "ต้นทุนจัดสรร (บาท)"
-COL_ALLOC_ALT = "ต้นทุนจัดสรร"          # เผื่อเครื่องรุ่นที่ไม่ใส่หน่วยในหัวคอลัมน์
-COL_TRIPCOST = "ต้นทุนเที่ยวรถ (บาท)"
-COL_DIST_OUT = "ระยะทาง (กม.)"
-COL_BASIS_OUT = "เงื่อนไขที่ใช้"
-
-SRC_MACHINE = "เครื่องปันส่วนต้นทุน V2 (ไฟล์ที่ปันเสร็จแล้ว)"
 SRC_COMPUTE = "คำนวณในระบบจากไฟล์ดิบ (src/alloc.py วิธี ค)"
 
 
@@ -168,9 +160,12 @@ class Rollup:
     def write(self, out: Path, manifest: dict) -> None:
         out.mkdir(parents=True, exist_ok=True)
         rows = sorted(self.cust.items(), key=lambda kv: kv[1][3])   # ขาดทุนมากสุดขึ้นก่อน
+        # แปลงรหัสต้นฉบับเป็นเลข CUS ตั้งแต่ตรงนี้ — แดชบอร์ดจะได้ไม่ต้องโหลด custmap.bin 18 MB
+        codes = resolve_codes(ROOT, {k[1] for k, _ in rows})
         customers = {
             "side": [k[0] for k, _ in rows],
             "code": [k[1] for k, _ in rows],
+            "n": [codes.get(k[1], 0) for k, _ in rows],
             "bills": [int(v[0]) for _, v in rows],
             "revenue": [round(v[1], 2) for _, v in rows],
             "cost": [round(v[2], 2) for _, v in rows],
@@ -261,14 +256,6 @@ def load_trips(cost_files: list[Path]) -> tuple[dict[str, float], dict[str, str]
     return dict(cost), ttype, bad
 
 
-def trip_types_only(cost_files: list[Path]) -> dict[str, str]:
-    """อ่านแค่ ประเภทใบรายการ ต่อเที่ยว — ทางไฟล์ที่ปันเสร็จแล้วต้องใช้กันเที่ยวตีเปล่าออก
-    เพราะไฟล์จากเครื่อง V2 มีแต่ 24 คอลัมน์ของไฟล์บิล ซึ่งไม่มีคอลัมน์นี้
-    """
-    _cost, ttype, _bad = load_trips(cost_files)
-    return ttype
-
-
 # ================================================================ ไฟล์บิลดิบ
 BILL_COLS = {
     "doc": COL_DOC, "bill": COL_BILL, "origin": "ต้นทาง", "dest": "ปลายทาง",
@@ -357,64 +344,7 @@ class TripAcc:
                           self.revenue, self.qty, self.n)
 
 
-# ================================================================ ทาง 1 · ไฟล์ที่ปันเสร็จแล้ว
-def from_machine(files: list[Path], ttype: dict[str, str]) -> tuple[Rollup, dict]:
-    """อ่านไฟล์จากเครื่องปันส่วนต้นทุน V2 — ใช้คอลัมน์ "ต้นทุนจัดสรร" ตรง ๆ ไม่คิดใหม่
-
-    ★ แถวที่เครื่องเขียนว่า "ข้อมูลไม่เชื่อมกัน" ในช่องต้นทุนจัดสรร (เอกสารข้อ 8)
-      ต้องถือว่าไม่มีต้นทุน ไม่ใช่ต้นทุน 0 ไม่งั้นบิลกลุ่มนั้นจะดูกำไรเท่ารายได้ทั้งก้อน
-    """
-    roll = Rollup()
-    extra = {"alloc": COL_ALLOC, "alloc2": COL_ALLOC_ALT, "tripcost": COL_TRIPCOST,
-             "dist": COL_DIST_OUT, "cond": COL_BASIS_OUT}
-    trip_cost: dict[str, float] = {}
-    for path in files:
-        n = 0
-        for it in item_reader(path, extra):
-            n += 1
-            raw = it.extra.get("alloc")
-            if raw is None or raw == "":
-                raw = it.extra.get("alloc2")
-            # ป้ายที่มาระยะทาง/เงื่อนไข เอาไว้รายงานอย่างเดียว ไม่มีก็ข้ามได้
-            dist_raw = it.extra.get("dist")
-            if is_number(dist_raw):
-                it.dist = num(dist_raw)
-                it.dist_source = DIST_EXACT
-            elif txt(dist_raw):
-                it.dist_source = DIST_MEDIAN
-            cond = it.extra.get("cond")
-            if txt(cond)[:1].isdigit():
-                it.basis_cond = int(txt(cond)[0])
-
-            tc = it.extra.get("tripcost")
-            if is_number(tc):
-                trip_cost[it.doc] = num(tc)
-
-            alloc = num(raw) if is_number(raw) else None
-            roll.add(it, alloc, exclusion_of(it, ttype.get(it.doc, "")))
-        bills = roll.flush_file()
-        print(f"  {path.name}: {n:,} รายการ · บิลที่ปันได้ {bills:,}")
-
-    info = {
-        "source": SRC_MACHINE,
-        "costFiles": [p.name for p in files],
-        "billFiles": len(files),
-        "trips": {
-            "inCostReport": len(trip_cost),
-            "inBills": len(trip_cost) + len(roll.nl_trips),
-            "matched": len(trip_cost),
-        },
-        "cost": {
-            "inCostReport": round(sum(trip_cost.values()), 2),
-            "allocatable": round(sum(trip_cost.values()), 2),
-            "toCustomers": round(roll.allocated, 2),
-            "notToCustomers": round(sum(roll.excluded_cost.values()), 2),
-        },
-    }
-    return roll, info
-
-
-# ================================================================ ทาง 2 · คำนวณเอง
+# ================================================================ ปันส่วนจากไฟล์ดิบ
 def from_raw(cost_files: list[Path], rev_files: list[Path],
              routes: dict[str, dict[str, float]]) -> tuple[Rollup, dict]:
     """คำนวณเองจากไฟล์ดิบด้วยสูตรใน src/alloc.py — เดินไฟล์บิลสองรอบ
@@ -490,38 +420,21 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
 
 
 # ================================================================ ประกอบร่าง
-def build(dataset: str, source: str) -> None:
+def build(dataset: str) -> None:
     if dataset == "real":
         cost_files = xlsx_files(REAL_COST_DIR) if REAL_COST_DIR.exists() else []
         rev_files = xlsx_files(REAL_REV_DIR) if REAL_REV_DIR.exists() else []
-        done_files = xlsx_files(REAL_ALLOCATED_DIR) if REAL_ALLOCATED_DIR.exists() else []
     else:
         cost_files = [SAMPLE_COST] if SAMPLE_COST.exists() else []
         rev_files = xlsx_files(SAMPLE_REV_DIR) if SAMPLE_REV_DIR.exists() else []
-        done_files = []
 
-    use_machine = source == "machine" or (source == "auto" and done_files)
-    if use_machine and not done_files:
-        sys.exit(f"ไม่มีไฟล์ที่ปันเสร็จแล้วใน {REAL_ALLOCATED_DIR}")
-
-    if use_machine:
-        print(f"ใช้ไฟล์ที่ปันเสร็จแล้วจากเครื่องปันส่วนต้นทุน ({len(done_files)} ไฟล์)")
-        ttype: dict[str, str] = {}
-        if cost_files:
-            print("อ่าน ประเภทใบรายการ จากรายงานค่าเดินทาง (ใช้กันเที่ยวตีเปล่าออก)")
-            ttype = trip_types_only(cost_files)
-        else:
-            print("  [!] ไม่มีรายงานค่าเดินทางใน etl/data/travel/ — กันออกได้แค่บิลเคลียร์")
-            print("      เที่ยวตีเปล่า/รถว่างไปสาขาจะถูกนับเป็นลูกค้าด้วย")
-        roll, info = from_machine(done_files, ttype)
-    else:
-        if not cost_files:
-            sys.exit(f"ไม่มีรายงานค่าเดินทางใน {REAL_COST_DIR if dataset == 'real' else SAMPLE_COST}")
-        if not rev_files:
-            sys.exit(f"ไม่มีไฟล์บิลใน {REAL_REV_DIR if dataset == 'real' else SAMPLE_REV_DIR}")
-        routes: dict[str, dict[str, float]] = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))
-        print(f"ตารางระยะทาง {sum(len(v) for v in routes.values()):,} คู่")
-        roll, info = from_raw(cost_files, rev_files, routes)
+    if not cost_files:
+        sys.exit(f"ไม่มีรายงานค่าเดินทางใน {REAL_COST_DIR if dataset == 'real' else SAMPLE_COST}")
+    if not rev_files:
+        sys.exit(f"ไม่มีไฟล์บิลใน {REAL_REV_DIR if dataset == 'real' else SAMPLE_REV_DIR}")
+    routes: dict[str, dict[str, float]] = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))
+    print(f"ตารางระยะทาง {sum(len(v) for v in routes.values()):,} คู่")
+    roll, info = from_raw(cost_files, rev_files, routes)
 
     out = OUT_ROOT / dataset / "alloc"
     manifest = {
@@ -542,10 +455,8 @@ def main() -> None:
     utf8_stdout()
     ap = argparse.ArgumentParser(description="กำไรลูกค้าจากการปันส่วนต้นทุนเที่ยวรถ → JSON")
     ap.add_argument("--dataset", choices=["sample", "real"], default="real")
-    ap.add_argument("--source", choices=["auto", "machine", "compute"], default="auto",
-                    help="auto = มีไฟล์ใน etl/data/allocated/ ก็ใช้อันนั้น ไม่มีก็คำนวณเอง")
     a = ap.parse_args()
-    build(a.dataset, a.source)
+    build(a.dataset)
 
 
 if __name__ == "__main__":

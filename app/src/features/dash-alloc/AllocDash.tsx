@@ -137,17 +137,31 @@ function Body({ data, f, set, reset }: {
 
   const t = useAllocTotals(rows);
 
-  /** 15 อันดับที่กำไรมากสุดและขาดทุนมากสุด — ดูสองหัวท้ายพร้อมกันในกราฟเดียว */
-  const chart = useMemo(() => {
+  /**
+   * แยกกราฟสองใบ กำไรสูงสุด / ขาดทุนมากสุด ข้างละ 15 ราย
+   *
+   * ★ เดิมรวมไว้ในกราฟเดียว 30 แถบ ซึ่งอ่านยากเพราะสองฝั่งต่างกันคนละสเกล
+   *   ฝั่งกำไรยาวถึง 4 แสน ฝั่งขาดทุนสั้นแค่หลักหมื่น พอใช้แกนร่วมกันแถบขาดทุนเลยจิ๋ว
+   *   จนเทียบกันเองไม่ได้ · แยกใบแล้วแต่ละใบมีแกนของตัวเอง เห็นลำดับในฝั่งตัวเองชัด
+   *
+   * ★ ฝั่งขาดทุนส่งค่าสัมบูรณ์เข้ากราฟ (ไม่ใช่ค่าติดลบ) แถบจะได้ยาวไปทางขวาเหมือนกัน
+   *   แล้วบอกหน่วยใน tooltip ว่า "ขาดทุน" แทน — ถ้าปล่อยติดลบ แกนจะวิ่งจากซ้ายมาศูนย์
+   *   แล้วป้ายชื่อลูกค้าไปกองอยู่กลางกราฟ
+   *
+   * custLabel ให้รหัส CUS ถ้าตารางรหัสถูกโหลดแล้ว ไม่งั้นย่อ hash ให้ — เหมือนกราฟหน้าอื่น
+   */
+  const [topChart, lossChart] = useMemo(() => {
     const byProfit = [...rows].sort((a, b) => b.profit - a.profit);
-    const top = byProfit.slice(0, TOP_N);
-    const bottom = byProfit.slice(-TOP_N).filter((x) => !top.includes(x));
-    // custLabel ให้รหัส CUS ถ้าตารางรหัสถูกโหลดแล้ว ไม่งั้นย่อ hash ให้ — เหมือนกราฟหน้าอื่น
-    return [...top, ...bottom.reverse()].map((c) => ({ name: custLabel(c.code), v: c.profit }));
+    const gain = byProfit.filter((c) => c.profit > 0).slice(0, TOP_N)
+      .map((c) => ({ name: custLabel(c.code, c.n), v: Math.round(c.profit) }));
+    const loss = byProfit.filter((c) => c.profit < 0)
+      .sort((a, b) => a.profit - b.profit).slice(0, TOP_N)
+      .map((c) => ({ name: custLabel(c.code, c.n), v: Math.round(-c.profit) }));
+    return [gain, loss];
   }, [rows]);
 
   const cols: Col<AllocCustomer>[] = useMemo(() => [
-    { key: "code", label: "ลูกค้า", get: (r) => r.code, render: (r) => <ShortId v={r.code} /> },
+    { key: "code", label: "ลูกค้า", get: (r) => r.code, render: (r) => <ShortId v={r.code} n={r.n} /> },
     { key: "side", label: "ผู้จ่าย", get: (r) => r.side },
     { key: "bills", label: "บิล", get: (r) => r.bills, num: true },
     { key: "revenue", label: "รายได้", get: (r) => r.revenue, num: true },
@@ -218,13 +232,34 @@ function Body({ data, f, set, reset }: {
             s={t.lossShare == null ? "บิล" : `บิล · ${pct(t.lossShare)} ของบิลทั้งหมด`} />
         </div>
 
-        <div style={{ marginTop: 14 }}>
-          <CC title={`ลูกค้าที่กำไรสูงสุดและขาดทุนมากสุด (${TOP_N} อันดับแต่ละด้าน)`} tall>
-            <DBar data={chart} xKey="name" horiz
-              colors={chart.map((x) => (x.v < 0 ? D.rose : D.emerald))}
-              series={[{ key: "v", label: "กำไร/ขาดทุน", color: D.emerald }]} />
+        <div className="dz-row dz-11" style={{ marginTop: 14 }}>
+          <CC title={`ลูกค้าที่ทำกำไรสูงสุด (${TOP_N} อันดับ)`} tall>
+            {topChart.length ? (
+              <DBar data={topChart} xKey="name" horiz
+                series={[{ key: "v", label: "กำไร", color: D.emerald }]} />
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+                            height: "100%", color: "var(--ink-faint)" }}>
+                ไม่มีลูกค้าที่กำไรตามเงื่อนไขที่กรองอยู่
+              </div>
+            )}
+          </CC>
+          <CC title={`ลูกค้าที่ขาดทุนมากสุด (${TOP_N} อันดับ)`} tall>
+            {lossChart.length ? (
+              <DBar data={lossChart} xKey="name" horiz suffix=" บาท (ขาดทุน)"
+                series={[{ key: "v", label: "ขาดทุน", color: D.rose }]} />
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+                            height: "100%", color: "var(--ink-faint)" }}>
+                ไม่มีลูกค้าที่ขาดทุนตามเงื่อนไขที่กรองอยู่
+              </div>
+            )}
           </CC>
         </div>
+        <Note>
+          แยกสองใบเพราะสองฝั่งคนละสเกลกัน · ใบขวาวาดเป็นค่าบวกเพื่อให้เทียบความยาวกันได้
+          ตัวเลขจริงติดลบ ดูได้ในตารางข้างล่าง
+        </Note>
 
         <div className="dz-cc" style={{ marginTop: 14 }}>
           <TableHead title={`กำไรรายลูกค้า (${fmt(rows.length)} ราย)`}>

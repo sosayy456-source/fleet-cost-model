@@ -8,33 +8,8 @@
  *   (เจอจริงตอนพอร์ตแดชบอร์ด — กราฟวาดเส้นออกมาแต่ไม่มีแกนเลย)
  *   จึงต้องเขียน <XAxis {...axisProps(t)} /> ตรง ๆ ในทุกกราฟ
  */
-import type { ReactNode } from "react";
-import { DFONT, DUR, fmtN, useChartTheme } from "./theme";
+import { DFONT, DUR, fmtN } from "./theme";
 import type { ChartTheme } from "./theme";
-
-/** กรอบกราฟพร้อมหัวเรื่องและตารางสำรอง — ใช้ในหน้าแดชบอร์ดรายได้ */
-export function ChartCard({ title, note, children, table }: {
-  title: string;
-  note?: string;
-  children: ReactNode;
-  table?: ReactNode;
-}) {
-  return (
-    <div className="card">
-      <h2>{title}</h2>
-      {note && <p className="muted" style={{ marginTop: -6 }}>{note}</p>}
-      {children}
-      {table && (
-        <details style={{ marginTop: 10 }}>
-          <summary className="muted" style={{ cursor: "pointer", fontSize: 13 }}>
-            ดูเป็นตารางตัวเลข
-          </summary>
-          <div className="scroll-x" style={{ marginTop: 8 }}>{table}</div>
-        </details>
-      )}
-    </div>
-  );
-}
 
 /* ---------------------------------------------------------------
    ค่ามาตรฐานของกราฟ — เทียบบรรทัดต่อบรรทัดกับ dOpts() ของ main
@@ -126,25 +101,6 @@ export function Stat({ label, value, tone, sub }: {
       <div className="label">{label}</div>
       <div className="value" style={tone ? { color: tone } : undefined}>{value}</div>
       {sub && <div className="muted" style={{ fontSize: 11.5 }}>{sub}</div>}
-    </div>
-  );
-}
-
-/** แถบข้อความเตือน/ข้อสังเกต — มีไอคอนกำกับเสมอ ไม่สื่อความหมายด้วยสีอย่างเดียว */
-export function InsightCard({ level, html }: { level: string; html: string }) {
-  const theme = useChartTheme();
-  const map: Record<string, { color: string; icon: string; label: string }> = {
-    alert: { color: theme.status.critical, icon: "▲", label: "ต้องรีบดู" },
-    warn: { color: theme.status.serious, icon: "!", label: "ควรระวัง" },
-    ok: { color: theme.status.good, icon: "✓", label: "ปกติ" },
-    info: { color: theme.categorical[0], icon: "i", label: "ข้อสังเกต" },
-  };
-  const s = map[level] ?? map.info!;
-  return (
-    <div className="insight" style={{ borderLeftColor: s.color }}>
-      <span className="insight-icon" style={{ color: s.color }} aria-hidden>{s.icon}</span>
-      <span className="sr-label" style={{ color: s.color }}>{s.label}</span>
-      <span dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }

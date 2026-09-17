@@ -65,18 +65,6 @@ export function useChartTheme(): ChartTheme {
   return DASH;
 }
 
-/**
- * เลือกเฉดจากไล่สีเดียวตามอันดับ — ใช้กับหมวดที่เรียงตามขนาดได้
- * อันดับ 1 เข้มสุด ไล่จางลงตามลำดับ เพื่อให้อ่านลำดับได้จากสีโดยตรง
- */
-export function rankedShades(theme: ChartTheme, n: number): string[] {
-  if (n <= 0) return [];
-  const usable = theme.sequential.slice(1).reverse();
-  if (n === 1) return [usable[0]!];
-  return Array.from({ length: n }, (_, i) =>
-    usable[Math.min(usable.length - 1, Math.round((i / (n - 1)) * (usable.length - 1)))]!);
-}
-
 /** ตรงกับ fmt(n,0) ของ main — toLocaleString("th-TH") ไม่เอาทศนิยม */
 export const fmtBaht = (n: number): string =>
   Number.isFinite(n) ? n.toLocaleString("th-TH", { maximumFractionDigits: 0 }) : "–";

@@ -3,16 +3,24 @@
  * (การ์ดค้นหา + การ์ด "รหัสที่ระบบออกใหม่" + กล่องอธิบายวิธีทำงาน)
  *
  * ★ เทียบแบบเป๊ะเท่านั้น: CUS ตามด้วยเลข 7 หลักพอดี · รหัสต้นฉบับครบ 64 ตัว ·
- *   หรือค่าที่เคยออกรหัสใหม่ให้ ซึ่งเทียบทั้งสตริง
+ *   รหัสลูกหนี้ครบ 40 ตัว · หรือค่าที่เคยออกรหัสใหม่ให้ ซึ่งเทียบทั้งสตริง
  *   ของเดิมรับ /^CUS/ แล้วโยนเข้า parseInt ทำให้ CUS1, CUS001, CUS0000001
  *   ชี้ไปที่ลูกค้ารายเดียวกันหมด และรหัสต้นฉบับพิมพ์แค่ 12 ตัวก็ตอบแล้ว
+ *
+ * ★ รหัสมาจากสามแหล่งที่ใช้พื้นที่เลขเดียวกัน เรียงต่อกันไม่ทับกัน
+ *     1..count           ไฟล์แปลงรหัส custmap.bin (รหัสต้นฉบับ 64 ตัว)
+ *     count+1..next-1    ลูกหนี้จากไฟล์ใบวางบิล (รหัส 40 ตัว) — ETL ออกให้ ดู debtorCodes.ts
+ *     next..             ลูกค้าที่ระบบออกรหัสให้เองตอนบันทึกใบ (localStorage)
  */
 import { useEffect, useMemo, useState } from "react";
 import { CUSTMAP_URL, custCode, isFullHash, isHashLike, loadCustMap } from "../../lib/custmap/custmap";
 import type { CustMap } from "../../lib/custmap/custmap";
 import { clearNewCodes, newCodeRows, nextNumber, origOfCode, useNewCodes } from "../../lib/custmap/newCodes";
+import { debtorOfNumber, numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
 
 const CODE_RE = /^CUS(\d{7})$/i;
+/** รหัสลูกหนี้จากไฟล์ใบวางบิล — SHA-1 40 ตัว ไม่ใช่ 64 ตัวแบบไฟล์บิล */
+const DEBTOR_RE = /^[0-9a-f]{40}$/i;
 
 const Chev = () => (
   <svg className="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -35,6 +43,7 @@ export default function CustCode() {
   const [msg, setMsg] = useState<{ text: string; tone: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const newCodes = useNewCodes();
+  const debtors = useDebtorCodes();
 
   useEffect(() => {
     let alive = true;
@@ -47,6 +56,7 @@ export default function CustCode() {
   const input = q.trim();
   const codeMatch = CODE_RE.exec(input);
   const owned = Object.keys(newCodes).length;
+  const debtorCount = debtors ? Object.keys(debtors.codes).length : 0;
   const nextCode = map ? custCode(nextNumber(newCodes)) : null;
   const lastCode = map ? custCode(nextNumber(newCodes) - 1) : null;
 
@@ -63,9 +73,11 @@ export default function CustCode() {
           ? { code: custCode(n), orig, partial: !map.full, source: "ไฟล์แปลงรหัส" }
           : null;
       }
-      const orig = origOfCode(input, newCodes);
-      return orig
-        ? { code: custCode(n), orig, partial: false, source: "ออกรหัสใหม่ในระบบ" }
+      const own = origOfCode(input, newCodes);
+      if (own) return { code: custCode(n), orig: own, partial: false, source: "ออกรหัสใหม่ในระบบ" };
+      const debt = debtorOfNumber(n);
+      return debt
+        ? { code: custCode(n), orig: debt, partial: false, source: "ลูกหนี้ (ไฟล์ใบวางบิล)" }
         : null;
     }
 
@@ -80,8 +92,14 @@ export default function CustCode() {
         ? { code, orig: input.toLowerCase(), partial: false, source: "ไฟล์แปลงรหัส" }
         : null;
     }
+    if (DEBTOR_RE.test(input)) {
+      const n = numberForDebtor(input);
+      return n
+        ? { code: custCode(n), orig: input.toLowerCase(), partial: false, source: "ลูกหนี้ (ไฟล์ใบวางบิล)" }
+        : null;
+    }
     return null;
-  }, [map, input, codeMatch, newCodes]);
+  }, [map, input, codeMatch, newCodes, debtors]);
 
   /** เหตุผลที่ไม่พบ — แยก "พิมพ์ผิดรูป" ออกจาก "รูปแบบถูกแต่ไม่มีในระบบ" */
   const missReason = useMemo(() => {
@@ -92,11 +110,16 @@ export default function CustCode() {
     if (codeMatch) {
       return { bad: false, text: `ไม่พบรหัสย่อนี้ในระบบ — ตอนนี้มีถึง ${lastCode} เท่านั้น` };
     }
-    if (isHashLike(input) && !isFullHash(input)) {
-      return { bad: true, text: `รหัสต้นฉบับต้องครบทั้ง 64 ตัว — พิมพ์ไป ${input.length} ตัว · ระบบเทียบแบบเป๊ะ ไม่เดาให้จากตัวขึ้นต้น` };
+    if (DEBTOR_RE.test(input)) {
+      return { bad: false, text: debtors
+        ? "รูปแบบตรงกับรหัสลูกหนี้ (40 ตัว) แต่ไม่มีรายนี้ในไฟล์ใบวางบิลชุดที่โหลดอยู่"
+        : "รูปแบบตรงกับรหัสลูกหนี้ (40 ตัว) แต่ยังไม่มีไฟล์ใบวางบิล — รัน etl/build_debtors.py ก่อน" };
     }
-    return { bad: false, text: "ไม่พบค่านี้ในไฟล์แปลงรหัส และยังไม่เคยออกรหัสใหม่ให้" };
-  }, [map, input, hit, codeMatch, lastCode]);
+    if (isHashLike(input) && !isFullHash(input)) {
+      return { bad: true, text: `รหัสต้นฉบับต้องครบ 64 ตัว (ไฟล์บิล) หรือ 40 ตัว (ลูกหนี้) — พิมพ์ไป ${input.length} ตัว · ระบบเทียบแบบเป๊ะ ไม่เดาให้จากตัวขึ้นต้น` };
+    }
+    return { bad: false, text: "ไม่พบค่านี้ในไฟล์แปลงรหัส ในรายชื่อลูกหนี้ และยังไม่เคยออกรหัสใหม่ให้" };
+  }, [map, input, hit, codeMatch, lastCode, debtors]);
 
   const rows = useMemo(() => {
     const list = newCodeRows(newCodes);
@@ -122,6 +145,7 @@ export default function CustCode() {
 
   const status = err ? "โหลดตารางไม่สำเร็จ"
     : map ? `พร้อมใช้งาน · ${map.count.toLocaleString("th-TH")} รหัสจากไฟล์`
+      + (debtorCount ? ` + ${debtorCount.toLocaleString("th-TH")} รหัสลูกหนี้` : "")
       + ` + ${owned.toLocaleString("th-TH")} รหัสที่ออกใหม่`
       + (map.full ? "" : " · ไฟล์รุ่นเก่า เก็บแค่ 12 ตัวแรก")
       : "กำลังเตรียมฐานข้อมูลรหัส…";
@@ -201,7 +225,8 @@ export default function CustCode() {
         <div className="card-h">
           <span className="step">+</span><h2>รหัสที่ระบบออกใหม่</h2>
           <span className="hint">
-            ลูกค้าที่ไม่มีในไฟล์แปลงรหัส — ระบบรันเลขต่อจาก {map ? custCode(map.count) : "…"}
+            ลูกค้าที่ไม่มีในไฟล์แปลงรหัส — ระบบรันเลขต่อจาก{" "}
+            {map ? custCode(nextNumber(newCodes) - 1 - owned) : "…"}
           </span>
         </div>
 

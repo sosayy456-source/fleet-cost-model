@@ -18,7 +18,6 @@ import DriverJobs from "./features/driver/DriverJobs";
 // แดชบอร์ดลากไลบรารีกราฟมาด้วยราว 400 KB แยกเป็นก้อนต่างหาก
 // คนที่เข้ามาแค่กรอกข้อมูลจะได้ไม่ต้องโหลดตาม
 const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
-const RevenueDash = lazy(() => import("./features/dash-revenue/RevenueDash"));
 const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
 const CostRevDash = lazy(() => import("./features/dash-costrev/CostRevDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
@@ -36,6 +35,7 @@ const I = {
   check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
   person: <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-3.9 3.6-6.5 8-6.5s8 2.6 8 6.5Z" /></svg>,
   search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
+  /* chart: เมนู "แดชบอร์ดรายได้" ที่ยุบเข้า Executive Dashboard เคยใช้ — เก็บไว้เผื่อเมนูใหม่ */
   chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
   split: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4" /></svg>,
   truck: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17V6h11v11" /><path d="M14 10h4l3 3v4h-7" /><circle cx="7.5" cy="17.5" r="2" /><circle cx="17.5" cy="17.5" r="2" /></svg>,
@@ -65,14 +65,14 @@ const PAGES: PageDef[] = [
   { id: "debtors", view: "debtors", label: "รายการลูกหนี้", icon: I.person, h1: "รายการลูกหนี้", badge: "debt" },
   { id: "custcode", view: "custcode", label: "ค้นหารหัสลูกค้า", icon: I.search, h1: "ค้นหารหัสลูกค้า" },
   { id: "settings", view: "settings", label: "การตั้งค่า", icon: I.gear, h1: "การตั้งค่า" },
-  // สองหน้านี้ไม่มีใน index.html บน main — เป็นของที่โปรเจ็กต์นี้เพิ่ม (Phase 6-8)
-  { id: "dash-revenue", view: "dash", label: "แดชบอร์ดรายได้", icon: I.chart, h1: "แดชบอร์ดรายได้" },
+  // หน้านี้ไม่มีใน index.html บน main — เป็นของที่โปรเจ็กต์นี้เพิ่ม (Phase 6-8)
   { id: "route-profit", view: "dash", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง" },
   // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) — หน้าตาเดียวกัน ต่างกันที่ข้อมูล
   { id: "exec-dash", view: "dash", label: "Executive Dashboard", icon: I.dash, h1: "Executive Dashboard" },
   { id: "all-dash", view: "dash", label: "Dashboard รวม", icon: I.dash, h1: "Dashboard รวม" },
-  // กำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีเมนูของตัวเอง — อยู่เป็นแท็บใน Executive Dashboard
-  // ถัดจาก "กำไรรายเที่ยว" (features/dash-costrev/CostRevDash.tsx)
+  // เมนู "แดชบอร์ดรายได้" ถูกยุบเข้า Executive Dashboard แล้ว (17 ก.ย. 2569) เนื้อในอยู่ที่
+  // features/dash-revenue/board/ เป็นแท็บ "Dashboard รายได้" กับ "Dashboard ลูกหนี้"
+  // ส่วนกำไรลูกค้า (ปันส่วนต้นทุน) ลงไปเป็นแท็บย่อยของ "Dashboard รายได้" อีกชั้น
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
   { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
 ];
@@ -174,10 +174,9 @@ export default function App() {
             {page === "settings" && <Settings />}
             <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
               {page === "dash-fleet" && <FleetDash state={state} role={role} />}
-              {page === "dash-revenue" && <RevenueDash />}
               {page === "route-profit" && <RouteProfit state={state} />}
-              {page === "exec-dash" && <CostRevDash mode="exec" />}
-              {page === "all-dash" && <CostRevDash mode="all" />}
+              {page === "exec-dash" && <CostRevDash mode="exec" state={state} />}
+              {page === "all-dash" && <CostRevDash mode="all" state={state} />}
             </Suspense>
             {page === "driver" && <DriverJobs state={state} role={role} />}
           {page === "custcode" && <CustCode />}

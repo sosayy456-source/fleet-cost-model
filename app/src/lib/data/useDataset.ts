@@ -1,6 +1,16 @@
 /**
  * โหลดไฟล์ JSON ที่ ETL สร้างไว้
  * เป็น static file ทั้งหมด ไม่มี API ระหว่างทาง — โหลดครั้งเดียวแล้วใช้ซ้ำ
+ *
+ * ★ โหลดเฉพาะไฟล์ที่มีหน้าจออ่านจริง (8 จาก 18 ไฟล์ที่ build_json.py สร้าง)
+ *   ตอนยุบเมนู "แดชบอร์ดรายได้" เข้า Executive Dashboard (17 ก.ย. 2569) แท็บที่ใช้
+ *   overview / pricing / routes / distline / bill_status / dow / dq / insights /
+ *   cube / dimensions ถูกตัดออกไปหมด แต่ FILES ยังดึงครบทุกไฟล์อยู่
+ *   รวมแล้ว **1.46 MB ต่อการเปิดหน้าหนึ่งครั้ง** ที่โหลดมาทิ้ง (cube.json อย่างเดียว 1.47 MB)
+ *
+ *   ETL ยังสร้างครบเหมือนเดิม ไฟล์ยังอยู่ใน public/data/ ครบ — จะเอาไฟล์ไหนกลับมาใช้
+ *   ก็เติมชื่อกลับเข้า FILES กับ interface Dataset อย่างละบรรทัด ไม่ต้องรัน ETL ใหม่
+ *   (ที่ตัดไปคือ "ไม่ดึง" ไม่ใช่ "ไม่มี")
  */
 import { useCallback, useEffect, useState } from "react";
 import { dataUrl, resetDataset, resolveDataset } from "../dataset";
@@ -17,11 +27,6 @@ export interface Manifest {
   cube: { source_rows: number; cube_rows: number; compression: number | null; dimensions: string[] };
 }
 
-export interface Overview {
-  total_revenue: number; distinct_bills: number; total_line_items: number;
-  avg_bill_value: number; date_min: string | null; date_max: string | null;
-}
-
 export interface MonthRow {
   month: string; revenue: number; bills: number; lines: number;
   avg_bill_value: number | null; growth_pct: number | null;
@@ -35,11 +40,21 @@ export interface Pareto {
   concentration: Record<string, number>;
 }
 
-export interface CubeRow {
-  month: string; revenue: number; lines: number; bills: number; [dim: string]: unknown;
+/** รายได้ตามวิธีชำระเงิน แยกรายเดือน — ใช้กับกราฟแท่งซ้อนของแท็บ "Dashboard รายได้" */
+export interface PayMonthRow {
+  month: string;
+  "ประเภทการชำระเงิน": string;
+  "ราคารวม": number;
 }
 
-export interface Insight { level: string; text: string }
+/** ลูกค้า 200 อันดับแรก — ETL ส่งมาแล้วแต่เดิมยังไม่มีหน้าไหนใช้ */
+export interface CustomerRow {
+  "ผู้รับ_encoded": string;
+  revenue: number;
+  bills: number;
+  /** เลขในรหัส CUS ที่ ETL แปลงมาให้ (0 = ไม่มีในไฟล์แปลงรหัส) */
+  n: number;
+}
 
 /** รายได้รายเส้นทางรายเดือน — ใช้ join กับต้นทุนฝั่งโมเดลเดินรถ */
 export interface RouteMonthRow {
@@ -48,29 +63,21 @@ export interface RouteMonthRow {
 
 export interface Dataset {
   manifest: Manifest;
-  overview: Overview;
   monthly: MonthRow[];
   payment: NamedRow[];
+  paymentMonthly: PayMonthRow[];
   product: NamedRow[];
-  pricing: NamedRow[];
-  routes: NamedRow[];
-  distline: NamedRow[];
-  billStatus: NamedRow[];
-  dow: NamedRow[];
   pareto: Pareto;
-  dq: Record<string, unknown>;
-  insights: Record<string, Insight[]>;
-  cube: CubeRow[];
-  dimensions: Record<string, string[]>;
+  customerTop: CustomerRow[];
+  /** ของเมนู "กำไรรายเส้นทาง" ไม่ใช่ของแท็บ Dashboard รายได้ */
   route_month: RouteMonthRow[];
 }
 
 const FILES: Record<keyof Dataset, string> = {
-  manifest: "manifest.json", overview: "overview.json", monthly: "monthly.json",
-  payment: "payment.json", product: "product.json", pricing: "pricing.json",
-  routes: "routes.json", distline: "distline.json", billStatus: "bill_status.json",
-  dow: "dow.json", pareto: "pareto.json", dq: "dq.json", insights: "insights.json",
-  cube: "cube.json", dimensions: "dimensions.json", route_month: "route_month.json",
+  manifest: "manifest.json", monthly: "monthly.json",
+  payment: "payment.json", paymentMonthly: "payment_monthly.json",
+  product: "product.json", pareto: "pareto.json", customerTop: "customer_top.json",
+  route_month: "route_month.json",
 };
 
 let cache: Promise<Dataset> | null = null;

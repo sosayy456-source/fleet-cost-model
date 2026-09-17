@@ -60,3 +60,12 @@ etl/**/__pycache__/
 # ไฟล์ตัวอย่างที่ anonymize แล้ว commit ได้ (ยกเว้นจากกฎ *.xlsx ด้านบน)
 !etl/sample_data/
 !etl/sample_data/*.xlsx
+# ★ ยกเว้นของข้อยกเว้น — ตัวอย่างลูกหนี้ยังไม่ได้ anonymize
+#   ถอดมาจาก PDF ที่เจ้าของข้อมูลส่งมา มียอดเงิน วันที่ และชื่อสาขาจริง
+#   (รหัสลูกหนี้ hash แล้วก็จริง แต่ที่เหลือเป็นของจริง) — เจ้าของข้อมูลสั่งกันไว้ 17 ก.ย. 2569
+etl/sample_data/ExampleDebtors.xlsx
+
+# ★ ชุดลูกหนี้ที่ ETL สร้างจากไฟล์ข้างบน — เหตุผลเดียวกัน ห้ามขึ้น repo public
+#   ต่างจาก sample/ ที่เหลือซึ่งมาจากไฟล์บิลที่ anonymize แล้ว (bill_*_Randomed.xlsx)
+#   คนที่ clone ไปต้องวางไฟล์ลูกหนี้เองแล้วรัน etl/build_debtors.py --dataset sample
+app/public/data/sample/debtors/

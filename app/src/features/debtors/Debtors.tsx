@@ -35,6 +35,9 @@ interface Row {
   qty: number;
   total: number;
   aging: number | null;
+  /** เลขรหัส CUS ที่ ETL แปลงมาให้ — 0 = ไม่มี (ใบใหม่ยังไม่ผ่าน ETL) */
+  senderN?: number;
+  receiverN?: number;
   /** มีเฉพาะบิลของใบใหม่ ใช้กดบันทึกการชำระ */
   recId?: string;
   billIndex?: number;
@@ -67,6 +70,7 @@ function buildRows(records: TripRecord[], oldDebtors: OldDebtor[]): Row[] {
       no: String(d.no ?? ""), goodsType: String(d.goodsType ?? ""),
       origin: String(d.origin ?? ""), dest: String(d.dest ?? ""),
       sender: String(d.sender ?? ""), receiver: String(d.receiver ?? ""),
+      senderN: Number(d.senderN) || 0, receiverN: Number(d.receiverN) || 0,
       payType: String(d.payType ?? ""), paid, payDate: null,
       qty: Number(d.qty) || 0, total: Number(d.total) || 0,
       aging: paid ? null : (Number(d.agingDays) || daysBetween(String(d.date ?? ""), today)),
@@ -170,8 +174,8 @@ export default function Debtors({ state }: { state: RecordsState }) {
                 <td>{r.goodsType || "–"}</td>
                 <td>{r.origin || "–"}</td>
                 <td>{r.dest || "–"}</td>
-                <td><ShortId v={r.sender} /></td>
-                <td><ShortId v={r.receiver} /></td>
+                <td><ShortId v={r.sender} n={r.senderN} /></td>
+                <td><ShortId v={r.receiver} n={r.receiverN} /></td>
                 <td>{r.payType || "–"}</td>
                 <td>
                   <span className={"badge " + (r.paid ? "paid" : "unpaid")}>

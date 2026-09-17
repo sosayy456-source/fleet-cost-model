@@ -12,9 +12,14 @@
  *
  * ★ ห้ามออกรหัสตอน render — ต้องออกตอน "กดบันทึก" เท่านั้น (registerBills)
  *   ไม่งั้นแค่เปิดหน้าดูใบก็กินเลขไปเรื่อย ๆ ทั้งที่ยังไม่ได้บันทึกอะไร
+ *
+ * ★ พื้นที่เลขนี้ใช้ร่วมกับรหัสลูกหนี้ที่ etl/build_debtors.py ออกไว้ (debtorCodes.ts)
+ *   nextNumber() จึงนับ `next` ของไฟล์นั้นด้วย และ registerBills จะไม่ออกรหัสเลย
+ *   ถ้ายังไม่เคยลองโหลดไฟล์นั้น — ยอมไม่ออกดีกว่าออกทับเลขที่ ETL ใช้ไปแล้ว
  */
 import { useCallback, useEffect, useState } from "react";
 import { custCode, isFullHash, peekCustCount, peekCustMap } from "./custmap";
+import { debtorCodesAttempted, numberForDebtor, peekDebtorCodes } from "./debtorCodes";
 
 const LS_KEY = "custNewCodes";
 /** เหตุการณ์ของหน้าต่างเดียวกัน — storage event ไม่ยิงให้แท็บที่เขียนเอง */
@@ -54,6 +59,9 @@ const fileCount = (): number => peekCustCount();
 /** เลขถัดไปที่จะออก — ต่อจากทั้งไฟล์และรหัสที่เคยออกไปแล้ว */
 export function nextNumber(map: NewCodeMap = loadNewCodes()): number {
   let mx = fileCount();
+  // เลขที่ ETL ออกให้ลูกหนี้ไปแล้ว — ข้ามไปเลย ไม่งั้นสองฝั่งจะได้เลขเดียวกัน
+  const d = peekDebtorCodes();
+  if (d && d.next - 1 > mx) mx = d.next - 1;
   for (const n of Object.values(map)) if (n > mx) mx = n;
   return mx + 1;
 }
@@ -65,6 +73,8 @@ export function lookupCustomer(orig: string | null | undefined, map?: NewCodeMap
   const m = map ?? loadNewCodes();
   const own = m[s];
   if (own) return custCode(own);
+  const debt = numberForDebtor(s);
+  if (debt) return custCode(debt);
   return peekCustMap()?.codeFor(s) ?? null;
 }
 
@@ -81,6 +91,8 @@ export function isOwnCode(orig: string | null | undefined, map?: NewCodeMap): bo
 export function registerBills(bills: { sender?: string; receiver?: string }[]): number {
   // ไม่รู้จำนวนระเบียนในไฟล์ = ออกรหัสไปจะทับของเดิม — ยอมไม่ออกดีกว่า
   if (!peekCustCount()) return 0;
+  // ยังไม่เคยลองโหลดรหัสลูกหนี้ = ไม่รู้ว่า ETL กินเลขไปถึงไหน ก็ออกทับได้เหมือนกัน
+  if (!debtorCodesAttempted()) return 0;
   const map = loadNewCodes();
   let next = nextNumber(map);
   let issued = 0;

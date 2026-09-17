@@ -42,8 +42,9 @@ function autoEtl(): Plugin {
   const costDir = resolve(etlDir, "data", "Dashboard real data");
   const costOut = resolve(revOut, "costrev");
   const travelDir = resolve(etlDir, "data", "travel");
-  const allocDir = resolve(etlDir, "data", "allocated");
   const allocOut = resolve(revOut, "alloc");
+  const debtDir = resolve(etlDir, "data", "debtors");
+  const debtOut = resolve(revOut, "debtors");
   const isXlsx = (f: string) => /\.xlsx$/i.test(f) && !/^~\$/.test(f) && !/\.backup\./i.test(f);
   const hasXlsx = (dir: string) => existsSync(dir) && readdirSync(dir).some(isXlsx);
 
@@ -89,13 +90,16 @@ function autoEtl(): Plugin {
    * แดชบอร์ดจะได้ขึ้น "กำลังแปลง…" และรีเฟรชเองตอนเสร็จ ไม่ต้องเดาว่าเสร็จหรือยัง
    */
   type Status = { state: "idle" | "running" | "done" | "error" | "cleared"; message: string; at: number };
-  type Job = "rev" | "cr" | "al";
-  const EVENT: Record<Job, string> = { rev: "etl:status", cr: "costrev:status", al: "alloc:status" };
+  type Job = "rev" | "cr" | "al" | "db";
+  const EVENT: Record<Job, string> = {
+    rev: "etl:status", cr: "costrev:status", al: "alloc:status", db: "debtors:status",
+  };
 
   const status: Record<Job, Status> = {
     rev: { state: "idle", message: "", at: Date.now() },
     cr: { state: "idle", message: "", at: Date.now() },
     al: { state: "idle", message: "", at: Date.now() },
+    db: { state: "idle", message: "", at: Date.now() },
   };
   let emit: (job: Job, s: Status) => void = () => {};
   const setStatus = (job: Job, state: Status["state"], message: string) => {
@@ -105,13 +109,11 @@ function autoEtl(): Plugin {
 
   /** งานที่รันอยู่ตอนนี้ (null = ว่าง) กับคิวของงานที่ขอไว้ */
   let busy: Job | null = null;
-  const want: Record<Job, boolean> = { rev: false, cr: false, al: false };
+  const want: Record<Job, boolean> = { rev: false, cr: false, al: false, db: false };
 
   type Spec = {
     script: string;
     dir: string;
-    /** โฟลเดอร์สำรองที่ทำให้งานนี้ยังมีของให้ทำ แม้ dir จะว่าง (งาน al คำนวณเองได้จากไฟล์ดิบ) */
-    altDir?: string;
     out: string;
     emptyLog: string;
     emptyMsg: string;
@@ -144,16 +146,27 @@ function autoEtl(): Plugin {
       doneMsg: "ข้อมูลต้นทุน+รายได้รายเที่ยวพร้อมแล้ว",
     },
     al: {
-      // dir ใช้ตัดสินแค่ว่า "ยังมีไฟล์ให้ทำอยู่ไหม" — ไฟล์ที่ปันเสร็จแล้วมาก่อน
-      // ไม่มีก็ยังทำได้จากรายงานค่าเดินทาง ตัวสคริปต์เลือกทางเอง (--source auto)
-      script: "build_alloc.py", dir: allocDir, altDir: travelDir, out: allocOut,
-      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/allocated/ และ etl/data/travel/ — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
+      // ปันส่วนจากไฟล์ดิบเสมอ — รายงานค่าเดินทาง + ไฟล์บิลใน etl/data/revenue/
+      // (เดิมมี etl/data/allocated/ มาก่อน เจ้าของข้อมูลสั่งตัดทิ้ง 17 ก.ย. 2569 เพราะข้อมูลซ้ำ)
+      script: "build_alloc.py", dir: travelDir, out: allocOut,
+      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/travel/ — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
       emptyMsg: "ไม่มีไฟล์ให้ปันส่วนแล้ว — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
       clearFailLog: "✗ ลบ public/data/real/alloc/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
       clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/alloc/manifest.json เองแล้วกดรีเฟรช",
       startLog: () => "▶ กำลังทำข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน (python build_alloc.py --dataset real) …",
       startMsg: () => "กำลังทำข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน",
       doneMsg: "ข้อมูลกำไรลูกค้า (ปันส่วนต้นทุน) พร้อมแล้ว",
+    },
+    db: {
+      // ไฟล์ใบวางบิล — ชุดข้อมูลอิสระ ไม่ต้องรอผลของงานอื่นและไม่มีใครรอมัน
+      script: "build_debtors.py", dir: debtDir, out: debtOut,
+      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/debtors/ แล้ว — Dashboard ลูกหนี้ กลับไปใช้ข้อมูลตัวอย่าง",
+      emptyMsg: "ไม่มีไฟล์ลูกหนี้จริงแล้ว กลับไปใช้ข้อมูลตัวอย่าง",
+      clearFailLog: "✗ ลบ public/data/real/debtors/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
+      clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/debtors/manifest.json เองแล้วกดรีเฟรช",
+      startLog: (n) => `▶ กำลังแปลงไฟล์ลูกหนี้ ${n} ไฟล์ (python build_debtors.py --dataset real) …`,
+      startMsg: (n) => `กำลังแปลงไฟล์ลูกหนี้ ${n} ไฟล์`,
+      doneMsg: "ข้อมูลลูกหนี้จริงพร้อมแล้ว",
     },
   };
 
@@ -166,7 +179,7 @@ function autoEtl(): Plugin {
 
     // ลบไฟล์ออกจนหมด = ไม่มีข้อมูลจริงแล้ว → ล้าง JSON เก่าทิ้ง ไม่งั้นแดชบอร์ดยังโชว์ชุดเดิมค้างอยู่
     // ลบเฉพาะไฟล์ข้างใน ไม่ลบโฟลเดอร์ — Windows ถือ handle ของโฟลเดอร์ใต้ public/ ไว้ (watcher)
-    if (!hasXlsx(spec.dir) && !(spec.altDir && hasXlsx(spec.altDir))) {
+    if (!hasXlsx(spec.dir)) {
       const { ok, failed } = clearOut(spec.out, "manifest.json");
       if (ok) {
         log(spec.emptyLog + (failed.length ? ` (ลบไม่ได้ ${failed.length} ไฟล์ ไม่เป็นไร แอปไม่อ่านแล้ว)` : ""));
@@ -217,7 +230,7 @@ function autoEtl(): Plugin {
   /** หยิบงานถัดไปจากคิวมารัน — งานรายได้มาก่อนเพราะ build_costrev อ่านผลของมันไปจับคู่ */
   const pump = (log: (m: string) => void) => {
     if (busy) return;
-    const job: Job | null = want.rev ? "rev" : want.cr ? "cr" : want.al ? "al" : null;
+    const job: Job | null = want.rev ? "rev" : want.cr ? "cr" : want.al ? "al" : want.db ? "db" : null;
     if (!job) return;
     want[job] = false;
     busy = job;
@@ -242,8 +255,9 @@ function autoEtl(): Plugin {
       server.ws.on("etl:hello", (_d, c) => c.send({ type: "custom", event: EVENT.rev, data: status.rev }));
       server.ws.on("costrev:hello", (_d, c) => c.send({ type: "custom", event: EVENT.cr, data: status.cr }));
       server.ws.on("alloc:hello", (_d, c) => c.send({ type: "custom", event: EVENT.al, data: status.al }));
+      server.ws.on("debtors:hello", (_d, c) => c.send({ type: "custom", event: EVENT.db, data: status.db }));
 
-      const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null, al: null };
+      const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null, al: null, db: null };
       const request = (job: Job, delay: number) => {
         if (timers[job]) clearTimeout(timers[job]!);
         timers[job] = setTimeout(() => { want[job] = true; pump(log); }, delay);
@@ -253,11 +267,26 @@ function autoEtl(): Plugin {
       //   วางไฟล์ใหญ่ (OneDrive/Excel ยังถือ handle อยู่) แล้ว chokidar เรียก fs.watch
       //   ได้ EBUSY แล้ว emit 'error' ซึ่งถ้าไม่มีใครฟัง node จะโยนทิ้งทั้งโปรเซส
       //   (เกิดจริงตอนวาง "ลบข้อมูลซ้ำ68-01.xlsx" 25 MB — หน้าเว็บขึ้น Failed to fetch)
+      //
+      // ★ แค่ดักไว้ยังไม่พอ — พอ fs.watch พังแล้ว path นั้น "หลุดจากการเฝ้าไปเลย"
+      //   ไฟล์ที่แก้ทีหลังจึงไม่มีใครเห็น ETL ไม่รันอีกเลยจนกว่าจะรีสตาร์ท server
+      //   และแถบสถานะบนหน้าเว็บค้างอยู่กับผลของรอบที่พังโดยไม่มีอะไรบอก
+      //   (เกิดจริงตอนวาง "ข้อมูลการรับชำระ.xlsx" — EBUSY แล้วเงียบไปสองรอบ)
+      //   จึงต้องต่อการเฝ้ากลับให้ทุกโฟลเดอร์หลังจากนั้น chokidar กันซ้ำให้เองอยู่แล้ว
+      const watched: string[] = [];
+      let rearm: NodeJS.Timeout | null = null;
       server.watcher.on("error", (e) => {
-        log(`(ข้าม) เฝ้าไฟล์ไม่ได้ชั่วคราว: ${(e as NodeJS.ErrnoException).code ?? e} — ETL ยังทำงานต่อได้`);
+        log(`(ข้าม) เฝ้าไฟล์ไม่ได้ชั่วคราว: ${(e as NodeJS.ErrnoException).code ?? e} — ต่อการเฝ้าให้ใหม่ใน 3 วิ`);
+        if (rearm) clearTimeout(rearm);
+        rearm = setTimeout(() => {
+          for (const d of watched) {
+            try { server.watcher.add(d); } catch { /* ยังไม่ว่างก็รอ error รอบหน้า */ }
+          }
+        }, 3000);
       });
 
       const watch = (dir: string, onHit: () => void) => {
+        watched.push(dir);
         server.watcher.add(dir);
         const handler = (file: string) => {
           if (!file.startsWith(dir) || !isXlsx(file.slice(dir.length + 1))) return;
@@ -277,19 +306,22 @@ function autoEtl(): Plugin {
       });
       if (existsSync(costDir)) watch(costDir, () => request("cr", 2500));
       if (existsSync(travelDir)) watch(travelDir, () => request("al", 2500));
-      if (existsSync(allocDir)) watch(allocDir, () => request("al", 2500));
+      // ไฟล์ลูกหนี้ไม่เกี่ยวกับสามงานข้างบนเลย (คนละเลขเอกสาร) จึงไม่ต้องสั่งงานอื่นตาม
+      if (existsSync(debtDir)) watch(debtDir, () => request("db", 2500));
 
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
       const pendingRev = hasXlsx(revDir) && !existsSync(resolve(revOut, "manifest.json"));
       const pendingCr = hasXlsx(costDir) && !existsSync(resolve(costOut, "manifest.json"));
-      const pendingAl = (hasXlsx(allocDir) || (hasXlsx(travelDir) && hasXlsx(revDir)))
+      const pendingAl = hasXlsx(travelDir) && hasXlsx(revDir)
         && !existsSync(resolve(allocOut, "manifest.json"));
-      if (pendingRev || pendingCr || pendingAl) {
+      const pendingDb = hasXlsx(debtDir) && !existsSync(resolve(debtOut, "manifest.json"));
+      if (pendingRev || pendingCr || pendingAl || pendingDb) {
         server.httpServer?.once("listening", () => setTimeout(() => {
           if (pendingRev) want.rev = true;
           if (pendingCr) want.cr = true;
           if (pendingAl) want.al = true;
+          if (pendingDb) want.db = true;
           pump(log);
         }, 600));
       }

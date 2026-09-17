@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
 import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor, vehicleOptions } from "../../lib/refdata";
 import { custCode, ensureCustCount, ensureCustMap, isFullHash, peekCustCount, peekCustMap } from "../../lib/custmap/custmap";
+import { ensureDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { nextNumber, registerBills, useNewCodes } from "../../lib/custmap/newCodes";
 import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleAllDone, roleDone } from "../../lib/record/roles";
 import { recPayInfo } from "../../lib/record/payment";
@@ -314,7 +315,9 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       if (role === "cs" || role === "admin" || editZones.has("cs")) {
         try {
           // รู้จำนวนระเบียนก่อนเสมอ ไม่งั้นเลขที่ออกจะทับของในไฟล์
-          await ensureCustCount();
+          // ★ ต้องรู้ทั้ง "ไฟล์มีถึงเลขไหน" และ "ETL ออกเลขให้ลูกหนี้ถึงไหน"
+          //   ก่อนออกรหัสใหม่ ไม่งั้นเลขที่ออกจะไปทับของฝั่งลูกหนี้
+          await Promise.all([ensureCustCount(), ensureDebtorCodes()]);
           // ตารางเต็มต้องใช้เฉพาะตอนมีรหัสต้นฉบับในใบ — เพื่อไม่ให้ออกรหัสซ้อนรายที่มีอยู่แล้ว
           const needTable = ready.bills.some(
             (b) => isFullHash(String(b.sender ?? "")) || isFullHash(String(b.receiver ?? "")),

@@ -39,6 +39,8 @@ export interface AllocManifest {
 export interface AllocCustomer {
   side: PayerSide;
   code: string;
+  /** เลขในรหัส CUS ที่ ETL แปลงจาก custmap.bin มาให้ (0 = ไม่มีในไฟล์แปลงรหัส) */
+  n: number;
   bills: number;
   revenue: number;
   cost: number;
@@ -51,6 +53,8 @@ export interface AllocCustomer {
 interface CustomerColumns {
   side: PayerSide[];
   code: string[];
+  /** ไฟล์รุ่นก่อน 17 ก.ย. 2569 ยังไม่มีคอลัมน์นี้ — ต้องรับ undefined ได้ */
+  n?: number[];
   bills: number[];
   revenue: number[];
   cost: number[];
@@ -121,6 +125,7 @@ function toRows(c: CustomerColumns): AllocCustomer[] {
     out.push({
       side: c.side[i] ?? "ผู้ส่ง",
       code: c.code[i] ?? "",
+      n: c.n?.[i] ?? 0,
       bills: c.bills[i] ?? 0,
       revenue,
       cost: c.cost[i] ?? 0,
