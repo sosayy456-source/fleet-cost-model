@@ -27,7 +27,10 @@ export interface Trip {
   /** ระยะทางจาก routes.json — null ถ้าจับคู่เส้นทางไม่ได้ */
   km: number | null;
   rev: number; cost: number; profit: number;
-  /** เที่ยวตีเปล่า (ประเภทใบรายการ = ของเหมาตีเปล่า / รถว่างไปสาขา) */
+  /**
+   * เที่ยววิ่งเปล่า = ราคารวมจากรายได้ = 0 และ ค่าบรรทุกทั้งใบรายการ = 0 (ไม่จำกัดประเภทใบรายการ)
+   * ETL อ่านสองคอลัมน์แยกกัน — ห้ามใช้ rev === 0 แทน (ดู docs/spec-เที่ยววิ่งเปล่า.md)
+   */
   empty: boolean;
   /** ธง "เป็นบิลเคลียร์" จากไฟล์ต้นทุน — ไม่ใช่มูลค่า และไม่ตรงกับ clrN เสมอไป (ดู clrAmt) */
   clear: boolean;
@@ -64,7 +67,8 @@ export interface CostRevManifest {
   years: number[];
   routeDistance: { routes: number; matched: number; tripsWithKm: number; pct: number };
   skipped: { noDoc: number; noDate: number };
-  emptyTypes: string[];
+  /** คำอธิบายนิยามเที่ยววิ่งเปล่า (ไฟล์รุ่นก่อน 17 ก.ย. 2569 มี emptyTypes แทน) */
+  emptyRule?: string;
   debtorBills: number;
   /** บิลที่ชำระแล้ว ไม่ได้เขียนลงไฟล์ เก็บแค่ยอดรวม */
   debtorPaid?: { bills: number; total: number };

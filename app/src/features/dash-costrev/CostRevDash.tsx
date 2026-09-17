@@ -4,7 +4,8 @@
  *   Executive Dashboard  (mode "exec")  เฉพาะเที่ยวที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง (m = true)
  *   Dashboard รวม         (mode "all")   ทุกเที่ยวในไฟล์
  *
- * สี่แท็บ: กำไรรายเที่ยว (สเปกส่วนที่ 2) · กองรถ (ส่วนที่ 1) · ต้นทุน (เอกสารจัดประเภทต้นทุน) · Damage Rate
+ * ห้าแท็บ: กำไรรายเที่ยว (สเปกส่วนที่ 2) · กองรถ (ส่วนที่ 1) · ต้นทุน (เอกสารจัดประเภทต้นทุน) · Damage Rate
+ *          · เที่ยววิ่งเปล่า (docs/spec-เที่ยววิ่งเปล่า.md)
  * กำไรรายเที่ยวขึ้นก่อนตามที่ผู้บริหารขอ — เป็นคำถามแรกที่เปิดหน้านี้มาดู
  * ทั้งสองเมนูไม่มีส่วนรายการลูกหนี้ — บิลจากไฟล์รายได้ไปแสดงที่เมนู "รายการลูกหนี้" เป็นข้อมูลเก่าแทน
  *
@@ -21,6 +22,7 @@ import FleetTab from "./FleetTab";
 import ProfitTab from "./ProfitTab";
 import CostTab from "./CostTab";
 import DamageTab from "./DamageTab";
+import EmptyTab from "./EmptyTab";
 
 export type CostRevMode = "exec" | "all";
 
@@ -29,6 +31,7 @@ const TABS = [
   { id: "fleet", label: "กองรถ" },
   { id: "cost", label: "ต้นทุน" },
   { id: "damage", label: "Damage Rate" },
+  { id: "empty", label: "เที่ยววิ่งเปล่า" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -103,6 +106,7 @@ export default function CostRevDash({ mode }: { mode: CostRevMode }) {
             {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} />}
             {tab === "cost" && <CostTab trips={trips} />}
             {/* ความเสียหายมาจากบิลในไฟล์รายได้ จึงมีตัวเลขเฉพาะโหมด exec — โหมด all ขึ้นข้อจำกัดแทน */}
+            {tab === "empty" && <EmptyTab trips={trips} />}
             {tab === "damage" && <DamageTab trips={trips} mode={mode} matchedTotal={m.matched} isSample={m.isSample} />}
           </>
         )}

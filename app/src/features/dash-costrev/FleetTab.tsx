@@ -11,7 +11,7 @@
  *       VISUAL-04 รถที่ถูกใช้งานมากที่สุด (จำนวนเที่ยว) — เป็นตารางอันดับแทนกราฟแท่ง อ่านกำไรคู่กันได้
  *
  * ส่วนเสริมที่ไม่ได้อยู่ในสเปก แต่ตอบคำถามเดียวกันจากข้อมูลชุดเดิม:
- *   แถบสุขภาพกองรถ (สัดส่วนรถกำไร/ขาดทุนสะสม · เที่ยวกำไร/ขาดทุน/ตีเปล่า)
+ *   แถบสุขภาพกองรถ (สัดส่วนรถกำไร/ขาดทุนสะสม · เที่ยวกำไร/ขาดทุน/วิ่งเปล่า)
  *   สัดส่วนเที่ยวตามประเภทรถ
  *
  * ใช้ร่วมกันทั้ง Executive Dashboard และ Dashboard รวม — ต่างกันแค่ trips ที่ส่งเข้ามา
@@ -59,7 +59,7 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
     const profit = rows.reduce((s, t) => s + t.profit, 0);
     const cost = rows.reduce((s, t) => s + t.cost, 0);
     const empty = rows.filter((t) => t.empty);
-    // แยกเที่ยวเป็น 3 กลุ่มที่ไม่ทับกัน เพื่อวาดแถบซ้อน — ตีเปล่ามาก่อน เพราะเที่ยวตีเปล่าส่วนใหญ่ไม่มีรายได้
+    // แยกเที่ยวเป็น 3 กลุ่มที่ไม่ทับกัน เพื่อวาดแถบซ้อน — วิ่งเปล่ามาก่อน เพราะเที่ยววิ่งเปล่าไม่มีรายได้
     // และจะถูกนับเป็นขาดทุนซ้ำ ส่วน KPI "สัดส่วนเที่ยวที่ขาดทุน" ยังนับทุกเที่ยวที่กำไร < 0 ตามสเปก
     const loss = rows.filter((t) => t.profit < 0).length;
     const lossNonEmpty = rows.filter((t) => !t.empty && t.profit < 0).length;
@@ -154,7 +154,7 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
             <Stack parts={[
               { v: kpi.tripMix.good, color: D.emeraldLight, label: "มีกำไร/เท่าทุน" },
               { v: kpi.tripMix.loss, color: D.rose, label: "ขาดทุน" },
-              { v: kpi.tripMix.empty, color: D.amber, label: "ตีเปล่า" },
+              { v: kpi.tripMix.empty, color: D.amber, label: "วิ่งเปล่า" },
             ]} unit="เที่ยว" />
           </div>
         </div>
@@ -167,9 +167,9 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
             s={`คัน · ${pct(pctOf(kpi.lossVehicles, kpi.vehicles))} ของรถที่ใช้งาน`} fill={pctOf(kpi.lossVehicles, kpi.vehicles)} />
           <Meter dot={D.rose} tone={kpi.lossPct > 0 ? "warn" : undefined} l="สัดส่วนเที่ยวที่ขาดทุน" v={pct(kpi.lossPct)}
             s="เที่ยวขาดทุน ÷ เที่ยวทั้งหมด" fill={kpi.lossPct} />
-          <Meter dot={D.amber} l="เที่ยววิ่งตีเปล่า" v={fmt(kpi.emptyTrips)}
+          <Meter dot={D.amber} l="เที่ยววิ่งเปล่า" v={fmt(kpi.emptyTrips)}
             s={`เที่ยว · ${pct(pctOf(kpi.emptyTrips, kpi.n))} ของเที่ยวทั้งหมด`} fill={pctOf(kpi.emptyTrips, kpi.n)} />
-          <Meter dot={D.orange} tone={kpi.emptyCost ? "warn" : undefined} l="ต้นทุนสูญเปล่า" v={fmt(kpi.emptyCost)}
+          <Meter dot={D.orange} tone={kpi.emptyCost ? "warn" : undefined} l="ต้นทุนเที่ยววิ่งเปล่า" v={fmt(kpi.emptyCost)}
             s={`บาท · ${pct(pctOf(kpi.emptyCost, kpi.cost))} ของต้นทุนรวม`} fill={pctOf(kpi.emptyCost, kpi.cost)} />
           <Meter dot={D.slateDeep} l="ค่าซ่อมบำรุงรวม" v={fmt(kpi.repair)}
             s={`บาท · ${pct(pctOf(kpi.repair, kpi.cost))} ของต้นทุนรวม`} fill={pctOf(kpi.repair, kpi.cost)} />
@@ -269,8 +269,8 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
           )}
         </div>
         <Note>
-          แถบสุขภาพกองรถแยกเที่ยวตีเปล่าออกก่อน แล้วค่อยแบ่งที่เหลือเป็นกำไร/ขาดทุน จึงไม่นับซ้ำ —
-          การ์ด "สัดส่วนเที่ยวที่ขาดทุน" นับทุกเที่ยวที่กำไรติดลบรวมตีเปล่าด้วยตามสเปก ตัวเลขสองที่จึงต่างกันได้ ·
+          แถบสุขภาพกองรถแยกเที่ยววิ่งเปล่าออกก่อน แล้วค่อยแบ่งที่เหลือเป็นกำไร/ขาดทุน จึงไม่นับซ้ำ —
+          การ์ด "สัดส่วนเที่ยวที่ขาดทุน" นับทุกเที่ยวที่กำไรติดลบรวมวิ่งเปล่าด้วยตามสเปก ตัวเลขสองที่จึงต่างกันได้ ·
           กราฟสัดส่วนการใช้รถในแต่ละกลุ่มบริการ (VISUAL-03) ยังไม่แสดง — ไฟล์ต้นทุนไม่มีคอลัมน์กลุ่มบริการ
         </Note>
       </Pane>

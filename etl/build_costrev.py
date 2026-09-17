@@ -16,7 +16,10 @@
 กติกา (ตกลงกับเจ้าของข้อมูล 16 ก.ย. 2569):
     รายได้เที่ยว    = ราคารวมจากรายได้ ถ้าว่างใช้ ค่าบรรทุกทั้งใบรายการ
     ต้นทุนเที่ยว    = คอลัมน์ ต้นทุน (ตัวสุดท้าย รวมค่าเช่าแล้ว)
-    เที่ยวตีเปล่า   = ประเภทใบรายการ ∈ EMPTY_TYPES
+    เที่ยววิ่งเปล่า  = ราคารวมจากรายได้ = 0 และ ค่าบรรทุกทั้งใบรายการ = 0 พร้อมกัน (ช่องว่างนับเป็น 0)
+                     ไม่จำกัดประเภทใบรายการ — ตกลง 17 ก.ย. 2569 (docs/spec-เที่ยววิ่งเปล่า.md)
+                     ★ อ่านสองคอลัมน์แยกกัน ห้ามดูจาก revenue เพราะถ้าคอลัมน์แรกเป็น 0 จริง revenue
+                       จะเป็น 0 โดยไม่ดูค่าบรรทุก
     สูญเปล่า        = 3 คอลัมน์น้ำมันนอกเส้นทาง (WASTE_COLS) — เอกสารฉบับแก้ 16 ก.ย. 2569 ย้าย
                      "เบี้ยเลี้ยงนอกเส้นทาง" ออกจากสูญเปล่าไปอยู่ในค่าเบี้ยเลี้ยง
     น้ำมัน          = 8 คอลัมน์ตามเอกสารจัดประเภทต้นทุน (ไม่มีแก๊ส/Fleet Card)
@@ -63,7 +66,6 @@ REAL_COST_DIR = HERE / "data" / "Dashboard real data"
 REAL_REV_DIR = HERE / "data" / "revenue"
 
 # ---- นิยามกลุ่มคอลัมน์ (ชื่อต้องตรงกับหัวตารางในไฟล์ทุกตัวอักษร) ----
-EMPTY_TYPES = {"ของเหมาตีเปล่า", "รถว่างไปสาขา"}
 WASTE_COLS = [
     "น้ำมันนอกเส้นทาง",
     "ค่าน้ำมันนอกเส้นทาง(Fleet Card)",
@@ -345,6 +347,7 @@ def build(dataset: str) -> None:
             revenue = rev1 if rev1 is not None else num(g(r, COL_REV2))
             cost = num(g(r, COL_COST))
             ttype = text(g(r, "ประเภทใบรายการ"))
+            empty = num(g(r, COL_REV1)) == 0 and num(g(r, COL_REV2)) == 0
             origin, dest = text(g(r, "จุดขึ้น")), text(g(r, "จุดลง"))
             kind = text(g(r, "ชนิดรถ"))
             kinds[kind] += 1
@@ -379,7 +382,7 @@ def build(dataset: str) -> None:
                 "rev": round(revenue, 2),
                 "cost": round(cost, 2),
                 "profit": round(revenue - cost, 2),
-                "empty": ttype in EMPTY_TYPES,
+                "empty": empty,
                 "clear": text(g(r, "เป็นบิลเคลียร์")) == "ใช่",
                 "m": False,   # เติมทีหลังเมื่ออ่านไฟล์รายได้เสร็จ
                 # มูลค่า/จำนวนรายการบิลเคลียร์ — เติมทีหลังเหมือน m เพราะอยู่ในไฟล์รายได้คนละฝั่ง
@@ -452,7 +455,7 @@ def build(dataset: str) -> None:
                           "tripsWithKm": trips_with_km,
                           "pct": round(100 * trips_with_km / len(trips), 1)},
         "skipped": {"noDoc": skipped_no_doc, "noDate": skipped_no_date},
-        "emptyTypes": sorted(EMPTY_TYPES),
+        "emptyRule": "เที่ยววิ่งเปล่า = ราคารวมจากรายได้ = 0 และ ค่าบรรทุกทั้งใบรายการ = 0 (ไม่จำกัดประเภทใบรายการ)",
         "debtorBills": len(old_debtors),
         # สรุปบิลเคลียร์เฉพาะฝั่งที่จับคู่ได้ — แท็บ Damage Rate ใช้ตรวจว่ายอดในหน้าเว็บตรงกับไฟล์
         "clear": {"trips": sum(1 for t in matched if t["clrN"]),
@@ -470,7 +473,7 @@ def build(dataset: str) -> None:
     print(f"  เที่ยว {len(trips):,} · จับคู่กับข้อมูลรายได้ได้ {len(matched):,} ({100*len(matched)/len(trips):.1f}%)")
     print(f"  ช่วงวันที่ {dates[0]} → {dates[-1]} · ปี {manifest['years']}")
     print(f"  ระยะทางจาก routes.json: เส้นทาง {route_hit}/{len(route_pairs)} · เที่ยวที่มี กม. {trips_with_km:,} ({manifest['routeDistance']['pct']}%)")
-    print(f"  เที่ยวตีเปล่า {sum(1 for t in trips if t['empty']):,} · บิลเคลียร์ {sum(1 for t in trips if t['clear']):,}")
+    print(f"  เที่ยววิ่งเปล่า {sum(1 for t in trips if t['empty']):,} · บิลเคลียร์ {sum(1 for t in trips if t['clear']):,}")
     clr = manifest["clear"]
     print(f"  บิลเคลียร์จากไฟล์รายได้ (เฉพาะใบที่จับคู่ได้) {clr['bills']:,} รายการ "
           f"ใน {clr['trips']:,} เที่ยว รวม {clr['amount']:,.2f} บาท")

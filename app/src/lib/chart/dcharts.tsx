@@ -52,11 +52,13 @@ export function DLine({ data, xKey, series, suffix = " บาท", digits = 0 }:
 }
 
 /* ---------------- dBar: แท่งตั้งหรือแท่งนอน ---------------- */
-export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท", digits = 0, domain }: {
+export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท", digits = 0, domain, valueTick = fmtShort }: {
   data: Row[]; xKey: string; series: DSeries[]; horiz?: boolean;
   /** ระบายทีละแท่ง — ใช้กับกราฟชุดเดียวที่ main กำหนดสีเป็นอาร์เรย์ */
   colors?: string[];
   suffix?: string; digits?: number; domain?: [number | string, number | string];
+  /** ป้ายบนแกนค่า — ค่าเริ่มต้นเลขเต็มมีคอมมา (กราฟ % ส่งตัวที่เติม % เอง) */
+  valueTick?: (n: number) => string;
 }) {
   const t = useChartTheme();
   const showLeg = series.length > 1;
@@ -70,7 +72,7 @@ export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท",
       {horiz ? (
         <ComposedChart data={data} layout="vertical" margin={{ top: 6, right: 18, left: 0, bottom: 0 }}>
           <CartesianGrid {...gridProps(t)} />
-          <XAxis {...axisProps(t)} type="number" tickFormatter={fmtShort} domain={domain} />
+          <XAxis {...axisProps(t)} type="number" tickFormatter={valueTick} domain={domain} />
           <YAxis {...axisProps(t)} type="category" dataKey={xKey} width={catWidth(data, xKey)} />
           <Tooltip {...tooltipProps(t, suffix, digits)} />
           {showLeg && <Legend {...legendProps} />}
@@ -80,7 +82,7 @@ export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท",
         <ComposedChart data={data} margin={{ top: 6, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid {...gridProps(t)} />
           <XAxis {...axisProps(t)} dataKey={xKey} />
-          <YAxis {...axisProps(t)} tickFormatter={fmtShort} width={62} domain={domain} />
+          <YAxis {...axisProps(t)} tickFormatter={valueTick} width={62} domain={domain} />
           <Tooltip {...tooltipProps(t, suffix, digits)} />
           {showLeg && <Legend {...legendProps} />}
           {bars}
