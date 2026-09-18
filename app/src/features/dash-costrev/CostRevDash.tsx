@@ -48,9 +48,6 @@ const TABS = [
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
-/** แท็บที่อ่านไฟล์ของตัวเอง ไม่ต้องรอ trips และไม่ต้องมีแถบสรุปของไฟล์ต้นทุน */
-const STANDALONE: TabId[] = ["rev", "debt"];
-
 export default function CostRevDash({ mode, state }: { mode: CostRevMode; state: RecordsState }) {
   const { data, error, loading, reload } = useCostRev();
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/Dashboard real data/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
@@ -66,7 +63,6 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
     return mode === "exec" ? data.trips.filter((t) => t.m) : data.trips;
   }, [data, mode]);
 
-  const standalone = mode === "exec" && (STANDALONE as readonly TabId[]).includes(tab);
   const refreshTitle = "ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่";
   const m = data?.manifest;
   const title = mode === "exec" ? "Executive Dashboard" : "Dashboard รวม";
@@ -95,16 +91,10 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
 
   return (
     <>
-      {/* แถบสถานะ ETL เป็นเรื่องของไฟล์ต้นทุน — สองแท็บที่อ่านไฟล์อื่นมีแถบของตัวเอง */}
-      {!standalone && <EtlBanner status={etl} />}
-      <DashShell title={title} sample={m?.isSample} meta={standalone ? undefined : meta || undefined}
+      <EtlBanner status={etl} />
+      <DashShell title={title} sample={m?.isSample} meta={meta || undefined}
         tabs={tabs || undefined} onRefresh={reload} loading={loading} refreshTitle={refreshTitle}>
-        {standalone ? (
-          <>
-            {tab === "rev" && <RevenueBoard />}
-            {tab === "debt" && <DebtorBoard state={state} />}
-          </>
-        ) : error ? (
+        {error ? (
           <div className="card">
             <div className="banner">{error}</div>
             <p className="muted">
@@ -131,6 +121,8 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
             {/* ความเสียหายมาจากบิลในไฟล์รายได้ จึงมีตัวเลขเฉพาะโหมด exec — โหมด all ขึ้นข้อจำกัดแทน */}
             {tab === "empty" && <EmptyTab trips={trips} />}
             {tab === "damage" && <DamageTab trips={trips} mode={mode} matchedTotal={m.matched} isSample={m.isSample} />}
+            {tab === "rev" && mode === "exec" && <RevenueBoard trips={trips} manifest={m} />}
+            {tab === "debt" && mode === "exec" && <DebtorBoard state={state} manifest={m} />}
           </>
         )}
       </DashShell>

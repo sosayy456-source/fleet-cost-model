@@ -1,256 +1,244 @@
 /**
- * แท็บย่อย "ภาพรวม" — หน้ารวม (TRANSPORTATION REVENUE DASHBOARD) ตามสเปกที่เพื่อนเจ้าของงานส่งมา
- *
- * เรียงตามรูป: แถว KPI 2 ชั้น · แนวโน้มรายได้ + สถานะการชำระเงิน · ลูกค้า Good/Bad · เส้นทาง
- *
- * ★ สิ่งที่ทำไม่ได้จากไฟล์บิล และเหตุผล
- *   - "Overdue" ในบล็อกสถานะการชำระเงิน — ไฟล์บิลมีแค่ชำระ/ยังไม่ชำระ **ไม่มีวันครบกำหนด**
- *     จึงแยกเกินกำหนดไม่ได้ ต้องดูที่แท็บ "Dashboard ลูกหนี้" ซึ่งอ่านไฟล์ใบวางบิลที่มีวันครบกำหนด
- *     (สองชุดนี้ join กันไม่ได้ — คนละเลขเอกสาร รหัสลูกค้าคนละความยาว)
- *   - "Revenue by Vehicle" — ไฟล์บิลไม่มีชนิดรถ ต้องใช้ไฟล์ต้นทุนรายเที่ยว (คนละแท็บ)
- *
- * ★ ตามที่เขียนกำกับไว้ในรูป
- *   - ช่อง Outstanding/Unpaid เปลี่ยนเป็น "บิลเคลียร์ จำนวน (%)"
- *   - Top 10 ลูกค้าแยก Good/Bad สองฝั่ง
- *   - เส้นทางมีจำนวนเที่ยวกำกับ
- *
- * ★ ตัวกรอง (board/filters.tsx) — ตัวเลขมาจากคนละที่ตามสถานะการกรอง
- *     ไม่ได้กรอง  overview.json ที่ ETL คำนวณจากแถวดิบ เป๊ะทุกช่อง
- *     กรองแล้ว   คำนวณใหม่จาก cube
- *
- *   วัดกับข้อมูลจริง (186,862 แถว) แล้วความเป๊ะไม่เท่ากันในแต่ละช่อง:
- *     รายได้ / รายการ  เป๊ะ (เป็น sum/count บวกข้ามเซลล์ได้ตรง)
- *     จำนวนบิล        นับเกิน 0 — ทุกรายการในบิลเดียวกันตกช่องเดียวกันหมด
- *                     แต่ไม่มีอะไรบังคับไว้ จึงติด ≈ กันเหนียว
- *     จำนวนเที่ยว      **นับเกิน 5 เท่า** (14,092 เทียบกับ 2,745 จริง) เพราะใบรายการเดียว
- *                     บรรทุกบิลหลายเส้นทางหลายประเภท เลยถูกนับซ้ำทุกช่องที่มันโผล่
- *                     ผิดขนาดนี้ติดป้าย ≈ ไม่พอ — **ตอนกรองต้องขึ้น "–" ไปเลย**
- *     จำนวนลูกค้า      กรองไม่ได้ ลูกค้าไม่ได้อยู่ใน cube (44,543 ราย ใส่แล้วก้อนระเบิด)
+ * แท็บย่อย "ภาพรวม" — Transportation Revenue Dashboard ใน Executive Dashboard
+ * คำนวณจากเที่ยววิ่งที่จับคู่ได้ในไฟล์ต้นทุน (trips ที่ m = true)
+ * เพื่อให้ยอดรายได้รวม, จำนวนเที่ยว, แนวโน้ม และเส้นทาง ตรงกับแท็บ "กำไรรายเที่ยว" 100%
  */
-import { useMemo } from "react";
-import { DBar } from "../../../lib/chart/dcharts";
+import { useMemo, useState } from "react";
+import { DBar, DPie } from "../../../lib/chart/dcharts";
 import { D } from "../../../lib/chart/theme";
-import { ShortId } from "../../../lib/custmap/ShortId";
 import { monthLabel } from "../../../lib/data/useDataset";
 import { CC, Hero, KC, Note, Pane } from "../../dash-fleet/parts";
-import { DualAxis, EmptyRow, fmt, pct, Tbl } from "./common";
-import { groupBy, isFiltered, RevFilters, totalsOf, useCubeRows } from "./filters";
-import type { RevFilter } from "./filters";
-import type { Dataset } from "../../../lib/data/useDataset";
+import { DualAxis, EmptyRow, fmt, PALETTE, pct, Tbl } from "./common";
+import FilterBar, { ClearFiltersBtn } from "../../../lib/ui/FilterBar";
+import type { Trip, CostRevManifest } from "../../../lib/data/useCostRev";
 
-export default function OverviewTab({ data, f, set, reset }: {
-  data: Dataset;
-  f: RevFilter;
-  set: (k: keyof RevFilter) => (v: string) => void;
-  reset: () => void;
+interface FilterState {
+  y: string;
+  mo: string;
+  rt: string;
+  sg: string;
+  ft: string;
+}
+
+const F0: FilterState = { y: "", mo: "", rt: "", sg: "", ft: "" };
+
+export default function OverviewTab({ trips, manifest }: {
+  trips: Trip[];
+  manifest?: CostRevManifest;
 }) {
-  const on = isFiltered(f);
-  const rows = useCubeRows(data, f);
-  const t = useMemo(() => totalsOf(rows), [rows]);
-  const raw = data.overview;
+  const [f, setF] = useState<FilterState>(F0);
+  const set = (k: keyof FilterState) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+  const reset = () => setF(F0);
 
-  /** ตัวเลขที่เอาไปโชว์ — สลับแหล่งตามว่ากำลังกรองอยู่ไหม (ดูหัวไฟล์) */
-  const o = useMemo(() => on ? {
-    ...raw,
-    total_revenue: t.revenue,
-    total_line_items: t.lines,
-    distinct_bills: t.bills,
-    avg_bill_value: t.bills ? t.revenue / t.bills : 0,
-  } : raw, [on, raw, t]);
-  /** ≈ ต่อท้ายค่าที่เป็นขอบบนตอนกรอง */
-  const approx = (v: string) => on ? `≈ ${v}` : v;
+  const years = useMemo(() => Array.from(new Set(trips.map((t) => String(t.y)))).sort(), [trips]);
+  const months = useMemo(() => Array.from(new Set(trips.map((t) => t.mo))).sort(), [trips]);
+  const routes = useMemo(() => Array.from(new Set(trips.map((t) => t.rt).filter(Boolean))).sort(), [trips]);
+  const serviceGroups = useMemo(() => Array.from(new Set(trips.map((t) => t.sg || "ไม่ระบุ"))).sort(), [trips]);
+  const fleetTypes = useMemo(() => Array.from(new Set(trips.map((t) => t.ft).filter(Boolean))).sort(), [trips]);
 
-  const months = data.monthly;
-  /** เติบโตของเดือนล่าสุดที่มีค่า — สเปกเรียก "Revenue Growth" */
-  const growth = useMemo(() => {
-    for (let i = months.length - 1; i >= 0; i--) {
-      if (months[i]?.growth_pct != null) return months[i]!.growth_pct!;
-    }
-    return null;
-  }, [months]);
+  const on = Boolean(f.y || f.mo || f.rt || f.sg || f.ft);
 
-  /** กรองแล้วต้องยุบรายเดือนจาก cube ใหม่ ไม่ใช่โชว์ monthly.json ที่เป็นยอดทั้งชุด */
-  const trend = useMemo(() => {
-    if (!on) {
-      return months.map((m) => ({
-        mo: monthLabel(m.month),
-        รายได้: Math.round(m.revenue),
-        "มูลค่าเฉลี่ย/บิล": m.avg_bill_value == null ? null : Math.round(m.avg_bill_value),
-      }));
-    }
-    return groupBy(rows, "month")
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((m) => ({
-        mo: monthLabel(m.name),
-        รายได้: Math.round(m.revenue),
-        "มูลค่าเฉลี่ย/บิล": m.bills ? Math.round(m.revenue / m.bills) : null,
-      }));
-  }, [on, months, rows]);
+  const rows = useMemo(() => {
+    return trips.filter((t) => {
+      if (f.y && String(t.y) !== f.y) return false;
+      if (f.mo && t.mo !== f.mo) return false;
+      if (f.rt && t.rt !== f.rt) return false;
+      if (f.sg && (t.sg || "ไม่ระบุ") !== f.sg) return false;
+      if (f.ft && t.ft !== f.ft) return false;
+      return true;
+    });
+  }, [trips, f]);
 
-  /** สถานะการชำระเงินยุบจาก cube เสมอ — มิตินี้อยู่ใน cube อยู่แล้ว จึงตรงทั้งกรองและไม่กรอง */
-  const payRows = useMemo(() => groupBy(rows, "สถานะการชำระเงิน"), [rows]);
-  const payTotal = payRows.reduce((s, x) => s + x.revenue, 0);
-  const payChart = payRows.map((x) => ({ label: x.name, v: Math.round(x.revenue) }));
-
-  const paidRow = payRows.find((x) => x.name !== "ยังไม่ได้ชำระ");
-  const unpaidRow = payRows.find((x) => x.name === "ยังไม่ได้ชำระ");
-  const paidAmt = paidRow?.revenue ?? 0;
-  const unpaidAmt = unpaidRow?.revenue ?? 0;
-  const collRate = payTotal ? paidAmt / payTotal * 100 : null;
-
-  /** บิลเคลียร์เป็นค่าหนึ่งของ "ประเภทสินค้า" จึงยุบจาก cube ได้ตรง ๆ เหมือนกัน */
-  const clear = useMemo(() => {
-    const hit = groupBy(rows, "ประเภทสินค้า").find((x) => x.name === "บิลเคลียร์");
-    return { bills: hit?.bills ?? 0, revenue: hit?.revenue ?? 0 };
+  const kpi = useMemo(() => {
+    const totalRev = rows.reduce((s, t) => s + t.rev, 0);
+    const totalCost = rows.reduce((s, t) => s + t.cost, 0);
+    const totalProfit = rows.reduce((s, t) => s + t.profit, 0);
+    const margin = totalRev ? (totalProfit / totalRev) * 100 : 0;
+    const n = rows.length;
+    const avgRev = n ? totalRev / n : 0;
+    const avgCost = n ? totalCost / n : 0;
+    const avgProfit = n ? totalProfit / n : 0;
+    const clrAmt = rows.reduce((s, t) => s + t.clrAmt, 0);
+    const clrN = rows.reduce((s, t) => s + t.clrN, 0);
+    const emptyCount = rows.filter((t) => t.empty).length;
+    const emptyPct = n ? (emptyCount / n) * 100 : 0;
+    return { totalRev, totalCost, totalProfit, margin, n, avgRev, avgCost, avgProfit, clrAmt, clrN, emptyCount, emptyPct };
   }, [rows]);
-  const clearPct = t.bills ? clear.bills / t.bills * 100 : null;
 
-  const topCust = useMemo(() => data.customerTop.slice(0, 10), [data.customerTop]);
-  const lowCust = data.customerLow;
-  /** เส้นทางก็ยุบจาก cube — routes.json เป็นยอดทั้งชุด ใช้ตอนกรองไม่ได้ */
-  const routeRows = useMemo(() => groupBy(rows, "route"), [rows]);
-  const routes = useMemo(() => routeRows.slice(0, 10)
-    .map((r) => ({ name: r.name, v: Math.round(r.revenue) })), [routeRows]);
+  // แนวโน้มรายได้รายเดือน
+  const monthlyTrend = useMemo(() => {
+    const byMo = new Map<string, { mo: string; rev: number; cost: number; profit: number; n: number }>();
+    for (const t of rows) {
+      const item = byMo.get(t.mo) ?? { mo: t.mo, rev: 0, cost: 0, profit: 0, n: 0 };
+      item.rev += t.rev;
+      item.cost += t.cost;
+      item.profit += t.profit;
+      item.n++;
+      byMo.set(t.mo, item);
+    }
+    return Array.from(byMo.values())
+      .sort((a, b) => a.mo.localeCompare(b.mo))
+      .map((m) => ({
+        mo: monthLabel(m.mo),
+        รายได้: Math.round(m.rev),
+        "มูลค่าเฉลี่ย/เที่ยว": m.n ? Math.round(m.rev / m.n) : 0,
+      }));
+  }, [rows]);
+
+  // สัดส่วนรายได้ตามกลุ่มบริการ (สินค้า)
+  const productDonut = useMemo(() => {
+    const bySg = new Map<string, { name: string; v: number; n: number }>();
+    for (const t of rows) {
+      const name = t.sg || "ไม่ระบุ";
+      const item = bySg.get(name) ?? { name, v: 0, n: 0 };
+      item.v += t.rev;
+      item.n++;
+      bySg.set(name, item);
+    }
+    return Array.from(bySg.values())
+      .sort((a, b) => b.v - a.v)
+      .map((p) => ({ name: p.name, v: Math.round(p.v), n: p.n }));
+  }, [rows]);
+
+  // 10 อันดับเส้นทางรายได้สูงสุด
+  const routeRows = useMemo(() => {
+    const byRt = new Map<string, { name: string; rev: number; cost: number; profit: number; n: number }>();
+    for (const t of rows) {
+      const name = t.rt || "(ไม่ระบุ)";
+      const item = byRt.get(name) ?? { name, rev: 0, cost: 0, profit: 0, n: 0 };
+      item.rev += t.rev;
+      item.cost += t.cost;
+      item.profit += t.profit;
+      item.n++;
+      byRt.set(name, item);
+    }
+    return Array.from(byRt.values()).sort((a, b) => b.rev - a.rev);
+  }, [rows]);
+
+  const topRoutes = useMemo(() => routeRows.slice(0, 10).map((r) => ({
+    name: r.name,
+    v: Math.round(r.rev),
+  })), [routeRows]);
 
   return (
-    <Pane deps={[data, f]}>
-      <RevFilters data={data} f={f} set={set} reset={reset} />
+    <Pane deps={[trips, f]}>
+      <FilterBar>
+        <label className="ff">
+          <span>ปี</span>
+          <select value={f.y} onChange={(e) => set("y")(e.target.value)}>
+            <option value="">ทุกปี ({years.join(", ")})</option>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </label>
+        <label className="ff">
+          <span>เดือน</span>
+          <select value={f.mo} onChange={(e) => set("mo")(e.target.value)}>
+            <option value="">ทุกเดือน</option>
+            {months.map((m) => <option key={m} value={m}>{monthLabel(m)}</option>)}
+          </select>
+        </label>
+        <label className="ff">
+          <span>เส้นทาง</span>
+          <select value={f.rt} onChange={(e) => set("rt")(e.target.value)}>
+            <option value="">ทุกเส้นทาง</option>
+            {routes.map((rt) => <option key={rt} value={rt}>{rt}</option>)}
+          </select>
+        </label>
+        <label className="ff">
+          <span>กลุ่มบริการ</span>
+          <select value={f.sg} onChange={(e) => set("sg")(e.target.value)}>
+            <option value="">ทุกกลุ่ม</option>
+            {serviceGroups.map((sg) => <option key={sg} value={sg}>{sg}</option>)}
+          </select>
+        </label>
+        <label className="ff">
+          <span>ประเภทรถ</span>
+          <select value={f.ft} onChange={(e) => set("ft")(e.target.value)}>
+            <option value="">ทุกประเภท</option>
+            {fleetTypes.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
+          </select>
+        </label>
+        <ClearFiltersBtn active={on} onClick={reset} />
+      </FilterBar>
+
       <Note>
-        สเปกขอตัวกรอง 6 ช่อง ทำได้ 4 · <b>ลูกค้า</b> กรองไม่ได้เพราะมี{" "}
-        {fmt(data.overview.customers)} ราย ใส่เป็นมิติใน cube แล้วก้อนระเบิด ·{" "}
-        <b>ชนิดรถ</b> ไม่มีในไฟล์บิลเลย ต้องใช้ไฟล์ต้นทุนรายเที่ยว
-        {on && <>
-          {" "}· ค่าที่มี <b>≈</b> คือขอบบน ·{" "}
-          <b>จำนวนเที่ยว</b> กับ <b>ค่าเฉลี่ยต่อเที่ยว</b> ขึ้น "–" ตอนกรอง เพราะใบรายการเดียว
-          บรรทุกบิลหลายเส้นทาง ถ้านับจากที่กรองจะเกินจริงราว 5 เท่า
-        </>}
+        ข้อมูลคำนวณจากเที่ยววิ่งที่จับคู่ได้ใน <b>Executive Dashboard</b> ({fmt(trips.length)} เที่ยว) —
+        ยอดรายได้รวมตรงกับแท็บ <b>กำไรรายเที่ยว</b> ทุกประการ
       </Note>
 
       <div className="dz-heroes">
-        <Hero kind="rev" l="รายได้รวม" v={fmt(o.total_revenue)} s="บาท" />
-        <Hero kind="profit" l="เก็บเงินได้แล้ว" v={fmt(paidAmt)}
-          s={`บาท · อัตราเก็บเงิน ${pct(collRate)}`} />
-        <Hero kind={unpaidAmt > 0 ? "loss" : "profit"} l="ยังไม่ได้ชำระ"
-          v={fmt(unpaidAmt)} s={`บาท · ${approx(fmt(unpaidRow?.bills ?? 0))} บิล`} />
+        <Hero kind="rev" l="รายได้รวม" v={fmt(kpi.totalRev)} s="บาท" />
+        <Hero kind="profit" l="กำไรสุทธิรวม" v={fmt(kpi.totalProfit)}
+          s={`บาท · อัตรากำไร ${pct(kpi.margin, 2)}`} />
+        <Hero kind={kpi.totalProfit < 0 ? "loss" : "rev"} l="ต้นทุนรวม"
+          v={fmt(kpi.totalCost)} s="บาท" />
       </div>
 
       <div className="dz-cards">
-        <KC dot={D.indigo} l="จำนวนบิล" v={approx(fmt(o.distinct_bills))}
-          s={on ? "บิล · ค่าประมาณขอบบน" : "บิล"} />
-        {/* ★ กรองแล้วนับเกิน 5 เท่า (ดูหัวไฟล์) — ขึ้น "–" ดีกว่าโชว์เลขที่ผิดเป็นเท่าตัว */}
-        <KC dot={D.violet} l="จำนวนเที่ยว" v={on ? "–" : fmt(o.trips)}
-          s={on ? "กรองแล้วนับไม่ได้ (ใบรายการเดียวอยู่หลายเส้นทาง)" : "เที่ยว (เลขที่ใบรายการไม่ซ้ำ)"} />
-        {/* ลูกค้าไม่ได้อยู่ใน cube — กรองแล้วนับใหม่ไม่ได้ ขึ้น "–" ดีกว่าโชว์ยอดทั้งชุดให้เข้าใจผิด */}
-        <KC dot={D.teal} l="จำนวนลูกค้า" v={on ? "–" : fmt(o.customers)}
-          s={on ? "กรองแล้วนับไม่ได้ (ดูหมายเหตุใต้ตัวกรอง)" : "ราย (นับจากผู้รับ)"} />
-        <KC dot={D.amber} tone={growth != null && growth < 0 ? "bad" : "good"} l="เติบโตเดือนล่าสุด"
-          v={growth == null ? "–" : (growth > 0 ? "+" : "") + pct(growth)} s="เทียบเดือนก่อนหน้า" />
+        <KC dot={D.indigo} l="จำนวนเที่ยว" v={fmt(kpi.n)}
+          s={on ? "เที่ยว (ตามตัวกรอง)" : "เที่ยว (จับคู่กับไฟล์ต้นทุนได้)"} />
+        <KC dot={D.violet} l="รายได้เฉลี่ย/เที่ยว" v={fmt(kpi.avgRev)} s="บาท" />
+        <KC dot={D.teal} l="ต้นทุนเฉลี่ย/เที่ยว" v={fmt(kpi.avgCost)} s="บาท" />
+        <KC dot={D.emerald} l="กำไรเฉลี่ย/เที่ยว" v={fmt(kpi.avgProfit)} s="บาท" />
       </div>
 
       <div className="dz-cards" style={{ marginTop: 14 }}>
-        <KC dot={D.indigo} l="รายได้เฉลี่ย/บิล" v={approx(fmt(o.avg_bill_value))} s="บาท" />
-        <KC dot={D.violet} l="รายได้เฉลี่ย/เที่ยว" v={on ? "–" : fmt(o.avg_trip_value)}
-          s={on ? "กรองแล้วคิดไม่ได้" : "บาท"} />
-        <KC dot={D.teal} l="รายได้เฉลี่ย/ลูกค้า" v={on ? "–" : fmt(o.avg_customer_value)}
-          s={on ? "กรองแล้วคิดไม่ได้" : "บาท"} />
-        <KC dot={D.emerald} l="อัตราเก็บเงิน" v={pct(collRate, 2)}
-          s={`เก็บได้ ${fmt(paidAmt)} จาก ${fmt(payTotal)} บาท`} />
-      </div>
-
-      <div className="dz-cards" style={{ marginTop: 14 }}>
-        {/* ช่องนี้สเปกเดิมเป็น Outstanding/Unpaid แต่กาทิ้งแล้วเขียนว่าเอา "bill clear จำนวน (%)" แทน */}
-        <KC dot={D.orange} l="บิลเคลียร์ — จำนวน (%)"
-          v={`${approx(fmt(clear.bills))} (${pct(clearPct, 2)})`}
-          s={`บิล · ${fmt(clear.revenue)} บาท`} />
+        <KC dot={D.orange} l="บิลเคลียร์ — มูลค่า"
+          v={`${fmt(kpi.clrAmt)} บาท`}
+          s={`${fmt(kpi.clrN)} รายการ`} />
+        <KC dot={D.amber} l="เที่ยววิ่งเปล่า"
+          v={`${fmt(kpi.emptyCount)} เที่ยว`}
+          s={`${pct(kpi.emptyPct)} ของเที่ยวทั้งหมด`} />
+        {manifest?.debtorPaid && (
+          <KC dot={D.teal} l="บิลที่ชำระแล้ว (ไฟล์รายได้)"
+            v={`฿${fmt(manifest.debtorPaid.total)}`}
+            s={`${fmt(manifest.debtorPaid.bills)} บิล`} />
+        )}
       </div>
 
       <div className="dz-row dz-2" style={{ marginTop: 14 }}>
         <CC title="แนวโน้มรายได้รายเดือน" tall>
-          <DualAxis data={trend} xKey="mo"
-            bar={{ key: "รายได้", label: "รายได้", color: D.amber }}
-            line={{ key: "มูลค่าเฉลี่ย/บิล", label: "มูลค่าเฉลี่ย/บิล", color: D.indigo }} />
+          <DualAxis data={monthlyTrend} xKey="mo"
+            bar={{ key: "รายได้", label: "รายได้ (บาท)", color: D.amber }}
+            line={{ key: "มูลค่าเฉลี่ย/เที่ยว", label: "เฉลี่ย/เที่ยว (บาท)", color: D.indigo }} />
         </CC>
-        <div className="dz-cc">
-          <h4>สถานะการชำระเงิน</h4>
-          <div className="dz-box">
-            <DBar data={payChart} xKey="label" colors={[D.emerald, D.rose]}
-              series={[{ key: "v", label: "ยอด", color: D.emerald }]} />
-          </div>
-          <Tbl head={["สถานะ", ["ยอด", "n"], ["สัดส่วน", "n"], ["จำนวนบิล", "n"]]}>
-            {payRows.length === 0 ? <EmptyRow cols={4} text="ไม่มีข้อมูลตามตัวกรอง" /> : payRows.map((x) => (
-              <tr key={x.name}>
-                <td>{x.name}</td>
-                <td className="n">{fmt(x.revenue)} บาท</td>
-                <td className="n">{pct(payTotal ? x.revenue / payTotal * 100 : 0, 2)}</td>
-                <td className="n">{approx(fmt(x.bills))}</td>
-              </tr>
-            ))}
-          </Tbl>
-          <Note>
-            ไฟล์บิล<b>ไม่มีวันครบกำหนด</b> จึงแยก "เกินกำหนด" ที่นี่ไม่ได้ —
-            อายุหนี้กับอัตราเก็บเงินตามกำหนดอยู่ที่แท็บ <b>Dashboard ลูกหนี้</b> ซึ่งอ่านไฟล์ใบวางบิล
-            (คนละชุดข้อมูล เอายอดมารวมกันไม่ได้)
-          </Note>
-        </div>
-      </div>
 
-      <div className="dz-row dz-11" style={{ marginTop: 14 }}>
         <div className="dz-cc">
-          <h4>ลูกค้าที่ทำรายได้สูงสุด 10 ราย</h4>
-          <Tbl head={[["#", "n"], "รหัสลูกค้า", ["รายได้", "n"], ["บิล", "n"]]}>
-            {topCust.length === 0 ? <EmptyRow cols={4} text="ไม่มีข้อมูล" /> : topCust.map((c, i) => (
-              <tr key={c["ผู้รับ_encoded"]}>
-                <td className="n">{i + 1}</td>
-                <td><ShortId v={c["ผู้รับ_encoded"]} n={c.n} /></td>
-                <td className="n">{fmt(c.revenue)}</td>
-                <td className="n">{fmt(c.bills)}</td>
-              </tr>
-            ))}
-          </Tbl>
-        </div>
-        <div className="dz-cc">
-          <h4>ลูกค้าที่ทำรายได้ต่ำสุด 10 ราย</h4>
-          <Tbl head={[["#", "n"], "รหัสลูกค้า", ["รายได้", "n"], ["บิล", "n"]]}>
-            {lowCust.length === 0 ? <EmptyRow cols={4} text="ไม่มีข้อมูล" /> : lowCust.map((c, i) => (
-              <tr key={c["ผู้รับ_encoded"]}>
-                <td className="n">{i + 1}</td>
-                <td><ShortId v={c["ผู้รับ_encoded"]} n={c.n} /></td>
-                <td className="n">{fmt(c.revenue)}</td>
-                <td className="n">{fmt(c.bills)}</td>
-              </tr>
-            ))}
-          </Tbl>
-          <Note>
-            ตัดรายที่รายได้เป็น 0 ออกแล้ว (บิลเคลียร์/ยกเลิก) ไม่งั้นตารางเต็มไปด้วยยอดศูนย์ ·
-            <b>สองตารางนี้ไม่ตอบตัวกรอง</b> เป็นอันดับของทั้งชุดข้อมูลเสมอ
-            เพราะลูกค้าไม่ได้อยู่ใน cube ที่ใช้กรอง
-          </Note>
+          <h4>สัดส่วนรายได้ตามกลุ่มบริการ</h4>
+          <div className="dz-box tall">
+            <DPie data={productDonut} colors={PALETTE} />
+          </div>
+          <Note>กลุ่มบริการประเมินจากประเภทสินค้าในบิลรายได้ของเที่ยวที่จับคู่ได้</Note>
         </div>
       </div>
 
       <div className="dz-cc" style={{ marginTop: 14 }}>
         <h4>รายได้ตามเส้นทาง · 10 อันดับแรก{on ? " (ตามตัวกรอง)" : ""}</h4>
         <div className="dz-box tall">
-          <DBar data={routes} xKey="name" horiz
+          <DBar data={topRoutes} xKey="name" horiz
             series={[{ key: "v", label: "รายได้", color: D.indigo }]} />
         </div>
-        <Tbl head={["เส้นทาง", ["รายได้", "n"], ["จำนวนบิล", "n"], ["รายการ", "n"], ["สัดส่วน", "n"]]}>
-          {routeRows.length === 0 ? <EmptyRow cols={5} text="ไม่มีเส้นทางตามตัวกรอง" />
-            : routeRows.slice(0, 40).map((r) => (
+        <Tbl head={["เส้นทาง", ["รายได้", "n"], ["จำนวนเที่ยว", "n"], ["ต้นทุน", "n"], ["กำไร", "n"], ["สัดส่วน", "n"]]}>
+          {routeRows.length === 0 ? (
+            <EmptyRow cols={6} text="ไม่มีเส้นทางตามตัวกรอง" />
+          ) : (
+            routeRows.slice(0, 30).map((r) => (
               <tr key={r.name}>
                 <td>{r.name}</td>
-                <td className="n">{fmt(r.revenue)} บาท</td>
-                <td className="n">{approx(fmt(r.bills))}</td>
-                <td className="n">{fmt(r.lines)}</td>
-                <td className="n">{pct(t.revenue ? r.revenue / t.revenue * 100 : 0, 2)}</td>
+                <td className="n">{fmt(r.rev)} บาท</td>
+                <td className="n">{fmt(r.n)}</td>
+                <td className="n">{fmt(r.cost)} บาท</td>
+                <td className="n" style={{ color: r.profit < 0 ? "var(--red)" : "var(--green)" }}>
+                  {fmt(r.profit)} บาท
+                </td>
+                <td className="n">{pct(kpi.totalRev ? (r.rev / kpi.totalRev) * 100 : 0, 2)}</td>
               </tr>
-            ))}
+            ))
+          )}
         </Tbl>
-        <Note>
-          จำนวนเที่ยวรายเส้นทางดูได้ที่ <code>routes.json</code> (ยอดทั้งชุด ไม่ตอบตัวกรอง) ·
-          บิลหลายใบขึ้นรถเที่ยวเดียวกันได้ จำนวนบิลจึงมากกว่าจำนวนเที่ยวเสมอ ·
-          แสดง 40 เส้นทางแรกจาก {fmt(routeRows.length)} เส้นทางที่ผ่านตัวกรอง
-        </Note>
+        {routeRows.length > 30 && (
+          <Note>แสดง 30 เส้นทางแรกจาก {fmt(routeRows.length)} เส้นทาง</Note>
+        )}
       </div>
     </Pane>
   );
