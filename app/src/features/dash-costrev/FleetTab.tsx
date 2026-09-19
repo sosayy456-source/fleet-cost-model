@@ -13,6 +13,8 @@
  * ส่วนเสริมที่ไม่ได้อยู่ในสเปก แต่ตอบคำถามเดียวกันจากข้อมูลชุดเดิม:
  *   แถบสุขภาพกองรถ (สัดส่วนรถกำไร/ขาดทุนสะสม · เที่ยวกำไร/ขาดทุน/วิ่งเปล่า)
  *   สัดส่วนเที่ยวตามประเภทรถ
+ *   รถบริษัท vs รถร่วม ฝั่งไหนต้นทุนถูกกว่า — เทียบในเส้นทาง × ชนิดรถเดียวกัน (SideCompare.tsx)
+ *     การ์ดสัดส่วนข้างบนเป็นค่าเฉลี่ยรวมที่เส้นทางปนกัน ใช้ตัดสินว่าฝั่งไหนดีกว่าไม่ได้
  *
  * ใช้ร่วมกันทั้ง Executive Dashboard และ Dashboard รวม — ต่างกันแค่ trips ที่ส่งเข้ามา
  */
@@ -21,6 +23,7 @@ import { D } from "../../lib/chart/theme";
 import { Hero, Note, Pane } from "../dash-fleet/parts";
 import { BASE_F0, isFiltered, ListFF, Meter, MonthFF, YearFF, duniq, fmt, groupBy, passBase, pct, signed } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
+import SideCompare from "./SideCompare";
 import type { BaseFilter } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 
@@ -240,8 +243,13 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
                 </li>
               ))}
             </ul>
+            <p className="dz-note" style={{ marginTop: 14 }}>
+              กำไรเฉลี่ยนี้รวมทุกเส้นทาง สองฝั่งวิ่งคนละงานกันเป็นส่วนใหญ่ — เทียบฝั่งไหนดีกว่าดูตารางเส้นทางเดียวกันด้านล่าง
+            </p>
           </div>
         </div>
+
+        <SideCompare trips={rows} ftFiltered={!!f.ft} />
 
         {/* [VISUAL-04] */}
         <div className="dz-cc" style={{ marginTop: 14 }}>

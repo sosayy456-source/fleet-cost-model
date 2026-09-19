@@ -1050,3 +1050,31 @@ body:has(#view-dash.active){background:#EDE7DF}
 .em-pick-reset{margin-top:8px;width:100%;background:none;border:0;border-top:1px solid var(--d-row);
   padding:9px 4px 2px;font-family:inherit;font-size:13.5px;color:#6B6257;cursor:pointer;text-align:left}
 .em-pick-reset:hover{color:#1A1714}
+
+/* ---- แท็บกองรถ: รถบริษัท vs รถร่วม ในเส้นทางเดียวกัน (SideCompare.tsx) ---- */
+.sc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sc-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.sc-sum>div{background:var(--d-soft);border:1px solid var(--d-line);border-radius:14px;padding:12px 14px;
+  display:flex;flex-direction:column;gap:2px}
+.sc-sum span{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--d-ink3)}
+.sc-sum span i{width:9px;height:9px;border-radius:3px;flex:none}
+.sc-sum b{font-family:var(--d-num);font-size:24px;font-weight:700;color:var(--d-ink);line-height:1.2}
+.sc-sum small{font-size:12.5px;color:var(--d-ink5)}
+.sc-name{display:flex;flex-direction:column;gap:2px}
+.sc-name b{font-weight:600;white-space:nowrap}
+.sc-name small{font-size:12.5px;color:var(--d-ink5)}
+.sc-side{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.sc-side b{font-weight:700;font-size:15px}
+.sc-side small{font-size:12px;color:var(--d-ink5);white-space:nowrap}
+.sc-win{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:700;color:var(--c);
+  background:color-mix(in srgb,var(--c) 12%,#fff);border-radius:999px;padding:5px 11px;white-space:nowrap}
+.sc-win i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.sc-win.tie{background:var(--d-soft);color:var(--d-ink3)}
+.sc-mix{display:flex;flex-direction:column;gap:4px;min-width:130px}
+.sc-mix .bar{display:flex;height:9px;border-radius:999px;overflow:hidden;background:var(--d-rail)}
+.sc-mix .bar i{display:block;height:100%}
+.sc-mix .t{font-size:13px;color:var(--d-ink5);white-space:nowrap}
+.sc-mix .t b{font-weight:700}
+.sc-mix small{font-size:12px;color:var(--d-ink5);white-space:nowrap}
+.sc-verdict{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.sc-verdict small{font-size:12px;color:var(--d-ink5);white-space:nowrap;padding-left:4px}
