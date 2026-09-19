@@ -22,12 +22,14 @@ export function emptyRecord(): TripRecord {
     fuelUpBill: 0, fuelCallTruck: 0, fuelSum: 0, fuelAutoOn: true,
     fuelAuto: 0, liters: 0, price: 0,
     fuelOff: 0, fuelDetour: 0, fuelOffFleet: 0,
+    // ใบใหม่เริ่มจากตารางบิลว่าง — มีคีย์อยู่แล้วแปลว่า "ไม่ต้องแปลงจากช่องยอดรวมอีก"
+    fuelBills: [], fuelEst: 0,
     drv: 0, spare: 0, snd: 0, laborOff: 0,
     feeTarp: 0, feePolice: 0, feeCont: 0, feePort: 0, feeDoc: 0, feeToll: 0,
     repVeh: "", repFix: 0, repRate: 0, repVar: 0, repTotal: 0,
     fees: 0, labor: 0, normal: 0, waste: 0, sheetTotal: 0, profit: 0,
     // buildRecord() ของ main ประทับทั้งสามทุกครั้งที่บันทึก (index.html:2461)
-    _v2: true, _v3: true, _v4: true,
+    _v2: true, _v3: true, _v4: true, _v5: true,
   };
 }
 

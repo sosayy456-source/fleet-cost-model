@@ -12,8 +12,9 @@ import { BRANCHES, DOC_TYPES, ORIGINS, SERVICE_GROUPS, destsFor, distanceFor, ve
 import { genId, todayISO } from "../../lib/record/date";
 import { fieldsOwnedBy } from "../../lib/store/save";
 import { kindsOf, loadRoster } from "../../lib/store/roster";
-import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
-import type { RoleKey, TripRecord } from "../../types/record";
+import { FUEL_CATS, FUEL_PAYS, PAY_TYPES, PRICE_BASIS } from "../../types/record";
+import { emptyFuelBill, fuelBillsToTotals } from "../../lib/cost/fuelBills";
+import type { FuelBill, RoleKey, TripRecord } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
 import { emptyBill } from "./emptyRecord";
 
@@ -35,6 +36,29 @@ function randomBill(origin: string, dest: string) {
     unitPrice: int(50, 2000),
     pricingType: pick(PRICE_BASIS),
   };
+}
+
+/** สุ่มบิลน้ำมัน 2-5 ใบ คละวิธีจ่าย/ประเภท ให้พอเห็นป้ายสถานะครบ ๆ ตอนทดสอบ */
+function randomFuelBills(): FuelBill[] {
+  const pumps = ["ปั๊มเชียงใหม่", "ปั๊มนครสวรรค์", "ปั๊มลำปาง", "อื่น ๆ"];
+  const out: FuelBill[] = [];
+  for (let i = 0, n = int(2, 5); i < n; i++) {
+    const pay = pick(FUEL_PAYS);
+    const b = { ...emptyFuelBill(todayISO()), pay, cat: pick(FUEL_CATS), pump: pick(pumps) };
+    if (pay === "est") {
+      out.push({ ...b, km: int(10, 120), ratePerKm: 0.25, pricePerL: 42.03, reason: "บิลหาย" });
+      continue;
+    }
+    const litres = int(20, 150);
+    out.push({
+      ...b,
+      no: pay === "cash" ? `บก.111-${int(100, 999)}` : `INV-${int(1000, 9999)}`,
+      txnId: pay === "fleet" ? `FC-${int(10000, 99999)}` : "",
+      liters: litres, amount: Math.round(litres * 42.03), proof: Math.random() < 0.7,
+      src: pay === "fleet" ? "fleet" : "manual",
+    });
+  }
+  return out;
 }
 
 /**
@@ -61,6 +85,8 @@ export function randomRecord(): TripRecord {
   const fleetType = (roster?.fleetType ?? pick(["รถบริษัท", "รถร่วม"])) as FleetType;
   const vehicleName = roster?.vehicle ?? "";
   const capacity = vehicleByName(vehicleName)?.capacityKg ?? int(1000, 15000);
+  const fuelBillsRnd = randomFuelBills();
+  const fuelTotals = fuelBillsToTotals(fuelBillsRnd);
 
   return {
     id: genId(), docNo: `ทดสอบ${Date.now().toString().slice(-6)}`, source: "ใหม่", synced: false,
@@ -71,17 +97,17 @@ export function randomRecord(): TripRecord {
     fleetType,
     vehicle: vehicleName, releaseDate: todayISO(),
     capacity, loadActual: int(0, capacity), emptyLeg: Math.random() < 0.1,
-    gas: int(0, 500), fuelCash: int(0, 3000), fuelDownBill: int(0, 1500), fuelFleet: int(0, 1500),
-    fuelPickup: int(0, 800), fuelUpBill: int(0, 1500), fuelSum: 0, fuelAutoOn: true,
-    fuelAuto: 0, liters: 0, price: 0,
-    fuelCallTruck: int(0, 500),
-    fuelOff: int(0, 1000), fuelDetour: int(0, 1000), fuelOffFleet: int(0, 1000),
+    gas: int(0, 500),
+    // ค่าน้ำมันสุ่มเป็น "รายการบิล" แล้วสรุปลง 9 ช่องด้วยฟังก์ชันจริง ไม่สุ่มยอดลงช่องตรง ๆ
+    // ไม่งั้นตัวเลขในช่องกับตารางบิลจะไม่ตรงกัน (และ applyFuelBills จะล้างทิ้งตอนบันทึกอยู่ดี)
+    ...fuelTotals, fuelBills: fuelBillsRnd,
+    fuelSum: 0, fuelAutoOn: false, fuelAuto: 0, liters: 0, price: 0,
     drv: int(0, 1500), spare: int(0, 800), snd: int(0, 500), laborOff: int(0, 500),
     feeTarp: int(0, 300), feePolice: int(0, 300), feeCont: int(0, 500), feePort: int(0, 500),
     feeDoc: int(0, 300), feeToll: int(0, 500),
     repVeh: "", repFix: 0, repRate: 0, repVar: 0, repTotal: 0,
     fees: 0, labor: 0, normal: 0, waste: 0, sheetTotal: 0, profit: 0,
-    _v2: true, _v3: true, _v4: true,
+    _v2: true, _v3: true, _v4: true, _v5: true,
   };
 }
 
@@ -107,6 +133,12 @@ export function randomFor(base: TripRecord, zones: RoleKey[]): TripRecord {
   }
   if (zones.includes("dispatch")) {
     out.releaseDate = (out.date as string) || todayISO();
+  }
+  // บิลน้ำมันที่สุ่มมาลงวันที่ "วันนี้" เสมอ — ถ้าไปสุ่มทับใบเก่าที่ลงวันอื่น ทุกแถวจะติดป้าย
+  // "นอกช่วงเดินทาง" ทั้งที่ข้อมูลทดสอบไม่ได้ผิดอะไร ย้ายมาลงวันเดียวกับใบให้เลย
+  if (Array.isArray(out.fuelBills)) {
+    const d = (out.date as string) || todayISO();
+    out.fuelBills = (out.fuelBills as FuelBill[]).map((b) => ({ ...b, date: d }));
   }
   return out as unknown as TripRecord;
 }

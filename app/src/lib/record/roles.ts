@@ -4,8 +4,8 @@
  * มี 5 ตำแหน่ง แต่มีแค่ 3 ตำแหน่งแรกที่ "กรอกใบ" (ROLE_ORDER)
  * ผู้จัดการกับผู้ดูแลระบบเป็นตำแหน่งดูอย่างเดียว/ดูแลระบบ จึงไม่นับในความครบถ้วนของใบ
  *
- * แต่ละตำแหน่งเห็นเมนูไม่เท่ากัน (ROLE_VIEWS) — ฝ่ายบริการลูกค้ากับฝ่ายจัดรถ
- * เห็นแค่หน้ากรอกข้อมูล ส่วนผู้ดูแลระบบเห็นครบทุกหน้า
+ * แต่ละตำแหน่งเห็นเมนูไม่เท่ากัน (ROLE_VIEWS) — ฝ่ายบริการลูกค้าเห็นแค่หน้ากรอกข้อมูล
+ * ฝ่ายจัดรถเห็นหน้ากรอกข้อมูลกับสถานะกองรถ ส่วนผู้ดูแลระบบเห็นครบทุกหน้า
  */
 import { nowStamp } from "./date";
 import type { RoleKey, TripRecord } from "../../types/record";
@@ -58,12 +58,13 @@ export const ROLES: Record<RoleKey, RoleDef> = {
 export const ROLE_ORDER: RoleKey[] = ["cs", "dispatch", "account"];
 
 /** ลำดับการ์ดในหน้าเลือกหน้าที่ — admin อยู่ท้ายสุดเสมอ เพราะการ์ดใบนั้นกว้างเต็มแถว */
-export const ROLE_PICK: RoleKey[] = ["cs", "dispatch", "account", "driver", "manager", "admin"];
+export const ROLE_PICK: RoleKey[] = ["cs", "dispatch", "driver", "account", "manager", "admin"];
 
 /** หน้าที่แต่ละตำแหน่งเข้าได้ — ตัวแรกคือหน้าที่เปิดให้ตอนเข้าระบบ */
 export const ROLE_VIEWS: Record<RoleKey, string[]> = {
   cs: ["entry"],
-  dispatch: ["entry"],
+  // ฝ่ายจัดรถดูสถานะกองรถได้ด้วย (แท็บเดียวกับในแดชบอร์ดเต็ม) — เป็นข้อมูลที่ต้องใช้ตอนจัดรถ
+  dispatch: ["entry", "fleet-status"],
   account: ["entry", "records", "drafts", "debtors", "settings"],
   // คนขับเห็นหน้าเดียว — เปิดแอปมาก็เจองานของตัวเองเลย
   driver: ["driver"],

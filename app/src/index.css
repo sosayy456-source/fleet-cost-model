@@ -630,14 +630,50 @@ input[type="checkbox"]{width:auto;padding:0}
 
 .recharts-surface{overflow:visible}
 
-/* ---- ปุ่มรีเฟรชในแถบ "ใบที่ยังรอฝ่ายเรากรอก" ---- */
-.draftbar .dt{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.dt-reload{font-family:inherit;font-size:11.5px;font-weight:700;color:var(--orange-dark);
-  background:#fff;border:1px solid var(--orange-line);border-radius:8px;padding:5px 11px;
-  cursor:pointer;margin-left:auto;transition:border-color .15s var(--ease),background .15s var(--ease)}
-.dt-reload:hover:not(:disabled){border-color:var(--orange);background:var(--orange-soft)}
-.dt-reload:disabled{opacity:.55;cursor:default}
-.dt-none{font-size:12.5px;color:var(--ink-faint)}
+/* ---- แผง "ใบที่ยังรอ…กรอก" (features/entry/panels/PendingSlips.tsx) ----
+   แทนแถบชิป .draftbar/.dchip ของส่วนที่ 1 ซึ่งเลิกใช้แล้ว (ห้ามลบ — ส่วนที่ 1 ก๊อปจาก main)
+   โทนค้างงาน (เขียว/เหลือง/แดง) มาจากคอมโพเนนต์เป็น inline style เพราะธีมไม่มีโทนเหลือง */
+.pslips{background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden;
+  margin-bottom:16px;
+  box-shadow:0 1px 2px rgba(27,27,31,.04),0 8px 24px -16px rgba(27,27,31,.18)}
+.pslips-h{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding:20px 24px;border-bottom:1px solid var(--divider);
+  background:linear-gradient(180deg,var(--table-head) 0%,var(--card) 100%)}
+.pslips-ht{display:flex;flex-direction:column;gap:6px;min-width:0}
+.pslips-t{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pslips-t h2{font-size:18px;font-weight:700;color:var(--ink)}
+.pslips-pill{display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;
+  background:var(--accent-tint);color:var(--accent);font-size:13px;font-weight:700}
+.pslips-sub{font-size:13px;color:var(--ink-soft)}
+.pslips-reload{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px;
+  font-family:inherit;font-size:14px;font-weight:500;color:var(--ink-muted);
+  background:var(--card);border:1px solid var(--border-strong);border-radius:9px;cursor:pointer;
+  transition:background .12s ease,border-color .12s ease}
+.pslips-reload:hover:not(:disabled){background:var(--field-bg);border-color:var(--border-hover)}
+.pslips-reload:disabled{cursor:default}
+.pslips-spin{display:inline-flex;color:var(--ink-faint)}
+.pslips-spin svg{width:15px;height:15px}
+.pslips-spin.on{animation:pslips-spin 700ms linear infinite}
+@keyframes pslips-spin{to{transform:rotate(360deg)}}
+.pslips-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px;
+  padding:20px 24px 24px}
+.pslip{display:flex;align-items:center;gap:12px;padding:14px;text-align:left;
+  font-family:inherit;color:inherit;background:var(--card);
+  border:1px solid var(--border);border-radius:13px;cursor:pointer;
+  transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+.pslip:hover{border-color:var(--accent-line);transform:translateY(-1px);
+  box-shadow:0 6px 18px -12px rgba(27,27,31,.35)}
+.pslip-ic{flex:none;width:38px;height:38px;border-radius:10px;display:grid;place-items:center}
+.pslip-ic svg{width:19px;height:19px}
+.pslip-tx{display:flex;flex-direction:column;gap:3px;min-width:0}
+.pslip-code{font-family:var(--font-num);font-size:15px;font-weight:700;letter-spacing:.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* บรรทัดวันที่ค้างห้ามตัดบรรทัด — เคยพังมาแล้ว */
+.pslip-age{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
+  white-space:nowrap}
+.pslip-age .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex:none}
+.pslip-chev{margin-left:auto;flex:none;font-size:15px;color:var(--ink-faint)}
+.pslips-none{padding:36px 24px 44px;text-align:center;font-size:14px;color:var(--ink-soft)}
 
 /* ---- ปุ่มรีเฟรชในหน้าแดชบอร์ด (ใช้โทเคนสีของ #view-dash) ---- */
 .dash-reload{font-family:var(--d-font,inherit);font-size:13px;font-weight:600;
@@ -1050,3 +1086,128 @@ body:has(#view-dash.active){background:#EDE7DF}
 .em-pick-reset{margin-top:8px;width:100%;background:none;border:0;border-top:1px solid var(--d-row);
   padding:9px 4px 2px;font-family:inherit;font-size:13.5px;color:#6B6257;cursor:pointer;text-align:left}
 .em-pick-reset:hover{color:#1A1714}
+
+/* ================= ตารางบิลน้ำมัน (โซนฝ่ายบัญชี · ดีไซน์ "บันทึกตามบิล") =================
+   แทนช่องยอดรวม 6+3 ช่องเดิม · โครงกริดล้อ .bill-row ในส่วนที่ 1 แต่แยกคลาสของตัวเอง
+   เพราะจำนวนคอลัมน์ไม่เท่ากัน ใช้ร่วมกันแล้วจะไปกวนตารางลูกหนี้
+   ============================================================================== */
+.fuel-wrap{display:flex;flex-direction:column}
+.fuel-top{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+.fuel-hint{font-size:12.5px;color:var(--ink-faint);line-height:1.5}
+.fuel-count{font-size:13px;color:var(--ink-soft);white-space:nowrap}
+.fuel-count b{color:var(--ink);font-weight:700}
+
+.fuel-head,.fuel-row{display:grid;
+  grid-template-columns:.95fr 1.55fr .85fr .95fr 1fr .5fr .75fr .8fr .85fr 22px;
+  gap:8px;align-items:center}
+.fuel-head{font-size:12.5px;color:var(--ink-soft);font-weight:700;letter-spacing:.03em;margin-bottom:6px;padding:0 2px}
+.fuel-head .n,.fuel-row input.n{text-align:right}
+@media(max-width:1340px){
+  .fuel-head{display:none}
+  .fuel-row{grid-template-columns:repeat(3,1fr) 26px}
+}
+@media(max-width:820px){.fuel-row{grid-template-columns:1fr 1fr}}
+
+/* ★ .dmy ในส่วนที่ 1 ตั้งช่อง "วัน" ไว้ 78px คงที่ ซึ่งกว้างเกินไปสำหรับเซลล์ในตาราง
+   เหลือที่ให้เดือน/ปีไม่พอจนตัวอักษรถูกตัดเหลือ "ก" กับ "2"
+   ส่วนที่ 1 ห้ามแก้ จึงทับเฉพาะในตารางบิลตรงนี้ · select ต้องมี min-width:0
+   ไม่งั้นมันไม่ยอมหดตามกริด (ความกว้างขั้นต่ำของ select คือความยาว option ที่ยาวสุด) */
+.fuel-row .dmy{grid-template-columns:42px 1fr 1fr}
+.fuel-row .dmy input,.fuel-row .dmy select{padding:10px 4px;font-size:13.5px;min-width:0;text-align:center}
+.fuel-row .dmy input{text-align:right;padding-right:6px}
+
+.fuel-block{border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;background:var(--field-bg)}
+.fuel-row input,.fuel-row select{padding:10px 12px;font-size:14.5px;border-radius:9px;background:#fff;width:100%}
+.fuel-row input.doc{font-family:var(--font-num)}
+/* ช่องที่ยังขาดข้อมูลสำคัญ — เตือนด้วยเส้นขอบ ไม่บล็อกการบันทึก */
+.fuel-row input.need,.fuel-row select.need{border-color:#9A6408}
+.fuel-row.est{background:#FAF7FA;border-radius:10px}
+.fuel-block:has(.fuel-row.est){border-style:dashed;border-color:var(--border-strong)}
+.fuel-row.waste input.amt{color:var(--accent)}
+.fuel-auto{padding:10px 12px;font-size:14.5px;border-radius:9px;background:#F2EFEA;
+  color:var(--ink-soft);font-weight:600;font-style:italic}
+.fuel-x{border:0;background:none;color:var(--red);cursor:pointer;font-weight:700;font-size:15px;padding:0 4px}
+.fuel-x:hover:not(:disabled){color:#8A2E2E}
+.fuel-x:disabled{opacity:.4;cursor:default}
+
+.fuel-act{font-family:inherit;font-size:12.5px;font-weight:600;padding:9px 10px;border-radius:9px;
+  border:1px dashed var(--accent);background:#fff;color:var(--accent);cursor:pointer;white-space:nowrap}
+.fuel-act.on{border-style:solid;border-color:var(--green-line);background:var(--green-soft);color:var(--green)}
+.fuel-act:disabled{opacity:.5;cursor:default}
+
+.fuel-badge{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;
+  font-size:12px;font-weight:700;line-height:1.3;white-space:nowrap}
+.fuel-badge.ok{background:var(--green-soft);color:var(--green)}
+.fuel-badge.info{background:var(--accent-tint);color:var(--accent)}
+.fuel-badge.warn{background:#FBF0DC;color:#9A6408}
+.fuel-badge.err{background:var(--red-soft);color:var(--red)}
+
+/* แถบใต้แถว — สูตรยอดประมาณ / ช่องลิงก์หลักฐาน */
+.fuel-sub{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  margin-top:8px;padding:8px 12px;background:#fff;border-radius:9px;font-size:13px;color:var(--ink-muted)}
+.fuel-sub-btn{font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:8px;
+  border:1px solid var(--accent);background:#fff;color:var(--accent);cursor:pointer;white-space:nowrap}
+.fuel-sub-btn:hover:not(:disabled){background:var(--accent-tint)}
+.fuel-sub-btn:disabled{opacity:.5;cursor:default}
+.fuel-url{flex:1;min-width:220px;padding:8px 11px;font-size:13.5px;border-radius:8px;
+  border:1px solid var(--border-strong);background:#fff;font-family:inherit}
+.fuel-txn{font-family:var(--font-num);font-size:12.5px;color:var(--ink-faint)}
+
+.fuel-foot{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:4px 0 8px}
+.fuel-foot .fuel-hint{flex:1;min-width:260px}
+
+/* ---- ส่วนสรุป (ยอดรวม + เทียบต้นทุนมาตรฐาน) ---- */
+.fuel-panes{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;margin-top:14px}
+@media(max-width:980px){.fuel-panes{grid-template-columns:1fr}}
+.fuel-pane{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px}
+.fuel-pane h4{font-family:var(--font-num);font-size:16px;font-weight:700;margin-bottom:12px}
+.fuel-pane h4 span{display:block;font-family:var(--font-thai);font-size:12.5px;font-weight:400;color:var(--ink-faint);margin-top:2px}
+.fuel-grp{font-size:12.5px;font-weight:700;color:var(--ink-soft);margin:12px 0 8px}
+.fuel-grp.waste{color:var(--accent)}
+.fuel-cells{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.fuel-cell{display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+  padding:12px 14px;border:1px solid var(--divider);border-radius:10px}
+.fuel-cell span{font-size:13.5px;color:var(--ink-soft)}
+.fuel-cell b{font-family:var(--font-num);font-size:16px}
+.fuel-cell.waste{border-color:var(--accent-line);background:var(--accent-tint)}
+.fuel-cell.waste span{color:var(--accent)}
+.fuel-cell.waste b{color:var(--accent-hover)}
+
+.fuel-est{margin-top:14px;padding:12px 14px;border:1px dashed var(--border-strong);
+  background:var(--field-bg);border-radius:10px}
+.fuel-est .row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13.5px;color:var(--ink-muted)}
+.fuel-est .row b{font-family:var(--font-num);font-size:15px;font-style:italic}
+.fuel-est .row.line{margin-top:8px;padding-top:8px;border-top:1px solid var(--divider)}
+.fuel-total{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  margin-top:14px;padding-top:12px;border-top:1px solid var(--divider)}
+.fuel-total span{font-size:14.5px;font-weight:600}
+.fuel-total b{font-family:var(--font-num);font-size:22px;font-weight:700}
+.fuel-total-sub{text-align:right;font-size:12.5px;color:var(--ink-soft);margin-top:2px}
+
+.fuel-cmp-in{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:12px}
+.fuel-cmp-in div{display:flex;flex-direction:column;gap:3px;padding:10px 12px;
+  border:1px solid var(--divider);border-radius:10px}
+.fuel-cmp-in label{font-size:12px;color:var(--ink-faint)}
+.fuel-cmp-in b{font-family:var(--font-num);font-size:15px}
+.fuel-cmp-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font-size:13.5px;margin-bottom:8px}
+.fuel-cmp-row span{color:var(--ink-soft)}
+.fuel-cmp-row b{font-family:var(--font-num)}
+.fuel-diff{margin-top:10px;padding:14px 16px;border-radius:10px}
+.fuel-diff.under{background:var(--green-soft);color:var(--green)}
+.fuel-diff.over{background:var(--red-soft);color:var(--red)}
+.fuel-diff .row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.fuel-diff .row span{font-size:14px;font-weight:600}
+.fuel-diff .row b{font-family:var(--font-num);font-size:19px}
+.fuel-diff .note{font-size:12.5px;margin-top:4px}
+.fuel-warn{margin:2px 0 6px;padding:10px 14px;border-radius:10px;font-size:13px;
+  background:#FBF0DC;color:#7A4A00;border:1px solid #EBD9B4}
+.fuel-sub-acts{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}
+.fuel-sub-btn.ghost{border-color:var(--border-strong);color:var(--ink-soft)}
+.fuel-sub-btn.ghost:hover:not(:disabled){border-color:var(--accent);color:var(--accent);background:#fff}
+/* ข้อความบอกว่าทำไมยอดยังเป็น 0 — ต้องเด่นกว่าบรรทัดสูตรธรรมดา */
+.fuel-blocked{color:#9A6408;font-weight:600}
+
+/* ค่าใช้จ่ายอื่นๆ (panels/OtherCostTable.tsx) */
+.oc-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 200px 26px;gap:10px;align-items:center;margin-bottom:10px}
+.oc-row input,.oc-row select{padding:10px 12px;font-size:14.5px;border-radius:9px;background:#fff;width:100%}
+@media(max-width:820px){.oc-row{grid-template-columns:1fr 1fr}.oc-row>input:first-child{grid-column:1/-1}}
