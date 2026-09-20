@@ -7,16 +7,17 @@
  *       VISUAL-06 ฮิสโทแกรมอัตรากำไร · VISUAL-07/08 Top 5 เส้นทางกำไร/ขาดทุน
  *   2.4 VISUAL-09 5 กลุ่มค่าใช้จ่ายหลัก (น้ำมัน เบี้ยเลี้ยง ค่าธรรมเนียม ค่าซ่อม ค่าเสื่อม · ไม่รวมค่าเช่า)
  *       VISUAL-10 ต้นทุนเฉลี่ยตามชนิดรถ สลับ ต่อเที่ยว / ต่อกม. (กม.จาก routes.json เฉพาะที่จับคู่ได้)
- *   2.5 ตาราง เส้นทาง × ชนิดรถ กรองย่อย ต้นทาง/ปลายทาง/ชนิดรถ เรียงได้ทุกคอลัมน์ตัวเลข
+ *   2.5 ตารางสรุป เส้นทาง × กลุ่มบริการ × ชนิดรถ + สัดส่วนรถบริษัท/รถร่วม และคำแนะนำ (SummaryTable.tsx)
  */
 import { useMemo, useState } from "react";
 import { DBar, DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { CC, Hero, Note, Pane, TableHead } from "../dash-fleet/parts";
-import { BASE_F0, isFiltered, ListFF, Meter, SortTable, YearFF, duniq, fmt, groupBy, marginOf, marginTone, monthLabel,
-         passBase, pct, signed, useSort } from "./common";
+import { BASE_F0, isFiltered, ListFF, Meter, YearFF, duniq, fmt, groupBy, marginOf, monthLabel,
+         passBase, pct, signed } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
-import type { BaseFilter, Col } from "./common";
+import SummaryTable from "./SummaryTable";
+import type { BaseFilter } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 
 /** ช่วงอัตรากำไรของฮิสโทแกรม — ช่วงละ 10% ปลายเปิดสองข้าง */
@@ -34,8 +35,6 @@ const COST_GROUPS: { key: keyof Trip; label: string; color: string }[] = [
   { key: "dep", label: "ค่าเสื่อม", color: D.slateDeep },
 ];
 
-interface MatrixRow { route: string; vk: string; n: number; rev: number; cost: number; profit: number; margin: number | null }
-
 /** จำนวนจุดของเส้นแนวโน้มในการ์ดเด่น — 12 เดือนล่าสุด (ดีไซน์ต้องการ 8–12 จุด) */
 const TREND_POINTS = 12;
 
@@ -47,7 +46,6 @@ export default function ProfitTab({ trips, fileRows }: {
   const [f, setF] = useState<BaseFilter>(BASE_F0);
   const set = (k: keyof BaseFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [perKm, setPerKm] = useState(false);
-  const [tf, setTf] = useState({ o: "", de: "", vk: "" });
 
   const rows = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
 
@@ -102,28 +100,6 @@ export default function ProfitTab({ trips, fileRows }: {
     kmPct: a.n ? Math.round(a.kmTrips / a.n * 100) : 0,
   })).sort((a, b) => (perKm ? b.perKm - a.perKm : b.perTrip - a.perTrip)), [rows, perKm]);
   const kmCoverage = rows.length ? Math.round(rows.filter((t) => t.km != null).length / rows.length * 100) : 0;
-
-  /** 2.5 ตาราง เส้นทาง × ชนิดรถ */
-  const matrix = useMemo<MatrixRow[]>(() => {
-    const sub = rows.filter((t) => (!tf.o || t.o === tf.o) && (!tf.de || t.de === tf.de) && (!tf.vk || t.vk === tf.vk));
-    return groupBy(sub, (t) => `${t.rt}\u0000${t.vk}`).map((a) => {
-      const [route, vk] = a.key.split("\u0000");
-      return { route: route ?? "", vk: vk ?? "", n: a.n, rev: a.rev, cost: a.cost, profit: a.profit,
-               margin: a.rev ? a.profit / a.rev * 100 : null };
-    });
-  }, [rows, tf]);
-  const cols = useMemo<Col<MatrixRow>[]>(() => [
-    { key: "route", label: "เส้นทาง", get: (r) => r.route },
-    { key: "vk", label: "ชนิดรถ", get: (r) => r.vk },
-    { key: "n", label: "จำนวนเที่ยว", get: (r) => r.n, num: true },
-    { key: "rev", label: "รายได้", get: (r) => r.rev, num: true },
-    { key: "cost", label: "ต้นทุน", get: (r) => r.cost, num: true },
-    { key: "profit", label: "กำไร", get: (r) => r.profit, num: true,
-      render: (r) => <span style={{ fontWeight: 700, color: r.profit < 0 ? "var(--red)" : "var(--green)" }}>{signed(r.profit)}</span> },
-    { key: "margin", label: "%margin", get: (r) => r.margin, num: true,
-      render: (r) => <span style={{ fontWeight: 700, color: marginTone(r.margin) }}>{r.margin == null ? "–" : pct(r.margin)}</span> },
-  ], []);
-  const { sorted, sort, toggle } = useSort(matrix, cols, { key: "profit", dir: -1 });
 
   return (
     <>
@@ -217,17 +193,8 @@ export default function ProfitTab({ trips, fileRows }: {
           </div>
         </div>
 
-        {/* 2.5 ตารางสรุป */}
-        <div className="dz-cc" style={{ marginTop: 14 }}>
-          <TableHead title="ตารางสรุป · เส้นทาง × ชนิดรถ">
-            <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={tf.o} onChange={(v) => setTf((p) => ({ ...p, o: v }))} opts={duniq(rows.map((t) => t.o))} />
-            <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={tf.de} onChange={(v) => setTf((p) => ({ ...p, de: v }))} opts={duniq(rows.map((t) => t.de))} />
-            <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={tf.vk} onChange={(v) => setTf((p) => ({ ...p, vk: v }))} opts={duniq(rows.map((t) => t.vk))} />
-          </TableHead>
-          <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle}
-            rowKey={(r) => `${r.route}|${r.vk}`} empty="ไม่พบข้อมูลตามเงื่อนไข" />
-          <Note>คลิกหัวคอลัมน์เพื่อเรียง · คลิกซ้ำเพื่อสลับมาก↔น้อย</Note>
-        </div>
+        {/* 2.5 */}
+        <SummaryTable trips={rows} ftFiltered={!!f.ft} />
       </Pane>
     </>
   );

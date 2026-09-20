@@ -50,13 +50,15 @@ export function MonthFF({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
-export function ListFF({ label, all, value, onChange, opts }: {
+export function ListFF({ label, all, value, onChange, opts, labelOf }: {
   label: string; all: string; value: string; onChange: (v: string) => void; opts: string[];
+  /** ข้อความที่แสดงของแต่ละตัวเลือก — ไม่ส่งก็ใช้ค่าตัวเลือกเอง */
+  labelOf?: (o: string) => string;
 }) {
   return (
     <FF label={label} value={value} onChange={onChange}>
       <option value="">{all}</option>
-      {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+      {opts.map((o) => <option key={o} value={o}>{labelOf ? labelOf(o) : o}</option>)}
     </FF>
   );
 }
