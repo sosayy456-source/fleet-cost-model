@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getUrl, loadOld, loadTrips } from "../sheet/client";
 import { loadCostRevOld } from "../data/useCostRev";
-import { getAll, migrateFromLocalStorage } from "./records";
+import { getAll, migrateFromLocalStorage, remove } from "./records";
 import type { TripRecord } from "../../types/record";
 
 const OLD_CACHE_KEY = "oldRecordsCache";
@@ -88,15 +88,45 @@ export interface RecordsState {
   refresh: () => void;
 }
 
-/** รวมใบจากเครื่องกับจากชีต โดยใบที่ยังไม่ sync ให้ของในเครื่องชนะ */
-export function mergeRecords(local: TripRecord[], sheet: TripRecord[]): TripRecord[] {
+/**
+ * รวมใบจากเครื่องกับจากชีต โดยใบที่ยังไม่ sync ให้ของในเครื่องชนะ
+ *
+ * ★ `sheetComplete` = ลิสต์จากชีตอ่านมาครบแล้วจริง (loadTrips สำเร็จ) ไม่ใช่ค่าสำรอง
+ *   เมื่อเป็นจริง ให้ถือว่า **ชีตเป็นผู้ตัดสิน**: ใบในเครื่องที่ `synced === true`
+ *   (เคยขึ้นชีตสำเร็จแล้ว) แต่ไม่มีบนชีตอีกต่อไป = ถูกลบทิ้งที่ชีต → ต้องหายจากแอปด้วย
+ *
+ *   ของเดิมรวมแบบ "ยูเนียน" ล้วน ไม่เคยตัดอะไรออก ลบแถวในชีตแล้วใบก็ยังโผล่อยู่
+ *   เพราะสำเนาในเครื่องถูกเอากลับเข้ามาทุกรอบ — ไม่มีทางลบใบได้เลยนอกจากล้าง IndexedDB
+ *
+ *   ใบที่ `synced === false` (ยังไม่เคยขึ้นชีต เช่นบันทึกตอนออฟไลน์) ห้ามตัดทิ้งเด็ดขาด
+ *   เพราะมันไม่เคยอยู่บนชีตตั้งแต่แรก การที่ไม่เจอจึงไม่ได้แปลว่าถูกลบ
+ */
+export function mergeRecords(
+  local: TripRecord[], sheet: TripRecord[], sheetComplete = false,
+): TripRecord[] {
   const byId = new Map<string, TripRecord>();
   for (const r of sheet) byId.set(r.id, { ...r, source: "ใหม่", synced: true });
   for (const r of local) {
     const onSheet = byId.get(r.id);
-    if (!onSheet || r.synced === false) byId.set(r.id, r);
+    if (onSheet) {
+      if (r.synced === false) byId.set(r.id, r);
+      continue;
+    }
+    if (sheetComplete && r.synced !== false) continue;   // ถูกลบที่ชีต
+    byId.set(r.id, r);
   }
   return [...byId.values()].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+}
+
+/**
+ * ลบสำเนาในเครื่องของใบที่หายไปจากชีตแล้ว
+ * ★ ต้องลบออกจาก IndexedDB ด้วย ไม่ใช่แค่กรองตอนแสดงผล — ไม่งั้นตอนเปิดแอปรอบหน้า
+ *   `setRecords(local)` (ที่วาดก่อน loadTrips จะเสร็จ) จะเอาใบที่ถูกลบกลับมาโชว์อีก
+ */
+async function purgeDeleted(local: TripRecord[], sheet: TripRecord[]): Promise<void> {
+  const ids = new Set(sheet.map((r) => r.id));
+  const gone = local.filter((r) => r.synced !== false && !ids.has(r.id));
+  for (const r of gone) await remove(r.id).catch(() => { /* ลบไม่ได้ก็แค่ค้างไว้รอบหน้า */ });
 }
 
 export function useRecords(): RecordsState {
@@ -132,7 +162,8 @@ export function useRecords(): RecordsState {
       try {
         const trips = await loadTrips();
         if (!alive) return;
-        setRecords(mergeRecords(local, trips));
+        setRecords(mergeRecords(local, trips, true));
+        void purgeDeleted(local, trips);
         setSheetError(null);
       } catch (err) {
         if (!alive) return;
@@ -187,7 +218,11 @@ export function useRecords(): RecordsState {
 
       // ข้อมูลใหม่ (loadTrips) เร็ว — ปลดล็อกหน้าทันทีที่เสร็จ ไม่ต้องรอข้อมูลเก่า
       loadTrips()
-        .then((trips) => { if (alive) setRecords(mergeRecords(local, trips)); })
+        .then((trips) => {
+          if (!alive) return;
+          setRecords(mergeRecords(local, trips, true));
+          void purgeDeleted(local, trips);
+        })
         .catch((err) => { if (alive) setSheetError((err as Error).message); })
         .finally(() => { if (alive) setLoading(false); });
 

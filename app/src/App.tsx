@@ -18,6 +18,9 @@ import DriverJobs from "./features/driver/DriverJobs";
 // แดชบอร์ดลากไลบรารีกราฟมาด้วยราว 400 KB แยกเป็นก้อนต่างหาก
 // คนที่เข้ามาแค่กรอกข้อมูลจะได้ไม่ต้องโหลดตาม
 const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
+// หน้าสถานะกองรถเดี่ยว ๆ ของฝ่ายจัดรถ — แท็บเดียวกับในแดชบอร์ดเต็ม อยู่ในก้อนเดียวกัน
+const FleetStatus = lazy(() => import("./features/dash-fleet/FleetDash")
+  .then((m) => ({ default: m.FleetStatusPage })));
 const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
 const CostRevDash = lazy(() => import("./features/dash-costrev/CostRevDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
@@ -61,6 +64,9 @@ interface PageDef {
 const PAGES: PageDef[] = [
   { id: "dash-fleet", view: "dash", label: "แดชบอร์ด", icon: I.dash, h1: "แดชบอร์ด" },
   { id: "entry", view: "form", label: "บันทึกข้อมูล", icon: I.plus, h1: "บันทึกข้อมูล" },
+  // ฝ่ายเจ้าหน้าที่จัดรถเห็นแท็บนี้ต่อจาก "บันทึกข้อมูล" — เนื้อหาเดียวกับแท็บ "สถานะกองรถ"
+  // ในแดชบอร์ดเต็มของผู้จัดการ/ผู้ดูแลระบบ
+  { id: "fleet-status", view: "dash", label: "สถานะกองรถ", icon: I.truck, h1: "สถานะกองรถ" },
   { id: "records", view: "records", label: "รายการทั้งหมด", icon: I.list, h1: "รายการทั้งหมด" },
   { id: "drafts", view: "drafts", label: "ใบที่ยังไม่ครบ", icon: I.check, h1: "ใบที่ยังไม่ครบ", badge: "drafts" },
   { id: "debtors", view: "debtors", label: "รายการลูกหนี้", icon: I.person, h1: "รายการลูกหนี้", badge: "debt" },
@@ -191,6 +197,7 @@ export default function App() {
             } : null}>
               <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
                 {page === "dash-fleet" && <FleetDash state={state} role={role} sample={isSample} />}
+                {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
                 {page === "route-profit" && <RouteProfit state={state} />}
                 {page === "exec-dash" && <CostRevDash mode="exec" state={state} />}
                 {page === "all-dash" && <CostRevDash mode="all" state={state} />}

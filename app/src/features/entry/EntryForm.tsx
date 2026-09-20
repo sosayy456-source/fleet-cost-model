@@ -12,12 +12,14 @@ import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
 import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, canonicalVehicleName, destsFor, distanceFor, vehicleOptions } from "../../lib/refdata";
 import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
+import { applyFuelBills, ensureFuelBills } from "../../lib/cost/fuelBills";
+import { applyOtherCosts, otherCostTotals, readyOtherCosts } from "../../lib/cost/otherCosts";
 import { custCode, ensureCustCount, ensureCustMap, isFullHash, peekCustCount, peekCustMap } from "../../lib/custmap/custmap";
 import { ensureDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { nextNumber, registerBills, useNewCodes } from "../../lib/custmap/newCodes";
-import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleAllDone, roleDone } from "../../lib/record/roles";
+import { ROLES, ROLE_ORDER, canEditOthers, isEntryRole, roleDone } from "../../lib/record/roles";
 import { recPayInfo } from "../../lib/record/payment";
-import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
+import { thDateSafe } from "../../lib/record/date";
 import { SaveAbortedError, saveRecord } from "../../lib/store/save";
 import { getById } from "../../lib/store/records";
 import { useOverrides } from "../../lib/store/overrides";
@@ -27,6 +29,10 @@ import { emptyBill, emptyRecord } from "./emptyRecord";
 import { randomFor } from "./randomRecord";
 import ThaiDateInput from "./ThaiDateInput";
 import FleetRoster from "./panels/FleetRoster";
+import FuelBillTable from "./panels/FuelBillTable";
+import FuelSummary from "./panels/FuelSummary";
+import OtherCostTable from "./panels/OtherCostTable";
+import PendingSlips from "./panels/PendingSlips";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { Bill, PayType, RoleKey, TripRecord } from "../../types/record";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
@@ -36,16 +42,8 @@ const baht = (n: number) =>
   n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const baht0 = (n: number) => n.toLocaleString("th-TH", { maximumFractionDigits: 0 });
 
-/** ค่าแก๊สเป็นหัวข้อ 1) ของตัวเอง แยกจากกลุ่มน้ำมัน — ตรงตาม main */
-const GAS_FIELDS: [keyof TripRecord, string][] = [["gas", "1) ค่าแก๊ส"]];
-const FUEL_FIELDS: [keyof TripRecord, string][] = [
-  ["fuelCash", "ค่าน้ำมันเดินทาง (เงินสด)"],
-  ["fuelDownBill", "ค่าน้ำมันเดินทางขาล่อง (บิลน้ำมัน)"],
-  ["fuelUpBill", "ค่าน้ำมันเดินทางขาขึ้น (บิลน้ำมัน)"],
-  ["fuelFleet", "ค่าน้ำมัน (Fleet Card)"],
-  ["fuelPickup", "ค่าน้ำมันไปเก็บสินค้า"],
-  ["fuelCallTruck", "ค่าเรียกรถไปขึ้นของ (บิลน้ำมัน)"],
-];
+/** ค่าแก๊สเป็นหัวข้อของตัวเอง แยกจากกลุ่มน้ำมัน (น้ำมัน = 1) แก๊ส = 2)) */
+const GAS_FIELDS: [keyof TripRecord, string][] = [["gas", "2) ค่าแก๊ส"]];
 const LABOR_FIELDS: [keyof TripRecord, string][] = [
   ["drv", "พนักงานขับ"],
   ["spare", "พนักงานสำรอง"],
@@ -59,12 +57,7 @@ const FEE_FIELDS: [keyof TripRecord, string][] = [
   ["feeDoc", "ค่าส่งเอกสาร"],
   ["feeToll", "ค่าทางด่วน"],
 ];
-/** main แยกสูญเปล่าเป็นสองกล่อง — น้ำมันอยู่ใต้หัวข้อ 2) ค่าแรงอยู่ใต้หัวข้อ 3) */
-const WASTE_FUEL_FIELDS: [keyof TripRecord, string][] = [
-  ["fuelOff", "น้ำมันวิ่งรถนอกเส้นทาง"],
-  ["fuelDetour", "ค่าน้ำมันรถวิ่งอ้อม"],
-  ["fuelOffFleet", "ค่าน้ำมันนอกเส้นทาง (Fleet Card)"],
-];
+/** สูญเปล่าฝั่งน้ำมันย้ายเข้าไปเป็น "ประเภท" ในตารางบิลแล้ว เหลือแค่ค่าแรงที่ยังเป็นช่องเดี่ยว */
 const WASTE_LABOR_FIELDS: [keyof TripRecord, string][] = [
   ["laborOff", "ค่าแรงวิ่งรถนอกเส้นทาง"],
 ];
@@ -82,7 +75,7 @@ function readyBills(rec: TripRecord): TripRecord {
   // main คงพฤติกรรมไว้ว่า ถ้าไม่มีบิลเลยแต่มีเลขที่ใบ ให้สร้างบิลเปล่าหนึ่งใบไว้ผูกกับใบรายการ
   if (!bills.length && rec.docNo) bills.push({ ...emptyBill(), no: rec.docNo });
   // รายได้ผูกกับบิลชุดที่กรองแล้วเสมอ — ต้องคิดหลังตัดแถวว่างทิ้ง ไม่ใช่จาก rec.bills ดิบ
-  const out = { ...rec, bills };
+  const out = { ...rec, bills, otherCosts: readyOtherCosts(rec.otherCosts) };
   return { ...out, revenue: billsRevenue(out) };
 }
 
@@ -168,7 +161,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       sessionStorage.removeItem("duplicateRecord");
       try {
         const r = JSON.parse(dup) as TripRecord;
-        setRec(withCanonicalVehicle(r));
+        setRec(ensureFuelBills(withCanonicalVehicle(r)));
         setEditing(null); // เป็นใบใหม่ ไม่ใช่การแก้ใบเดิม
         setEditZones(new Set());
         setMsg({ text: "ทำซ้ำใบรายการแล้ว — ใส่เลขที่ใบใหม่และตรวจวันที่ก่อนบันทึก", tone: "info" });
@@ -181,7 +174,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     sessionStorage.removeItem("editRecordId");
     getById(id).then((r) => {
       if (!r) return;
-      setRec(withCanonicalVehicle(r));
+      setRec(ensureFuelBills(withCanonicalVehicle(r)));
       setEditing(id);
       setEditZones(new Set());
       setMsg({ text: `กำลังแก้ไขใบ ${r.docNo || "–"}`, tone: "info" });
@@ -197,22 +190,32 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   /** รายได้คิดจากบิลอย่างเดียว — ช่องในการ์ดสรุปเป็นแค่ตัวแสดงผล */
   const revenue = billsRevenue(rec);
 
+  /**
+   * ★ ต้องสรุปยอดจากตารางบิลก่อนคำนวณ ให้ใช้เส้นทางเดียวกับ recomputeTotals() ตอนบันทึก
+   *   ไม่งั้นตัวเลขบนจอกับตัวเลขที่ถูกบันทึกจะไม่ตรงกัน
+   */
+  const recCalc = useMemo(() => {
+    const f = rec.fuelBills ? applyFuelBills(rec) : rec;
+    return applyOtherCosts(f);
+  }, [rec]);
+
   const calc = useMemo(
     () => computeCost(
       {
-        date: rec.date, vehicle: rec.vehicle, fleetType: rec.fleetType,
-        distance: rec.dist, revenue,
-        gas: rec.gas, fuelCash: rec.fuelCash, fuelDownBill: rec.fuelDownBill,
-        fuelFleet: rec.fuelFleet, fuelPickup: rec.fuelPickup, fuelUpBill: rec.fuelUpBill,
-        fuelCallTruck: rec.fuelCallTruck, fuelAutoOn: rec.fuelAutoOn,
-        fuelOff: rec.fuelOff, fuelDetour: rec.fuelDetour, fuelOffFleet: rec.fuelOffFleet,
-        drv: rec.drv, spare: rec.spare, snd: rec.snd, laborOff: rec.laborOff,
-        feeTarp: rec.feeTarp, feePolice: rec.feePolice, feeCont: rec.feeCont,
-        feePort: rec.feePort, feeDoc: rec.feeDoc, feeToll: rec.feeToll,
+        date: recCalc.date, vehicle: recCalc.vehicle, fleetType: recCalc.fleetType,
+        distance: recCalc.dist, revenue,
+        gas: recCalc.gas, fuelCash: recCalc.fuelCash, fuelDownBill: recCalc.fuelDownBill,
+        fuelFleet: recCalc.fuelFleet, fuelPickup: recCalc.fuelPickup, fuelUpBill: recCalc.fuelUpBill,
+        fuelCallTruck: recCalc.fuelCallTruck, fuelAutoOn: recCalc.fuelAutoOn,
+        fuelOff: recCalc.fuelOff, fuelDetour: recCalc.fuelDetour, fuelOffFleet: recCalc.fuelOffFleet,
+        drv: recCalc.drv, spare: recCalc.spare, snd: recCalc.snd, laborOff: recCalc.laborOff,
+        feeTarp: recCalc.feeTarp, feePolice: recCalc.feePolice, feeCont: recCalc.feeCont,
+        feePort: recCalc.feePort, feeDoc: recCalc.feeDoc, feeToll: recCalc.feeToll,
+        otherNormal: recCalc.otherNormal,
       },
       REF, ovr,
     ),
-    [rec, revenue, ovr],
+    [recCalc, revenue, ovr],
   );
 
   const pay = recPayInfo(rec);
@@ -291,14 +294,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       }),
     }));
 
-  /** main ซ่อนแถบนี้จากฝ่ายบริการลูกค้า ผู้จัดการ และผู้ดูแลระบบ */
-  const showDraftBar = role !== "cs" && role !== "manager" && role !== "admin";
-  const waitingDocs = showDraftBar
-    ? state.records.filter((r) => !roleAllDone(r) && !roleDone(r, role))
-    : [];
-
   const openDoc = (r: TripRecord) => {
-    setRec(withCanonicalVehicle(r));
+    setRec(ensureFuelBills(withCanonicalVehicle(r)));
     setEditing(r.id);
     setEditZones(new Set());
     setMsg(null);
@@ -330,6 +327,22 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     ? Math.min(100, rec.loadActual / rec.capacity * 100) : null;
 
   async function onSave() {
+    /**
+     * ★ ไม่มีเลขที่ใบรายการ = บันทึกไม่ได้ ทุกตำแหน่ง
+     *
+     * เลขที่ใบเป็นช่องของฝ่ายบริการลูกค้า ซึ่งเป็นฝ่ายที่ "เปิดใบ" — ถ้าฝ่ายจัดรถหรือบัญชี
+     * เปิดฟอร์มเปล่าแล้วกดบันทึกได้ จะเกิดใบผีที่ไม่มีเลขที่ ไปโผล่ในคิวของฝ่ายอื่นตลอดไป
+     * และผูกกลับเข้าใบจริงไม่ได้ (saveRecord จับคู่ด้วย id แล้ว docNo)
+     */
+    if (!rec.docNo.trim()) {
+      setMsg({
+        text: role === "cs" || role === "admin"
+          ? "ยังไม่ได้กรอกเลขที่ใบรายการ — กรอกก่อนจึงจะบันทึกได้"
+          : "ใบนี้ยังไม่มีเลขที่ใบรายการ — ต้องให้ฝ่ายบริการลูกค้าเปิดใบก่อน แล้วค่อยเปิดใบนั้นมากรอกต่อ",
+        tone: "err",
+      });
+      return;
+    }
     setBusy(true);
     setMsg({ text: "กำลังบันทึก...", tone: "info" });
     try {
@@ -410,42 +423,10 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
         </div>
       )}
 
-      {/* แถบชิป "ใบที่ยังรอฝ่ายเรากรอก" — renderDraftBar() ของ main:2316
-          ฝ่ายบริการลูกค้าเปิดใบเอง · ผู้จัดการไม่กรอก · ผู้ดูแลระบบดูจากหน้า "ใบที่ยังไม่ครบ"
-          สามฝ่ายนี้จึงไม่เห็นแถบนี้ */}
-      {showDraftBar && (
-        <div className="draftbar">
-          <div className="dt">
-            <span>ใบที่ยังรอ{ROLES[role].label}กรอก ({waitingDocs.length})</span>
-            {/* ฝ่ายจัดรถเห็นแค่หน้านี้หน้าเดียว (ROLE_VIEWS) จึงไม่มีทางไปกดโหลดใหม่ที่หน้า
-                "ใบที่ยังไม่ครบ" ได้ — ปุ่มนี้เลยต้องอยู่ตรงนี้ ไม่งั้นต้องรีโหลดทั้งหน้า
-                และแถบต้องไม่หายตอนลิสต์ว่าง ไม่งั้นพอเคลียร์ครบก็กดดึงใบใหม่ไม่ได้อีก */}
-            <button type="button" className="dt-reload" onClick={state.reload} disabled={state.loading}
-              title={state.connected
-                ? "ดึงใบล่าสุดจากชีตมาอีกครั้ง"
-                : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"}>
-              {state.loading ? "⟳ กำลังโหลด…" : "↻ รีเฟรช"}
-            </button>
-          </div>
-          {waitingDocs.length > 0 ? (
-            <div className="draftlist">
-              {waitingDocs.map((r) => {
-                const age = r.date ? Math.max(0, daysBetween(r.date, todayISO()) ?? 0) : 0;
-                return (
-                  <button key={r.id} type="button" className="dchip" onClick={() => openDoc(r)}>
-                    📄 {r.docNo || "–"}
-                    {age > 0 && <span className="age">ค้าง {age} วัน</span>}
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="dt-none">
-              {state.loading ? "กำลังตรวจใบล่าสุด…" : "ไม่มีใบรอฝ่ายนี้กรอก ✓"}
-            </div>
-          )}
-        </div>
-      )}
+      {/* แผง "ใบที่ยังรอ…กรอก" — รายละเอียดอยู่ใน panels/PendingSlips.tsx
+          ★ ฝ่ายบริการลูกค้าไม่เห็นแผงนี้ เพราะเป็นฝ่ายที่ "เปิดใบ" เอง ไม่มีคิวรอจากใคร
+          (ตรงกับ main เดิม) · ฝ่ายจัดรถ/บัญชี/ผู้ดูแลระบบเห็น */}
+      {role !== "cs" && <PendingSlips role={role} state={state} onOpen={openDoc} />}
 
       {/* แถบความคืบหน้า — main โชว์เฉพาะตอนเปิดใบที่บันทึกไว้แล้ว ใบใหม่จะว่างเปล่า
           ฝ่ายบัญชีกดชิปของฝ่ายอื่นเพื่อเปิด/ปิดการแก้ไขส่วนนั้นได้ */}
@@ -617,29 +598,26 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
             <span className="hint">ทุกช่องเลือกกรอกหรือเว้นว่างได้ (ว่าง = 0)</span>
           </div>
 
-          <Money fields={GAS_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
-
-          <h3 className="grp"><span className="dot" />2) ค่าน้ำมัน — ต้นทุนปกติ{" "}
+          <h3 className="grp"><span className="dot" />1) ค่าน้ำมัน — บันทึกตามบิล{" "}
             <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>
-              (แยกตามวิธีจ่าย ตามรูปแบบบิล · รวมค่าคำนวณอัตโนมัติ)
+              (ต้นทุนปกติและสูญเปล่าแยกด้วยช่อง "ประเภท" ในแต่ละแถว)
             </span>
           </h3>
-          {/* main ถามกลับด้าน: ติ๊ก = ไม่ต้องคำนวณ ค่าที่เก็บจึงเป็นตรงข้ามกับช่องนี้ */}
-          <label className="chk">
-            <input type="checkbox" checked={!rec.fuelAutoOn} disabled={!zoneOpen("account")}
-              onChange={(e) => set("fuelAutoOn", !e.target.checked)} />
-            <span>ไม่ต้องคำนวณค่าน้ำมันอัตโนมัติ (ไม่ติ๊ก = บวกค่าน้ำมันอัตโนมัติเข้ากับช่องด้านล่างให้เอง)</span>
-          </label>
-          <Money fields={FUEL_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
-          <div className="price-note">
-            น้ำมันเดินทาง (คำนวณอัตโนมัติ): {baht0(rec.dist || 0)} กม. × {calc.auto.rate.toFixed(5)} ล./กม.
-            × {calc.auto.price.toFixed(2)} บ./ล. = <b>{baht(calc.auto.cost)}</b> บาท
-          </div>
+          {/* ★ ช่องยอดรวม 6+3 ช่องเดิมถูกแทนด้วยตารางนี้ตั้งแต่ _v5 — ยอดถูกสรุปกลับลงช่องเดิม
+              ให้อัตโนมัติด้วย applyFuelBills() สูตร/คอลัมน์ชีต 9-28/แดชบอร์ด จึงไม่ต้องรู้เรื่องบิลเลย
+              checkbox "ไม่ต้องคำนวณค่าน้ำมันอัตโนมัติ" ถูกตัดออก เพราะใบที่มีบิลต้องปิดออโต้เสมอ
+              ไม่งั้นค่าน้ำมันทั้งเที่ยวจะถูกบวกทับยอดบิลอีกชั้น · ยอดอัตโนมัติย้ายไปเป็น
+              "เทียบต้นทุนมาตรฐาน" ในส่วนสรุปด้านล่างแทน ตรงตามดีไซน์ */}
+          <FuelBillTable
+            rec={rec} role={role} disabled={!zoneOpen("account")}
+            refPrice={calc.auto.price} autoRate={calc.auto.rate}
+            onChange={(bills) => set("fuelBills", bills)} />
 
-          <div className="wastebox">
-            <h3 className="grp waste"><span className="dot" />ค่าน้ำมัน — ต้นทุนสูญเปล่า</h3>
-            <Money fields={WASTE_FUEL_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
-          </div>
+          <FuelSummary
+            bills={rec.fuelBills ?? []} dist={rec.dist || 0}
+            rate={calc.auto.rate} price={calc.auto.price} />
+
+          <Money fields={GAS_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
 
           <h3 className="grp"><span className="dot" />3) ค่าแรงพนักงาน — ต้นทุนปกติ</h3>
           <Money fields={LABOR_FIELDS} rec={rec} num={num} disabled={!zoneOpen("account")} />
@@ -664,6 +642,14 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
             {" + "}ตามระยะทาง <b>{baht(calc.repair.varCost)}</b>{!calc.repair.hasVar && " (ไม่มีในตาราง)"}
             {" = "}<b>{baht(calc.repair.total)}</b> บาท
           </div>
+
+          <h3 className="grp"><span className="dot" />6) ค่าใช้จ่ายอื่นๆ{" "}
+            <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>
+              (พิมพ์ชื่อรายการเอง · เลือกทางตรง/ทางอ้อม · นับเป็นต้นทุนปกติ)
+            </span>
+          </h3>
+          <OtherCostTable items={rec.otherCosts ?? []} disabled={!zoneOpen("account")}
+            onChange={(items) => set("otherCosts", items)} />
         </div>
       )}
 
@@ -703,6 +689,13 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
           <div className="result-row"><span className="k">ค่าธรรมเนียมรวม</span><span className="v">{baht(calc.fees)}</span></div>
           <div className="result-row"><span className="k">ค่าซ่อมตามระยะเวลา (คงที่)</span><span className="v">{baht(calc.repair.fixed)}</span></div>
           <div className="result-row"><span className="k">ค่าซ่อมตามระยะทาง (ตาม กม.)</span><span className="v">{baht(calc.repair.varCost)}</span></div>
+          {(rec.otherCosts?.length ?? 0) > 0 && (() => {
+            const t = otherCostTotals(rec.otherCosts);
+            return (
+              <div className="result-row"><span className="k">ค่าใช้จ่ายอื่นๆ (ตรง {baht(t.direct)} · อ้อม {baht(t.indirect)})</span>
+                <span className="v">{baht(t.total)}</span></div>
+            );
+          })()}
           <div className="result-row">
             <span className="k" style={{ color: "#4A453F" }}>สูญเปล่า: น้ำมัน (นอกเส้นทาง + วิ่งอ้อม + Fleet Card)</span>
             <span className="v">{baht((rec.fuelOff || 0) + (rec.fuelDetour || 0) + (rec.fuelOffFleet || 0))}</span>

@@ -32,7 +32,7 @@ export function recCost(rec: CostSource): CostBreakdown {
   const driver = n(r.drv) + n(r.spare) + n(r.snd);
   const repair = r.repTotal != null ? n(r.repTotal) : n(r.repFix) + n(r.repVar);
   const other = n(r.feeTarp) + n(r.feePolice) + n(r.feeCont)
-    + n(r.feePort) + n(r.feeDoc) + n(r.feeToll);
+    + n(r.feePort) + n(r.feeDoc) + n(r.feeToll) + n(r.otherNormal);
   const waste = r.waste != null ? n(r.waste)
     : n(r.fuelOff) + n(r.fuelDetour) + n(r.fuelOffFleet) + n(r.laborOff);
 

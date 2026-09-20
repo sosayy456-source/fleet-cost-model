@@ -101,6 +101,12 @@ export interface CostInput {
   feePort: number;
   feeDoc: number;
   feeToll: number;
+
+  /**
+   * "6) ค่าใช้จ่ายอื่นๆ" — ผลรวมที่สรุปมาจากรายการที่ผู้กรอกพิมพ์เอง (lib/cost/otherCosts.ts)
+   * optional + ไม่กำหนดในเคสเดิม (golden test) จึงเป็น 0 เสมอ ไม่กระทบผลลัพธ์เดิม
+   */
+  otherNormal?: number;
 }
 
 export interface AutoFuel {

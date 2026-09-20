@@ -138,11 +138,14 @@ export function computeCost(input: CostInput, ref: RefData, ovr?: RefOverrides):
   const fees =
     num(input.feeTarp) + num(input.feePolice) + num(input.feeCont) +
     num(input.feePort) + num(input.feeDoc) + num(input.feeToll);
+  // ★ ค่าใช้จ่ายอื่นๆ (ช่องปลายเปิดที่ผู้กรอกพิมพ์เอง) ทั้งทางตรงและทางอ้อมรวมมาเป็นยอดเดียว
+  //   อยู่กลุ่มเดียวกับ fees (นับทั้ง normal และ sheetTotal) ไม่ใช่สูญเปล่า
+  const otherNormal = num(input.otherNormal);
   const waste =
     num(input.fuelDetour) + num(input.fuelOffFleet) + num(input.laborOff) + num(input.fuelOff);
 
-  const normal = gas + fuelSum + labor + fees + repair.total;
-  const sheetTotal = gas + fuelSum + labor + waste + fees;
+  const normal = gas + fuelSum + labor + fees + otherNormal + repair.total;
+  const sheetTotal = gas + fuelSum + labor + waste + fees + otherNormal;
   const profit = num(input.revenue) - normal - waste;
 
   return {

@@ -1308,6 +1308,8 @@ const STATUS_META: Record<FleetStatusKey, { label: string; badge: string }> = {
   moving: { label: "กำลังเดินทาง", badge: "b1" },
   down: { label: "ไม่พร้อมใช้งาน", badge: "unpaid" },
 };
+/** ลำดับแสดงในตาราง "สถานะรายคัน" — เดินทาง (ต้องติดตาม) ก่อน แล้วว่าง สุดท้ายไม่พร้อมใช้งาน */
+const STATUS_SORT: Record<FleetStatusKey, number> = { moving: 0, idle: 1, down: 2 };
 
 function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
   const [src, setSrc] = useState("");
@@ -1368,9 +1370,12 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return rows.filter((x) =>
-      (!filterStatus || x.statusKey === filterStatus)
-      && (!needle || `${x.v.plate} ${x.v.vehicle} ${x.position}`.toLowerCase().includes(needle)));
+    return rows
+      .filter((x) =>
+        (!filterStatus || x.statusKey === filterStatus)
+        && (!needle || `${x.v.plate} ${x.v.vehicle} ${x.position}`.toLowerCase().includes(needle)))
+      // เดินทาง (ต้องติดตาม) ขึ้นก่อน แล้วว่าง สุดท้ายค่อยไม่พร้อมใช้งาน — ตามที่เจ้าของข้อมูลขอ
+      .sort((a, b) => STATUS_SORT[a.statusKey] - STATUS_SORT[b.statusKey]);
   }, [rows, filterStatus, q]);
 
   return (
@@ -1449,6 +1454,36 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
         </Note>
       </Pane>
     </>
+  );
+}
+
+/**
+ * หน้า "สถานะกองรถ" เดี่ยว ๆ สำหรับฝ่ายเจ้าหน้าที่จัดรถ (ROLE_VIEWS.dispatch)
+ *
+ * เนื้อหาคือ StatusPane ตัวเดียวกับแท็บในแดชบอร์ดเต็ม — ห้ามก๊อปสูตรมาไว้อีกที่
+ * ต่างกันแค่ไม่มีแถบแท็บ เพราะตำแหน่งนี้เข้าถึงได้แท็บเดียว
+ *
+ * ★ ไม่บล็อกด้วย "ยังไม่มีข้อมูล" เหมือน FleetDash เพราะรายชื่อรถมาจาก refdata/fleet.json
+ *   ไม่ได้มาจากใบรายการ — ต่อให้ยังไม่มีใบสักใบ หน้านี้ก็ยังบอกได้ว่ากองรถมีกี่คันและว่างอยู่
+ */
+export function FleetStatusPage({ state, role, sample = false }: {
+  state: RecordsState; role: RoleKey; sample?: boolean;
+}) {
+  const meta = (
+    <Meta parts={[
+      <><b>{fmt(state.records.length)}</b> ใบใหม่</>,
+      <><b>{fmt(state.oldRecords.length)}</b> แถวข้อมูลเก่าจากชีต</>,
+      state.connected ? "เชื่อม Google Sheet แล้ว" : "ยังไม่ได้เชื่อม Google Sheet — อ่านจากในเครื่องอย่างเดียว",
+    ]} />
+  );
+  return (
+    <DashShell sample={sample} meta={meta}
+      onRefresh={state.reload} loading={state.loading}
+      refreshTitle={state.connected
+        ? "ดึงใบรายการล่าสุดจาก Google Sheet มาคำนวณใหม่"
+        : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"}>
+      <StatusPane state={state} role={role} />
+    </DashShell>
   );
 }
 

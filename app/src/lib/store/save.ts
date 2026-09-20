@@ -14,6 +14,8 @@
  *   เพราะเราไม่รู้ว่าฝ่ายอื่นกรอกอะไรไว้แล้วบ้าง (v5:2194 ก็ทำแบบนี้)
  */
 import { computeCost } from "../cost/computeCost";
+import { applyFuelBills } from "../cost/fuelBills";
+import { applyOtherCosts } from "../cost/otherCosts";
 import { REF } from "../refdata";
 import { loadTrip, pushRecords } from "../sheet/client";
 import { ROLES, isEntryRole, stampRole } from "../record/roles";
@@ -28,6 +30,12 @@ export function fieldsOwnedBy(role: RoleKey): string[] {
   if (role === "account") {
     // ฝ่ายบัญชีเป็นเจ้าของ "ทุกช่องต้นทุน" ซึ่ง ROLES เขียนย่อไว้เป็น "cost"
     return [
+      // ★ "fuelBills" คือแหล่งความจริงของค่าน้ำมันตั้งแต่ _v5 — ลืมบรรทัดนี้แล้วตารางบิล
+      //   จะหายเงียบ ๆ ทุกครั้งที่บันทึก และอาการจะดูเหมือน "แก้ไม่เข้า" เพราะ read-modify-write
+      //   ดึงใบเก่าจากชีตกลับมาทับ ไม่ใช่ "ข้อมูลหาย" ทำให้ไล่ผิดทาง
+      "fuelBills", "fuelEst",
+      // ★ ค่าใช้จ่ายอื่นๆ — เหตุผลเดียวกับ fuelBills: ลืมแล้วรายการหายเงียบ ๆ ตอนบันทึก
+      "otherCosts", "otherNormal",
       "gas", "fuelCash", "fuelDownBill", "fuelFleet", "fuelPickup", "fuelUpBill",
       "fuelCallTruck", "fuelAutoOn", "fuelOff", "fuelDetour", "fuelOffFleet",
       "drv", "spare", "snd", "laborOff",
@@ -38,7 +46,12 @@ export function fieldsOwnedBy(role: RoleKey): string[] {
 }
 
 /** คำนวณยอดทั้งหมดใหม่จากข้อมูลในใบ (แทน recomputeTotals() เดิม) */
-export function recomputeTotals(rec: TripRecord, ovr?: RefOverrides): TripRecord {
+export function recomputeTotals(rec0: TripRecord, ovr?: RefOverrides): TripRecord {
+  // ★ บิลน้ำมันเป็นแหล่งความจริง — สรุปลง 9 ช่องก่อนเสมอ (และปิดค่าน้ำมันอัตโนมัติ
+  //   ไม่งั้น computeCost จะบวก fuelAuto ทับยอดบิลอีกชั้น)
+  //   ใบที่ยังไม่มีตารางบิลผ่านไปเฉย ๆ พฤติกรรมเดิมเป๊ะ
+  const rec1 = rec0.fuelBills ? applyFuelBills(rec0) : rec0;
+  const rec = rec1.otherCosts ? applyOtherCosts(rec1) : rec1;
   const r = computeCost(
     {
       date: rec.date, vehicle: rec.vehicle, fleetType: rec.fleetType,
@@ -52,6 +65,7 @@ export function recomputeTotals(rec: TripRecord, ovr?: RefOverrides): TripRecord
       drv: rec.drv, spare: rec.spare, snd: rec.snd, laborOff: rec.laborOff,
       feeTarp: rec.feeTarp, feePolice: rec.feePolice, feeCont: rec.feeCont,
       feePort: rec.feePort, feeDoc: rec.feeDoc, feeToll: rec.feeToll,
+      otherNormal: rec.otherNormal,
     },
     REF,
     ovr,
