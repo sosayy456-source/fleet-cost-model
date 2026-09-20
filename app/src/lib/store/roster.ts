@@ -15,6 +15,7 @@
  */
 import { useEffect, useState } from "react";
 import fleet from "../refdata/fleet.json";
+import { canonicalVehicleName } from "../refdata";
 
 export interface FleetKind {
   fleetType: string;
@@ -50,8 +51,18 @@ const LS_REMOVED = "fleetRoster.removed";
 
 export const FLEET_STATUS = ["ใช้งาน", "ซ่อมบำรุง", "จอด", "ปลดระวาง"];
 
+/** ปรับชื่อเก่าจากฐาน/localStorage เป็นชื่อมาตรฐาน โดยไม่แตะทะเบียนหรือข้อมูลอื่น */
+const canonicalFleetVehicle = (f: FleetVehicle): FleetVehicle => ({
+  ...f,
+  vehicle: canonicalVehicleName(f.vehicle),
+  ...(f.kinds ? {
+    kinds: f.kinds.map((kind) => ({ ...kind, vehicle: canonicalVehicleName(kind.vehicle) })),
+  } : {}),
+});
+
 /** ฐานกลางจากไฟล์ — อ่านอย่างเดียว */
-export const FLEET_BASE: readonly FleetVehicle[] = (fleet as { vehicles: FleetVehicle[] }).vehicles;
+export const FLEET_BASE: readonly FleetVehicle[] =
+  (fleet as { vehicles: FleetVehicle[] }).vehicles.map(canonicalFleetVehicle);
 const BASE_PLATES = new Set(FLEET_BASE.map((f) => f.plate));
 
 /** ตัวอย่าง 4 คันของ v5 — เอาไว้แค่จำได้ว่าอันไหนต้องตัดทิ้ง */
@@ -75,6 +86,13 @@ export const kindsOf = (f: FleetVehicle): FleetKind[] =>
 export const matchesKind = (f: FleetVehicle, fleetType: string, vehicle: string): boolean =>
   kindsOf(f).some((k) => (!fleetType || k.fleetType === fleetType) && (!vehicle || k.vehicle === vehicle));
 
+/** รายการคันที่ตรงกับตัวกรองในฟอร์ม — 1 ระเบียนต่อทะเบียน จึงใช้ length เป็นจำนวนคันได้ตรง ๆ */
+export const vehiclesForKind = (
+  roster: readonly FleetVehicle[],
+  fleetType: string,
+  vehicle: string,
+): FleetVehicle[] => roster.filter((f) => matchesKind(f, fleetType, vehicle));
+
 export function loadRoster(): FleetVehicle[] {
   const stored = readJson<FleetVehicle[]>(LS_FLEET, []);
   const removed = new Set(readJson<string[]>(LS_REMOVED, []));
@@ -82,7 +100,8 @@ export function loadRoster(): FleetVehicle[] {
 
   const byPlate = new Map<string, FleetVehicle>();
   for (const f of FLEET_BASE) if (!removed.has(f.plate)) byPlate.set(f.plate, f);
-  for (const f of list) {
+  for (const raw of list) {
+    const f = canonicalFleetVehicle(raw);
     if (!f?.plate || LEGACY_SAMPLE.has(f.plate)) continue;
     // ค่าที่ผู้ใช้แก้ทับของฐาน — คง kinds/branches ของฐานไว้ ถ้าผู้ใช้ไม่ได้ส่งมา
     const base = byPlate.get(f.plate);

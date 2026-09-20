@@ -9,12 +9,16 @@ import PriceTable from "../entry/panels/PriceTable";
 import RepairTable from "../entry/panels/RepairTable";
 import RepairImport from "./RepairImport";
 import SheetSettings from "./SheetSettings";
+import VehicleSpecTable from "./VehicleSpecTable";
 
 export default function Settings() {
   return (
     <>
       <SheetSettings />
-      <PriceTable />
+      <div className="settings-main-grid">
+        <VehicleSpecTable />
+        <PriceTable />
+      </div>
       <RepairTable />
       {/* วางใต้ตารางค่าซ่อม เพราะผลการนำเข้าลงในตารางนั้นโดยตรง */}
       <RepairImport />
