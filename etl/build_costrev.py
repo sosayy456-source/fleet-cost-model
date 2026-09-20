@@ -240,6 +240,7 @@ def load_revenue(rev_dir: Path, want: set[str]):
     goods: dict[str, Counter] = {}     # ประเภทสินค้าที่พบในบิลของแต่ละใบ → กลุ่มบริการของเที่ยว
     bill_n: dict[str, int] = {}        # จำนวนบิลทั้งหมดของใบนั้น (รวมที่ชำระแล้ว)
     payers: dict[str, set[str]] = {}   # รหัสผู้จ่ายเงินของใบนั้น (ไม่ซ้ำ)
+    service_revenue: dict[str, dict[str, float]] = {}  # ยอดรายได้รายกลุ่ม รวมทั้งบิลที่ชำระแล้ว
     rows_seen = 0
     paid_seen = 0
     paid_total = 0.0
@@ -279,7 +280,10 @@ def load_revenue(rev_dir: Path, want: set[str]):
                        else text(g(r, "ผู้รับ_encoded")) if pay in PAYER_RECEIVER else "")
                 if who:
                     payers.setdefault(doc, set()).add(who)
-
+            if goods_type != GOODS_CLEARED:
+                service = goods_type or "ไม่ระบุ"
+                amounts = service_revenue.setdefault(doc, {})
+                amounts[service] = amounts.get(service, 0.0) + num(g(r, "ราคารวม"))
             status = text(g(r, "สถานะการชำระเงิน"))
             if status != PAYMENT_UNPAID:
                 # ★ เก็บเฉพาะบิลที่ยังค้างชำระ (เจ้าของข้อมูลเลือกทางนี้ 16 ก.ย. 2569)
@@ -309,7 +313,8 @@ def load_revenue(rev_dir: Path, want: set[str]):
             })
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
     return (doc_set, bills, len(files), rows_seen,
-            {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n, goods, bill_n, payers)
+            {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n,
+            goods, bill_n, payers, service_revenue)
 
 
 # ---------------------------------------------------------------- ต้นทุน
@@ -426,7 +431,7 @@ def build(dataset: str) -> None:
     print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
     cost_docs = {t["id"] for t in trips}
     (rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n, goods,
-     bill_n, payers) = load_revenue(rev_dir, cost_docs)
+     bill_n, payers, service_revenue) = load_revenue(rev_dir, cost_docs)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
     for t in trips:
         t["m"] = t["id"] in rev_docs
@@ -440,6 +445,10 @@ def build(dataset: str) -> None:
         t["cus"] = sorted(payers.get(t["id"], ()))
         gc = goods.get(t["id"])
         t["sg"] = gc.most_common(1)[0][0] if gc else ""
+        t["serviceRevenue"] = {
+            service: round(amount, 2)
+            for service, amount in sorted(service_revenue.get(t["id"], {}).items())
+        }
 
     matched = [t for t in trips if t["m"]]
     route_pairs = {(t["o"], t["de"]) for t in trips if t["o"] and t["de"]}

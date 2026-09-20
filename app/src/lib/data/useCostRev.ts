@@ -56,6 +56,8 @@ export interface Trip {
   a_drv: number; a_spare: number; a_off: number;
   /** กลุ่มบริการ = ประเภทสินค้าที่พบมากสุดในบิลรายได้ของใบนั้น · "" ถ้าจับคู่ไม่ได้ */
   sg: string;
+  /** รายได้แยกกลุ่มบริการจากบิลรายได้ ไม่รวมบิลเคลียร์; ไม่มีฟิลด์นี้เมื่อเป็นข้อมูลรุ่นเก่า */
+  serviceRevenue?: Record<string, number>;
   fe_tarp: number; fe_police: number; fe_insure: number; fe_cont: number; fe_port: number; fe_doc: number; fe_toll: number;
 }
 
