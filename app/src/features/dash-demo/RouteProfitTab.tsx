@@ -35,14 +35,24 @@ const SERVICE_GROUPS = ["สินค้าทั่วไป", "สินค้
  *   ต้นทุนทั้งหมด = ต้นทุนปกติ + ต้นทุนสูญเปล่า
  *   ต้นทุนปกติ    = ผันแปร (น้ำมัน+เบี้ยเลี้ยง+ค่าธรรมเนียม) + กึ่งผันแปร (ค่าซ่อม) + คงที่ (ค่าเสื่อม) + ค่าเช่า + อื่น ๆ
  */
-const COST_TREE: { group: string; parts: { label: string; color: string; of: (t: Trip) => number }[] }[] = [
+interface CostPart { label: string; color: string; of: (t: Trip) => number; subs?: CostPart[] }
+const COST_TREE: { group: string; parts: CostPart[] }[] = [
   { group: "ต้นทุนปกติ", parts: [
-    { label: "ผันแปร", color: D.indigo, of: variableOf },
+    { label: "ผันแปร", color: D.indigo, of: variableOf, subs: [
+      // ★ ไฟล์มีคอลัมน์ย่อยของสามก้อนนี้เท่านั้น (น้ำมัน 5 · เบี้ยเลี้ยง 3 · ค่าธรรมเนียม 7)
+      //   เจ้าของงานเลือกให้แสดงแค่สองชั้น จึงหยุดที่ระดับนี้ ไม่ลงรายก้อนย่อย (21 ก.ย. 2569)
+      { label: "น้ำมัน", color: D.indigo, of: (t) => t.fuel },
+      { label: "เบี้ยเลี้ยง", color: D.violet, of: (t) => t.allow },
+      { label: "ค่าธรรมเนียม", color: D.teal, of: (t) => t.fee },
+    ] },
+    // ค่าซ่อมรวม / ค่าเสื่อม / ค่าเช่ารวม เป็นคอลัมน์เดียวในไฟล์ต้นฉบับ ไม่มีรายละเอียดย่อยให้แยก
     { label: "กึ่งผันแปร (ค่าซ่อม)", color: D.amber, of: semiOf },
     { label: "คงที่ (ค่าเสื่อม)", color: D.slateDeep, of: fixedOf },
     { label: "ค่าเช่า", color: D.cyan, of: (t) => t.rent },
     { label: "อื่น ๆ", color: D.slate, of: otherOf },
   ] },
+  // สูญเปล่าในไฟล์ต้นฉบับมี 3 คอลัมน์ (น้ำมันนอกเส้นทาง · Fleet Card · รถวิ่งอ้อม) แต่ ETL รวมเป็นก้อนเดียว
+  // เจ้าของงานเลือกให้ใช้ก้อนเดียวต่อ ไม่ต้องแก้ ETL
   { group: "ต้นทุนสูญเปล่า", parts: [
     { label: "สูญเปล่า", color: D.rose, of: (t) => t.waste },
   ] },
@@ -92,7 +102,10 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
   /* ---------- 4. ตารางรายเส้นทาง + แผงรายละเอียด ---------- */
   const byRoute = useMemo<RouteRow[]>(() => groupBy(rows, (t) => t.rt).map((a) => ({
     rt: a.key, n: a.n, rev: a.rev, cost: a.cost, profit: a.profit,
-    perTrip: a.profit / a.n, margin: a.rev ? a.profit / a.rev * 100 : null,
+    perTrip: a.profit / a.n,
+    // รายได้ 0 แล้วขาดทุน = เสียต้นทุนไปทั้งก้อนโดยไม่ได้อะไรกลับ → −100% (เจ้าของงานเลือก 21 ก.ย. 2569)
+    // หารด้วยศูนย์ตรง ๆ ไม่ได้ · รายได้ 0 และไม่ขาดทุน (ต้นทุน 0 ด้วย) ยังเป็น null = "–"
+    margin: a.rev ? a.profit / a.rev * 100 : a.profit < 0 ? -100 : null,
   })), [rows]);
 
   /** ฐานของความยาวแท่ง — ค่าสัมบูรณ์มากสุดในชุดที่กรองอยู่ */
@@ -101,7 +114,7 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
   const cols = useMemo<Col<RouteRow>[]>(() => [
     { key: "rt", label: "เส้นทาง", get: (r) => r.rt,
       render: (r) => <div className="dm-rt"><b>{r.rt}</b><small>{fmt(r.n)} เที่ยว</small></div> },
-    { key: "bar", label: "", get: (r) => r.perTrip,
+    { key: "bar", label: "กำไรต่อเที่ยว (บาท)", get: (r) => r.perTrip,
       render: (r) => (
         <span className="dm-bar" aria-hidden="true">
           <i style={{ width: `${Math.abs(r.perTrip) / barMax * 100}%`,
@@ -123,12 +136,18 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
     () => (detail ? rows.filter((t) => t.rt === detail.rt) : []),
     [rows, detail]);
   /** ต้นทุนของเส้นทางที่เลือก แยกตามการจัดประเภท (ปกติ → ผันแปร/กึ่งผันแปร/คงที่/ค่าเช่า/อื่น ๆ · สูญเปล่า) */
-  const costTree = useMemo(() => COST_TREE.map((g) => {
-    const parts = g.parts
-      .map((p) => ({ ...p, v: detailTrips.reduce((s, t) => s + p.of(t), 0) }))
-      .filter((p) => Math.abs(p.v) > 0.5);
-    return { group: g.group, parts, sum: parts.reduce((s, p) => s + p.v, 0) };
-  }).filter((g) => g.parts.length), [detailTrips]);
+  const costTree = useMemo(() => {
+    const sum = (of: (t: Trip) => number) => detailTrips.reduce((s, t) => s + of(t), 0);
+    return COST_TREE.map((g) => {
+      const parts = g.parts
+        .map((p) => ({
+          ...p, v: sum(p.of),
+          subs: (p.subs ?? []).map((c) => ({ ...c, v: sum(c.of) })).filter((c) => Math.abs(c.v) > 0.5),
+        }))
+        .filter((p) => Math.abs(p.v) > 0.5);
+      return { group: g.group, parts, sum: parts.reduce((s, p) => s + p.v, 0) };
+    }).filter((g) => g.parts.length);
+  }, [detailTrips]);
 
   /* ---------- 5. อัตรากำไรตามกลุ่มบริการ (คิดตามตัวกรองด้านบน) ---------- */
   const groups = useMemo(() => SERVICE_GROUPS.map((g) => {
@@ -235,10 +254,26 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
                       <ul>
                         {g.parts.map((p) => (
                           <li key={p.label}>
-                            <i style={{ background: p.color }} />
-                            <span>{p.label}</span>
-                            <b>{pct(p.v / detail.cost * 100, 1)}</b>
-                            <small>{fmt(Math.round(p.v / detail.n))} ฿/เที่ยว</small>
+                            <span className="row">
+                              <i style={{ background: p.color }} />
+                              <span>{p.label}</span>
+                              <b>{pct(p.v / detail.cost * 100, 1)}</b>
+                              <small>{fmt(Math.round(p.v / detail.n))} ฿/เที่ยว</small>
+                            </span>
+                            {p.subs.length > 0 && (
+                              <ul className="sub">
+                                {p.subs.map((c) => (
+                                  <li key={c.label}>
+                                    <span className="row">
+                                      <i style={{ background: c.color }} />
+                                      <span>{c.label}</span>
+                                      <b>{pct(c.v / detail.cost * 100, 1)}</b>
+                                      <small>{fmt(Math.round(c.v / detail.n))} ฿/เที่ยว</small>
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </li>
                         ))}
                       </ul>
