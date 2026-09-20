@@ -1196,7 +1196,7 @@ body:has(#view-dash.active){background:#EDE7DF}
 .sm-chip.bad{color:#991B1B;background:#FEE2E2}
 
 /* หน้าต่างรายละเอียดของกลุ่ม — ใช้ .modal-bg/.modal ของแอป แต่กว้างกว่าเพราะมีตารางเที่ยว */
-.modal.wide{max-width:1060px}
+.modal.wide{max-width:min(1240px,94vw)}
 .sm-modal{display:flex;flex-direction:column;gap:12px;max-height:88vh}
 .sm-mh{display:flex;align-items:flex-start;gap:12px}
 .sm-mt{flex:1;min-width:0}
@@ -1216,6 +1216,8 @@ body:has(#view-dash.active){background:#EDE7DF}
 .sm-parts span b{color:#1A1714;font-family:var(--d-num,inherit)}
 .sm-list{flex:1;min-height:0;overflow:auto}
 .sm-list .dz-tbl{font-size:13.5px}
+/* ป็อบอัพรายการเที่ยวมีคอลัมน์เยอะ บีบช่องไฟลงเล็กน้อยให้คอลัมน์สุดท้ายไม่โดนตัด */
+.sm-list .dz-tbl th,.sm-list .dz-tbl td{padding:9px 8px}
 .sm-side{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
 .sm-side.comp{color:#3730A3;background:#E8E7FB}
 .sm-side.part{color:#0F766E;background:#D8F3EF}
@@ -1430,3 +1432,13 @@ body:has(#view-dash.active){background:#EDE7DF}
 .fleet-detail-dialog .fl-tname{flex-wrap:wrap}
 @media(min-width:1500px){.dz-heroes.fleet-util-heroes{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:720px){.fleet-util-secondary{grid-template-columns:1fr}.fleet-detail-dialog{padding:16px}}
+
+.dm-sg.open{outline:3px solid rgba(255,255,255,.55);outline-offset:-3px;transform:translateY(-3px)}
+.dm-sg.open::after{content:"";position:absolute;left:50%;bottom:-9px;width:16px;height:16px;margin-left:-8px;
+  transform:rotate(45deg);background:inherit;border-radius:3px}
+.dm-sg{position:relative}
+.dm-panel{margin-top:16px;animation:dFadeUp .4s var(--d-ease) both}
+.dm-fix{display:inline-flex;align-items:center;gap:7px;font-size:13.5px;color:var(--d-ink3);
+  background:var(--d-soft);border:1px solid var(--d-line);border-radius:10px;padding:8px 12px}
+.dm-fix i{width:10px;height:10px;border-radius:3px;flex:none}
+.dm-fix b{color:var(--d-ink)}
