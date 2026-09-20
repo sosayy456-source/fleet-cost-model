@@ -1050,3 +1050,93 @@ body:has(#view-dash.active){background:#EDE7DF}
 .em-pick-reset{margin-top:8px;width:100%;background:none;border:0;border-top:1px solid var(--d-row);
   padding:9px 4px 2px;font-family:inherit;font-size:13.5px;color:#6B6257;cursor:pointer;text-align:left}
 .em-pick-reset:hover{color:#1A1714}
+
+/* ================= หน้าตั้งค่า: สเปกรถ + ราคาน้ำมันวางคู่กัน ================= */
+.settings-main-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);
+  --settings-table-scroll-height:520px;
+  gap:16px;align-items:start;margin-bottom:16px}
+.settings-main-grid>.card{min-width:0;margin-bottom:0}
+.settings-table-toggle{display:flex;align-items:center;gap:10px;width:100%;padding:0;border:0;
+  background:transparent;color:inherit;text-align:left;font:700 16px/1.55 var(--font-num);cursor:pointer}
+.settings-table-card:not(.is-open) .settings-table-toggle>span{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.settings-table-toggle .chev{flex:none;margin-left:auto;color:var(--ink-faint)}
+.settings-table-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:4px;border-radius:4px}
+.settings-table-card.is-open .settings-table-toggle .chev{transform:rotate(180deg)}
+.settings-table-content:not([hidden]){display:contents}
+.settings-table-content[hidden]{display:none}
+.settings-table-lead{min-width:0}
+@media(max-width:1150px){
+  .settings-main-grid{grid-template-columns:1fr;--settings-table-scroll-height:min(520px,60vh)}
+}
+
+/* กล่องเลื่อนตารางใช้หัว sticky ร่วมกัน และกัน scrollbar ออกจากหัวคอลัมน์ขวาสุด */
+.settings-table-scroll{min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;
+  border:1px solid var(--border);border-radius:12px;background:var(--card)}
+.settings-table-scroll table{border-collapse:separate;border-spacing:0}
+.settings-table-scroll thead th{position:sticky;top:0;z-index:2;background:var(--table-head);
+  box-shadow:0 1px 0 var(--border-strong)}
+
+/* ================= ตารางสเปกรถ: ปริมาตร · น้ำหนักบรรทุก ================= */
+.vehicle-spec-intro{line-height:1.7}
+.vehicle-spec-scroll{height:var(--settings-table-scroll-height);max-height:var(--settings-table-scroll-height);
+  flex-shrink:0;margin-top:12px}
+.vehicle-spec-table{min-width:480px;table-layout:fixed}
+.vehicle-spec-table th{padding:10px 8px;color:var(--ink-muted);font-size:12.5px;white-space:nowrap}
+.vehicle-spec-table th:nth-child(1){width:44%;text-align:left}
+.vehicle-spec-table th:nth-child(2){width:24%}
+.vehicle-spec-table th:nth-child(3){width:32%}
+.vehicle-spec-table td{padding:4px 8px;border-bottom:1px solid var(--row-line);vertical-align:middle}
+.vehicle-spec-table tbody tr:last-child td{border-bottom:0}
+.vehicle-spec-table th:not(:first-child),.vehicle-spec-table td:not(:first-child){text-align:right}
+.vehicle-spec-table td:first-child b{display:block}
+.vehicle-spec-table td:first-child small{display:block;margin-top:2px;color:var(--ink-faint);font-size:11px;
+  font-weight:400;line-height:1.35}
+.vehicle-spec-table input{width:100%;min-width:0;min-height:44px;padding:8px 10px;text-align:right;
+  font:inherit;font-variant-numeric:tabular-nums;border:1px solid var(--border);border-radius:8px;
+  background:var(--card);transition:border-color .16s,box-shadow .16s}
+.vehicle-spec-table input::placeholder{font-size:11.5px;color:var(--ink-faint)}
+.vehicle-spec-table input.edited{border-color:var(--orange);background:var(--orange-soft)}
+.vehicle-spec-table input:focus-visible{outline:2px solid var(--orange);outline-offset:2px;border-color:var(--orange)}
+.vehicle-spec-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  min-height:56px;margin-top:0;padding-top:12px}
+.vehicle-spec-foot .msg{min-height:22px;margin:0;color:var(--green)}
+.vehicle-spec-foot .btn-ghost{min-height:44px}
+.vehicle-spec-note{margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--paper,#F7F4EF);
+  color:var(--ink-soft);font-size:13px;line-height:1.55}
+.vehicle-spec-note b{color:var(--ink)}
+
+/* ================= ตารางราคาน้ำมันในการ์ดคู่ ================= */
+.fuel-price-scroll{height:var(--settings-table-scroll-height);max-height:var(--settings-table-scroll-height);
+  flex-shrink:0;margin-top:8px}
+.fuel-price-foot{display:flex;align-items:flex-start;min-height:56px;margin:0;padding-top:8px}
+.fuel-price-table{min-width:360px;table-layout:fixed}
+.fuel-price-table th{padding:10px 12px;color:var(--ink-muted);font-size:12.5px;text-align:left;white-space:nowrap}
+.fuel-price-table th:nth-child(1){width:48%}
+.fuel-price-table th:nth-child(2){width:40%}
+.fuel-price-table th:nth-child(3){width:12%}
+.fuel-price-table td{padding:9px 12px;border-bottom:1px solid var(--row-line)}
+.fuel-price-table tbody tr:last-child td{border-bottom:0}
+
+/* จอคู่: ตารางรถเริ่มใต้คำอธิบายและกินแถวฟอร์มน้ำมันด้วย แต่จบที่แถวเดียวกับตารางน้ำมัน */
+@media(min-width:1151px){
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open){
+    grid-template-rows:auto auto auto var(--settings-table-scroll-height) auto;row-gap:0;align-items:stretch}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open)>.card{
+    display:grid;grid-row:1 / span 5;grid-template-rows:subgrid}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open)>.vehicle-spec-card{grid-column:1}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open)>.fuel-price-card{grid-column:2}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) .settings-table-lead{
+    grid-row:2;padding-bottom:12px}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) .settings-table-scroll{
+    height:var(--settings-table-scroll-height);max-height:var(--settings-table-scroll-height);margin-top:0}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) .settings-table-toggle{grid-row:1}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) .fuel-price-controls{
+    grid-row:3;min-width:0;padding-bottom:12px}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) .price-add{margin-top:0}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) .vehicle-spec-scroll{
+    grid-row:3 / span 2;height:auto;max-height:none;contain:size}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) .fuel-price-scroll{grid-row:4}
+  .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) :is(.vehicle-spec-foot,.fuel-price-foot){
+    grid-row:5}
+}

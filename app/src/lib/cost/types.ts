@@ -13,12 +13,15 @@ export interface Vehicle {
   name: string;
   /** อัตราสิ้นเปลือง ลิตร/กม. */
   litrePerKm: number;
+  /** ปริมาตรบรรทุกอ้างอิง หน่วยลูกบาศก์เมตร */
+  volumeM3: number | null;
+  /** น้ำหนักบรรทุกสูงสุด หน่วยกิโลกรัม */
   capacityKg: number | null;
   /** ชื่อเดียวกันแต่สะกดต่างในตารางค่าซ่อม (เดิมอยู่ใน REPAIR_ALIAS) */
   repairKey: string;
   /**
-   * ชนิดที่เพิ่มจากไฟล์ทะเบียนในกองรถ ยังไม่มีอัตราน้ำมัน/ความจุของตัวเอง
-   * จึงยืมมาจากชนิดนี้ไปก่อน — UI ควรบอกผู้ใช้ว่าเป็นค่าประมาณ
+   * ชนิดที่ยังไม่มีอัตราต้นทุนบางส่วนของตัวเอง
+   * จึงอ้างอิงชนิดนี้ไปก่อน — ปริมาตรและน้ำหนักสูงสุดยังใช้ค่าของตัวเอง
    */
   approxFrom?: string;
   /**
@@ -57,6 +60,11 @@ export interface RefOverrides {
     time?: Record<string, Record<string, (number | null)[]>>;
     dist?: Record<string, (number | null)[]>;
   };
+  /** สเปกรถที่ผู้ใช้แก้เอง แยกตามชื่อชนิดรถ */
+  vehicleSpecs?: Record<string, {
+    volumeM3?: number;
+    capacityKg?: number;
+  }>;
 }
 
 export interface CostInput {

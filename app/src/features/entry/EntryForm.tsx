@@ -10,7 +10,8 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
-import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, destsFor, distanceFor, vehicleOptions } from "../../lib/refdata";
+import { BRANCHES, DOC_TYPES, ORIGINS, REF, SERVICE_GROUPS, canonicalVehicleName, destsFor, distanceFor, vehicleOptions } from "../../lib/refdata";
+import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { custCode, ensureCustCount, ensureCustMap, isFullHash, peekCustCount, peekCustMap } from "../../lib/custmap/custmap";
 import { ensureDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { nextNumber, registerBills, useNewCodes } from "../../lib/custmap/newCodes";
@@ -20,7 +21,7 @@ import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import { SaveAbortedError, saveRecord } from "../../lib/store/save";
 import { getById } from "../../lib/store/records";
 import { useOverrides } from "../../lib/store/overrides";
-import { matchesKind, useRoster } from "../../lib/store/roster";
+import { useRoster, vehiclesForKind } from "../../lib/store/roster";
 import { getUrl } from "../../lib/sheet/client";
 import { emptyBill, emptyRecord } from "./emptyRecord";
 import { randomFor } from "./randomRecord";
@@ -84,6 +85,24 @@ function readyBills(rec: TripRecord): TripRecord {
   const out = { ...rec, bills };
   return { ...out, revenue: billsRevenue(out) };
 }
+
+/** ใบที่บันทึกช่วงทดลองชื่อใหม่ต้องกลับมาใช้ชื่อเดิมจากกองรถเมื่อเปิดแก้ไข */
+const withCanonicalVehicle = (rec: TripRecord): TripRecord => {
+  const vehicle = canonicalVehicleName(rec.vehicle);
+  return vehicle === rec.vehicle ? rec : { ...rec, vehicle };
+};
+
+/** เปลี่ยนชนิดรถแล้วทะเบียนเดิมใช้ต่อไม่ได้จนกว่าจะเลือกใหม่ */
+export const changeVehicle = (
+  rec: TripRecord,
+  vehicle: string,
+  capacityKg: number | null | undefined,
+): TripRecord => ({
+  ...rec,
+  vehicle,
+  plate: "",
+  capacity: capacityKg ?? rec.capacity,
+});
 
 /**
  * ราคารวมของบิล = จำนวน/น้ำหนัก × ราคาต่อหน่วย
@@ -149,7 +168,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
       sessionStorage.removeItem("duplicateRecord");
       try {
         const r = JSON.parse(dup) as TripRecord;
-        setRec(r);
+        setRec(withCanonicalVehicle(r));
         setEditing(null); // เป็นใบใหม่ ไม่ใช่การแก้ใบเดิม
         setEditZones(new Set());
         setMsg({ text: "ทำซ้ำใบรายการแล้ว — ใส่เลขที่ใบใหม่และตรวจวันที่ก่อนบันทึก", tone: "info" });
@@ -162,7 +181,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     sessionStorage.removeItem("editRecordId");
     getById(id).then((r) => {
       if (!r) return;
-      setRec(r);
+      setRec(withCanonicalVehicle(r));
       setEditing(id);
       setEditZones(new Set());
       setMsg({ text: `กำลังแก้ไขใบ ${r.docNo || "–"}`, tone: "info" });
@@ -279,7 +298,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     : [];
 
   const openDoc = (r: TripRecord) => {
-    setRec(r);
+    setRec(withCanonicalVehicle(r));
     setEditing(r.id);
     setEditZones(new Set());
     setMsg(null);
@@ -290,18 +309,22 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
    * ยังไม่เลือกอะไร = ทั้งกองรถ · ยังพิมพ์ทะเบียนนอกรายการได้เสมอ (รถใหม่ที่ยังไม่อยู่ในไฟล์)
    */
   const platesForForm = useMemo(
-    () => roster.filter((f) => matchesKind(f, rec.fleetType, rec.vehicle))
+    () => vehiclesForKind(roster, rec.fleetType, rec.vehicle)
       .sort((a, b) => a.plate.localeCompare(b.plate, "th")),
     [roster, rec.fleetType, rec.vehicle],
   );
   const plateHint = !rec.fleetType && !rec.vehicle ? "· ทั้งกองรถ"
     : platesForForm.length ? `· ${platesForForm.length} คันที่ตรงกับที่เลือก`
       : "· ไม่มีคันไหนเคยวิ่งเป็นชนิดนี้ พิมพ์ทะเบียนเองได้";
-  /** ชนิดที่เพิ่มจากไฟล์ทะเบียนในกองรถ ยืมอัตราน้ำมัน/ความจุมาจากชนิดอื่น — บอกไว้ให้รู้ */
-  const approxNote = (() => {
-    const v = REF.vehicles.find((x) => x.name === rec.vehicle);
-    return v?.approxFrom ? `· ใช้อัตราน้ำมัน/ความจุของ ${v.approxFrom} ไปก่อน` : undefined;
-  })();
+  const selectedVehicle = REF.vehicles.find((x) => x.name === rec.vehicle);
+  const selectedSpec = vehicleSpec(selectedVehicle, ovr.vehicleSpecs);
+  /** ชนิดที่เพิ่มจากไฟล์ทะเบียนในกองรถยืมค่าพื้นฐานจากชนิดอื่น — บอกไว้ให้รู้ */
+  const approxNote = selectedVehicle?.approxFrom
+    ? `· อัตราต้นทุนบางส่วนอ้างอิง ${selectedVehicle.approxFrom}`
+    : undefined;
+  const vehicleSpecNote = selectedSpec?.volumeM3
+    ? `ปริมาตรบรรทุก ${selectedSpec.volumeM3.toLocaleString("th-TH")} ลบ.ม.`
+    : rec.vehicle ? "ยังไม่ได้ระบุปริมาตรบรรทุกของรถชนิดนี้" : null;
 
   const loadFactor = rec.capacity > 0 && !rec.emptyLeg
     ? Math.min(100, rec.loadActual / rec.capacity * 100) : null;
@@ -519,10 +542,14 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
                     disabled={!zoneOpen("dispatch")} onChange={(v) => set("fleetType", v as FleetType)} /></F>
                 <F label="ชนิดรถ" hint={approxNote}>
                   <Sel value={rec.vehicle} disabled={!zoneOpen("dispatch")} options={vehicleOptions(rec.vehicle)}
-                    onChange={(v) => setRec((r) => ({
-                      ...r, vehicle: v,
-                      capacity: REF.vehicles.find((x) => x.name === v)?.capacityKg ?? r.capacity,
-                    }))} /></F>
+                    onChange={(v) => setRec((r) => changeVehicle(
+                      r,
+                      v,
+                      vehicleSpec(
+                        REF.vehicles.find((x) => x.name === v),
+                        ovr.vehicleSpecs,
+                      )?.capacityKg,
+                    ))} /></F>
                 <F label="เลขทะเบียนรถ" hint={plateHint}>
                   <input list="plateList" disabled={!zoneOpen("dispatch")}
                     placeholder={platesForForm.length ? `เลือกจาก ${platesForForm.length} คัน หรือพิมพ์เอง` : "เช่น ชม.70-0820"}
@@ -568,6 +595,12 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
                     ? <>Load Factor = <b>{loadFactor.toFixed(1)}%</b> ({baht0(rec.loadActual)} ÷ {baht0(rec.capacity)} กก.)</>
                     : "เลือกชนิดรถ + กรอกน้ำหนักบรรทุกจริง เพื่อคำนวณ Load Factor (% การใช้ประโยชน์ความจุ)"}
               </div>
+              {vehicleSpecNote && (
+                <div className="vehicle-spec-note">
+                  <b>สเปกรถ:</b> {vehicleSpecNote}
+                  {selectedSpec?.capacityKg ? ` · น้ำหนักสูงสุด ${baht0(selectedSpec.capacityKg)} กก.` : ""}
+                </div>
+              )}
             </div>
           )}
         </div>

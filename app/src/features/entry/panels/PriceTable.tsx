@@ -10,10 +10,7 @@ import { REF } from "../../../lib/refdata";
 import { TH_MONTHS, thDateSafe } from "../../../lib/record/date";
 import { useOverrides } from "../../../lib/store/overrides";
 
-const Chev = () => (
-  <svg className="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg>
-);
+import SettingsTableCard from "../../../lib/ui/SettingsTableCard";
 
 const thisYear = new Date().getFullYear();
 const YEARS = Array.from({ length: 6 }, (_, i) => thisYear - 3 + i);
@@ -64,41 +61,40 @@ export default function PriceTable() {
   };
 
   return (
-    <div className="card">
-      {/* main เปิดกางไว้ตั้งแต่แรก (มี attribute open) */}
-      <details className="prices" open>
-        <summary>
-          ⛽ ตารางราคาน้ำมัน (ใช้คำนวณน้ำมันเดินทางอัตโนมัติ) · กดเพื่อดู/อัปเดต
-          <Chev />
-        </summary>
+    <SettingsTableCard className="fuel-price-card"
+      title="⛽ ตารางราคาน้ำมัน (ใช้คำนวณน้ำมันเดินทางอัตโนมัติ) · กดเพื่อดู/อัปเดต">
 
-        <div className="price-note" style={{ marginTop: 12 }}>
-          ราคาคิดแบบ <b>ขั้นบันได</b> — ใบรายการจะใช้ราคาของแถวที่มีผลล่าสุด<b>ก่อนหรือตรงกับ</b>วันที่ในใบ
-          ถ้าวันที่ในใบเก่ากว่าแถวแรกสุด ระบบใช้ราคาแถวแรก
-        </div>
-
-        <div className="price-add">
-          <input placeholder="วัน" type="number" min={1} max={31} style={{ width: 58, flex: "none" }}
-            value={d} onChange={(e) => setD(e.target.value)} />
-          <select style={{ width: 96, flex: "none" }} value={m} onChange={(e) => setM(e.target.value)}>
-            <option value="">เดือน</option>
-            {TH_MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
-          </select>
-          <select style={{ width: 88, flex: "none" }} value={y} onChange={(e) => setY(e.target.value)}>
-            {YEARS.map((ce) => <option key={ce} value={ce}>{ce + 543}</option>)}
-          </select>
-          {/* main ห่อช่องราคาด้วย .input-suffix เพื่อให้มีเซลล์หน่วย บ./ล. ต่อท้าย */}
-          <div className="input-suffix np-price" style={{ flex: 1, minWidth: 96 }}>
-            <input placeholder="ราคา" type="number" min={0} step="0.01"
-              value={price} onChange={(e) => setPrice(e.target.value)} />
-            <span className="unit">บ./ล.</span>
+        <div className="settings-table-lead">
+          <div className="price-note" style={{ marginTop: 12 }}>
+            ราคาคิดแบบ <b>ขั้นบันได</b> — ใบรายการจะใช้ราคาของแถวที่มีผลล่าสุด<b>ก่อนหรือตรงกับ</b>วันที่ในใบ
+            ถ้าวันที่ในใบเก่ากว่าแถวแรกสุด ระบบใช้ราคาแถวแรก
           </div>
-          <button className="btn-add" type="button" onClick={add}>+ อัปเดตราคา</button>
         </div>
-        <div className="msg" style={{ color: "var(--green)" }}>{msg}</div>
 
-        <div className="scroll" style={{ maxHeight: 300, overflowY: "auto" }}>
-          <table>
+        <div className="fuel-price-controls">
+          <div className="price-add">
+            <input placeholder="วัน" type="number" min={1} max={31} style={{ width: 58, flex: "none" }}
+              value={d} onChange={(e) => setD(e.target.value)} />
+            <select style={{ width: 96, flex: "none" }} value={m} onChange={(e) => setM(e.target.value)}>
+              <option value="">เดือน</option>
+              {TH_MONTHS.map((name, i) => <option key={name} value={i + 1}>{name}</option>)}
+            </select>
+            <select style={{ width: 88, flex: "none" }} value={y} onChange={(e) => setY(e.target.value)}>
+              {YEARS.map((ce) => <option key={ce} value={ce}>{ce + 543}</option>)}
+            </select>
+            {/* main ห่อช่องราคาด้วย .input-suffix เพื่อให้มีเซลล์หน่วย บ./ล. ต่อท้าย */}
+            <div className="input-suffix np-price" style={{ flex: 1, minWidth: 96 }}>
+              <input placeholder="ราคา" type="number" min={0} step="0.01"
+                value={price} onChange={(e) => setPrice(e.target.value)} />
+              <span className="unit">บ./ล.</span>
+            </div>
+            <button className="btn-add" type="button" onClick={add}>+ อัปเดตราคา</button>
+          </div>
+          <div className="msg" style={{ color: "var(--green)" }}>{msg}</div>
+        </div>
+
+        <div className="scroll settings-table-scroll fuel-price-scroll">
+          <table className="fuel-price-table">
             <thead><tr>
               <th>วันที่มีผล</th><th className="num">ราคา (บาท/ลิตร)</th><th />
             </tr></thead>
@@ -119,14 +115,13 @@ export default function PriceTable() {
             </tbody>
           </table>
         </div>
-        <p style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8 }}>
+        <p className="fuel-price-foot" style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
           <span role="button" tabIndex={0} onClick={clearOwn}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") clearOwn(); }}
             style={{ color: "var(--orange-dark)", cursor: "pointer", textDecoration: "underline" }}>
             ล้างราคาที่เพิ่มเอง
           </span>
         </p>
-      </details>
-    </div>
+    </SettingsTableCard>
   );
 }

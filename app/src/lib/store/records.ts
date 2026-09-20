@@ -21,6 +21,7 @@ export const LEGACY_KEYS = {
   role: "modelRole",
   fuelPrices: "fuelPriceUpdates",
   repair: "repairOverrides",
+  vehicleSpecs: "vehicleSpecOverrides",
   fleet: "fleetRoster",
   custCodes: "custNewCodes",
 } as const;
@@ -119,10 +120,11 @@ export async function migrateFromLocalStorage(): Promise<MigrationResult> {
   return { migrated: valid.length, skipped: list.length - valid.length, alreadyDone: false };
 }
 
-/** อ่านค่าที่ผู้ใช้แก้เอง (ราคาน้ำมัน / ตารางค่าซ่อม) จากคีย์เดิมของ v5 */
+/** อ่านค่าที่ผู้ใช้แก้เองจาก localStorage สำหรับงานย้ายข้อมูล/สำรองค่า */
 export function readLegacyOverrides(): {
   prices?: Record<string, number>;
   repair?: unknown;
+  vehicleSpecs?: unknown;
 } {
   const read = (k: string) => {
     try {
@@ -133,9 +135,11 @@ export function readLegacyOverrides(): {
   };
   const prices = read(LEGACY_KEYS.fuelPrices);
   const repair = read(LEGACY_KEYS.repair);
+  const vehicleSpecs = read(LEGACY_KEYS.vehicleSpecs);
   return {
     ...(prices && typeof prices === "object" ? { prices } : {}),
     ...(repair && typeof repair === "object" ? { repair } : {}),
+    ...(vehicleSpecs && typeof vehicleSpecs === "object" ? { vehicleSpecs } : {}),
   };
 }
 
