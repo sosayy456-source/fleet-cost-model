@@ -11,6 +11,7 @@ function trip(p: Partial<Trip> = {}): Trip {
     id: String(1e12 + seq), d: "2025-01-05", mo: "2025-01", y: 2025, br: "สาขา", t: "ของเหมา",
     ft: "รถบริษัท", vk: "รถ 10 ล้อ", pl: `พล-${seq}`, o: "ก", de: "ข", rt: "ก-ข", dir: "",
     km: 400, rev, cost, profit: rev - cost, empty: false, clear: false, clrAmt: 0, clrN: 0, m: true,
+    bn: 1, cus: ["ลูกค้า"],
     waste: 0, fuel: 0, allow: 0, fee: 0, repair: 0, dep: 0, rent: 0,
     f_cash: 0, f_down: 0, f_up: 0, f_pickup: 0, f_call: 0, a_drv: 0, a_spare: 0, a_off: 0, sg: "ทั่วไป",
     fe_tarp: 0, fe_police: 0, fe_insure: 0, fe_cont: 0, fe_port: 0, fe_doc: 0, fe_toll: 0,

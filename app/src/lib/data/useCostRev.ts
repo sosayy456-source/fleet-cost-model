@@ -42,6 +42,13 @@ export interface Trip {
   clrAmt: number; clrN: number;
   /** เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — Executive Dashboard ใช้เฉพาะแถวที่ m = true */
   m: boolean;
+  /**
+   * จำนวนบิลทั้งหมดของใบนั้นในไฟล์รายได้ (รวมบิลที่ชำระแล้วและบิลเคลียร์)
+   * กับรหัสผู้จ่ายเงินไม่ซ้ำของใบนั้น = "ลูกค้า" (สด/เชื่อต้นทาง → ผู้ส่ง · ปลายทาง → ผู้รับ
+   * กติกาเดียวกับหน้ากำไรลูกค้า · บิลเคลียร์ไม่นับเป็นลูกค้า) — มีค่าเฉพาะเที่ยวที่ m = true
+   * หน้า Demo ใช้เป็นตัวหารของ กำไร/บิล และ กำไร/ลูกค้า · ไฟล์รุ่นก่อน 21 ก.ย. 2569 ไม่มีสองคีย์นี้
+   */
+  bn: number; cus: string[];
   /** กลุ่มต้นทุน (ยอดที่คำนวณต่อได้ดู helpers ด้านล่าง) */
   waste: number; fuel: number; allow: number; fee: number; repair: number; dep: number; rent: number;
   f_cash: number; f_down: number; f_up: number; f_pickup: number; f_call: number;

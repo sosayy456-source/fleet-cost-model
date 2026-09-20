@@ -71,7 +71,7 @@ export const ROLE_VIEWS: Record<RoleKey, string[]> = {
   // main ให้ผู้จัดการเห็นแค่ dash กับ records — สองหน้าท้ายเป็นของที่เวอร์ชันนี้เพิ่มเข้ามา
   manager: ["dash-fleet", "records", "route-profit", "exec-dash", "all-dash", "driver"],
   admin: ["dash-fleet", "entry", "records", "drafts", "debtors", "custcode", "settings",
-          "route-profit", "exec-dash", "all-dash", "driver"],
+          "route-profit", "exec-dash", "all-dash", "demo", "driver"],
 };
 
 export const isEntryRole = (r: RoleKey): boolean => ROLE_ORDER.includes(r);

@@ -104,6 +104,9 @@ COL_REV2 = "ค่าบรรทุกทั้งใบรายการ"
 
 PAYMENT_UNPAID = "ยังไม่ได้ชำระ"   # ตรงกับ PAYMENT_STATUS_UNPAID ใน etl/src/cleaning.py
 GOODS_CLEARED = "บิลเคลียร์"       # ตรงกับ CLEARED_GOODS ใน app/src/lib/cost/recCost.ts
+#: ลูกค้าของบิล = ผู้จ่ายเงิน — กติกาเดียวกับหน้ากำไรลูกค้า (src/alloc.py payer_of)
+PAYER_SENDER = frozenset({"สดต้นทาง", "เชื่อต้นทาง"})
+PAYER_RECEIVER = frozenset({"สดปลายทาง", "เชื่อปลายทาง"})
 
 
 def num(v) -> float:
@@ -225,12 +228,18 @@ def load_revenue(rev_dir: Path, want: set[str]):
 
     ★ เก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (want) — ข้อมูลรายได้จริง 29 ไฟล์รวมเกือบ 2 ล้านแถว
       ถ้าเก็บทุกใบไว้ในหน่วยความจำจะกินหลาย GB ทั้งที่ใช้จริงแค่ไม่กี่พันใบ
+
+    ★ จำนวนบิล (bill_n) กับผู้จ่ายเงิน (payers) นับ ★ ทุกบิล ★ ของใบนั้น ไม่ใช่เฉพาะบิลค้างชำระ
+      ที่เก็บไว้ใน bills — หน้า Demo ใช้เป็นตัวหารของ กำไร/บิล และ กำไร/ลูกค้า
+      บิลเคลียร์นับเป็นบิล แต่ไม่นับเป็นลูกค้า (ไม่ใช่ประเภทสินค้าจริง — กติกาเดียวกับ src/alloc.py)
     """
     doc_set: set[str] = set()
     bills: dict[str, list[dict]] = {}
     clr_amt: dict[str, float] = {}
     clr_n: dict[str, int] = {}
     goods: dict[str, Counter] = {}     # ประเภทสินค้าที่พบในบิลของแต่ละใบ → กลุ่มบริการของเที่ยว
+    bill_n: dict[str, int] = {}        # จำนวนบิลทั้งหมดของใบนั้น (รวมที่ชำระแล้ว)
+    payers: dict[str, set[str]] = {}   # รหัสผู้จ่ายเงินของใบนั้น (ไม่ซ้ำ)
     rows_seen = 0
     paid_seen = 0
     paid_total = 0.0
@@ -262,6 +271,15 @@ def load_revenue(rev_dir: Path, want: set[str]):
             elif goods_type:
                 # กลุ่มบริการ = ประเภทสินค้าที่พบมากสุดในใบ (ไม่นับบิลเคลียร์ เพราะไม่ใช่ประเภทสินค้าจริง)
                 goods.setdefault(doc, Counter())[goods_type] += 1
+            # จำนวนบิล + ลูกค้า (ผู้จ่ายเงิน) — ต้องนับก่อนตัวกรองสถานะชำระเงินเช่นกัน
+            bill_n[doc] = bill_n.get(doc, 0) + 1
+            if goods_type != GOODS_CLEARED:
+                pay = text(g(r, "ประเภทการชำระเงิน")).strip()
+                who = (text(g(r, "ผู้ส่ง_encoded")) if pay in PAYER_SENDER
+                       else text(g(r, "ผู้รับ_encoded")) if pay in PAYER_RECEIVER else "")
+                if who:
+                    payers.setdefault(doc, set()).add(who)
+
             status = text(g(r, "สถานะการชำระเงิน"))
             if status != PAYMENT_UNPAID:
                 # ★ เก็บเฉพาะบิลที่ยังค้างชำระ (เจ้าของข้อมูลเลือกทางนี้ 16 ก.ย. 2569)
@@ -291,7 +309,7 @@ def load_revenue(rev_dir: Path, want: set[str]):
             })
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
     return (doc_set, bills, len(files), rows_seen,
-            {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n, goods)
+            {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n, goods, bill_n, payers)
 
 
 # ---------------------------------------------------------------- ต้นทุน
@@ -390,6 +408,8 @@ def build(dataset: str) -> None:
                 "m": False,   # เติมทีหลังเมื่ออ่านไฟล์รายได้เสร็จ
                 # มูลค่า/จำนวนรายการบิลเคลียร์ — เติมทีหลังเหมือน m เพราะอยู่ในไฟล์รายได้คนละฝั่ง
                 "clrAmt": 0.0, "clrN": 0,
+                # จำนวนบิล + รหัสผู้จ่ายเงินของใบนั้น (หน้า Demo ใช้เป็นตัวหาร กำไร/บิล และ กำไร/ลูกค้า)
+                "bn": 0, "cus": [],
                 "sg": "",     # กลุ่มบริการ — เติมทีหลังจากบิลรายได้ (ดูกติกาข้างบน)
                 # กลุ่มต้นทุน — ยอดที่คำนวณต่อได้ (ปกติ/ผันแปร/อื่น ๆ) ไม่เก็บ ให้ฝั่งแอปคิดเอง ไฟล์จะได้เล็ก
                 "waste": waste, "fuel": fuel_t, "allow": allow_t, "fee": fee_t,
@@ -405,7 +425,8 @@ def build(dataset: str) -> None:
     # อ่านรายได้ทีหลัง แล้วเก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (ดูเหตุผลใน load_revenue)
     print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
     cost_docs = {t["id"] for t in trips}
-    rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n, goods = load_revenue(rev_dir, cost_docs)
+    (rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n, goods,
+     bill_n, payers) = load_revenue(rev_dir, cost_docs)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
     for t in trips:
         t["m"] = t["id"] in rev_docs
@@ -414,6 +435,9 @@ def build(dataset: str) -> None:
         #   แท็บ Damage Rate คิดจาก clrAmt/clrN เท่านั้น (มูลค่าจริง) ไม่ใช่ธง clear
         t["clrAmt"] = round(clr_amt.get(t["id"], 0.0), 2)
         t["clrN"] = clr_n.get(t["id"], 0)
+        t["bn"] = bill_n.get(t["id"], 0)
+        # เรียงให้ผลลัพธ์นิ่ง (set ไม่มีลำดับ) ไฟล์จะได้ diff ได้เวลาแก้ ETL
+        t["cus"] = sorted(payers.get(t["id"], ()))
         gc = goods.get(t["id"])
         t["sg"] = gc.most_common(1)[0][0] if gc else ""
 

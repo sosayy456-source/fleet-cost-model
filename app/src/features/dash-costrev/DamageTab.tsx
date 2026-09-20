@@ -5,6 +5,9 @@
  *   Damage Incidence Rate % = เที่ยวที่เสียหาย ÷ เที่ยวทั้งหมด        "มีปัญหาไหม"
  *   Damage Incident Rate    = รายการบิลเคลียร์ ÷ เที่ยวทั้งหมด       "ปัญหาเยอะแค่ไหนต่อเที่ยว"
  *
+ * ★ ตัวหาร = "เที่ยววิ่งจริง" คือเที่ยวที่จับคู่บิลได้ **ไม่รวมเที่ยววิ่งเปล่า** (เจ้าของงานเคาะ 20 ก.ย. 2569)
+ *   เที่ยวเปล่าไม่มีรายได้และไม่มีของให้เสียหาย ถ้านับเข้าไปตัวหารใหญ่เกินจริงแล้วทุกอัตราต่ำผิด
+ *
  * กฎของเอกสารข้อ 4: ตัดข้อมูลย่อยระดับไหน ทั้งตัวเศษและตัวหารต้องตัดระดับเดียวกัน — ที่นี่ทุกค่า
  * มาจาก rows ชุดเดียวกันที่ผ่านตัวกรองแล้ว จึงเป็นระดับเดียวกันโดยอัตโนมัติ
  *
@@ -14,9 +17,11 @@
  *   ยังไม่ตรงกับบิลจริงด้วย (ชุดตัวอย่าง 12 ไฟล์: ธง 125 ใบ แต่หาบิลเจอ 26 ใบ เพราะไฟล์รายได้ตัวอย่างถูกสุ่มมาบางส่วน)
  */
 import { useMemo, useState } from "react";
-import { DBar, DLine } from "../../lib/chart/dcharts";
-import { D } from "../../lib/chart/theme";
-import { CC, Hero, KC, Note, Pane } from "../dash-fleet/parts";
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { DBar } from "../../lib/chart/dcharts";
+import { anim, axisProps, gridProps, legendProps, tooltipProps } from "../../lib/chart/primitives";
+import { D, useChartTheme } from "../../lib/chart/theme";
+import { Hero, KC, Note, Pane, TableHead } from "../dash-fleet/parts";
 import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, monthLabel, passBase, pct, routeArrow, useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
@@ -26,6 +31,20 @@ import type { Trip } from "../../lib/data/useCostRev";
 /** เส้นทางที่เที่ยวน้อยกว่านี้ไม่เอาขึ้นกราฟอันดับ — ฐานน้อย % แกว่งจนอ่านผิด (ยังอยู่ในตารางครบ) */
 const MIN_TRIPS_RANK = 5;
 const TOP_ROUTES = 10;
+
+/**
+ * ป้ายแกน % ของ Damage Rate — ค่าปกติต่ำกว่า 1% (ชุดตัวอย่าง 0.044%) ถ้าปัดทศนิยมตายตัว
+ * ขีดแกนจะกลายเป็น "0%" ทุกขีด จึงเลือกจำนวนทศนิยมตามขนาดของค่าเอง
+ */
+const pctTick = (v: number): string =>
+  v === 0 ? "0%" : `${Number(v.toFixed(Math.abs(v) < 0.01 ? 4 : Math.abs(v) < 0.1 ? 3 : Math.abs(v) < 1 ? 2 : 1))}%`;
+
+/** สามเส้นของกราฟแนวโน้ม — ทุกเส้นเป็นสเกล % เดียวกัน (Incident คูณ 100 มาแล้ว) */
+const LINES = [
+  { key: "Damage Rate %", color: D.rose },
+  { key: "Damage Incidence Rate %", color: D.amber },
+  { key: "Incident Rate %", color: D.teal },
+] as const;
 
 interface DmgRow {
   route: string;
@@ -65,9 +84,15 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
 }) {
   const [f, setF] = useState<BaseFilter>(BASE_F0);
   const set = (k: keyof BaseFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+  /** เส้นที่ถูกซ่อนในกราฟแนวโน้ม — กดที่ป้ายสีใต้กราฟ (ทาง A+C ที่เจ้าของงานเลือก) */
+  const [hiddenLines, setHidden] = useState<string[]>([]);
+  const toggleLine = (k: string) =>
+    setHidden((p) => (p.includes(k) ? p.filter((x) => x !== k) : p.length < LINES.length - 1 ? [...p, k] : p));
 
-  // เที่ยวที่จับคู่ได้เท่านั้น — หน้า exec กรองมาให้แล้ว กรองซ้ำกันพลาดเวลามีคนส่ง trips ชุดอื่นเข้ามา
-  const base = useMemo(() => trips.filter((t) => t.m), [trips]);
+  // เที่ยวที่จับคู่บิลได้ และไม่ใช่เที่ยววิ่งเปล่า — หน้า exec กรอง m มาให้แล้ว กรองซ้ำกันพลาด
+  const base = useMemo(() => trips.filter((t) => t.m && !t.empty), [trips]);
+  /** เที่ยวเปล่าที่จับคู่ได้ ตัดออกจากตัวหาร — โชว์ในหมายเหตุให้ตรวจยอดได้ */
+  const emptyN = useMemo(() => trips.filter((t) => t.m && t.empty).length, [trips]);
   const rows = useMemo(() => base.filter((t) => passBase(t, f)), [base, f]);
 
   const byRoute = useMemo(() => aggregate(rows, (t) => t.rt || routeArrow(t)), [rows]);
@@ -85,21 +110,29 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
              incident: n ? clrN / n : 0 };
   }, [rows]);
 
-  /** อันดับเส้นทางที่เสียหายหนักสุดตามสัดส่วนมูลค่า */
-  const topRate = useMemo(() => byRoute
-    .filter((r) => r.n >= MIN_TRIPS_RANK && r.rate != null && r.rate > 0)
-    .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0)).slice(0, TOP_ROUTES)
-    .map((r) => ({ name: r.route, v: Math.round((r.rate ?? 0) * 1000) / 1000 })), [byRoute]);
-
-  /** แนวโน้มรายเดือน — แสดงทุกเดือนทุกปีเสมอ ตัวกรองปี/เดือนไม่มีผล (แบบเดียวกับแท็บกำไรรายเที่ยว) */
+  /** [กราฟขวา] แนวโน้มรายเดือน 3 เส้น — แสดงทุกเดือนทุกปีเสมอ ตัวกรองปี/เดือนไม่มีผล
+      Incident Rate คูณ 100 ให้อยู่สเกลเดียวกับอีกสองเส้น = "ครั้งต่อ 100 เที่ยว" (ไม่ใช่ % จริง เกิน 100 ได้) */
   const monthly = useMemo(() => aggregate(
     base.filter((t) => passBase(t, f, { ignoreYear: true, ignoreMonth: true })), (t) => t.mo)
     .sort((a, b) => a.route.localeCompare(b.route))
     .map((a) => ({
       mo: monthLabel(a.route),
-      "Damage Rate %": Math.round((a.rate ?? 0) * 1000) / 1000,
-      "Incidence Rate %": Math.round(a.incidence * 100) / 100,
+      [LINES[0]!.key]: Math.round((a.rate ?? 0) * 1000) / 1000,
+      [LINES[1]!.key]: Math.round(a.incidence * 100) / 100,
+      [LINES[2]!.key]: Math.round(a.incident * 100 * 100) / 100,
     })), [base, f]);
+
+  /** [กราฟซ้าย] อันดับเส้นทางตาม Damage Rate % — แท่งเดียวต่อเส้นทาง มีตัวกรองปีของกราฟเองที่มุมขวาบน
+      ปีของกราฟซ้อนบนตัวกรองปีด้านบนอีกชั้น (ตัวเลือกจึงมีเฉพาะปีที่เหลือหลังกรองด้านบนแล้ว) */
+  const [chartYear, setChartYear] = useState("");
+  const chartYears = useMemo(() => [...new Set(rows.map((t) => String(t.y)))].sort(), [rows]);
+  const topRate = useMemo(() => {
+    const src = chartYear ? rows.filter((t) => String(t.y) === chartYear) : rows;
+    return aggregate(src, (t) => t.rt || routeArrow(t))
+      .filter((r) => r.n >= MIN_TRIPS_RANK && r.rate != null && r.rate > 0)
+      .sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0)).slice(0, TOP_ROUTES)
+      .map((r) => ({ name: r.route, v: Math.round((r.rate ?? 0) * 1000) / 1000 }));
+  }, [rows, chartYear]);
 
   const cols = useMemo<Col<DmgRow>[]>(() => [
     { key: "route", label: "เส้นทาง", get: (r) => r.route },
@@ -137,7 +170,9 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
 
   const unfiltered = f.year === "" && f.month === "" && f.o === "" && f.de === "" && f.ft === "" && f.vk === "";
   const sumN = byRoute.reduce((s, r) => s + r.n, 0);
-  const balanced = sumN === matchedTotal;
+  /** ฐานที่ควรได้ = เที่ยวที่จับคู่บิลได้ ลบเที่ยววิ่งเปล่าที่ตัดออกจากตัวหาร */
+  const expectedN = matchedTotal - emptyN;
+  const balanced = sumN === expectedN;
 
   return (
     <>
@@ -170,27 +205,49 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
         <Note>
           รวม <b>{fmt(sumN)}</b> เที่ยว จาก <b>{fmt(byRoute.length)}</b> เส้นทาง
           {unfiltered && (balanced
-            ? <> · ตรงกับจำนวนเที่ยวที่จับคู่กับไฟล์รายได้ได้ทั้งหมด ({fmt(matchedTotal)} เที่ยว) ✓</>
-            : <b style={{ color: "var(--red)" }}> · ไม่ตรงกับจำนวนเที่ยวที่จับคู่ได้ ({fmt(matchedTotal)} เที่ยว) — มีเที่ยวตกหล่นจากการรวมยอด</b>)}
-          {!unfiltered && <> · กรองอยู่ เทียบกับ {fmt(matchedTotal)} เที่ยวที่จับคู่ได้ทั้งหมด</>}
+            ? <> · ตรงกับเที่ยวที่จับคู่กับไฟล์รายได้ได้ {fmt(matchedTotal)} เที่ยว หักเที่ยววิ่งเปล่า {fmt(emptyN)} เที่ยว = {fmt(expectedN)} ✓</>
+            : <b style={{ color: "var(--red)" }}> · ไม่ตรงกับฐานที่ควรได้ ({fmt(expectedN)} เที่ยว = จับคู่ได้ {fmt(matchedTotal)} − วิ่งเปล่า {fmt(emptyN)}) — มีเที่ยวตกหล่นจากการรวมยอด</b>)}
+          {!unfiltered && <> · กรองอยู่ เทียบกับฐานทั้งหมด {fmt(expectedN)} เที่ยว (จับคู่ได้ {fmt(matchedTotal)} − วิ่งเปล่า {fmt(emptyN)})</>}
         </Note>
 
         <div className="dz-row dz-11" style={{ marginTop: 14 }}>
-          <CC title={`เส้นทางที่ความเสียหายสูงสุด · Damage Rate % · ${TOP_ROUTES} อันดับแรก`} tall>
-            <DBar data={topRate} xKey="name" horiz suffix=" %" digits={3}
-              series={[{ key: "v", label: "Damage Rate %", color: D.rose }]} />
-          </CC>
-          <CC title="แนวโน้มความเสียหายรายเดือน" tall>
-            <DLine data={monthly} xKey="mo" suffix=" %" digits={2} series={[
-              { key: "Damage Rate %", label: "Damage Rate %", color: D.rose },
-              { key: "Incidence Rate %", label: "Incidence Rate %", color: D.amber },
-            ]} />
-          </CC>
+          {/* ซ้าย: อันดับเส้นทางตาม Damage Rate % · ตัวกรองปีของกราฟเองที่มุมขวาบน */}
+          <div className="dz-cc">
+            <TableHead title={`เส้นทางที่ความเสียหายสูงสุด · Damage Rate % · ${TOP_ROUTES} อันดับแรก`}>
+              <ListFF label="ปี" all="ทุกปี" value={chartYear} onChange={setChartYear}
+                opts={chartYears} labelOf={(y) => `พ.ศ. ${Number(y) + 543}`} />
+            </TableHead>
+            <div className="dz-box tall">
+              {topRate.length
+                ? <DBar data={topRate} xKey="name" horiz suffix="%" digits={3} valueTick={pctTick}
+                    series={[{ key: "v", label: "Damage Rate %", color: D.rose }]} />
+                : <div style={{ padding: 20, color: "var(--ink-faint)", textAlign: "center" }}>
+                    ไม่มีเส้นทางที่มีความเสียหายตามตัวกรองที่เลือก
+                  </div>}
+            </div>
+          </div>
+
+          {/* ขวา: แนวโน้มรายเดือน 3 เส้นซ้อนกัน · ปุ่มที่หัวการ์ดกดเปิด-ปิดทีละเส้น */}
+          <div className="dz-cc">
+            <TableHead title="แนวโน้มความเสียหายรายเดือน">
+              <div className="dmg-lines" role="group" aria-label="เลือกเส้นที่แสดง">
+                {LINES.map((l) => {
+                  const on = !hiddenLines.includes(l.key);
+                  return (
+                    <button key={l.key} type="button" className={"dmg-line" + (on ? " on" : "")}
+                      style={{ "--c": l.color } as React.CSSProperties} aria-pressed={on}
+                      onClick={() => toggleLine(l.key)}>
+                      <i />{l.key.replace(" %", "")}
+                    </button>
+                  );
+                })}
+              </div>
+            </TableHead>
+            <div className="dz-box tall">
+              <TrendLines data={monthly} hidden={hiddenLines} />
+            </div>
+          </div>
         </div>
-        <Note>
-          กราฟอันดับนับเฉพาะเส้นทางที่มีอย่างน้อย {MIN_TRIPS_RANK} เที่ยว — ฐานน้อยกว่านี้ % แกว่งจนเทียบกันไม่ได้
-          (เส้นทางเหล่านั้นยังอยู่ในตารางด้านล่างครบ) · กราฟแนวโน้มแสดงทุกเดือนตลอดทุกปีเสมอ ตัวกรองปี/เดือนไม่มีผลกับกราฟนี้
-        </Note>
 
         <div className="dz-cc" style={{ marginTop: 14 }}>
           <h4>ความเสียหายรายเส้นทาง · คลิกหัวคอลัมน์เพื่อเรียง</h4>
@@ -212,3 +269,24 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
 /** สีตามระดับ Damage Rate — เทียบกับ 0.409% ที่เป็นค่าอ้างอิงในเอกสาร (เขียว < 0.5 · ส้ม < 1 · แดง ≥ 1) */
 const dmgTone = (r: number | null): string | undefined =>
   r == null ? "var(--ink-faint)" : r === 0 ? undefined : r < 0.5 ? "var(--green)" : r < 1 ? "var(--orange-dark)" : "var(--red)";
+
+/** กราฟเส้น 3 ตัวชี้วัด — ปุ่มเปิด-ปิดเส้นอยู่ที่หัวการ์ด · ป้ายสีใต้กราฟบอกชื่อเส้น เหลืออย่างน้อย 1 เส้นเสมอ */
+function TrendLines({ data, hidden }: { data: Record<string, string | number>[]; hidden: string[] }) {
+  const t = useChartTheme();
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 8, right: 14, left: 0, bottom: 0 }}>
+        <CartesianGrid {...gridProps(t)} />
+        <XAxis {...axisProps(t)} dataKey="mo" />
+        <YAxis {...axisProps(t)} width={58} domain={[0, "auto"]} tickFormatter={pctTick} />
+        <Tooltip {...tooltipProps(t, "%", 2)} />
+        {/* ป้ายสีใต้กราฟบอกว่าเส้นไหนคืออะไร — เส้นที่ปิดจากปุ่มหัวการ์ดจะไม่ขึ้นในป้าย */}
+        <Legend {...legendProps} />
+        {LINES.map((l) => (
+          <Line key={l.key} type="monotone" dataKey={l.key} name={l.key} stroke={l.color} strokeWidth={2.4}
+            dot={false} activeDot={{ r: 5 }} connectNulls hide={hidden.includes(l.key)} {...anim} />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}

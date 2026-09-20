@@ -134,13 +134,17 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
   return { sorted, sort, toggle };
 }
 
-export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty }: {
+export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps }: {
   rows: T[]; cols: Col<T>[]; sort: { key: string; dir: 1 | -1 };
   onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;
+  /** คลาสเพิ่มให้ตัวตาราง — ใช้ตกแต่งเฉพาะหน้า */
+  className?: string;
+  /** props ของแต่ละแถว — ใช้ทำแถวที่กดได้ทั้งแถว (หน้า Demo) */
+  rowProps?: (r: T, i: number) => React.HTMLAttributes<HTMLTableRowElement>;
 }) {
   return (
     <GrowBox rows={rows} render={(shown) => (
-      <table className="dz-tbl">
+      <table className={"dz-tbl" + (className ? ` ${className}` : "")}>
         <thead><tr>
           {cols.map((c) => (
             <th key={c.key} className={c.num ? "n" : undefined} onClick={() => onSort(c.key)}
@@ -157,7 +161,7 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty }: {
             <tr><td colSpan={cols.length} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 16 }}>{empty}</td></tr>
           ) : (
             shown.map((r, i) => (
-              <tr key={rowKey(r, i)}>
+              <tr key={rowKey(r, i)} {...(rowProps ? rowProps(r, i) : {})}>
                 {cols.map((c) => (
                   <td key={c.key} className={c.num ? "n" : undefined}>
                     {c.render ? c.render(r) : (() => { const v = c.get(r); return typeof v === "number" ? fmt(v) : (v ?? "–"); })()}

@@ -1343,3 +1343,70 @@ body:has(#view-dash.active){background:#EDE7DF}
 .oc-row{display:grid;grid-template-columns:minmax(0,1fr) 170px 200px 26px;gap:10px;align-items:center;margin-bottom:10px}
 .oc-row input,.oc-row select{padding:10px 12px;font-size:14.5px;border-radius:9px;background:#fff;width:100%}
 @media(max-width:820px){.oc-row{grid-template-columns:1fr 1fr}.oc-row>input:first-child{grid-column:1/-1}}
+
+/* ---- แท็บ Damage Rate: ปุ่มเปิด-ปิดเส้นของกราฟแนวโน้ม (DamageTab.tsx) ---- */
+.dmg-lines{display:flex;gap:6px;flex-wrap:wrap}
+.dmg-line{display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:12.5px;font-weight:600;
+  color:var(--d-ink5);background:#fff;border:1px solid rgba(26,23,20,.12);border-radius:999px;padding:5px 11px;
+  cursor:pointer;transition:border-color .16s,color .16s,background-color .16s}
+.dmg-line i{width:9px;height:9px;border-radius:50%;background:var(--d-rail);flex:none}
+.dmg-line:hover{border-color:rgba(26,23,20,.3)}
+.dmg-line.on{color:var(--c);border-color:var(--c);background:color-mix(in srgb,var(--c) 8%,#fff)}
+.dmg-line.on i{background:var(--c)}
+
+/* ---- เมนู Demo · แท็บกำไรรายเส้นทาง (features/dash-demo/) ---- */
+#view-dash .dz-cards.four{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1180px){#view-dash .dz-cards.four{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ตารางซ้าย — กดได้ทั้งแถว · คอลัมน์แท่งกินที่ว่าง ตัวเลขสองคอลัมน์ท้ายจึงชิดกัน */
+.dm-tbl tbody tr{cursor:pointer;transition:background-color .14s var(--d-ease)}
+.dm-tbl tbody tr:hover{background:var(--d-soft)}
+.dm-tbl tbody tr.on{background:color-mix(in srgb,var(--d-indigo) 8%,#fff)}
+.dm-tbl tbody tr.on td:first-child{box-shadow:inset 3px 0 0 var(--d-indigo)}
+.dm-tbl th:nth-child(2),.dm-tbl td:nth-child(2){width:auto}
+.dm-tbl th:nth-child(3),.dm-tbl td:nth-child(3),
+.dm-tbl th:nth-child(4),.dm-tbl td:nth-child(4){width:1%;white-space:nowrap;padding-left:14px}
+.dm-rt{display:flex;flex-direction:column;gap:1px}
+.dm-rt b{font-weight:600;font-size:14.5px;white-space:nowrap}
+.dm-rt small{font-size:12px;color:var(--d-ink5)}
+.dm-bar{display:block;min-width:60px;height:10px;border-radius:999px;background:var(--d-rail);overflow:hidden}
+.dm-bar i{display:block;height:100%;border-radius:999px}
+
+/* แผงขวา — ตัวหนังสือใหญ่ขึ้นตามที่เจ้าของงานสั่ง */
+.dm-dh{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px}
+.dm-dh h4{font-size:19px}
+.dm-dh p{margin:3px 0 0;font-size:14px;color:var(--d-ink5)}
+.dm-i{width:30px;height:30px;flex:none;margin-left:auto;border-radius:50%;border:1.5px solid var(--d-indigo);
+  background:#fff;color:var(--d-indigo);font-family:var(--d-num);font-size:15px;font-weight:700;font-style:italic;
+  cursor:pointer;line-height:1}
+.dm-i:hover{background:var(--d-indigo);color:#fff}
+.dm-avg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.dm-avg>div{background:var(--d-soft);border:1px solid var(--d-line);border-radius:12px;padding:11px 14px}
+.dm-avg span{display:block;font-size:13.5px;color:var(--d-ink5)}
+.dm-avg b{font-family:var(--d-num);font-size:22px;font-weight:700;color:var(--d-ink)}
+.dm-parts .bar{display:flex;height:14px;border-radius:999px;overflow:hidden;background:var(--d-rail);margin-bottom:14px}
+.dm-parts .bar i{display:block;height:100%}
+.dm-cg+.dm-cg{margin-top:12px;padding-top:12px;border-top:1px solid var(--d-row)}
+.dm-cgh{display:flex;align-items:baseline;gap:10px;font-size:15.5px;font-weight:700;color:var(--d-ink)}
+.dm-cgh b{margin-left:auto;font-family:var(--d-num)}
+.dm-cgh small{font-size:13px;font-weight:400;color:var(--d-ink5);min-width:96px;text-align:right}
+.dm-parts ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dm-parts li{display:flex;align-items:center;gap:9px;font-size:14.5px;color:var(--d-ink3)}
+.dm-parts li i{width:10px;height:10px;border-radius:3px;flex:none}
+.dm-parts li span{flex:1;min-width:0}
+.dm-parts li b{font-family:var(--d-num);font-weight:700;color:var(--d-ink)}
+.dm-parts li small{font-size:13px;color:var(--d-ink5);min-width:96px;text-align:right}
+
+/* การ์ดกลุ่มบริการ — สามสีต่างกัน ขนาดเท่ากันทุกใบ */
+.dm-sgs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+@media(max-width:900px){.dm-sgs{grid-template-columns:1fr}}
+.dm-sg{display:flex;flex-direction:column;justify-content:space-between;gap:8px;min-height:150px;
+  padding:20px 22px;border:0;border-radius:20px;font-family:inherit;text-align:left;color:#fff;cursor:pointer;
+  transition:transform .2s var(--d-ease),box-shadow .2s var(--d-ease)}
+.dm-sg:hover{transform:translateY(-4px);box-shadow:0 18px 32px -22px rgba(23,22,26,.5)}
+.dm-sg .l{font-size:14.5px;font-weight:600;opacity:.92}
+.dm-sg .v{font-family:var(--d-num);font-size:40px;font-weight:800;line-height:1.1}
+.dm-sg .s{font-size:13px;opacity:.88;background:rgba(255,255,255,.18);border-radius:999px;padding:4px 11px;align-self:flex-start}
+.dm-sg.c1{background:linear-gradient(135deg,#4F46E5,#7C3AED)}
+.dm-sg.c2{background:linear-gradient(135deg,#0891B2,#0D9488)}
+.dm-sg.c3{background:linear-gradient(135deg,#EA580C,#DB2777)}

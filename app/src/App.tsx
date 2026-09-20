@@ -23,6 +23,7 @@ const FleetStatus = lazy(() => import("./features/dash-fleet/FleetDash")
   .then((m) => ({ default: m.FleetStatusPage })));
 const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
 const CostRevDash = lazy(() => import("./features/dash-costrev/CostRevDash"));
+const DemoDash = lazy(() => import("./features/dash-demo/DemoDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
 import { DashPageContext } from "./lib/ui/dashContext";
 import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
@@ -76,7 +77,9 @@ const PAGES: PageDef[] = [
   { id: "route-profit", view: "dash", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง" },
   // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) — หน้าตาเดียวกัน ต่างกันที่ข้อมูล
   { id: "exec-dash", view: "dash", label: "Executive Dashboard", icon: I.dash, h1: "Executive Dashboard" },
-  { id: "all-dash", view: "dash", label: "Dashboard รวม", icon: I.dash, h1: "Dashboard รวม" },
+  { id: "all-dash", view: "dash", label: "Dashboard ค่าเดินทาง(ไม่ใช้)", icon: I.dash, h1: "Dashboard ค่าเดินทาง (ไม่ใช้)" },
+  // หน้าทดลองสำหรับผู้ดูแลระบบ — ข้อมูลชุดเดียวกับ Executive Dashboard (เฉพาะเที่ยวที่จับคู่บิลได้)
+  { id: "demo", view: "dash", label: "Demo", icon: I.chart, h1: "Demo" },
   // เมนู "แดชบอร์ดรายได้" ถูกยุบเข้า Executive Dashboard แล้ว (17 ก.ย. 2569) เนื้อในอยู่ที่
   // features/dash-revenue/board/ เป็นแท็บ "Dashboard รายได้" กับ "Dashboard ลูกหนี้"
   // ส่วนกำไรลูกค้า (ปันส่วนต้นทุน) ลงไปเป็นแท็บย่อยของ "Dashboard รายได้" อีกชั้น
@@ -201,6 +204,7 @@ export default function App() {
                 {page === "route-profit" && <RouteProfit state={state} />}
                 {page === "exec-dash" && <CostRevDash mode="exec" state={state} />}
                 {page === "all-dash" && <CostRevDash mode="all" state={state} />}
+                {page === "demo" && <DemoDash />}
               </Suspense>
             </DashPageContext.Provider>
             {page === "driver" && <DriverJobs state={state} role={role} />}
