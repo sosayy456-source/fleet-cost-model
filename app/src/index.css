@@ -1140,3 +1140,46 @@ body:has(#view-dash.active){background:#EDE7DF}
   .settings-main-grid:has(>.vehicle-spec-card.is-open):has(>.fuel-price-card.is-open) :is(.vehicle-spec-foot,.fuel-price-foot){
     grid-row:5}
 }
+/* ---- ตารางสรุปท้ายแท็บกำไรรายเที่ยว (SummaryTable.tsx) ---- */
+.sm-rt{display:block;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sm-mix{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.sm-mix .bar{display:flex;width:64px;height:9px;border-radius:999px;overflow:hidden;background:var(--d-rail);flex:none}
+.sm-mix .bar i{display:block;height:100%}
+.sm-mix .t{font-family:var(--d-num);font-size:13px}
+.sm-mix .t b{font-weight:700}
+.sm-mix .t em{font-style:normal;color:var(--d-ink5);margin:0 3px}
+.sm-sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin:0 5px 0 9px;vertical-align:-1px}
+.sm-profit{font-family:inherit;font-size:inherit;font-weight:700;background:none;border:0;padding:0;cursor:pointer;
+  text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.sm-profit:hover{text-decoration-style:solid}
+.sm-adv{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:104px;max-width:150px}
+.sm-adv small{font-size:11.5px;line-height:1.35;color:var(--d-ink5)}
+.sm-chip{display:inline-block;padding:4px 10px;border-radius:12px;font-size:12.5px;font-weight:700;line-height:1.3}
+.sm-chip.good{color:#166534;background:#DCFCE7}
+.sm-chip.warn{color:#9A3412;background:#FFEDD5}
+.sm-chip.bad{color:#991B1B;background:#FEE2E2}
+
+/* หน้าต่างรายละเอียดของกลุ่ม — ใช้ .modal-bg/.modal ของแอป แต่กว้างกว่าเพราะมีตารางเที่ยว */
+.modal.wide{max-width:1060px}
+.sm-modal{display:flex;flex-direction:column;gap:12px;max-height:88vh}
+.sm-mh{display:flex;align-items:flex-start;gap:12px}
+.sm-mt{flex:1;min-width:0}
+.sm-mh .modal-h{margin-bottom:4px}
+.sm-mh .modal-h span{font-weight:400;color:var(--ink-soft)}
+.sm-mh p{margin:0;font-size:13px;color:var(--ink-soft);line-height:1.5}
+.sm-x{width:30px;height:30px;flex:none;border-radius:9px;border:1px solid var(--border);background:#fff;
+  color:var(--ink-soft);font-size:14px;cursor:pointer;line-height:1}
+.sm-x:hover{background:var(--surface,#FBFAF8);color:#1A1714}
+.sm-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.sm-nums>div{background:var(--surface,#FBFAF8);border:1px solid var(--border);border-radius:12px;padding:10px 13px}
+.sm-nums span{display:block;font-size:12.5px;color:var(--ink-soft)}
+.sm-nums b{font-family:var(--d-num,inherit);font-size:20px;font-weight:700}
+.sm-parts{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--ink-soft);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:9px 0}
+.sm-parts>b:first-child{color:#1A1714}
+.sm-parts span b{color:#1A1714;font-family:var(--d-num,inherit)}
+.sm-list{flex:1;min-height:0;overflow:auto}
+.sm-list .dz-tbl{font-size:13.5px}
+.sm-side{display:inline-block;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.sm-side.comp{color:#3730A3;background:#E8E7FB}
+.sm-side.part{color:#0F766E;background:#D8F3EF}

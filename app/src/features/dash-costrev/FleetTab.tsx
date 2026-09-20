@@ -240,6 +240,10 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
                 </li>
               ))}
             </ul>
+            <p className="dz-note" style={{ marginTop: 14 }}>
+              กำไรเฉลี่ยนี้รวมทุกเส้นทาง สองฝั่งวิ่งคนละงานกันเป็นส่วนใหญ่ —
+              เทียบฝั่งไหนคุ้มกว่าดูตารางสรุปท้ายแท็บ "กำไรรายเที่ยว"
+            </p>
           </div>
         </div>
 
