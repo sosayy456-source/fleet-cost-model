@@ -1648,3 +1648,24 @@ body:has(#view-dash.active){background:#EDE7DF}
 .odo-btn:hover{border-color:var(--ink-soft)}
 .odo-btn.on{border-style:solid;border-color:var(--green);background:var(--green-soft);color:var(--green);font-weight:600}
 .odo-note{margin-top:6px;font-size:12.5px;color:var(--ink-faint);text-align:center}
+
+/* ---- ตัวบอกว่ากำลังบันทึก: รถบรรทุกวิ่ง (lib/ui/TruckLoader.tsx) ----
+   รถอยู่กับที่ ขยับแค่ถนน/เส้นลม/ตัวรถเด้งเบา ๆ · สีเดียวกับปุ่มบันทึก (--accent) */
+.truck-ld{display:inline-flex;align-items:center;gap:10px;color:var(--accent);font-size:13.5px;font-weight:600}
+.truck-ld svg{overflow:visible;flex:none}
+.truck-ld-body{fill:var(--accent);animation:truckBob .42s ease-in-out infinite alternate}
+.truck-ld-glass{fill:#fff;opacity:.85}
+.truck-ld-wheel{fill:var(--accent);stroke:#fff;stroke-width:1.6}
+.truck-ld-road{stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-dasharray:7 6;opacity:.45;
+  animation:truckRoad .5s linear infinite}
+.truck-ld-wind line{stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;opacity:0;
+  animation:truckWind .9s ease-out infinite}
+.truck-ld-wind line:nth-child(2){animation-delay:.3s}
+.truck-ld-wind line:nth-child(3){animation-delay:.6s}
+@keyframes truckBob{from{transform:translateY(0)}to{transform:translateY(-1.2px)}}
+@keyframes truckRoad{to{stroke-dashoffset:13}}
+@keyframes truckWind{0%{opacity:0;transform:translateX(4px)}30%{opacity:.7}100%{opacity:0;transform:translateX(-6px)}}
+@media (prefers-reduced-motion: reduce){
+  .truck-ld-body,.truck-ld-road,.truck-ld-wind line{animation:none}
+  .truck-ld-wind line{opacity:.5}
+}
