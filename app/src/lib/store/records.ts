@@ -11,8 +11,11 @@ import { CASH_ORIGIN } from "../../types/record";
 import type { TripRecord } from "../../types/record";
 
 const DB_NAME = "fleet-cost-model";
-const DB_VERSION = 1;
+/** v2 = เพิ่มที่เก็บบิลของฝ่ายบริการลูกค้า (types/bill.ts · สเปก 22 ก.ย. 2569) */
+const DB_VERSION = 2;
 const STORE = "records";
+/** ที่เก็บบิลที่ยังไม่ได้จัดรถ — lib/store/bills.ts ใช้ผ่าน openDb() ตัวเดียวกัน */
+export const BILL_STORE = "bills";
 
 /** คีย์เดิมใน localStorage ของ v5 */
 export const LEGACY_KEYS = {
@@ -39,6 +42,13 @@ function openDb(): Promise<IDBDatabase> {
         os.createIndex("docNo", "docNo", { unique: false });
         os.createIndex("date", "date", { unique: false });
       }
+      // ★ เพิ่ม store ใหม่ต้องอยู่ใน onupgradeneeded เท่านั้น และห้ามลบ store เดิม
+      //   ผู้ใช้ที่เปิดแอปมาก่อนจะวิ่งผ่าน v1→v2 โดยใบรายการเดิมยังอยู่ครบ
+      if (!db.objectStoreNames.contains(BILL_STORE)) {
+        const bs = db.createObjectStore(BILL_STORE, { keyPath: "id" });
+        bs.createIndex("status", "status", { unique: false });
+        bs.createIndex("no", "no", { unique: true });
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -47,15 +57,34 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 function tx<T>(mode: IDBTransactionMode, fn: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+  return storeTx<T>(STORE, mode, fn);
+}
+
+/** ทำงานกับ store ไหนก็ได้ในฐานเดียวกัน — lib/store/bills.ts เรียกใช้กับ BILL_STORE */
+export function storeTx<T>(
+  store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T>,
+): Promise<T> {
   return openDb().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
-        const t = db.transaction(STORE, mode);
-        const req = fn(t.objectStore(STORE));
+        const t = db.transaction(store, mode);
+        const req = fn(t.objectStore(store));
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       }),
   );
+}
+
+/** เขียนหลายระเบียนใน store เดียวในทรานแซกชันเดียว */
+export async function storePutMany<T>(store: string, rows: T[]): Promise<void> {
+  const db = await openDb();
+  await new Promise<void>((resolve, reject) => {
+    const t = db.transaction(store, "readwrite");
+    const os = t.objectStore(store);
+    for (const r of rows) os.put(r);
+    t.oncomplete = () => resolve();
+    t.onerror = () => reject(t.error);
+  });
 }
 
 export const getAll = (): Promise<TripRecord[]> =>

@@ -45,6 +45,8 @@ function autoEtl(): Plugin {
   const allocOut = resolve(revOut, "alloc");
   const debtDir = resolve(etlDir, "data", "debtors");
   const debtOut = resolve(revOut, "debtors");
+  const lfDir = resolve(etlDir, "data", "Loadfactor");
+  const lfOut = resolve(revOut, "loadfactor");
   const isXlsx = (f: string) => /\.xlsx$/i.test(f) && !/^~\$/.test(f) && !/\.backup\./i.test(f);
   const hasXlsx = (dir: string) => existsSync(dir) && readdirSync(dir).some(isXlsx);
 
@@ -90,9 +92,9 @@ function autoEtl(): Plugin {
    * แดชบอร์ดจะได้ขึ้น "กำลังแปลง…" และรีเฟรชเองตอนเสร็จ ไม่ต้องเดาว่าเสร็จหรือยัง
    */
   type Status = { state: "idle" | "running" | "done" | "error" | "cleared"; message: string; at: number };
-  type Job = "rev" | "cr" | "al" | "db";
+  type Job = "rev" | "cr" | "al" | "db" | "lf";
   const EVENT: Record<Job, string> = {
-    rev: "etl:status", cr: "costrev:status", al: "alloc:status", db: "debtors:status",
+    rev: "etl:status", cr: "costrev:status", al: "alloc:status", db: "debtors:status", lf: "loadfactor:status",
   };
 
   const status: Record<Job, Status> = {
@@ -100,6 +102,7 @@ function autoEtl(): Plugin {
     cr: { state: "idle", message: "", at: Date.now() },
     al: { state: "idle", message: "", at: Date.now() },
     db: { state: "idle", message: "", at: Date.now() },
+    lf: { state: "idle", message: "", at: Date.now() },
   };
   let emit: (job: Job, s: Status) => void = () => {};
   const setStatus = (job: Job, state: Status["state"], message: string) => {
@@ -114,17 +117,19 @@ function autoEtl(): Plugin {
     cr: "อยู่ในคิว — รอแปลงไฟล์รายได้ให้เสร็จก่อน แล้วจะจับคู่ต้นทุน+รายได้รายเที่ยวต่อทันที",
     al: "อยู่ในคิว — รอชุดต้นทุน+รายได้เสร็จก่อน แล้วจะปันส่วนต้นทุนเข้าบิลลูกค้าต่อ",
     db: "อยู่ในคิว — รองานอื่นเสร็จก่อน แล้วจะแปลงไฟล์ลูกหนี้ให้เอง",
+    lf: "อยู่ในคิว — รองานอื่นเสร็จก่อน แล้วจะแปลงไฟล์ Load Factor ให้เอง",
   };
   const COPYING: Record<Job, string> = {
     rev: "พบไฟล์รายได้ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงให้เอง",
     cr: "พบไฟล์ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงต้นทุน+รายได้รายเที่ยวและจับคู่ให้เอง",
     al: "พบไฟล์บิลใหม่ — รอคัดลอกให้เสร็จแล้วจะปันส่วนต้นทุนเข้าบิลลูกค้าให้เอง",
     db: "พบไฟล์ลูกหนี้ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงให้เอง",
+    lf: "พบไฟล์ Load Factor ใหม่ — รอคัดลอกให้เสร็จแล้วจะแปลงให้เอง",
   };
 
   /** งานที่รันอยู่ตอนนี้ (null = ว่าง) กับคิวของงานที่ขอไว้ */
   let busy: Job | null = null;
-  const want: Record<Job, boolean> = { rev: false, cr: false, al: false, db: false };
+  const want: Record<Job, boolean> = { rev: false, cr: false, al: false, db: false, lf: false };
 
   type Spec = {
     script: string;
@@ -182,6 +187,17 @@ function autoEtl(): Plugin {
       startLog: (n) => `▶ กำลังแปลงไฟล์ลูกหนี้ ${n} ไฟล์ (python build_debtors.py --dataset real) …`,
       startMsg: (n) => `กำลังแปลงไฟล์ลูกหนี้ ${n} ไฟล์`,
       doneMsg: "ข้อมูลลูกหนี้จริงพร้อมแล้ว",
+    },
+    lf: {
+      // ไฟล์ Load Factor รายเที่ยว — ชุดข้อมูลอิสระเหมือนลูกหนี้ (แท็บ "ต้นทุนที่จมกับที่ว่าง")
+      script: "build_loadfactor.py", dir: lfDir, out: lfOut,
+      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/Loadfactor/ แล้ว — แท็บต้นทุนที่จมกับที่ว่าง กลับไปใช้ข้อมูลตัวอย่าง",
+      emptyMsg: "ไม่มีไฟล์ Load Factor จริงแล้ว กลับไปใช้ข้อมูลตัวอย่าง",
+      clearFailLog: "✗ ลบ public/data/real/loadfactor/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
+      clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/loadfactor/manifest.json เองแล้วกดรีเฟรช",
+      startLog: (n) => `▶ กำลังแปลงไฟล์ Load Factor ${n} ไฟล์ (python build_loadfactor.py --dataset real) …`,
+      startMsg: (n) => `กำลังแปลงไฟล์ Load Factor ${n} ไฟล์`,
+      doneMsg: "ข้อมูล Load Factor จริงพร้อมแล้ว",
     },
   };
 
@@ -245,7 +261,7 @@ function autoEtl(): Plugin {
   /** หยิบงานถัดไปจากคิวมารัน — งานรายได้มาก่อนเพราะ build_costrev อ่านผลของมันไปจับคู่ */
   const pump = (log: (m: string) => void) => {
     if (busy) return;
-    const job: Job | null = want.rev ? "rev" : want.cr ? "cr" : want.al ? "al" : want.db ? "db" : null;
+    const job: Job | null = want.rev ? "rev" : want.cr ? "cr" : want.al ? "al" : want.db ? "db" : want.lf ? "lf" : null;
     if (!job) return;
     want[job] = false;
     busy = job;
@@ -271,8 +287,9 @@ function autoEtl(): Plugin {
       server.ws.on("costrev:hello", (_d, c) => c.send({ type: "custom", event: EVENT.cr, data: status.cr }));
       server.ws.on("alloc:hello", (_d, c) => c.send({ type: "custom", event: EVENT.al, data: status.al }));
       server.ws.on("debtors:hello", (_d, c) => c.send({ type: "custom", event: EVENT.db, data: status.db }));
+      server.ws.on("loadfactor:hello", (_d, c) => c.send({ type: "custom", event: EVENT.lf, data: status.lf }));
 
-      const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null, al: null, db: null };
+      const timers: Record<Job, NodeJS.Timeout | null> = { rev: null, cr: null, al: null, db: null, lf: null };
       const request = (job: Job, delay: number) => {
         if (timers[job]) clearTimeout(timers[job]!);
         timers[job] = setTimeout(() => {
@@ -299,7 +316,7 @@ function autoEtl(): Plugin {
        * จึงไม่มีทางเริ่ม ETL จนกว่าจะคัดลอกเสร็จจริง (ดีกว่าเดิมที่ยิงตอนเห็นไฟล์โผล่)
        * statSync บนไฟล์ที่ล็อกอยู่โยน error ได้ → ถือว่า "ยังเปลี่ยนอยู่" แล้วรอรอบหน้า
        */
-      const WATCH: Record<Job, string> = { rev: revDir, cr: costDir, al: travelDir, db: debtDir };
+      const WATCH: Record<Job, string> = { rev: revDir, cr: costDir, al: travelDir, db: debtDir, lf: lfDir };
       const signature = (dir: string): string | null => {
         if (!existsSync(dir)) return "";
         try {
@@ -310,10 +327,10 @@ function autoEtl(): Plugin {
       };
       const last: Record<Job, string | null> = {
         rev: signature(revDir), cr: signature(costDir),
-        al: signature(travelDir), db: signature(debtDir),
+        al: signature(travelDir), db: signature(debtDir), lf: signature(lfDir),
       };
       const tick = () => {
-        for (const job of ["rev", "cr", "al", "db"] as Job[]) {
+        for (const job of ["rev", "cr", "al", "db", "lf"] as Job[]) {
           const sig = signature(WATCH[job]);
           if (sig === null || sig === last[job]) continue;
           last[job] = sig;
@@ -341,14 +358,16 @@ function autoEtl(): Plugin {
       const pendingAl = hasXlsx(travelDir) && hasXlsx(revDir)
         && !existsSync(resolve(allocOut, "manifest.json"));
       const pendingDb = hasXlsx(debtDir) && !existsSync(resolve(debtOut, "manifest.json"));
-      if (pendingRev || pendingCr || pendingAl || pendingDb) {
+      const pendingLf = hasXlsx(lfDir) && !existsSync(resolve(lfOut, "manifest.json"));
+      if (pendingRev || pendingCr || pendingAl || pendingDb || pendingLf) {
         server.httpServer?.once("listening", () => setTimeout(() => {
           if (pendingRev) want.rev = true;
           if (pendingCr) want.cr = true;
           if (pendingAl) want.al = true;
           if (pendingDb) want.db = true;
+          if (pendingLf) want.lf = true;
           pump(log);
-          for (const job of ["rev", "cr", "al", "db"] as Job[]) if (want[job]) setStatus(job, "running", QUEUED[job]);
+          for (const job of ["rev", "cr", "al", "db", "lf"] as Job[]) if (want[job]) setStatus(job, "running", QUEUED[job]);
         }, 600));
       }
     },

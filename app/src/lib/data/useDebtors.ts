@@ -43,6 +43,11 @@ export interface DebtorManifest {
   sourceFiles: string[];
   /** วันที่ ETL คิดอายุหนี้ — การ์ด "ข้อมูล ณ วันที่" อ่านค่านี้ ไม่ใช่วันที่เปิดหน้า */
   asOf: string;
+  /**
+   * วันที่อ้างอิงจากชีต "สรุปวิเคราะห์" ของไฟล์รุ่นใหม่ — ค่าเริ่มต้นของช่อง "ข้อมูล ณ วันที่"
+   * ในส่วนลูกหนี้ค้างชำระของแท็บกำไรลูกค้า (Demo) · ไฟล์รุ่นเก่า/ETL รุ่นก่อน 22 ก.ย. 2569 ไม่มี → ใช้ asOf แทน
+   */
+  refDate?: string | null;
   rows: number;
   skipped: number;
   customers: number;

@@ -81,11 +81,42 @@ export interface AllocUnlinked {
   basisCondition: Record<string, number>;
 }
 
+/**
+ * ลูกค้า × เดือน (cust_months.json) — แท็บ "กำไรลูกค้า" ของ Demo ยุบกลับเป็นรายลูกค้าตามตัวกรองปี/เดือน
+ * ci = ดัชนีใน customers · mo = "YYYY-MM"
+ */
+export interface AllocCustMonth {
+  ci: number; mo: string; bills: number; revenue: number; cost: number; profit: number; lossBills: number;
+}
+
+/** บิลรายใบ (bills.json) — มีเฉพาะลูกค้าที่ติด Top 10 ของช่วงเวลาใดช่วงหนึ่ง */
+export interface AllocBill {
+  ci: number; bill: string; date: string; doc: string; route: string; revenue: number; cost: number;
+}
+
+/** "ปี|เดือน" → ดัชนีลูกค้า Top 10 อัตรากำไรสูงสุด (gain) / ต่ำสุด (loss) ที่ ETL คัดไว้ */
+export type AllocTop = Record<string, { gain: number[]; loss: number[] }>;
+
 export interface AllocData {
   manifest: AllocManifest;
   customers: AllocCustomer[];
   months: AllocMonths;
   unlinked: AllocUnlinked;
+  /**
+   * สามชุดนี้มีเฉพาะไฟล์ที่สร้างตั้งแต่ 22 ก.ย. 2569 — ไฟล์รุ่นก่อนไม่มี จึงเป็น null ได้
+   * หน้า "กำไรลูกค้า (ปันส่วนต้นทุน)" เดิมไม่ใช้ ห้ามให้การโหลดสามไฟล์นี้ล้มพาหน้านั้นล้มไปด้วย
+   */
+  custMonths: AllocCustMonth[] | null;
+  bills: AllocBill[] | null;
+  top: AllocTop | null;
+}
+
+interface CustMonthColumns {
+  month: string[]; ci: number[]; mi: number[]; bills: number[]; revenue: number[]; cost: number[];
+  profit: number[]; lossBills: number[];
+}
+interface BillColumns {
+  ci: number[]; bill: string[]; date: string[]; doc: string[]; route: string[]; revenue: number[]; cost: number[];
 }
 
 const BASE = import.meta.env.BASE_URL;
@@ -137,18 +168,52 @@ function toRows(c: CustomerColumns): AllocCustomer[] {
   return out;
 }
 
+/** ไฟล์เสริมที่ไฟล์รุ่นเก่าไม่มี — โหลดไม่ได้ให้เป็น null ไม่โยน */
+const fetchOptional = <T,>(ds: AllocDataset, f: string): Promise<T | null> =>
+  fetchJson<T>(ds, f).catch(() => null);
+
+function toCustMonths(c: CustMonthColumns | null): AllocCustMonth[] | null {
+  if (!c) return null;
+  const out: AllocCustMonth[] = [];
+  for (let i = 0; i < c.ci.length; i++) {
+    out.push({
+      ci: c.ci[i] ?? 0, mo: c.month[c.mi[i] ?? -1] ?? "", bills: c.bills[i] ?? 0, revenue: c.revenue[i] ?? 0,
+      cost: c.cost[i] ?? 0, profit: c.profit[i] ?? 0, lossBills: c.lossBills[i] ?? 0,
+    });
+  }
+  return out;
+}
+
+function toBills(c: BillColumns | null): AllocBill[] | null {
+  if (!c) return null;
+  const out: AllocBill[] = [];
+  for (let i = 0; i < c.ci.length; i++) {
+    out.push({
+      ci: c.ci[i] ?? 0, bill: c.bill[i] ?? "", date: c.date[i] ?? "", doc: c.doc[i] ?? "",
+      route: c.route[i] ?? "", revenue: c.revenue[i] ?? 0, cost: c.cost[i] ?? 0,
+    });
+  }
+  return out;
+}
+
 let cache: Promise<AllocData> | null = null;
 
 export async function loadAlloc(): Promise<AllocData> {
   cache ??= (async () => {
     const ds = await detect();
-    const [manifest, columns, months, unlinked] = await Promise.all([
+    const [manifest, columns, months, unlinked, custMonths, bills, top] = await Promise.all([
       fetchJson<AllocManifest>(ds, "manifest.json"),
       fetchJson<CustomerColumns>(ds, "customers.json"),
       fetchJson<AllocMonths>(ds, "months.json"),
       fetchJson<AllocUnlinked>(ds, "unlinked.json"),
+      fetchOptional<CustMonthColumns>(ds, "cust_months.json"),
+      fetchOptional<BillColumns>(ds, "bills.json"),
+      fetchOptional<AllocTop>(ds, "top.json"),
     ]);
-    return { manifest, customers: toRows(columns), months, unlinked };
+    return {
+      manifest, customers: toRows(columns), months, unlinked,
+      custMonths: toCustMonths(custMonths), bills: toBills(bills), top,
+    };
   })().catch((e) => { cache = null; throw e; });
   return cache;
 }

@@ -5,7 +5,9 @@
  * **เลขที่ใบรายการฝั่งต้นทุนตรงกับฝั่งรายได้** (m = true) — เที่ยวที่จับคู่ไม่ได้ไม่มีบิล
  * จึงคิด จำนวนบิล / จำนวนลูกค้า ไม่ได้ ซึ่งเป็นตัวหารหลักของหน้านี้
  *
- * โครงแท็บเผื่อเพิ่มทีหลัง — ตอนนี้มีแท็บเดียว "กำไรรายเส้นทาง"
+ * แท็บ "กำไรลูกค้า" (22 ก.ย. 2569) **ไม่ใช้ trips เลย** — อ่านชุด alloc/ กับ debtors/ ของตัวเอง
+ * จึงต้องเข้าได้แม้ไฟล์ต้นทุนจะหาย/ยังโหลดไม่เสร็จ (ทำนองเดียวกับ STANDALONE ใน CostRevDash)
+ * แถบแท็บจึงขึ้นเสมอ และข้อความ error/ว่างของ trips ขึ้นเฉพาะแท็บที่ใช้ trips
  */
 import { useMemo, useRef, useState } from "react";
 import { useDashInk } from "../../lib/chart/dashfx";
@@ -15,9 +17,15 @@ import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev } from "../../lib/data/useCostRev";
 import { fmt } from "../dash-costrev/common";
 import RouteProfitTab from "./RouteProfitTab";
+import CustomerProfitTab from "./CustomerProfitTab";
 
-const TABS = [{ id: "route", label: "กำไรรายเส้นทาง" }] as const;
+const TABS = [
+  { id: "route", label: "กำไรรายเส้นทาง" },
+  { id: "cust", label: "กำไรลูกค้า" },
+] as const;
 type TabId = (typeof TABS)[number]["id"];
+/** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
+const STANDALONE: ReadonlySet<TabId> = new Set<TabId>(["cust"]);
 
 export default function DemoDash() {
   const { data, error, loading, reload } = useCostRev();
@@ -54,7 +62,9 @@ export default function DemoDash() {
       <EtlBanner status={etl} />
       <DashShell sample={m?.isSample} meta={meta || undefined} tabs={tabs}
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
-        {error ? (
+        {STANDALONE.has(tab) ? (
+          <>{tab === "cust" && <CustomerProfitTab />}</>
+        ) : error ? (
           <div className="card">
             <div className="banner">{error}</div>
             <p className="muted">

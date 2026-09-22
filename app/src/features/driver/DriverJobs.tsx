@@ -97,6 +97,17 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
 
   const mine = plate ? moving.filter((x) => x.r.plate === plate) : [];
 
+  /**
+   * ★ รูปไมล์รถ — เป็น **เดโม** เท่านั้น (เจ้าของงานเคาะ 22 ก.ย. 2569)
+   *   กดแล้วนับว่าแนบแล้ว แต่ระบบไม่ได้เก็บไฟล์จริง เพราะโมเดลนี้ไม่มีที่เก็บไฟล์
+   *   (หลักฐานอื่น ๆ ในระบบก็เก็บแค่ลิงก์ที่ผู้ใช้วางเอง — ดู CLAUDE.md)
+   *   เก็บแค่ว่าใบไหน "แนบแล้ว" ในหน่วยความจำของหน้านี้ หายเมื่อรีเฟรช
+   */
+  const [odoStart, setOdoStart] = useState<Set<string>>(new Set());
+  const [odoEnd, setOdoEnd] = useState<Set<string>>(new Set());
+  const attach = (set: (fn: (s: Set<string>) => Set<string>) => void, id: string) =>
+    set((cur) => new Set(cur).add(id));
+
   /** เปิดกล่องยืนยันรหัสผ่านกลางจอสำหรับใบนั้น */
   function askFinish(r: TripRecord) {
     setAsking(r);
@@ -179,10 +190,24 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
                 ประมาณการถึงปลายทาง · {p.eta ? thDateSafe(p.eta) : "ไม่ทราบ"}
                 {left != null && (left > 0 ? ` (อีก ${left} วัน)` : left === 0 ? " (วันนี้)" : " (เลยกำหนดแล้ว)")}
               </div>
-              <button type="button" className="btn-green" style={{ marginTop: 12, width: "100%" }}
-                disabled={busy === r.id} onClick={() => askFinish(r)}>
+              {/* แนบรูปไมล์ก่อนเริ่มงาน/ก่อนจบงาน — ฟีเจอร์เดโม ไม่ได้เก็บไฟล์จริง */}
+              <div className="odo">
+                <button type="button" className={"odo-btn" + (odoStart.has(r.id) ? " on" : "")}
+                  onClick={() => attach(setOdoStart, r.id)}>
+                  {odoStart.has(r.id) ? "✓ แนบรูปไมล์ก่อนเริ่มงานแล้ว" : "📷 แนบรูปไมล์ก่อนเริ่มงาน"}
+                </button>
+                <button type="button" className={"odo-btn" + (odoEnd.has(r.id) ? " on" : "")}
+                  onClick={() => attach(setOdoEnd, r.id)}>
+                  {odoEnd.has(r.id) ? "✓ แนบรูปไมล์หลังเสร็จงานแล้ว" : "📷 แนบรูปไมล์หลังเสร็จงาน"}
+                </button>
+              </div>
+              <button type="button" className="btn-green" style={{ marginTop: 10, width: "100%" }}
+                disabled={busy === r.id || !odoEnd.has(r.id)} onClick={() => askFinish(r)}>
                 {busy === r.id ? "กำลังบันทึก..." : "จบงาน"}
               </button>
+              {!odoEnd.has(r.id) && (
+                <div className="odo-note">แนบรูปไมล์หลังเสร็จงานก่อนจึงจะกดจบงานได้ (เดโม — ระบบไม่ได้เก็บไฟล์จริง)</div>
+              )}
             </div>
           );
         })}

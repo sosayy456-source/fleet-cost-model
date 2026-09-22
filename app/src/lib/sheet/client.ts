@@ -9,11 +9,12 @@
  * - ต้องเช็ค version ให้ตรง ไม่งั้นสคริปต์เวอร์ชันเก่าจะเขียนข้อมูลผิดคอลัมน์เงียบ ๆ
  */
 import type { TripRecord } from "../../types/record";
+import type { PendingBill } from "../../types/bill";
 import { recordBillRows, recordToRow } from "./serialize";
 import type { Cell } from "./serialize";
 
 /** ต้องตรงกับ var VERSION ใน apps-script/Code.gs */
-export const GS_VERSION = 16;
+export const GS_VERSION = 17;
 
 const LS_URL = "gsWebAppUrl";
 const URL_PATTERN = /^https:\/\/script\.google\.com\/.*\/exec$/;
@@ -196,6 +197,23 @@ export function pushRecords(list: TripRecord[]): Promise<PushResult> {
     bills,
     billOwners: list.map((r) => r.id),
   });
+}
+
+/* ───────────────────────── บิลรอจัดรถ (แท็บใหม่ v17) ───────────────────────── */
+
+/**
+ * บิลที่ฝ่ายบริการลูกค้ากรอก — เก็บในชีตเพราะ CS กับฝ่ายจัดรถอยู่คนละเครื่อง
+ * ส่งเป็น JSON ทั้งก้อน (ไม่ใช่แถวคอลัมน์เหมือนใบรายการ) เพราะชีตแท็บนี้เป็นของโมเดลล้วน ๆ
+ * ไม่ต้องตรงกับรูปแบบรายงานเดิมของบริษัท — Apps Script กางเป็นคอลัมน์ให้อ่านด้วยตาได้อยู่แล้ว
+ */
+export async function loadBills(): Promise<PendingBill[]> {
+  const res = await postToSheet<SheetResponse & { bills?: PendingBill[] }>({ loadBills: true });
+  return (res.bills ?? []).map((b) => ({ ...b, synced: true }));
+}
+
+/** upsert บิลด้วยคีย์ id — ส่งเฉพาะบิลที่เปลี่ยน ไม่ต้องส่งทั้งชุด */
+export function pushBills(list: PendingBill[]): Promise<SheetResponse & { added?: number; updated?: number }> {
+  return postToSheet<SheetResponse & { added?: number; updated?: number }>({ pendingBills: list });
 }
 
 /**
