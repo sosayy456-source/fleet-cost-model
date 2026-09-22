@@ -1428,3 +1428,12 @@ body:has(#view-dash.active){background:#EDE7DF}
   background:var(--d-soft);border:1px solid var(--d-line);border-radius:10px;padding:8px 12px}
 .dm-fix i{width:10px;height:10px;border-radius:3px;flex:none}
 .dm-fix b{color:var(--d-ink)}
+/* แถวตัวกรองในหัวตารางของแผง — สามกล่องเลือกกว้างเท่ากัน สูงเท่าชิปกลุ่มบริการกับปุ่ม 10 อันดับ
+   และชิดเส้นล่างเดียวกัน (ป้ายชื่ออยู่เหนือกล่อง จึงต้อง align-items:flex-end) */
+.dm-head{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.dm-head .ff{display:flex;flex-direction:column;gap:5px;width:150px;flex:none}
+.dm-head .ff label{margin:0;font-size:12.5px;font-weight:500;color:var(--d-ink4);white-space:nowrap}
+.dm-head .ff select{width:100%;height:38px;margin:0;font-family:inherit;font-size:13.5px;color:var(--d-ink);
+  border:1px solid var(--d-line2);border-radius:10px;background-color:var(--d-card);padding:0 30px 0 11px}
+.dm-head .dm-fix,.dm-head .fl-toggle{height:38px;align-self:flex-end;box-sizing:border-box}
+.dm-head .fl-toggle{align-items:center}
