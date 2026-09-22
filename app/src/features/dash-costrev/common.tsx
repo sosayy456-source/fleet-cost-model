@@ -71,13 +71,17 @@ export const BASE_F0: BaseFilter = { year: "", month: "", o: "", de: "", ft: "",
 export const isFiltered = <T extends object>(f: T, f0: T): boolean =>
   (Object.keys(f0) as (keyof T)[]).some((k) => f[k] !== f0[k]);
 
-export const passBase = (t: Trip, f: BaseFilter, opts: { ignoreYear?: boolean; ignoreMonth?: boolean } = {}): boolean =>
+export const passBase = (
+  t: Trip, f: BaseFilter,
+  /** ignoreVehicle = ไม่กรองประเภท/ชนิดรถที่ระดับใบ — แท็บกองรถกรองที่ระดับรถแต่ละคันแทน
+   *  (ใบหนึ่งมีได้ถึง 3 ทะเบียนคนละชนิด ถ้ากรองจากคันที่ 1 หางจะหายทั้งที่เลือกชนิดของหาง) */
+  opts: { ignoreYear?: boolean; ignoreMonth?: boolean; ignoreVehicle?: boolean } = {},
+): boolean =>
   (opts.ignoreYear || !f.year || String(t.y) === f.year)
   && (opts.ignoreMonth || !f.month || t.mo.slice(5) === f.month)
   && (!f.o || t.o === f.o)
   && (!f.de || t.de === f.de)
-  && (!f.ft || t.ft === f.ft)
-  && (!f.vk || t.vk === f.vk);
+  && (opts.ignoreVehicle || ((!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk)));
 
 /* ---------------- รวมยอดตามกลุ่ม ---------------- */
 export interface Agg { key: string; n: number; rev: number; cost: number; profit: number; km: number; kmTrips: number }

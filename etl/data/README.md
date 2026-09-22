@@ -13,6 +13,7 @@
 | `Dashboard real data/` | ไฟล์**ต้นทุนรายเที่ยว** `RealCostandRevenue.xlsx` | `build_costrev.py` |
 | `travel/` | รายงาน**ค่าเดินทาง** | `build_alloc.py` |
 | `debtors/` | **ใบวางบิลลูกหนี้** | `build_debtors.py` |
+| `Loadfactor/` | **Load Factor รายเที่ยว** (คอลัมน์ชุดเดียวกับ `ExampleLoadfactor.xlsx`) | `build_loadfactor.py` → แท็บ "ต้นทุนที่จมกับที่ว่าง" |
 | `repair/` | รายงาน**ค่าซ่อม** | ยังไม่มีสคริปต์ — นำเข้าผ่านหน้า "การตั้งค่า" ในแอปแทน |
 
 ## ไฟล์รายได้ป้อนสามแดชบอร์ดพร้อมกัน

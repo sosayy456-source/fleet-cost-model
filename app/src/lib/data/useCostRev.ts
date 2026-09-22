@@ -56,7 +56,22 @@ export interface Trip {
   a_drv: number; a_spare: number; a_off: number;
   /** กลุ่มบริการ = ประเภทสินค้าที่พบมากสุดในบิลรายได้ของใบนั้น · "" ถ้าจับคู่ไม่ได้ */
   sg: string;
+  /** รายได้แยกกลุ่มบริการจากบิลรายได้ ไม่รวมบิลเคลียร์; ไม่มีฟิลด์นี้เมื่อเป็นข้อมูลรุ่นเก่า */
+  serviceRevenue?: Record<string, number>;
+  /**
+   * รถทุกคันของใบนี้พร้อมต้นทุนของแต่ละคัน (ไฟล์ต้นทุนรุ่น 22 ก.ย. 2569 — ใบหนึ่งมีได้ถึง 3 ทะเบียน:
+   * คันที่ 1 · คันที่ 2 (ค่าเช่า) · พ่วง) Σ c = cost เสมอ · pl/vk/ft ระดับใบยังเป็นของคันที่ 1 เหมือนเดิม
+   * ไฟล์รุ่นเก่าไม่มีฟิลด์นี้ — แท็บกองรถถอยไปนับทะเบียนเดียวต่อใบ (lib/fleetcompare/utilization.ts)
+   */
+  vs?: TripVehicle[];
   fe_tarp: number; fe_police: number; fe_insure: number; fe_cont: number; fe_port: number; fe_doc: number; fe_toll: number;
+}
+
+/** รถหนึ่งคันในใบรายการ — ต้นทุนของคันนั้นตามที่ไฟล์ปันมาให้ */
+export interface TripVehicle {
+  pl: string; vk: string; ft: string;
+  /** ต้นทุนของคันนี้ (บาท) */
+  c: number;
 }
 
 export interface CostRevManifest {

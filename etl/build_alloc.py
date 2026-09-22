@@ -19,6 +19,18 @@
     months.json     ยอดรายเดือน สำหรับกราฟแนวโน้ม
     unlinked.json   กลุ่ม "ข้อมูลไม่เชื่อมกัน" + ต้นทุนที่ไม่ปันเข้าลูกค้า (บล็อกล่างสุดของหน้า)
 
+    สามไฟล์ล่างนี้เพิ่ม 22 ก.ย. 2569 ให้แท็บ "กำไรลูกค้า" ของเมนู Demo (ตัวกรองปี/เดือน + ดูบิลรายลูกค้า)
+    cust_months.json  1 ระเบียน = ลูกค้า × เดือน เก็บเป็นคอลัมน์ · ci = ดัชนีลูกค้าใน customers.json
+                      mi = ดัชนีเดือนในลิสต์ month ของไฟล์เดียวกัน — แอปยุบกลับเป็นรายลูกค้าตามตัวกรองเอง
+    top.json          "ปี|เดือน" → {gain: [ci…], loss: [ci…]} = 10 รายอัตรากำไรสูงสุด (เฉพาะกำไร ≥ 0)
+                      กับ 10 รายอัตรากำไรต่ำสุด (เฉพาะขาดทุน) ของช่วงเวลานั้น คีย์ว่างสองข้าง "|" = ทุกช่วง
+                      "2025|" = ทั้งปี · "|07" = เดือน 7 ของทุกปี · "2025|07" = เดือนเดียว (ตรงกับตัวกรองของแอป
+                      ที่เลือกปีกับเดือนแยกกันได้) — คัดในนี้เพื่อให้ฝั่งแอปกับบิลที่แนบไปตรงกันเสมอ
+    bills.json        บิลรายใบ **เฉพาะลูกค้าที่ติด Top 10 ของช่วงใดช่วงหนึ่ง** (ci · เลขที่บิล · วันที่ ·
+                      เลขที่ใบรายการ · เส้นทาง · รายได้ · ต้นทุนจัดสรร) — ข้อมูลจริงมีบิลราว 2 ล้านใบ
+                      เก็บทุกใบไม่ไหว จึงเดินไฟล์บิลรอบที่สามเก็บเฉพาะรายที่แอปเปิดดูได้ (ที่เหลือแอปโชว์
+                      เป็นรายลูกค้าโดยกดดูบิลไม่ได้ และมีโน้ตบอกข้อจำกัดนี้)
+
 กติกาที่เจ้าของข้อมูลชี้ขาด (16 ก.ย. 2569):
     ลูกค้า = ผู้จ่ายเงิน — สด/เชื่อต้นทาง → ผู้ส่ง · สด/เชื่อปลายทาง → ผู้รับ
     บิลเคลียร์ กับ เที่ยวตีเปล่า/รถว่างไปสาขา ไม่นับเป็นลูกค้า (แต่ยังรับต้นทุนของตัวเอง
@@ -29,6 +41,7 @@
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 import statistics
 import sys
@@ -61,7 +74,7 @@ ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
 ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
 
-SAMPLE_COST = HERE / "sample_data" / "ExampleCostandRevenue.xlsx"
+SAMPLE_COST = HERE / "sample_data" / "ExampleCost.xlsx"   # เปลี่ยนชื่อไฟล์ 22 ก.ย. 2569
 SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
 REAL_COST_DIR = HERE / "data" / "travel"
 REAL_REV_DIR = HERE / "data" / "revenue"
@@ -72,6 +85,21 @@ COL_COST = "ต้นทุน"
 COL_TTYPE = "ประเภทใบรายการ"
 #: คอลัมน์ผลการจัดสรรจากเครื่อง V2 (เอกสารข้อ 8 คอลัมน์ 25-33)
 SRC_COMPUTE = "คำนวณในระบบจากไฟล์ดิบ (src/alloc.py วิธี ค)"
+#: จำนวนรายต่อฝั่งใน top.json — เจ้าของงานเคาะ 22 ก.ย. 2569 (เดิมในสเปกเขียน 100 แล้วลดเหลือ 10)
+TOP_N = 10
+
+CustKey = tuple[str, str]
+
+
+def margin_of(revenue: float, profit: float) -> float:
+    """อัตรากำไร % ของลูกค้า — กติกาเดียวกับฝั่งแอป (CustomerProfitTab.tsx) ห้ามแก้ข้างเดียว
+
+    รายได้ 0 แล้วขาดทุน = −100 (เสียต้นทุนทั้งก้อนโดยไม่ได้อะไรกลับ กติกาเดียวกับตารางเส้นทางของ Demo)
+    รายได้ 0 และไม่ขาดทุน = 0
+    """
+    if revenue > 0:
+        return profit / revenue * 100
+    return -100.0 if profit < 0 else 0.0
 
 
 # ================================================================ ยุบก้อน
@@ -85,7 +113,10 @@ class Rollup:
 
     def __init__(self) -> None:
         # (ฝ่าย, รหัส) -> [บิล, รายได้, ต้นทุนจัดสรร, กำไร, บิลที่ขาดทุน]
-        self.cust: dict[tuple[str, str], list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0])
+        self.cust: dict[CustKey, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0])
+        # (ฝ่าย, รหัส, เดือน) -> ชุดเดียวกัน — ให้แท็บกำไรลูกค้ากรองปี/เดือนได้ (บิลหนึ่งใบมีวันที่เดียว
+        # จึงอยู่เดือนเดียว ผลรวมทุกเดือนของรายหนึ่งเท่ากับ self.cust เสมอ)
+        self.cust_mo: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0])
         self.months: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
         self.dist_src: Counter[str] = Counter()
         self.basis_cond: Counter[int] = Counter()
@@ -137,7 +168,7 @@ class Rollup:
 
         b = self._bills.get(it.bill)
         if b is None:
-            self._bills[it.bill] = [side, code, it.revenue, alloc]
+            self._bills[it.bill] = [side, code, it.revenue, alloc, it.month]
         else:
             b[2] += it.revenue
             b[3] += alloc
@@ -145,21 +176,72 @@ class Rollup:
     def flush_file(self) -> int:
         """ปิดไฟล์: ยกบิลที่สะสมไว้ขึ้นเป็นลูกค้า แล้วล้างถังของไฟล์นั้น"""
         n = len(self._bills)
-        for side, code, rev, alc in self._bills.values():
-            c = self.cust[(side, code)]
-            c[0] += 1
-            c[1] += rev
-            c[2] += alc
-            c[3] += rev - alc
-            if rev - alc < 0:
-                c[4] += 1
+        for side, code, rev, alc, month in self._bills.values():
+            for c in (self.cust[(side, code)], self.cust_mo[(side, code, month)]):
+                c[0] += 1
+                c[1] += rev
+                c[2] += alc
+                c[3] += rev - alc
+                if rev - alc < 0:
+                    c[4] += 1
         self._bills = {}
         return n
 
+    # ---------------- ลำดับลูกค้า + Top 10 ต่อช่วงเวลา ----------------
+    def order(self) -> list[CustKey]:
+        """ลำดับลูกค้าที่ใช้เป็นดัชนี ci ในทุกไฟล์ — ขาดทุนมากสุดขึ้นก่อน (ลำดับเดิมของ customers.json)"""
+        return [k for k, _ in sorted(self.cust.items(), key=lambda kv: kv[1][3])]
+
+    def top_by_period(self, index: dict[CustKey, int]) -> dict[str, dict[str, list[int]]]:
+        """Top 10 อัตรากำไรสูงสุด/ต่ำสุด ของทุกช่วงเวลาที่ตัวกรองปี/เดือนของแอปเลือกได้
+
+        ★ ต้องคัดที่นี่ ไม่ใช่ฝั่งแอป — bills.json เก็บบิลเฉพาะรายที่ติดอันดับ ถ้าสองฝั่งจัดอันดับคนละสูตร
+          แถวที่แอปบอกว่ากดได้จะไม่มีบิลให้ดู · ยุบตามเดือนก่อนแล้วค่อยรวมเป็นช่วง จะได้แตะแต่ละระเบียน
+          ของ cust_mo แค่ 4 ครั้ง (ทุกช่วง · ปี · เดือน · ปี-เดือน) ไม่ใช่ไล่ทั้งตารางซ้ำทุกคีย์
+        """
+        by_month: dict[str, dict[CustKey, list[float]]] = defaultdict(dict)
+        for (side, code, month), v in self.cust_mo.items():
+            if month:
+                by_month[month][(side, code)] = v
+
+        def merge(months: list[str]) -> dict[CustKey, list[float]]:
+            acc: dict[CustKey, list[float]] = {}
+            for m in months:
+                for k, v in by_month[m].items():
+                    a = acc.get(k)
+                    if a is None:
+                        acc[k] = [v[1], v[3]]           # [รายได้, กำไร] พอสำหรับจัดอันดับ
+                    else:
+                        a[0] += v[1]; a[1] += v[3]
+            return acc
+
+        def pick(agg: dict[CustKey, list[float]]) -> dict[str, list[int]]:
+            gain = [(margin_of(r, p), p, k) for k, (r, p) in agg.items() if p >= 0]
+            loss = [(margin_of(r, p), p, k) for k, (r, p) in agg.items() if p < 0]
+            return {
+                "gain": [index[k] for _, _, k in heapq.nlargest(TOP_N, gain, key=lambda x: (x[0], x[1]))],
+                "loss": [index[k] for _, _, k in heapq.nsmallest(TOP_N, loss, key=lambda x: (x[0], x[1]))],
+            }
+
+        months = sorted(by_month)
+        years = sorted({m[:4] for m in months})
+        mms = sorted({m[5:] for m in months})
+        out: dict[str, dict[str, list[int]]] = {"|": pick(merge(months))}
+        for y in years:
+            out[f"{y}|"] = pick(merge([m for m in months if m[:4] == y]))
+        for mm in mms:
+            out[f"|{mm}"] = pick(merge([m for m in months if m[5:] == mm]))
+        for m in months:
+            out[f"{m[:4]}|{m[5:]}"] = pick(merge([m]))
+        return out
+
     # ---------------- เขียนไฟล์ ----------------
-    def write(self, out: Path, manifest: dict) -> None:
+    def write(self, out: Path, manifest: dict, top: dict[str, dict[str, list[int]]],
+              bills: list[list]) -> None:
         out.mkdir(parents=True, exist_ok=True)
-        rows = sorted(self.cust.items(), key=lambda kv: kv[1][3])   # ขาดทุนมากสุดขึ้นก่อน
+        order = self.order()                                        # ขาดทุนมากสุดขึ้นก่อน
+        index = {k: i for i, k in enumerate(order)}
+        rows = [(k, self.cust[k]) for k in order]
         # แปลงรหัสต้นฉบับเป็นเลข CUS ตั้งแต่ตรงนี้ — แดชบอร์ดจะได้ไม่ต้องโหลด custmap.bin 18 MB
         codes = resolve_codes(ROOT, {k[1] for k, _ in rows})
         customers = {
@@ -201,8 +283,36 @@ class Rollup:
                 "notLinked": round(self.nl_revenue, 2),
             },
         }
+        # ลูกค้า × เดือน — เรียงตาม (ลูกค้า, เดือน) ให้ diff อ่านง่าย · เดือนว่าง (บิลไม่มีวันที่) ทิ้ง
+        mo_index = {m: i for i, m in enumerate(mo_keys)}
+        cm = sorted(((index[(s, c)], mo_index[m], v) for (s, c, m), v in self.cust_mo.items() if m),
+                    key=lambda x: (x[0], x[1]))
+        cust_months = {
+            "month": mo_keys,
+            "ci": [ci for ci, _, _ in cm],
+            "mi": [mi for _, mi, _ in cm],
+            "bills": [int(v[0]) for _, _, v in cm],
+            "revenue": [round(v[1], 2) for _, _, v in cm],
+            "cost": [round(v[2], 2) for _, _, v in cm],
+            "profit": [round(v[3], 2) for _, _, v in cm],
+            "lossBills": [int(v[4]) for _, _, v in cm],
+        }
+        bills.sort(key=lambda b: (b[0], b[2], b[1]))
+        bills_out = {
+            "ci": [b[0] for b in bills],
+            "bill": [b[1] for b in bills],
+            "date": [b[2] for b in bills],
+            "doc": [b[3] for b in bills],
+            "route": [b[4] for b in bills],
+            "revenue": [round(b[5], 2) for b in bills],
+            "cost": [round(b[6], 2) for b in bills],
+        }
+        manifest["topCustomers"] = len({ci for v in top.values() for ci in v["gain"] + v["loss"]})
+        manifest["billsKept"] = len(bills)
         for name, obj in (("manifest.json", manifest), ("customers.json", customers),
-                          ("months.json", months), ("unlinked.json", unlinked)):
+                          ("months.json", months), ("unlinked.json", unlinked),
+                          ("cust_months.json", cust_months), ("top.json", top),
+                          ("bills.json", bills_out)):
             p = out / name
             p.write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
             print(f"  {name:16} {p.stat().st_size / 1024:>9,.1f} KB")
@@ -276,8 +386,10 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
     col = {h: i for i, h in enumerate(hdr)}
     for need in (COL_DOC, COL_BILL, "ราคารวม"):
         if need not in col:
-            sys.exit(f"ไฟล์ {path.name} ไม่ใช่ไฟล์บิล/ไฟล์ที่ปันเสร็จแล้ว (ไม่มีคอลัมน์ '{need}')\n"
-                     f"  หัวคอลัมน์ที่เจอ: {', '.join(h for h in hdr if h)[:400]}")
+            # ข้ามทั้งไฟล์แทนที่จะล้ม — กติกาเดียวกับ build_costrev/loaders/revenue.py
+            # (เคสจริง: แปลงรหัสลูกหนี้รวม.xlsx วางอยู่ใน sample_data ด้วย ถ้าล้มจะทำ ETL ทั้งชุดใช้ไม่ได้)
+            print(f"  [!] ข้าม {path.name}: ไม่ใช่ไฟล์บิล (ไม่มีคอลัมน์ '{need}')")
+            return
     idx = {k: col.get(v, -1) for k, v in BILL_COLS.items()}
     xidx = {k: col.get(v, -1) for k, v in (extra or {}).items()}
 
@@ -297,7 +409,8 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
             name=txt(g("name")), revenue=num(g("revenue")), payment=txt(g("payment")),
             sender=txt(g("sender")), receiver=txt(g("receiver")), goods=txt(g("goods")),
         )
-        it.month = d.isoformat()[:7] if d else ""
+        it.date = d.isoformat() if d else ""
+        it.month = it.date[:7]
         it.extra = {k: (r[i] if 0 <= i < len(r) else None) for k, i in xidx.items()}
         yield it
 
@@ -346,12 +459,15 @@ class TripAcc:
 
 # ================================================================ ปันส่วนจากไฟล์ดิบ
 def from_raw(cost_files: list[Path], rev_files: list[Path],
-             routes: dict[str, dict[str, float]]) -> tuple[Rollup, dict]:
+             routes: dict[str, dict[str, float]]) -> tuple[Rollup, dict, dict, list[list]]:
     """คำนวณเองจากไฟล์ดิบด้วยสูตรใน src/alloc.py — เดินไฟล์บิลสองรอบ
 
     ★ ไม่เก็บรายการไว้ในหน่วยความจำ ข้อมูลจริง 29 ไฟล์ = 5.2 ล้านแถว ถ้าอ่านค้าง
       ทั้งก้อนกิน 5.5 GB (etl/src/loaders/revenue.py:160) รอบแรกสะสมแค่ตัวหารต่อเที่ยว
       รอบสองปันจริงแล้วยุบทันที · วิธีนี้ยังถูกแม้บิลของเที่ยวเดียวกันอยู่คนละไฟล์เดือน
+    ★ รอบที่สาม (22 ก.ย. 2569) เดินไฟล์บิลอีกครั้งเพื่อเก็บบิลรายใบ **เฉพาะลูกค้าที่ติด Top 10**
+      ของช่วงเวลาใดช่วงหนึ่ง (รู้ได้หลังรอบสองจบเท่านั้น) — อ่านซ้ำถูกกว่าเก็บบิลทุกใบไว้ในหน่วยความจำ
+      ระหว่างรอบสอง ซึ่งกับข้อมูลจริงคือบิล ~2 ล้านใบ
     """
     print("อ่านรายงานค่าเดินทาง")
     trip_cost, ttype, bad_cost = load_trips(cost_files)
@@ -360,6 +476,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
     print("รอบแรก: อ่านไฟล์บิลเพื่อหาตัวหารของแต่ละเที่ยว")
     acc: dict[str, TripAcc] = {}
     docs_in_bills: set[str] = set()
+    bill_files: list[Path] = []          # เฉพาะไฟล์ที่เป็นไฟล์บิลจริง — รอบสอง/สามไม่ต้องเปิดไฟล์ที่ข้ามซ้ำ
     for path in rev_files:
         n = 0
         for it in item_reader(path):
@@ -369,7 +486,10 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
                 continue
             measure(it, routes)
             acc.setdefault(it.doc, TripAcc()).add(it)
-        print(f"  {path.name}: {n:,} รายการ")
+        if n:
+            bill_files.append(path)
+            print(f"  {path.name}: {n:,} รายการ")
+    rev_files = bill_files
 
     divisor = {doc: a.divisor() for doc, a in acc.items()}
     fill_km = {doc: a.fill() for doc, a in acc.items()}
@@ -399,6 +519,19 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
         bills = roll.flush_file()
         print(f"  {path.name}: บิลที่ปันได้ {bills:,}")
 
+    print("จัดอันดับ Top 10 อัตรากำไรต่อช่วงเวลา")
+    order = roll.order()
+    top = roll.top_by_period({k: i for i, k in enumerate(order)})
+    wanted: dict[CustKey, int] = {}
+    for v in top.values():
+        for ci in v["gain"] + v["loss"]:
+            wanted[order[ci]] = ci
+    print(f"  ช่วงเวลา {len(top):,} ชุด · ลูกค้าที่ติดอันดับ {len(wanted):,} ราย")
+
+    print("รอบสาม: เก็บบิลรายใบของลูกค้าที่ติดอันดับ")
+    bills = collect_bills(rev_files, routes, trip_cost, ttype, divisor, fill_km, from_median, wanted)
+    print(f"  บิลที่เก็บ {len(bills):,} ใบ")
+
     matched = sorted(docs_in_bills & set(trip_cost))
     info = {
         "source": SRC_COMPUTE,
@@ -416,7 +549,42 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
             "notToCustomers": round(sum(roll.excluded_cost.values()), 2),
         },
     }
-    return roll, info
+    return roll, info, top, bills
+
+
+def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
+                  trip_cost: dict[str, float], ttype: dict[str, str],
+                  divisor: dict[str, tuple[float, str]], fill_km: dict[str, float],
+                  from_median: dict[str, bool], wanted: dict[CustKey, int]) -> list[list]:
+    """บิลรายใบของลูกค้าใน wanted — ปันต้นทุนซ้ำด้วยตัวหารชุดเดียวกับรอบสอง ผลจึงเท่ากันทุกสตางค์
+
+    คืน [ci, เลขที่บิล, วันที่, เลขที่ใบรายการ, เส้นทาง, รายได้, ต้นทุนจัดสรร] ต่อบิล
+    เส้นทาง/วันที่/ใบรายการเอาจากรายการแรกของบิล (บิลหนึ่งใบอยู่ในเที่ยวเดียวและมีวันที่เดียว)
+    """
+    acc: dict[str, list] = {}
+    for path in rev_files:
+        for it in item_reader(path):
+            cost = trip_cost.get(it.doc)
+            if cost is None or exclusion_of(it, ttype.get(it.doc, "")):
+                continue
+            ci = wanted.get(payer_of(it))
+            if ci is None:
+                continue
+            measure(it, routes)
+            if it.dist is None:
+                it.dist = fill_km[it.doc]
+                it.dist_source = DIST_MEDIAN if from_median[it.doc] else DIST_FALLBACK
+            it.workload = it.basis * it.dist
+            total, source = divisor[it.doc]
+            share = weight_of(it, source) / total if total > 0 else 0.0
+            b = acc.get(it.bill)
+            if b is None:
+                route = f"{it.origin}→{it.dest}" if it.origin and it.dest else it.origin or it.dest or "(ไม่ระบุ)"
+                acc[it.bill] = [ci, it.bill, it.date, it.doc, route, it.revenue, cost * share]
+            else:
+                b[5] += it.revenue
+                b[6] += cost * share
+    return list(acc.values())
 
 
 # ================================================================ ประกอบร่าง
@@ -434,7 +602,7 @@ def build(dataset: str) -> None:
         sys.exit(f"ไม่มีไฟล์บิลใน {REAL_REV_DIR if dataset == 'real' else SAMPLE_REV_DIR}")
     routes: dict[str, dict[str, float]] = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))
     print(f"ตารางระยะทาง {sum(len(v) for v in routes.values()):,} คู่")
-    roll, info = from_raw(cost_files, rev_files, routes)
+    roll, info, top, bills = from_raw(cost_files, rev_files, routes)
 
     out = OUT_ROOT / dataset / "alloc"
     manifest = {
@@ -443,7 +611,7 @@ def build(dataset: str) -> None:
         "generatedAt": datetime.now().replace(microsecond=0).isoformat(),
         **info,
     }
-    roll.write(out, manifest)
+    roll.write(out, manifest, top, bills)
     print(f"เขียน {out.relative_to(ROOT)}  (ที่มา: {info['source']})")
     roll.report()
     c = manifest["cost"]

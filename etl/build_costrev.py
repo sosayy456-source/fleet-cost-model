@@ -1,7 +1,7 @@
 """แปลงไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) เป็น JSON ให้แดชบอร์ด Executive / รวม
 
     python etl/build_costrev.py --dataset sample
-        ต้นทุน  etl/sample_data/ExampleCostandRevenue.xlsx
+        ต้นทุน  etl/sample_data/ExampleCost.xlsx   (รุ่น 22 ก.ย. 2569 — เดิมชื่อ ExampleCostandRevenue.xlsx)
         รายได้  RevenueDashboard/RevenueDashboard/sample_data/bill_*.xlsx
     python etl/build_costrev.py --dataset real
         ต้นทุน  etl/data/Dashboard real data/*.xlsx   (RealCostandRevenue.xlsx)
@@ -38,6 +38,21 @@
   Application Control บล็อก DLL ของ pyarrow ตั้งแต่ 16 ก.ย. (build_json.py ยังพัง)
 ★ วันที่ปล่อยรถในไฟล์ปนปี ค.ศ. กับ พ.ศ. ในคอลัมน์เดียว — parse_date แปลงเป็น ค.ศ. ทั้งหมด
 ★ เลขที่ใบรายการต้องเทียบเป็นสตริงเป๊ะ ๆ (13 หลัก) ห้ามแปลงเป็นตัวเลข เลข 0 นำหน้าจะหาย
+
+ไฟล์ต้นทุนรุ่นใหม่ (22 ก.ย. 2569 · ExampleCost.xlsx 79 คอลัมน์ ข้อมูลจริงคอลัมน์ตรงกันทุกประการ):
+    หัวตารางอยู่แถวที่ 2 (find_header_row หาให้) · คอลัมน์เปลี่ยนชื่อ ค่าซ่อมรวม → รวมค่าซ่อม · ค่าเสื่อม → รวมค่าเสื่อม
+    (รับทั้งสองชื่อผ่าน alias) · รายได้/ระยะทางในไฟล์ตรงกับกติกาเดิมทุกแถว จึงยังคิดแบบเดิม
+    ★ ใบรายการหนึ่งใบมีได้ถึง 3 ทะเบียน และไฟล์ปันต้นทุนต่อคันมาให้แล้ว (ต้นทุน = R + S + T ตรวจแล้ว 9,999/9,999):
+        คันที่ 1  ทะเบียนรถ (K) ชนิดรถ (J) ประเภทรถ (I)            ต้นทุนรถคันที่ 1 (R)
+        คันที่ 2  ทะเบียนรถคันที่2 (L) ชนิด (M) ประเภท (N)          ต้นทุนรถคันที่ 2 (S) = ค่าเช่า (กรณี 3 คัน)
+        พ่วง     ทะเบียนพ่วง (O) ชนิด (P) ประเภท (Q)               ต้นทุนรถพ่วง (T) = ค่าเสื่อมหาง + ค่าซ่อมหาง
+      หาง/หัวที่มีเลขที่ใบรายการคนละใบ (กรณี 3) แยกเป็นแถวของตัวเองอยู่แล้ว ไม่ต้องทำอะไร
+      เจ้าของงานเคาะ 22 ก.ย. 2569: **นับทุกทะเบียนในใบเป็นคัน** ต้นทุนต่อคันตาม R/S/T และ**แบ่งรายได้ตามสัดส่วน R:S:T**
+      (แท็บกองรถ lib/fleetcompare/utilization.ts) → ETL เก็บ `vs` = รายการรถของใบ [{pl, vk, ft, c}] ส่วน pl/vk/ft/cost
+      ระดับใบยังเป็นของคันที่ 1 + ต้นทุนทั้งใบเหมือนเดิม แท็บอื่นจึงไม่เปลี่ยน · ไฟล์รุ่นเก่าไม่มี R/S/T → vs มีคันเดียว
+    ★ ค่าเช่า: แถวหมายเหตุ "ค่าเช่า" ต้นทุน = ค่าเช่ารวม + ต้นทุนรถพ่วง (325 แถวมีหาง จึงเลิกเช็คว่าต้นทุน = ค่าเช่ารวมพอดี)
+      แถว "ค่าเดินทาง+ค่าเช่า" (3 คัน) ค่าเช่า = ต้นทุนรถคันที่ 2 (S) ตามที่ต้นทุนรวมใช้ ไม่ใช่ ค่าเช่ารวม ที่ต่างอยู่ 200
+      (เจ้าของงานเคาะ 22 ก.ย. 2569) · แถว "ค่าเดินทาง" ค่าเช่ารวม > 0 ถึง 8,097 แถว แต่ไม่อยู่ในต้นทุน — บันทึกประกอบเหมือนเดิม
 """
 from __future__ import annotations
 
@@ -63,7 +78,7 @@ ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
 ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
 
-SAMPLE_COST = HERE / "sample_data" / "ExampleCostandRevenue.xlsx"
+SAMPLE_COST = HERE / "sample_data" / "ExampleCost.xlsx"
 SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
 REAL_COST_DIR = HERE / "data" / "Dashboard real data"
 REAL_REV_DIR = HERE / "data" / "revenue"
@@ -98,6 +113,18 @@ FEE_COLS = {
 COL_REPAIR = "ค่าซ่อมรวม"
 COL_DEP = "ค่าเสื่อม"
 COL_RENT = "ค่าเช่ารวม"
+#: ชื่อคอลัมน์รุ่นใหม่ → ชื่อที่โค้ดใช้ (ไฟล์รุ่น 22 ก.ย. 2569 รวมหัว+หางแล้วเปลี่ยนชื่อ)
+COL_ALIASES = {"รวมค่าซ่อม": COL_REPAIR, "รวมค่าเสื่อม": COL_DEP}
+#: ค่าซ่อม/ค่าเสื่อมของ "หาง" อย่างเดียว — ใช้กับแถวค่าเช่า (ดูเหตุผลที่ rent_row ใน build)
+COL_REPAIR_TAIL = "ค่าซ่อมหาง"
+COL_DEP_TAIL = "ค่าเสื่อมหาง"
+#: ทะเบียนในใบเดียวกัน (คันที่ 1 · คันที่ 2 · พ่วง) กับคอลัมน์ต้นทุนของแต่ละคัน — ไฟล์รุ่นเก่าไม่มีคอลัมน์ต้นทุนต่อคัน
+VEHICLE_COLS = [
+    ("ทะเบียนรถ", "ชนิดรถ", "ประเภทรถ", "ต้นทุนรถคันที่ 1"),
+    ("ทะเบียนรถคันที่2", "ชนิดทะเบียนคันที่2", "ประเภททะเบียนคันที่2", "ต้นทุนรถคันที่ 2"),
+    ("ทะเบียนพ่วง", "ชนิดทะเบียนพ่วง", "ประเภทรถพ่วง", "ต้นทุนรถพ่วง"),
+]
+COL_COST2 = "ต้นทุนรถคันที่ 2"
 COL_COST = "ต้นทุน"
 COL_REV1 = "ราคารวมจากรายได้"
 COL_REV2 = "ค่าบรรทุกทั้งใบรายการ"
@@ -240,6 +267,7 @@ def load_revenue(rev_dir: Path, want: set[str]):
     goods: dict[str, Counter] = {}     # ประเภทสินค้าที่พบในบิลของแต่ละใบ → กลุ่มบริการของเที่ยว
     bill_n: dict[str, int] = {}        # จำนวนบิลทั้งหมดของใบนั้น (รวมที่ชำระแล้ว)
     payers: dict[str, set[str]] = {}   # รหัสผู้จ่ายเงินของใบนั้น (ไม่ซ้ำ)
+    service_revenue: dict[str, dict[str, float]] = {}  # ยอดรายได้รายกลุ่ม รวมทั้งบิลที่ชำระแล้ว
     rows_seen = 0
     paid_seen = 0
     paid_total = 0.0
@@ -279,7 +307,10 @@ def load_revenue(rev_dir: Path, want: set[str]):
                        else text(g(r, "ผู้รับ_encoded")) if pay in PAYER_RECEIVER else "")
                 if who:
                     payers.setdefault(doc, set()).add(who)
-
+            if goods_type != GOODS_CLEARED:
+                service = goods_type or "ไม่ระบุ"
+                amounts = service_revenue.setdefault(doc, {})
+                amounts[service] = amounts.get(service, 0.0) + num(g(r, "ราคารวม"))
             status = text(g(r, "สถานะการชำระเงิน"))
             if status != PAYMENT_UNPAID:
                 # ★ เก็บเฉพาะบิลที่ยังค้างชำระ (เจ้าของข้อมูลเลือกทางนี้ 16 ก.ย. 2569)
@@ -309,7 +340,8 @@ def load_revenue(rev_dir: Path, want: set[str]):
             })
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
     return (doc_set, bills, len(files), rows_seen,
-            {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n, goods, bill_n, payers)
+            {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n,
+            goods, bill_n, payers, service_revenue)
 
 
 # ---------------------------------------------------------------- ต้นทุน
@@ -338,6 +370,10 @@ def build(dataset: str) -> None:
         hrow = find_header_row(cf, "เลขที่ใบรายการ")
         hdr, rows = read_sheet(cf, hrow)
         col = {h: i for i, h in enumerate(hdr)}
+        for new, old in COL_ALIASES.items():
+            if new in col and old not in col:
+                col[old] = col[new]
+        split_cost = all(c[3] in col for c in VEHICLE_COLS)   # ไฟล์รุ่นใหม่ปันต้นทุนต่อคันมาให้
         missing = [c for c in [COL_COST, COL_REV2, "เลขที่ใบรายการ", "วันที่ปล่อยรถ", "ประเภทใบรายการ"] if c not in col]
         if missing:
             sys.exit(f"{cf.name} ขาดคอลัมน์ {missing}")
@@ -373,16 +409,33 @@ def build(dataset: str) -> None:
             kind = text(g(r, "ชนิดรถ"))
             kinds[kind] += 1
 
+            note = text(g(r, "หมายเหตุต้นทุน"))
+            # ★ แถวค่าเช่า: คอลัมน์ ต้นทุน = ค่าเช่ารวม + ต้นทุนรถพ่วง (= ค่าเสื่อมหาง + ค่าซ่อมหาง) เท่านั้น
+            #   ไฟล์ยังกรอกค่าเสื่อม/ค่าซ่อม "หัว" กับ "ค่าประกันสินค้า" ไว้ แต่ไม่ได้อยู่ในต้นทุนของแถว
+            #   (รถเช่าไม่ใช่รถบริษัท ค่าพวกนั้นเป็นของเจ้าของรถ) — ถ้านับเข้ากลุ่ม ต้นทุนรายกลุ่มจะบวกเกิน
+            #   คอลัมน์ ต้นทุน แล้วกลุ่ม "อื่น ๆ" ติดลบ (ชุดตัวอย่าง −631,445 จากหัว และ −205,950 จากค่าประกัน)
+            #   เจ้าของงานเคาะ 22 ก.ย. 2569: แถวค่าเช่านับเฉพาะของหาง และไม่นับค่าประกันสินค้า
+            rent_row = note == "ค่าเช่า" and split_cost
             fuel = {k: gsum(r, cs) for k, cs in FUEL_COLS.items()}
             allow = {k: gsum(r, cs) for k, cs in ALLOW_COLS.items()}
-            fee = {k: gsum(r, cs) for k, cs in FEE_COLS.items()}
+            fee = {k: (0.0 if rent_row else gsum(r, cs)) for k, cs in FEE_COLS.items()}
             waste = gsum(r, WASTE_COLS)
-            repair = num(g(r, COL_REPAIR))
-            dep = num(g(r, COL_DEP))
+            repair = num(g(r, COL_REPAIR_TAIL if rent_row else COL_REPAIR))
+            dep = num(g(r, COL_DEP_TAIL if rent_row else COL_DEP))
             # ค่าเช่าอยู่ใน "ต้นทุน" เฉพาะแถวที่ หมายเหตุต้นทุน = ค่าเช่า (ต้นทุน = ค่าเช่ารวม ทั้งก้อน)
             # แถว "ค่าเดินทาง" ต้นทุน = Σ คอลัมน์ค่าแก๊ส…ค่าซ่อมรวม ส่วน ค่าเช่ารวม เป็นแค่บันทึกประกอบ
-            note = text(g(r, "หมายเหตุต้นทุน"))
-            rent = num(g(r, COL_RENT)) if "ค่าเช่า" in note and abs(num(g(r, COL_RENT)) - cost) < 1 else 0.0
+            if split_cost:
+                # รุ่นใหม่: "ค่าเช่า" → ค่าเช่ารวม (= ต้นทุนรถคันที่ 1 ส่วนที่เหลือของต้นทุนคือหาง)
+                #          "ค่าเดินทาง+ค่าเช่า" → ต้นทุนรถคันที่ 2 (ค่าเช่าของคันที่ 2 ตามที่ต้นทุนรวมใช้)
+                rent = num(g(r, COL_RENT)) if note == "ค่าเช่า" else num(g(r, COL_COST2)) if "ค่าเช่า" in note else 0.0
+            else:
+                rent = num(g(r, COL_RENT)) if "ค่าเช่า" in note and abs(num(g(r, COL_RENT)) - cost) < 1 else 0.0
+            # รายการรถของใบ — ทุกทะเบียนที่มี พร้อมต้นทุนของคันนั้น (รุ่นเก่า: คันเดียว ต้นทุนทั้งใบ)
+            if split_cost:
+                vs = [{"pl": text(g(r, pc)), "vk": text(g(r, kc)), "ft": text(g(r, fc)), "c": round(num(g(r, cc)), 2)}
+                      for pc, kc, fc, cc in VEHICLE_COLS if text(g(r, pc))]
+            else:
+                vs = [{"pl": text(g(r, "ทะเบียนรถ")), "vk": kind, "ft": text(g(r, "ประเภทรถ")), "c": round(cost, 2)}]
             fuel_t = round(sum(fuel.values()), 2)
             allow_t = round(sum(allow.values()), 2)
             fee_t = round(sum(fee.values()), 2)
@@ -411,6 +464,7 @@ def build(dataset: str) -> None:
                 # จำนวนบิล + รหัสผู้จ่ายเงินของใบนั้น (หน้า Demo ใช้เป็นตัวหาร กำไร/บิล และ กำไร/ลูกค้า)
                 "bn": 0, "cus": [],
                 "sg": "",     # กลุ่มบริการ — เติมทีหลังจากบิลรายได้ (ดูกติกาข้างบน)
+                "vs": vs,     # รถทุกคันในใบ + ต้นทุนต่อคัน (แท็บกองรถนับทุกคันและแบ่งรายได้ตามสัดส่วน)
                 # กลุ่มต้นทุน — ยอดที่คำนวณต่อได้ (ปกติ/ผันแปร/อื่น ๆ) ไม่เก็บ ให้ฝั่งแอปคิดเอง ไฟล์จะได้เล็ก
                 "waste": waste, "fuel": fuel_t, "allow": allow_t, "fee": fee_t,
                 "repair": repair, "dep": dep, "rent": rent,
@@ -426,7 +480,7 @@ def build(dataset: str) -> None:
     print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
     cost_docs = {t["id"] for t in trips}
     (rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n, goods,
-     bill_n, payers) = load_revenue(rev_dir, cost_docs)
+     bill_n, payers, service_revenue) = load_revenue(rev_dir, cost_docs)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
     for t in trips:
         t["m"] = t["id"] in rev_docs
@@ -440,6 +494,10 @@ def build(dataset: str) -> None:
         t["cus"] = sorted(payers.get(t["id"], ()))
         gc = goods.get(t["id"])
         t["sg"] = gc.most_common(1)[0][0] if gc else ""
+        t["serviceRevenue"] = {
+            service: round(amount, 2)
+            for service, amount in sorted(service_revenue.get(t["id"], {}).items())
+        }
 
     matched = [t for t in trips if t["m"]]
     route_pairs = {(t["o"], t["de"]) for t in trips if t["o"] and t["de"]}

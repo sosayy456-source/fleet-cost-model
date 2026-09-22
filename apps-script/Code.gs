@@ -1,5 +1,5 @@
 /**
- * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 16)
+ * โมเดลต้นทุนการเดินรถ → บันทึกลง Google Sheet   (VERSION 17)
  * ใช้คู่กับไฟล์ โมเดลเดินรถ-gsheet.html
  *
  * ── วิธีติดตั้ง ──────────────────────────────────────────────
@@ -27,7 +27,7 @@
  * "ข้อมูลเก่า" คือขึ้นในโมเดลทันที อ่านอย่างเดียว ไม่ต้องรอสถานะ 3 ฝ่ายครบ
  */
 
-var VERSION = 16;                        // ต้องตรงกับ GS_VERSION ใน app/src/lib/sheet/client.ts
+var VERSION = 17;                        // ต้องตรงกับ GS_VERSION ใน app/src/lib/sheet/client.ts
 
 // ★ ชีตปลายทางที่จะเขียนข้อมูลลง
 //   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
@@ -39,6 +39,16 @@ var SPREADSHEET_ID = '';
 var SHEET_NAME = 'ข้อมูลใหม่';
 var DEBT_SHEET_NAME = 'ลูกหนี้';
 var DONE_SHEET_NAME = 'จบงาน';           // log การกดจบงานของคนขับ — เขียนต่อท้ายอย่างเดียว
+
+// แท็บบิลที่ฝ่ายบริการลูกค้ากรอกแต่ยังไม่ได้จัดรถ (v17)
+// ★ CS กับฝ่ายจัดรถอยู่คนละเครื่อง ต้องเห็นบิลของกันและกัน จึงเก็บที่ชีตไม่ใช่ในเครื่อง
+//   บิลที่จัดรถแล้วไม่ถูกลบ — เปลี่ยนสถานะเป็น "จัดรถแล้ว" แล้วเติมเลขที่ใบรายการ
+var BILL_SHEET_NAME = 'บิลรอจัดรถ';
+var BILL_HEADERS = [
+  'BillID','เลขที่บิล','สถานะ','เลขที่ใบรายการ','วันที่รับสินค้า','สาขา',
+  'ผู้ส่ง','ผู้รับ','ต้นทาง','ปลายทาง','กลุ่มบริการ',
+  'จำนวน','น้ำหนักรวม(กก.)','กว้าง(ซม.)','ยาว(ซม.)','สูง(ซม.)','ปริมาตรรวม(ลบ.ม.)',
+  'ประเภทการชำระเงิน','เกณฑ์คิดราคา','ราคา/หน่วย','ราคารวม','เวลาที่บันทึก','เวลาที่แก้ล่าสุด'];
 
 // ── ข้อมูลเก่า ──────────────────────────────────────────────
 // ทุกแท็บที่ "ชื่อขึ้นต้นด้วย" คำนี้ จะถูกอ่านเข้ามาแสดงในโมเดลเป็นข้อมูลเก่า (อ่านอย่างเดียว)
@@ -106,6 +116,48 @@ var ID_COL    = HEADERS.indexOf('ID') + 1;          // คีย์สำหร�
 var DATA_COL  = HEADERS.indexOf(DATA_COL_NAME) + 1; // เก็บ JSON เต็มของใบ ไว้ให้หน้าเว็บอ่านกลับ
 var DOC_COL   = HEADERS.indexOf('เลขที่ใบรายการ') + 1;
 var OWNER_COL = DEBT_HEADERS.indexOf('ID ใบรายการ') + 1;
+var BILL_ID_COL = BILL_HEADERS.indexOf('BillID') + 1;
+
+/** แถวชีต ← ออบเจ็กต์บิลจากหน้าเว็บ (ลำดับต้องตรงกับ BILL_HEADERS เป๊ะ ๆ) */
+function billToRow_(b) {
+  return [
+    String(b.id || ''), String(b.no || ''), String(b.status || ''), String(b.docNo || ''),
+    String(b.date || ''), String(b.branch || ''),
+    String(b.sender || ''), String(b.receiver || ''), String(b.origin || ''), String(b.dest || ''),
+    String(b.serviceGroup || ''),
+    Number(b.qty) || 0, Number(b.weight) || 0,
+    Number(b.width) || 0, Number(b.length) || 0, Number(b.height) || 0, Number(b.volume) || 0,
+    String(b.payType || ''), String(b.pricingType || ''), Number(b.unitPrice) || 0, Number(b.total) || 0,
+    String(b.createdAt || ''), String(b.updatedAt || '')];
+}
+
+/** ออบเจ็กต์บิล ← แถวชีต */
+function rowToBill_(r) {
+  return {
+    id: String(r[0] || ''), no: String(r[1] || ''), status: String(r[2] || ''), docNo: String(r[3] || ''),
+    date: String(r[4] || ''), branch: String(r[5] || ''),
+    sender: String(r[6] || ''), receiver: String(r[7] || ''), origin: String(r[8] || ''), dest: String(r[9] || ''),
+    serviceGroup: String(r[10] || ''),
+    qty: Number(r[11]) || 0, weight: Number(r[12]) || 0,
+    width: Number(r[13]) || 0, length: Number(r[14]) || 0, height: Number(r[15]) || 0, volume: Number(r[16]) || 0,
+    payType: String(r[17] || ''), pricingType: String(r[18] || ''),
+    unitPrice: Number(r[19]) || 0, total: Number(r[20]) || 0,
+    createdAt: String(r[21] || ''), updatedAt: String(r[22] || '')
+  };
+}
+
+/** อ่านบิลทั้งหมดในแท็บ "บิลรอจัดรถ" */
+function readPendingBills_() {
+  var sh = getSheet_(BILL_SHEET_NAME, BILL_HEADERS);
+  var last = sh.getLastRow();
+  if (last < 2) return [];
+  var values = sh.getRange(2, 1, last - 1, BILL_HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0] || '')) out.push(rowToBill_(values[i]));
+  }
+  return out;
+}
 
 function doGet() {
   return json({ ok: true, version: VERSION, msg: 'โมเดลต้นทุนการเดินรถ API พร้อมใช้งาน (v' + VERSION + ')' });
@@ -151,6 +203,15 @@ function doPost(e) {
     }
   }
 
+  // โหลดบิลที่ฝ่ายบริการลูกค้ากรอก (ทุกสถานะ) — อ่านอย่างเดียว ไม่ต้องรอล็อก
+  if (body.loadBills) {
+    try {
+      return json({ ok: true, version: VERSION, bills: readPendingBills_() });
+    } catch (err) {
+      return json({ ok: false, version: VERSION, error: String(err) });
+    }
+  }
+
   // โหลดข้อมูลเก่ามาแสดงในโมเดล (เที่ยววิ่ง + ลูกหนี้) — อ่านอย่างเดียว ไม่ต้องรอล็อก
   if (body.loadOld) {
     try {
@@ -172,6 +233,35 @@ function doPost(e) {
         'มีการบันทึกอื่นค้างอยู่ ยังแทรกไม่ได้ — รอสักครู่แล้วกดบันทึกใหม่อีกครั้ง ' +
         '(ถ้าเกิน 5 นาทีแล้วยังไม่หาย ให้เปิด Apps Script → บันทึกการดำเนินการ ' +
         'ดูว่ามีรายการสถานะ "กำลังทำงาน" ค้างอยู่หรือไม่)' });
+    }
+
+    // upsert บิลรอจัดรถด้วยคีย์ BillID — แท็บของโมเดลล้วน ๆ ไม่ไปยุ่งกับแท็บใบรายการ
+    if (body.pendingBills) {
+      var bsh = getSheet_(BILL_SHEET_NAME, BILL_HEADERS);
+      var blist = body.pendingBills || [];
+      var bLast = bsh.getLastRow();
+      var bMap = {};
+      if (bLast >= 2) {
+        var ids = bsh.getRange(2, BILL_ID_COL, bLast - 1, 1).getValues();
+        for (var bi = 0; bi < ids.length; bi++) {
+          var bid = String(ids[bi][0] || '');
+          if (bid) bMap[bid] = bi + 2;
+        }
+      }
+      var bAdded = 0, bUpdated = 0;
+      for (var bj = 0; bj < blist.length; bj++) {
+        var brow = padRow_(billToRow_(blist[bj]), BILL_HEADERS.length);
+        var bkey = String(brow[BILL_ID_COL - 1]);
+        if (bMap[bkey]) {
+          bsh.getRange(bMap[bkey], 1, 1, brow.length).setValues([brow]);
+          bUpdated++;
+        } else {
+          bsh.appendRow(brow);
+          bMap[bkey] = bsh.getLastRow();
+          bAdded++;
+        }
+      }
+      return json({ ok: true, version: VERSION, added: bAdded, updated: bUpdated });
     }
 
     // log การจบงาน — เขียนต่อท้ายอย่างเดียว ไม่ upsert แล้วจบ ไม่ไปยุ่งกับแท็บใบรายการ

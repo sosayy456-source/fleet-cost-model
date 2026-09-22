@@ -37,21 +37,39 @@ function Trend({ data }: { data: number[] }) {
  * การ์ดเด่นพื้นไล่สี — หนึ่งใบต่อแท็บ ยกเว้นแท็บหลักที่มีสามใบ
  * unit  = ชิปหน่วยมุมขวาบน (ดีไซน์ 1A) · trend = ชุดตัวเลขจริงสำหรับเส้นแนวโน้ม
  * ไม่ส่ง trend → ใช้เส้นตกแต่ง SPARK แบบเดิม (หน้าที่ยังไม่มีชุดข้อมูลรายเดือนให้)
+ * vSub  = ตัวเล็กข้างตัวเลขใหญ่ เช่น "(81%)" — อยู่นอก .v เพราะ useCountUp เขียน textContent ทับทั้งกล่อง
+ * onClick/active = การ์ดกดได้ (แท็บกำไรลูกค้าของ Demo ใช้กรองตาราง) — ไม่ส่ง = การ์ดธรรมดา
  */
-export function Hero({ kind, l, v, s, unit, trend }: {
+export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active }: {
   kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc";
   l: string; v: string; s?: ReactNode;
   unit?: string;
   trend?: number[];
+  vSub?: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
+  const cls = `dz-kc hero ${kind}` + (trend ? " has-trend" : "") + (onClick ? " clickable" : "") + (active ? " on" : "");
+  const press = onClick ? {
+    role: "button", tabIndex: 0, onClick,
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } },
+    "aria-pressed": !!active,
+  } : {};
   return (
-    <div className={`dz-kc hero ${kind}` + (trend ? " has-trend" : "")}>
+    <div className={cls} {...press}>
       <div className="hh">
         <div className="l">{l}</div>
         {unit && <span className="u">{unit}</span>}
       </div>
       {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
-      <div className="v" key={v} data-real={v}>{v}</div>
+      {vSub ? (
+        <div className="vrow">
+          <div className="v" key={v} data-real={v}>{v}</div>
+          <span className="vs">{vSub}</span>
+        </div>
+      ) : (
+        <div className="v" key={v} data-real={v}>{v}</div>
+      )}
       {trend ? (
         <div className="hf">
           {s && <div className="s">{s}</div>}

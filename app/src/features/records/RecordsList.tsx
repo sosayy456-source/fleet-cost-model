@@ -4,7 +4,7 @@
  * แสดงเฉพาะใบที่กรอกครบทั้ง 3 ฝ่าย (ใบร่างอยู่หน้า “ใบที่ยังไม่ครบ”) เหมือน v5
  * กดที่ป้ายสถานะ = กางแถวรายละเอียดลูกหนี้ของใบนั้น
  */
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { billIsPaid, billPayDate, recBills, recStatus } from "../../lib/record/payment";
 import { savedAt, thDateSafe, todayISO } from "../../lib/record/date";
 import { roleAllDone } from "../../lib/record/roles";
@@ -14,6 +14,10 @@ import { ShortId } from "../../lib/custmap/ShortId";
 import { CASH_ORIGIN, ST_PAID, ST_PARTIAL } from "../../types/record";
 import { duplicateRecord } from "../../lib/record/duplicate";
 import GrowBox from "../../lib/ui/GrowBox";
+import TripDetailModal from "./TripDetailModal";
+import { buildForecast } from "../../lib/forecast/forecast";
+import type { ForecastTable } from "../../lib/forecast/forecast";
+import { loadCostRev } from "../../lib/data/useCostRev";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
 
@@ -41,6 +45,16 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set());
+  /** ใบที่เปิดป็อบอัพรายละเอียดอยู่ (null = ไม่เปิด) + ตารางค่าเฉลี่ยต้นทุนไว้เทียบพยากรณ์ */
+  const [detail, setDetail] = useState<TripRecord | null>(null);
+  const [fcTable, setFcTable] = useState<ForecastTable | null>(null);
+  useEffect(() => {
+    let alive = true;
+    loadCostRev()
+      .then((d) => { if (alive) setFcTable(buildForecast(d.trips)); })
+      .catch(() => { /* ไม่มีไฟล์ต้นทุน = ไม่มีตัวเลขพยากรณ์ ป็อบอัพยังเปิดดูบิลได้ */ });
+    return () => { alive = false; };
+  }, []);
 
   // แถวจากชีต ("locked") ติดป้าย source เอง — อาจเป็น "เก่า" หรือ "ใหม่" (พิมพ์ตรงในชีต) ก็ได้
   const isOld = (r: TripRecord) => r.source === "เก่า";
@@ -190,7 +204,16 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                 return (
                   // key ต้องอยู่ที่ Fragment (ตัวที่ map คืน) ไม่ใช่ที่ <tr> ข้างใน
                   <Fragment key={`${r.id}-${i}`}>
-                    <tr className={locked ? "oldrow" : undefined}>
+                    {/* กดที่แถว = เปิดป็อบอัพรายละเอียด (สเปกฝ่ายบัญชี 22 ก.ย. 2569)
+                        ★ เฉพาะ "เที่ยวที่บันทึกใหม่ในโมเดล" — แถวข้อมูลเก่าจากไฟล์/ชีตไม่มีบิลและ
+                          ไม่มีรายละเอียดกลุ่มต้นทุนให้เทียบ กดแล้วจะได้ตารางที่อ่านแล้วเข้าใจผิด
+                        ปุ่ม/ชิปในแถวเรียก stopPropagation เองไม่ได้ทุกตัว จึงเช็คว่ากดโดนปุ่มไหม */}
+                    <tr className={locked ? "oldrow" : "clickable"}
+                      title={locked ? undefined : "กดเพื่อดูรายละเอียดบิลและต้นทุนของเที่ยวนี้"}
+                      onClick={locked ? undefined : (e) => {
+                        if ((e.target as HTMLElement).closest("button, .badge, .act")) return;
+                        setDetail(r);
+                      }}>
                       <td>
                         <span className={"badge " + (old ? "src-old" : "src-new")}>
                           {old ? "ข้อมูลเก่า" : "ข้อมูลใหม่"}
@@ -280,6 +303,8 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
         ทั้งหมด {list.length.toLocaleString("th-TH")} รายการ · ใหม่ {newCount} · เก่า {oldCount} · เลื่อนในกล่องเพื่อดูต่อ
       </div>
       {msg && <div className="msg" style={{ color: "var(--green)", marginTop: 6 }}>{msg}</div>}
+
+      {detail && <TripDetailModal rec={detail} table={fcTable} onClose={() => setDetail(null)} />}
     </>
   );
 }

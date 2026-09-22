@@ -26,6 +26,7 @@ import { KM_PER_DAY, tripProgress, tripStart } from "../../lib/record/tripEta";
 import { finishTrip } from "../../lib/store/finishTrip";
 import { ShortId, custLabel } from "../../lib/custmap/ShortId";
 import { useRoster } from "../../lib/store/roster";
+import FleetRoster from "../entry/panels/FleetRoster";
 import type { OldDebtor, RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
 
@@ -1345,13 +1346,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
         : latest ? "รอออกเดินทาง" : "ไม่มีประวัติ");
     }
 
-    // ว่างมากี่วัน — นับจากวันที่จบงานจริง ถ้าไม่มีก็วันที่ประมาณว่าถึง
-    const since = arrived
-      ? (arrived._tripDoneDate ?? tripProgress(arrived, today).eta ?? tripStart(arrived)) : null;
-    const idleDays = statusKey === "idle" && since
-      ? Math.max(0, daysBetween(since, today) ?? 0) : null;
-
-    return { v, latest, idleDays, statusKey, position, eta: p?.eta ?? null };
+    return { v, latest, statusKey, position, eta: p?.eta ?? null };
   }), [roster, base, today]);
 
   async function onFinish(r: TripRecord) {
@@ -1415,11 +1410,12 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
           <div className="scroll">
             <table className="dz-tbl">
               <thead><tr>
+                {/* คอลัมน์ "ว่างมาแล้ว" ถูกตัดออกตามสเปก 22 ก.ย. 2569 — ตำแหน่งปัจจุบันคือจุดลงของเที่ยวล่าสุด */}
                 <th>ทะเบียนรถ</th><th>ชนิดรถ</th><th>สถานะ</th><th>ตำแหน่งปัจจุบัน</th>
-                <th>ใบล่าสุด</th><th>ประมาณการเสร็จ</th><th className="n">ว่างมาแล้ว</th><th />
+                <th>ใบล่าสุด</th><th>ประมาณการเสร็จ</th><th />
               </tr></thead>
               <tbody>
-                {shown.length === 0 ? <Empty cols={8} text="ไม่พบรถตามเงื่อนไข" /> : shown.map((x) => (
+                {shown.length === 0 ? <Empty cols={7} text="ไม่พบรถตามเงื่อนไข" /> : shown.map((x) => (
                   <tr key={x.v.plate}>
                     <td style={{ fontWeight: 700 }}>{x.v.plate}</td>
                     <td>{x.v.vehicle || "–"}</td>
@@ -1427,7 +1423,6 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
                     <td>{x.position}</td>
                     <td>{x.latest ? `${thDateSafe(x.latest.date)} · ${x.latest.docNo || "–"}` : "ไม่มีประวัติ"}</td>
                     <td>{x.statusKey === "moving" ? (x.eta ? thDateSafe(x.eta) : "ไม่ทราบ") : "–"}</td>
-                    <td className="n">{x.idleDays == null ? "–" : `${fmt(x.idleDays)} วัน`}</td>
                     <td>
                       {/* ใบข้อมูลเก่าจากชีตแก้ไม่ได้ จึงไม่มีปุ่มให้กด */}
                       {x.statusKey === "moving" && x.latest && x.latest.source !== "เก่า" && (
@@ -1452,6 +1447,10 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
           ใบที่ไม่ได้กรอกระยะทางและไม่มีเส้นทางในตาราง จะประมาณไม่ได้ ต้องกดจบงานเอง ·
           รถที่ตั้ง “สถานะ” เป็นอื่นนอกจาก “ใช้งาน” ในหน้าทะเบียนรถจะขึ้นว่าไม่พร้อมใช้งานทันทีโดยไม่ดูใบ
         </Note>
+
+        {/* ★ แผงทะเบียนรถย้ายมาจากโซนฝ่ายจัดรถในฟอร์มบันทึกข้อมูล (สเปก 22 ก.ย. 2569)
+            ฟอร์มตัดส่วนนี้ออกแล้ว การเพิ่ม/ลบรถอยู่ที่นี่ที่เดียว — ตรงกับที่ใช้ดูสถานะรถพอดี */}
+        <FleetRoster />
       </Pane>
     </>
   );
@@ -1857,6 +1856,7 @@ function DebtPane({ state }: { state: RecordsState }) {
             </table>
           </div>
         </div>
+
       </Pane>
     </>
   );

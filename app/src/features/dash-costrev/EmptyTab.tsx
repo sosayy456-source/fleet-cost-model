@@ -3,6 +3,9 @@
  * เจ้าของกำหนดว่าห้ามแสดงอะไรเกินจากในเอกสาร — จะเพิ่มกราฟ/ตัวเลขต้องถามก่อน
  *
  *   เที่ยววิ่งเปล่า = t.empty (ETL ดูสองคอลัมน์รายได้ = 0 พร้อมกัน) · ห้ามใช้ t.rev === 0 แทน
+ *   ★ แท็บนี้ใช้ **ทุกแถวในไฟล์ต้นทุน** แม้ใน Executive Dashboard (ผู้เรียกส่งมาให้แล้ว — ดู ALL_TRIPS ใน CostRevDash)
+ *     เจ้าของข้อมูลชี้ขาด 22 ก.ย. 2569: เที่ยวเปล่ามีต้นทุนแต่ไม่มีรายได้ จึงไม่มีบิลให้จับคู่ตั้งแต่ต้น
+ *     ถ้ากรองเฉพาะใบที่จับคู่ได้ (m) แท็บจะว่างทั้งที่ข้อมูลมีอยู่
  *   ทุก % = ต้นทุนเที่ยวเปล่า ÷ ต้นทุนของ "ทุกเที่ยว" (รวมเที่ยวเปล่า) ในขอบเขตเดียวกัน
  *
  *   KPI  ต้นทุนเที่ยวเปล่ารวม · จำนวนเที่ยวเปล่า · % ปีล่าสุด (กำกับถ้าปีนั้นยังไม่เต็มปี)
@@ -25,6 +28,7 @@ import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, mo
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
+import type { CostRevMode } from "./CostRevDash";
 
 /** เกณฑ์ขั้นต่ำของ [4] — เจ้าของให้เริ่มที่ 20 เที่ยว (ข้อ 7) */
 const MIN_TRIPS = 20;
@@ -49,7 +53,7 @@ function byRoute(rows: Trip[]): RouteAgg[] {
   return [...m.values()].map((a) => ({ ...a, share: pctOf(a.emptyCost, a.cost) }));
 }
 
-export default function EmptyTab({ trips }: { trips: Trip[] }) {
+export default function EmptyTab({ trips, mode }: { trips: Trip[]; mode?: CostRevMode }) {
   const [f, setF] = useState<BaseFilter>(BASE_F0);
   const set = (k: keyof BaseFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const rows = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
@@ -152,6 +156,12 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
       </FilterBar>
 
       <Pane deps={[rows]}>
+        {/* ผู้ใช้ต้องรู้ว่าตัวเลขแท็บนี้ไม่ได้กรองเหมือนแท็บอื่นของ Executive Dashboard */}
+        {mode === "exec" && (
+          <Note>แท็บนี้นับ<b>ทุกเที่ยวในไฟล์ต้นทุน</b> ไม่ใช่เฉพาะเที่ยวที่จับคู่กับข้อมูลรายได้ได้เหมือนแท็บอื่น —
+            เที่ยววิ่งเปล่ามีต้นทุนแต่ไม่มีรายได้ จึงไม่มีบิลให้จับคู่ตั้งแต่ต้น ดูจากไฟล์ต้นทุนไฟล์เดียวได้</Note>
+        )}
+
         {/* [KPI Card] */}
         <div className="dz-heroes">
           <Hero kind="cost" l={`มูลค่าต้นทุนเที่ยวเปล่า · ${scope}`} v={fmt(kpi.emptyCost)} unit="บาท" />
