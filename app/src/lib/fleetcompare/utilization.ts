@@ -1,34 +1,63 @@
-import type { Trip } from "../data/useCostRev";
+import type { Trip, TripVehicle } from "../data/useCostRev";
 
 export const UNKNOWN_SERVICE = "ไม่ระบุ / ยังแบ่งกลุ่มไม่ได้";
 export type FleetSlice = Pick<Trip, "id" | "mo" | "ft" | "vk" | "pl" | "rt" | "rev" | "cost" | "profit"> & {
   service: string;
 };
 
-/** แบ่งยอดจากไฟล์ต้นทุนด้วยสัดส่วนรายได้รายกลุ่ม คงยอดรวมถึงระดับสตางค์ */
+/** ยอดหนึ่งก้อนที่จะแบ่ง — ตัวแบ่งเป็น "น้ำหนัก" ของส่วนนั้น (รายได้รายกลุ่ม หรือ ต้นทุนรายคัน) */
+interface Part<T> { key: T; weight: number }
+
+/**
+ * แบ่งรายได้/ต้นทุนของใบเดียวตามน้ำหนักที่ให้มา คงยอดรวมถึงระดับสตางค์
+ * ปัดยอดสะสมแล้วหาผลต่าง ป้องกันเศษหลายส่วนรวมกันเกินยอดและทำให้ส่วนท้ายติดลบ
+ * คืน null เมื่อแบ่งไม่ได้ (ไม่มีส่วน ยอดรวมไม่เป็นบวก หรือมีน้ำหนักติดลบ) ให้ผู้เรียกตัดสินใจเอง
+ */
+function split<T>(rev: number, cost: number, parts: Part<T>[], order: (a: Part<T>, b: Part<T>) => number):
+  { key: T; rev: number; cost: number }[] | null {
+  const total = parts.reduce((sum, p) => sum + p.weight, 0);
+  if (!parts.length || !Number.isFinite(total) || total <= 0 || parts.some((p) => !Number.isFinite(p.weight) || p.weight < 0)) return null;
+  const revTotal = Math.round(rev * 100), costTotal = Math.round(cost * 100);
+  let cumulative = 0, revUsed = 0, costUsed = 0;
+  return [...parts].sort(order).map((p, i) => {
+    const last = i === parts.length - 1;
+    cumulative += p.weight;
+    const nextRev = last ? revTotal : Math.round(revTotal * cumulative / total);
+    const nextCost = last ? costTotal : Math.round(costTotal * cumulative / total);
+    const r = nextRev - revUsed, c = nextCost - costUsed;
+    revUsed = nextRev; costUsed = nextCost;
+    return { key: p.key, rev: r / 100, cost: c / 100 };
+  });
+}
+
+/**
+ * แบ่งยอดของหนึ่งใบเป็น "รถ × กลุ่มบริการ"
+ *
+ *   ชั้นที่ 1 แบ่งตามรถในใบ (trip.vs) ด้วย**สัดส่วนต้นทุนของแต่ละคัน** — ไฟล์ต้นทุนรุ่น 22 ก.ย. 2569
+ *            ปันต้นทุนมาให้แล้ว (ต้นทุนรถคันที่ 1/2/พ่วง) ส่วนรายได้มีก้อนเดียวทั้งใบ เจ้าของงานเคาะให้
+ *            แบ่งตามสัดส่วนต้นทุนเช่นกัน → ทุกคันในใบได้อัตรากำไรเท่ากัน ยอดรวมทั้งใบไม่เปลี่ยน
+ *   ชั้นที่ 2 แบ่งตามกลุ่มบริการ (trip.serviceRevenue) ด้วยสัดส่วนรายได้ของบิล เหมือนเดิม
+ *
+ * ไฟล์รุ่นเก่าไม่มี vs → ถือว่าทั้งใบเป็นของทะเบียนเดียว (pl/vk/ft ระดับใบ) ผลจึงเท่าของเดิมทุกบาท
+ */
 export function fleetSlices(trips: Trip[]): FleetSlice[] {
   return trips.flatMap((trip) => {
-    const amounts = Object.entries(trip.serviceRevenue ?? {});
-    const total = amounts.reduce((sum, [, amount]) => sum + amount, 0);
-    // ไม่เดาสัดส่วนเมื่อไม่มีบิล ยอดรวมเป็นศูนย์ หรือมีกลุ่มติดลบ
-    if (!amounts.length || !Number.isFinite(total) || total <= 0 || amounts.some(([, amount]) => !Number.isFinite(amount) || amount < 0)) {
-      return [{ ...trip, service: UNKNOWN_SERVICE }];
-    }
-    const revenueTotal = Math.round(trip.rev * 100);
-    const costTotal = Math.round(trip.cost * 100);
-    let cumulative = 0, revenueUsed = 0, costUsed = 0;
-    // ปัดยอดสะสมแล้วหาผลต่าง ป้องกันเศษหลายกลุ่มรวมกันเกินยอดและทำให้กลุ่มท้ายติดลบ
-    amounts.sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0], "th"));
-    return amounts.map(([service, amount], index) => {
-      const last = index === amounts.length - 1;
-      cumulative += amount;
-      const nextRevenue = last ? revenueTotal : Math.round(revenueTotal * cumulative / total);
-      const nextCost = last ? costTotal : Math.round(costTotal * cumulative / total);
-      const revenue = nextRevenue - revenueUsed, cost = nextCost - costUsed;
-      revenueUsed = nextRevenue;
-      costUsed = nextCost;
-      return { id: trip.id, mo: trip.mo, ft: trip.ft, vk: trip.vk, pl: trip.pl, rt: trip.rt,
-        service, rev: revenue / 100, cost: cost / 100, profit: (revenue - cost) / 100 };
+    const vehicles: TripVehicle[] = trip.vs?.length
+      ? trip.vs
+      : [{ pl: trip.pl, vk: trip.vk, ft: trip.ft, c: trip.cost }];
+    const byVehicle = split(trip.rev, trip.cost, vehicles.map((v) => ({ key: v, weight: v.c })),
+      // เรียงจากต้นทุนน้อยไปมาก เพื่อให้เศษสตางค์ตกที่คันที่ต้นทุนสูงสุด (เหมือนฝั่งกลุ่มบริการ)
+      (a, b) => a.weight - b.weight || a.key.pl.localeCompare(b.key.pl, "th"))
+      ?? [{ key: vehicles[0]!, rev: trip.rev, cost: trip.cost }];
+
+    return byVehicle.flatMap(({ key: v, rev, cost }) => {
+      const base = { id: trip.id, mo: trip.mo, ft: v.ft, vk: v.vk, pl: v.pl, rt: trip.rt };
+      const amounts = Object.entries(trip.serviceRevenue ?? {});
+      const byService = split(rev, cost, amounts.map(([service, amount]) => ({ key: service, weight: amount })),
+        (a, b) => a.weight - b.weight || a.key.localeCompare(b.key, "th"));
+      // ไม่เดาสัดส่วนเมื่อไม่มีบิล ยอดรวมเป็นศูนย์ หรือมีกลุ่มติดลบ
+      if (!byService) return [{ ...base, service: UNKNOWN_SERVICE, rev, cost, profit: rev - cost }];
+      return byService.map((s) => ({ ...base, service: s.key, rev: s.rev, cost: s.cost, profit: s.rev - s.cost }));
     });
   });
 }

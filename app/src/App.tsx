@@ -9,6 +9,8 @@
  */
 import { Suspense, lazy, useEffect, useState } from "react";
 import EntryForm from "./features/entry/EntryForm";
+import BillEntry from "./features/bills/BillEntry";
+import DispatchPage from "./features/dispatch/DispatchPage";
 import RecordsList from "./features/records/RecordsList";
 import Drafts from "./features/drafts/Drafts";
 import Debtors from "./features/debtors/Debtors";
@@ -64,6 +66,9 @@ interface PageDef {
 
 const PAGES: PageDef[] = [
   { id: "dash-fleet", view: "dash", label: "แดชบอร์ด", icon: I.dash, h1: "แดชบอร์ด" },
+  // ฝ่ายบริการลูกค้ากรอกบิล (ไม่มีเลขที่ใบรายการ) — ใบรายการเกิดที่หน้า "จัดรถ" ของฝ่ายจัดรถ
+  { id: "bills", view: "form", label: "บันทึกบิล", icon: I.plus, h1: "บันทึกบิล" },
+  { id: "dispatch", view: "form", label: "จัดรถ", icon: I.truck, h1: "จัดรถ" },
   { id: "entry", view: "form", label: "บันทึกข้อมูล", icon: I.plus, h1: "บันทึกข้อมูล" },
   // ฝ่ายเจ้าหน้าที่จัดรถเห็นแท็บนี้ต่อจาก "บันทึกข้อมูล" — เนื้อหาเดียวกับแท็บ "สถานะกองรถ"
   // ในแดชบอร์ดเต็มของผู้จัดการ/ผู้ดูแลระบบ
@@ -188,6 +193,8 @@ export default function App() {
 
           {/* ครอบเฉพาะเนื้อหน้า เพื่อให้หน้าที่พังไม่ลากเมนูซ้ายไปด้วย — เปลี่ยนหน้าแล้วลองใหม่ได้เลย */}
           <ErrorBoundary resetKey={page} where={cur ? `หน้า “${cur.h1}”` : undefined}>
+            {page === "bills" && <BillEntry />}
+            {page === "dispatch" && <DispatchPage state={state} role={role} />}
             {page === "entry" && <EntryForm role={role} state={state} />}
             {page === "drafts" && <Drafts state={state} />}
             {page === "records" && <RecordsList role={role} state={state} />}

@@ -22,7 +22,8 @@ export interface RoleDef {
 export const ROLES: Record<RoleKey, RoleDef> = {
   cs: {
     label: "ฝ่ายบริการลูกค้า", en: "Customer Service", icon: "👤",
-    desc: "รับงาน ติดต่อลูกค้า และบันทึกการจอง",
+    // ★ 22 ก.ย. 2569 เปลี่ยนเป็นกรอก "รายบิล" ไม่ใช่ใบรายการ — ใบรายการเกิดตอนฝ่ายจัดรถรวมบิล
+    desc: "รับงาน ติดต่อลูกค้า และบันทึกบิล",
     fields: ["date", "docNo", "routeType", "branch", "docType", "origin", "dest",
              "dist", "serviceGroup", "revenue", "bills"],
   },
@@ -62,15 +63,16 @@ export const ROLE_PICK: RoleKey[] = ["cs", "dispatch", "driver", "account", "man
 
 /** หน้าที่แต่ละตำแหน่งเข้าได้ — ตัวแรกคือหน้าที่เปิดให้ตอนเข้าระบบ */
 export const ROLE_VIEWS: Record<RoleKey, string[]> = {
-  cs: ["entry"],
-  // ฝ่ายจัดรถดูสถานะกองรถได้ด้วย (แท็บเดียวกับในแดชบอร์ดเต็ม) — เป็นข้อมูลที่ต้องใช้ตอนจัดรถ
-  dispatch: ["entry", "fleet-status"],
+  // ฝ่ายบริการลูกค้ากรอกบิล ไม่ได้กรอกใบรายการแล้ว (สเปก 22 ก.ย. 2569)
+  cs: ["bills"],
+  // ฝ่ายจัดรถรวมบิลเป็นใบรายการที่หน้า "จัดรถ" และดูสถานะกองรถ — ไม่ต้องเข้าฟอร์มใบรายการอีก
+  dispatch: ["dispatch", "fleet-status"],
   account: ["entry", "records", "drafts", "debtors", "settings"],
   // คนขับเห็นหน้าเดียว — เปิดแอปมาก็เจองานของตัวเองเลย
   driver: ["driver"],
   // main ให้ผู้จัดการเห็นแค่ dash กับ records — สองหน้าท้ายเป็นของที่เวอร์ชันนี้เพิ่มเข้ามา
   manager: ["dash-fleet", "records", "route-profit", "exec-dash", "all-dash", "driver"],
-  admin: ["dash-fleet", "entry", "records", "drafts", "debtors", "custcode", "settings",
+  admin: ["dash-fleet", "bills", "dispatch", "entry", "records", "drafts", "debtors", "custcode", "settings",
           "route-profit", "exec-dash", "all-dash", "demo", "driver"],
 };
 

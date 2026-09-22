@@ -50,6 +50,20 @@
 ★ ชุดข้อมูลนี้ "ไม่เชื่อมกับข้อมูลเก่า" — เลขที่ใบวางบิลเป็นคนละเลขกับเลขที่ใบรายการใน
   costrev/ และรหัสลูกหนี้ก็ยาวคนละขนาด จึงห้าม join สองฝั่งนี้เข้าด้วยกัน
 ★ ปีในไฟล์เป็นเลขสองหลัก (09/01/26) ดู parse_date ว่าตีความอย่างไร
+
+ไฟล์รุ่นใหม่ "ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx" (22 ก.ย. 2569) — Sheet1 มี 7 คอลัมน์เดิมครบ
+บวกคอลัมน์วิเคราะห์อีก 17 คอลัมน์ ซึ่ง ETL **ไม่อ่าน** (แอปคำนวณสถานะเองจาก issue/due/close
+ตามวันที่ที่ผู้ใช้เลือก ผลจึงเท่ากับสูตรในชีตทุกวันที่ ไม่ใช่เฉพาะวันที่ที่ชีตล็อกไว้) ·
+"วันที่จบ" ที่ว่างเขียนเป็นข้อความ "(ว่าง)" ซึ่ง parse_date คืน None ให้อยู่แล้ว = ยังค้างชำระ ·
+ชีต "สรุปวิเคราะห์" มีเซลล์ "วันที่อ้างอิง (แทนวันนี้)" กับค่าในแถวถัดไป (K2) — อ่านมาใส่
+manifest.refDate เป็น**ค่าเริ่มต้น**ของช่อง "ข้อมูล ณ วันที่" ในแท็บกำไรลูกค้าของ Demo
+(ไม่แตะ asOf เดิม ซึ่งยังเป็นวันที่ล่าสุดในไฟล์ตามเหตุผลข้างบน)
+
+นิยามสถานะ ณ วันที่อ้างอิง (ตามหมายเหตุท้ายชีตสรุปวิเคราะห์ — แอปใช้ชุดเดียวกัน):
+    อยู่ในขอบเขต     = วางบิลไม่เกินวันที่อ้างอิง
+    ชำระแล้ว         = ปิดบัญชีภายในวันที่อ้างอิง (วันที่จบ ≤ วันที่อ้างอิง)
+    ค้างชำระ         = ยังไม่ปิด และเลยวันครบกำหนดแล้ว
+    ยังไม่ถึงกำหนด   = ยังไม่ปิด และยังไม่เลยวันครบกำหนด
 """
 from __future__ import annotations
 
@@ -165,6 +179,12 @@ def parse_date(v) -> date | None:
     return None
 
 
+#: ชีตข้อมูลรายใบในไฟล์รุ่นใหม่ — ลองชีตนี้ก่อน ไม่มีค่อยไล่หาชีตที่หัวตารางครบ
+DATA_SHEET = "Sheet1"
+#: ป้ายของเซลล์วันที่อ้างอิงในชีตสรุปวิเคราะห์ (J1) — ค่าอยู่แถวถัดไปถัดจากช่อง "ค่า:" (K2)
+REF_LABEL = "วันที่อ้างอิง"
+
+
 def has_value(row) -> bool:
     return any(c is not None and str(c).strip() != "" for c in row)
 
@@ -183,43 +203,51 @@ def header_index(hdr: list[str]) -> dict[str, int] | None:
     return idx if len(idx) == len(REQUIRED) else None
 
 
-def walk_sheets(path: Path):
-    """ไล่ทีละชีต คืน (ชื่อชีต, หัวตารางที่ผ่าน norm_header แล้ว, ตัวไล่แถวที่เหลือ)
-
-    เป็น generator เพื่อให้ผู้เรียกหยุดได้ทันทีที่เจอชีตที่ใช่ — ชีตถัดไปจะไม่ถูกอ่านเลย
-    """
+def _sheets(path: Path) -> dict[str, list[list]]:
+    """ทุกชีต → แถวดิบ (calamine ก่อน ถอยไป openpyxl)"""
     if _calamine is not None:
         wb = _calamine.CalamineWorkbook.from_path(str(path))
-        for i, name in enumerate(wb.sheet_names):
-            rows = wb.get_sheet_by_index(i).to_python(skip_empty_area=False)
-            if not rows:
-                yield name, [], iter(())
-                continue
-            yield name, [norm_header(c) for c in rows[0]], (r for r in rows[1:] if has_value(r))
-        return
+        return {n: wb.get_sheet_by_name(n).to_python(skip_empty_area=False) for n in wb.sheet_names}
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    for ws in wb.worksheets:
-        it = ws.iter_rows(values_only=True)
-        try:
-            hdr = [norm_header(c) for c in next(it)]
-        except StopIteration:
-            yield ws.title, [], iter(())
+    return {ws.title: [list(r) for r in ws.iter_rows(values_only=True)] for ws in wb.worksheets}
+
+
+def find_ref_date(sheets: dict[str, list[list]], data_sheet: str | None) -> date | None:
+    """วันที่อ้างอิงจากชีตสรุป — เซลล์ที่ขึ้นต้นด้วย REF_LABEL แล้วค่าอยู่แถวถัดไป · ไม่มี = None
+
+    กวาดจากคอลัมน์ป้ายไปทางขวา เอาช่องแรกที่อ่านเป็นวันที่ได้ จะได้ไม่ผูกกับตำแหน่งคอลัมน์ตายตัว
+    """
+    for name, grid in sheets.items():
+        if name == data_sheet:
             continue
-        yield ws.title, hdr, (r for r in it if has_value(r))
+        for i, r in enumerate(grid[:-1]):
+            for j, c in enumerate(r):
+                if isinstance(c, str) and c.strip().startswith(REF_LABEL):
+                    for v in grid[i + 1][j:]:
+                        ref = parse_date(v)
+                        if ref is not None:
+                            return ref
+    return None
 
 
 def iter_sheet(path: Path):
-    """คืน (ดัชนีคอลัมน์, ตัวไล่แถว) จาก **ชีตแรกที่มีหัวตารางครบ** หัวตารางอยู่แถวบนสุดของชีต
+    """คืน (ดัชนีคอลัมน์, ตัวไล่แถว, วันที่อ้างอิง) จาก **ชีตแรกที่มีหัวตารางครบ** (ลอง Sheet1 ก่อน)
 
     ★ ห้ามยึดชีต index 0 ตายตัว — ไฟล์ที่เจ้าของข้อมูลส่งมา 20 ก.ย. 2569
       ("ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx") วางชีต "สรุปวิเคราะห์" ไว้ **ก่อน** Sheet1
       ของเดิมอ่านชีตแรกชีตเดียวจึงล้มทั้งไฟล์ ทั้งที่ข้อมูลอยู่ครบในชีตถัดไป
+    ★ วันที่อ้างอิงอยู่ในชีตสรุป ไม่ใช่ชีตข้อมูล — ไฟล์รุ่นเก่าไม่มีช่องนี้ คืน None ได้
     """
+    sheets = _sheets(path)
+    order = ([DATA_SHEET] if DATA_SHEET in sheets else []) + [n for n in sheets if n != DATA_SHEET]
     seen: list[tuple[str, list[str]]] = []      # ไว้ประกอบข้อความบอกทางเมื่อหาไม่เจอ
-    for name, hdr, body in walk_sheets(path):
+    for name in order:
+        rows = sheets[name]
+        hdr = [norm_header(c) for c in rows[0]] if rows else []
         idx = header_index(hdr)
         if idx is not None:
-            return idx, body
+            body = (r for r in rows[1:] if has_value(r))
+            return idx, body, find_ref_date(sheets, name)
         seen.append((name, hdr))
 
     detail = "\n".join(
@@ -232,8 +260,8 @@ def iter_sheet(path: Path):
     )
 
 
-def read_file(path: Path) -> tuple[list[dict], int]:
-    idx, body = iter_sheet(path)
+def read_file(path: Path) -> tuple[list[dict], int, date | None]:
+    idx, body, ref = iter_sheet(path)
 
     def g(row, name):
         i = idx[name]
@@ -266,7 +294,7 @@ def read_file(path: Path) -> tuple[list[dict], int]:
             "days": (close - issue).days if close else None,
             "over": None,
         })
-    return out, skipped
+    return out, skipped, ref
 
 
 def custmap_count() -> int:
@@ -332,11 +360,14 @@ def build(dataset: str) -> None:
 
     rows: list[dict] = []
     skipped = 0
+    ref_date: date | None = None
     for f in files:
-        got, sk = read_file(f)
+        got, sk, ref = read_file(f)
         rows.extend(got)
         skipped += sk
-        print(f"  {f.name}: {len(got):,} ใบวางบิล" + (f" (ข้าม {sk})" if sk else ""))
+        ref_date = ref_date or ref       # หลายไฟล์ก็ใช้วันที่อ้างอิงของไฟล์แรกที่มี
+        print(f"  {f.name}: {len(got):,} ใบวางบิล" + (f" (ข้าม {sk})" if sk else "")
+              + (f" · วันที่อ้างอิงในไฟล์ {ref.isoformat()}" if ref else ""))
 
     rows.sort(key=lambda r: (r["issue"], r["doc"]))
 
@@ -363,6 +394,8 @@ def build(dataset: str) -> None:
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
         "sourceFiles": [f.name for f in files],
         "asOf": as_of.isoformat(),
+        # วันที่อ้างอิงจากชีตสรุปวิเคราะห์ — null ถ้าไฟล์รุ่นเก่าไม่มีชีตนั้น (แอปถอยไปใช้ asOf)
+        "refDate": ref_date.isoformat() if ref_date else None,
         "rows": len(rows),
         "skipped": skipped,
         "customers": len({r["cust"] for r in rows}),

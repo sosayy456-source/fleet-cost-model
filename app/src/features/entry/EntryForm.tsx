@@ -28,7 +28,6 @@ import { getUrl } from "../../lib/sheet/client";
 import { emptyBill, emptyRecord } from "./emptyRecord";
 import { randomFor } from "./randomRecord";
 import ThaiDateInput from "./ThaiDateInput";
-import FleetRoster from "./panels/FleetRoster";
 import FuelBillTable from "./panels/FuelBillTable";
 import FuelSummary from "./panels/FuelSummary";
 import OtherCostTable from "./panels/OtherCostTable";
@@ -305,14 +304,17 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
    * ทะเบียนที่เลือกได้ = คันที่เคยวิ่งเป็นคู่ (ประเภทรถ, ชนิดรถ) ที่เลือกไว้
    * ยังไม่เลือกอะไร = ทั้งกองรถ · ยังพิมพ์ทะเบียนนอกรายการได้เสมอ (รถใหม่ที่ยังไม่อยู่ในไฟล์)
    */
+  // ★ แสดงเฉพาะทะเบียนที่ "พร้อมใช้งาน" (สเปก 22 ก.ย. 2569) — รถซ่อมบำรุง/จอด/ปลดระวางไม่ควรถูกจัดงาน
+  //   ยังพิมพ์ทะเบียนเองได้อยู่ เผื่อรถใหม่ที่ยังไม่ได้เพิ่มเข้ากองรถ
   const platesForForm = useMemo(
     () => vehiclesForKind(roster, rec.fleetType, rec.vehicle)
+      .filter((f) => f.status === "ใช้งาน")
       .sort((a, b) => a.plate.localeCompare(b.plate, "th")),
     [roster, rec.fleetType, rec.vehicle],
   );
-  const plateHint = !rec.fleetType && !rec.vehicle ? "· ทั้งกองรถ"
-    : platesForForm.length ? `· ${platesForForm.length} คันที่ตรงกับที่เลือก`
-      : "· ไม่มีคันไหนเคยวิ่งเป็นชนิดนี้ พิมพ์ทะเบียนเองได้";
+  const plateHint = !rec.fleetType && !rec.vehicle ? `· ${platesForForm.length} คันที่พร้อมใช้งาน`
+    : platesForForm.length ? `· ${platesForForm.length} คันที่พร้อมใช้งานและตรงกับที่เลือก`
+      : "· ไม่มีคันไหนพร้อมใช้งานเป็นชนิดนี้ พิมพ์ทะเบียนเองได้";
   const selectedVehicle = REF.vehicles.find((x) => x.name === rec.vehicle);
   const selectedSpec = vehicleSpec(selectedVehicle, ovr.vehicleSpecs);
   /** ชนิดที่เพิ่มจากไฟล์ทะเบียนในกองรถยืมค่าพื้นฐานจากชนิดอื่น — บอกไว้ให้รู้ */
@@ -587,8 +589,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
         </div>
       )}
 
-      {/* main วางแผงทะเบียนรถไว้ในโซนฝ่ายจัดรถของฟอร์ม (index.html:903) ไม่ใช่หน้าการตั้งค่า */}
-      {zoneShow("dispatch") && <FleetRoster />}
+      {/* ★ แผงทะเบียนรถย้ายไปอยู่แท็บ "สถานะกองรถ" แล้ว (สเปก 22 ก.ย. 2569)
+          ของเดิม main วางไว้ในโซนฝ่ายจัดรถของฟอร์ม (index.html:903) */}
 
       {/* ═════ การ์ด 2 — ค่าใช้จ่าย ═════ */}
       {zoneShow("account") && (

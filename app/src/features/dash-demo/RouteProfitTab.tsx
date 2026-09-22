@@ -13,10 +13,9 @@
  *   ลูกค้า = ผู้จ่ายเงิน (สด/เชื่อต้นทาง → ผู้ส่ง · ปลายทาง → ผู้รับ) นับแบบไม่ซ้ำทั้งชุดที่กรองอยู่
  *   ไม่ใช่ผลบวกของแต่ละเที่ยว — ลูกค้าคนเดียวส่งของหลายเที่ยวต้องนับครั้งเดียว
  */
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
-import { thDateSafe } from "../../lib/record/date";
 import { Hero, KC, Note, Pane } from "../dash-fleet/parts";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import {
@@ -24,6 +23,8 @@ import {
   passBase, pct, signed, useSort,
 } from "../dash-costrev/common";
 import type { BaseFilter, Col } from "../dash-costrev/common";
+import ServicePanel from "./ServicePanel";
+import TripsModal from "./TripsModal";
 import { fixedOf, otherOf, semiOf, variableOf } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
 
@@ -68,6 +69,8 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
   const set = (k: keyof Filter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [picked, setPicked] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
+  /** การ์ดกลุ่มบริการที่กางแผงอยู่ — กดซ้ำที่การ์ดเดิม = ปิด */
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const rows = useMemo(
     () => trips.filter((t) => passBase(t, f) && (!f.sg || (t.sg || "ไม่ระบุ") === f.sg)),
@@ -148,6 +151,9 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
       return { group: g.group, parts, sum: parts.reduce((s, p) => s + p.v, 0) };
     }).filter((g) => g.parts.length);
   }, [detailTrips]);
+
+  /** เที่ยวสำหรับแผงกลุ่มบริการ — ตัวกรองแท็บทุกตัว ยกเว้นกลุ่มบริการ เพราะกราฟต้องวาดครบสามเส้น */
+  const rowsNoSg = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
 
   /* ---------- 5. อัตรากำไรตามกลุ่มบริการ (คิดตามตัวกรองด้านบน) ---------- */
   const groups = useMemo(() => SERVICE_GROUPS.map((g) => {
@@ -293,72 +299,24 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
         {/* 5 */}
         <div className="dm-sgs">
           {groups.map((g, i) => (
-            <button key={g.name} type="button" className={`dm-sg c${i + 1}`}
-              onClick={() => { location.hash = "#/exec-dash"; }}
-              title="ไปที่ Executive Dashboard">
+            <button key={g.name} type="button"
+              className={`dm-sg c${i + 1}` + (openGroup === g.name ? " open" : "")}
+              aria-expanded={openGroup === g.name}
+              onClick={() => setOpenGroup((p) => (p === g.name ? null : g.name))}
+              title={openGroup === g.name ? "กดอีกครั้งเพื่อปิด" : "กดเพื่อดูกราฟและรายเส้นทางของกลุ่มนี้"}>
               <span className="l">อัตรากำไร · {g.name}</span>
               <span className="v">{g.margin == null ? "–" : pct(g.margin)}</span>
               <span className="s">{fmt(g.n)} เที่ยว · กำไร {signed(Math.round(g.profit))} บาท</span>
             </button>
           ))}
         </div>
-        <Note>การ์ดกลุ่มบริการคิดตามตัวกรองด้านบน · กดแล้วไปหน้า Executive Dashboard (กราฟของกลุ่มบริการจะทำทีหลัง)</Note>
+        <Note>การ์ดกลุ่มบริการคิดตามตัวกรองด้านบน · กดการ์ดเพื่อกางกราฟกับรายเส้นทางของกลุ่มนั้น กดซ้ำเพื่อปิด</Note>
+        {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup} />}
       </Pane>
 
       {showList && detail && (
         <TripsModal rt={detail.rt} trips={detailTrips} onClose={() => setShowList(false)} />
       )}
     </>
-  );
-}
-
-/** ป็อบอัพรายการทุกเที่ยวของเส้นทางที่เลือก — ขอบเขตตามตัวกรองใหญ่ของแท็บ */
-function TripsModal({ rt, trips, onClose }: { rt: string; trips: Trip[]; onClose: () => void }) {
-  useEffect(() => {
-    const on = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", on);
-    return () => document.removeEventListener("keydown", on);
-  }, [onClose]);
-
-  const cols = useMemo<Col<Trip>[]>(() => [
-    { key: "d", label: "วันที่", get: (t) => t.d, render: (t) => thDateSafe(t.d) },
-    { key: "id", label: "เลขที่ใบรายการ", get: (t) => t.id },
-    { key: "br", label: "สาขา", get: (t) => t.br || "–" },
-    { key: "pl", label: "ทะเบียนรถ", get: (t) => t.pl || "–" },
-    { key: "ft", label: "ประเภทรถ", get: (t) => t.ft },
-    { key: "vk", label: "ชนิดรถ", get: (t) => t.vk },
-    { key: "sg", label: "กลุ่มบริการ", get: (t) => t.sg || "ไม่ระบุ" },
-    { key: "bn", label: "บิล", get: (t) => t.bn, num: true },
-    { key: "rev", label: "รายได้", get: (t) => t.rev, num: true },
-    { key: "cost", label: "ต้นทุน", get: (t) => t.cost, num: true },
-    { key: "profit", label: "กำไร", get: (t) => t.profit, num: true,
-      render: (t) => <span style={{ fontWeight: 700, color: t.profit < 0 ? "var(--red)" : "var(--green)" }}>{signed(t.profit)}</span> },
-    { key: "margin", label: "%Margin", get: (t) => (t.rev ? t.profit / t.rev * 100 : null), num: true,
-      render: (t) => {
-        const m = t.rev ? t.profit / t.rev * 100 : null;
-        return <span style={{ fontWeight: 700, color: marginTone(m) }}>{m == null ? "–" : pct(m)}</span>;
-      } },
-  ], []);
-  const { sorted, sort, toggle } = useSort(trips, cols, { key: "profit", dir: -1 });
-
-  return (
-    <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal wide sm-modal" role="dialog" aria-modal="true" aria-label={`ทุกเที่ยวของ ${rt}`}>
-        <div className="sm-mh">
-          <div className="sm-mt">
-            <div className="modal-h">{rt}</div>
-            <p>ทุกเที่ยวของเส้นทางนี้ตามตัวกรองที่เลือกอยู่ · {fmt(trips.length)} เที่ยว</p>
-          </div>
-          <button type="button" className="sm-x" onClick={onClose} aria-label="ปิด">✕</button>
-        </div>
-        <div className="sm-list">
-          <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(t, i) => `${t.id}-${i}`}
-            empty="ไม่มีเที่ยวในเส้นทางนี้" />
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="btn-ghost" onClick={onClose}>ปิด</button>
-        </div>
-      </div>
-    </div>
   );
 }

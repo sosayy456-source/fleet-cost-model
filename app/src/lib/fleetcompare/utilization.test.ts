@@ -36,6 +36,37 @@ describe("การใช้ประโยชน์กองรถ", () => {
     expect(rows.every((r) => r.rev >= 0 && r.cost >= 0)).toBe(true);
     expect(fleetGroups(rows, () => "รวม")[0]).toMatchObject({ rev: 0.03, cost: 0.02, profit: 0.01 });
   });
+  it("ใบที่มีหลายทะเบียนแบ่งยอดตามสัดส่วนต้นทุนของแต่ละคัน และคงยอดรวมของใบ", () => {
+    const trip = { ...row(), rev: 10000, cost: 5000, profit: 5000, serviceRevenue: { แช่เย็น: 1 },
+      vs: [{ pl: "หัว", vk: "รถเทรเล่อร์ (แม่)", ft: "รถบริษัท", c: 4000 },
+           { pl: "หาง", vk: "หางเทรเลอร์", ft: "รถร่วม", c: 1000 }] } as unknown as Trip;
+    const rows = fleetSlices([trip]);
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.pl === "หัว")).toMatchObject({ vk: "รถเทรเล่อร์ (แม่)", ft: "รถบริษัท", rev: 8000, cost: 4000 });
+    expect(rows.find((r) => r.pl === "หาง")).toMatchObject({ vk: "หางเทรเลอร์", ft: "รถร่วม", rev: 2000, cost: 1000 });
+    // ยอดรวมและจำนวนใบไม่เปลี่ยน แต่นับเป็นสองคัน
+    expect(fleetGroups(rows, () => "ทั้งหมด")[0]).toMatchObject({ n: 1, vehicles: 2, rev: 10000, cost: 5000, profit: 5000 });
+  });
+  it("แบ่งรถแล้วยังแบ่งกลุ่มบริการต่อ และคงยอดสตางค์", () => {
+    const trip = { ...row(), rev: 0.03, cost: 0.02, serviceRevenue: { ก: 1, ข: 2 },
+      vs: [{ pl: "หัว", vk: "ก", ft: "รถบริษัท", c: 0.01 }, { pl: "หาง", vk: "ข", ft: "รถบริษัท", c: 0.01 }] } as unknown as Trip;
+    const rows = fleetSlices([trip]);
+    expect(rows.every((r) => r.rev >= 0 && r.cost >= 0)).toBe(true);
+    expect(fleetGroups(rows, () => "รวม")[0]).toMatchObject({ rev: 0.03, cost: 0.02, profit: 0.01 });
+  });
+  it("ไฟล์รุ่นเก่าที่ไม่มี vs ยังนับเป็นทะเบียนเดียวเหมือนเดิม", () => {
+    const trip = { ...row(), rev: 10000, cost: 6000, serviceRevenue: { แช่เย็น: 1 } } as unknown as Trip;
+    const rows = fleetSlices([trip]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ pl: "รถหนึ่ง", vk: "รถ 10 ล้อ", rev: 10000, cost: 6000 });
+  });
+  it("ต้นทุนรายคันเป็นศูนย์ทั้งใบ ไม่แบ่ง ยกทั้งใบให้คันแรก", () => {
+    const trip = { ...row(), rev: 500, cost: 0, serviceRevenue: { แช่เย็น: 1 },
+      vs: [{ pl: "หัว", vk: "ก", ft: "รถบริษัท", c: 0 }, { pl: "หาง", vk: "ข", ft: "รถบริษัท", c: 0 }] } as unknown as Trip;
+    const rows = fleetSlices([trip]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ pl: "หัว", rev: 500, cost: 0 });
+  });
   it("นับใบและรถไม่ซ้ำเมื่อเที่ยวเดียวมีสองกลุ่มบริการ", () => {
     const rows = [row(), row({ service: "ทั่วไป", rev: 300, cost: 200, profit: 100 })];
     const total = fleetGroups(rows, () => "ทั้งหมด")[0];

@@ -6,7 +6,7 @@
  * displayName เฉพาะ "ลูกโดยตรง" ของตัวกราฟ ไม่ได้มองข้ามคอมโพเนนต์ที่ครอบทั้งกราฟ
  */
 import {
-  Area, Bar, CartesianGrid, Cell, ComposedChart, Legend, Line, Pie, PieChart,
+  Area, Bar, CartesianGrid, Cell, ComposedChart, LabelList, Legend, Line, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { anim, axisProps, BAR_RADIUS, dFade, gridProps, legendProps, tooltipProps } from "./primitives";
@@ -52,33 +52,56 @@ export function DLine({ data, xKey, series, suffix = " บาท", digits = 0 }:
 }
 
 /* ---------------- dBar: แท่งตั้งหรือแท่งนอน ---------------- */
-export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท", digits = 0, domain,
-  valueTick = fmtShort, onBarClick, tipFormat }: {
+export function DBar({
+  data, xKey, series, horiz, colors, suffix = " บาท", digits = 0, domain, valueTick = fmtShort,
+  onBarClick, activeIndex, showValues, tooltipExtra,
+}: {
   data: Row[]; xKey: string; series: DSeries[]; horiz?: boolean;
   /** ระบายทีละแท่ง — ใช้กับกราฟชุดเดียวที่ main กำหนดสีเป็นอาร์เรย์ */
   colors?: string[];
   suffix?: string; digits?: number; domain?: [number | string, number | string];
   /** ป้ายบนแกนค่า — ค่าเริ่มต้นเลขเต็มมีคอมมา (กราฟ % ส่งตัวที่เติม % เอง) */
   valueTick?: (n: number) => string;
-  /** กดแท่งแล้วเรียกพร้อมลำดับแท่งนั้น — ไม่ส่ง = แท่งกดไม่ได้เหมือนเดิม */
+  /** กดแท่ง (ดัชนีแถวใน data) — แท็บกำไรลูกค้าใช้กรองตารางใต้กราฟ · ไม่ส่ง = กราฟอ่านอย่างเดียว */
   onBarClick?: (index: number) => void;
-  /** แทนข้อความในกล่องชี้ โดยเห็นทั้งแถวของข้อมูล (ใช้เติม % ที่คิดจากฐานอื่น) */
-  tipFormat?: (v: number, name: string, row: Row) => [string, string];
+  /** แท่งที่เลือกอยู่ — แท่งอื่นจางลงให้เห็นว่าเลือกอันไหน · null/undefined = ไม่จางใคร */
+  activeIndex?: number | null;
+  /** เขียนค่าไว้บนแท่ง (รูปแบบเดียวกับป้ายแกน) */
+  showValues?: boolean;
+  /**
+   * บรรทัดเสริมใน tooltip ต่อแท่ง (เช่น "25% ของที่ยังไม่ชำระ") — ไม่ใช่ series จึงไม่ขึ้นในป้ายสี
+   * คืน null = ไม่มีบรรทัดเสริมของแท่งนั้น
+   */
+  tooltipExtra?: (index: number) => string | null;
 }) {
   const t = useChartTheme();
   const showLeg = series.length > 1;
-  const tip = tooltipProps(t, suffix, digits);
-  const tipAll = tipFormat
-    ? { ...tip, formatter: (v: number, name: string, item: { payload?: Row }) =>
-        tipFormat(v, name, (item?.payload ?? {}) as Row) }
-    : tip;
+  const cellFill = (i: number, base: string): string => colors?.[i % colors.length] ?? base;
+  const dim = (i: number): number => (activeIndex == null || activeIndex === i ? 1 : 0.35);
   const bars = series.map((s) => (
     <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={BAR_RADIUS} {...anim}
       cursor={onBarClick ? "pointer" : undefined}
-      onClick={onBarClick ? (_: unknown, i: number) => onBarClick(i) : undefined}>
-      {colors && data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
+      onClick={onBarClick ? (_d: unknown, i: number) => onBarClick(i) : undefined}>
+      {(colors || activeIndex != null) && data.map((_, i) => (
+        <Cell key={i} fill={cellFill(i, s.color)} fillOpacity={dim(i)} />
+      ))}
+      {showValues && (
+        <LabelList dataKey={s.key} position={horiz ? "right" : "top"}
+          formatter={(v: unknown) => (typeof v === "number" ? valueTick(v) : String(v ?? ""))}
+          style={{ fontFamily: DFONT, fontSize: 12, fontWeight: 700, fill: t.ink }} />
+      )}
     </Bar>
   ));
+  const tip = tooltipProps(t, suffix, digits);
+  const tooltip = tooltipExtra ? (
+    <Tooltip {...tip} formatter={(v: number, name: string, item: { payload?: Row }) => {
+      const [shown] = tip.formatter(v, name);
+      // ดัชนีจาก payload ของแถว ไม่ใช่ลำดับ item ใน tooltip (ซึ่งเป็นลำดับของ series)
+      const i = item.payload ? data.indexOf(item.payload) : -1;
+      const extra = i >= 0 ? tooltipExtra(i) : null;
+      return [extra ? `${shown} · ${extra}` : shown, name] as [string, string];
+    }} />
+  ) : <Tooltip {...tip} />;
   return (
     <ResponsiveContainer width="100%" height="100%">
       {horiz ? (
@@ -86,16 +109,16 @@ export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท",
           <CartesianGrid {...gridProps(t)} />
           <XAxis {...axisProps(t)} type="number" tickFormatter={valueTick} domain={domain} />
           <YAxis {...axisProps(t)} type="category" dataKey={xKey} width={catWidth(data, xKey)} />
-          <Tooltip {...tipAll} />
+          {tooltip}
           {showLeg && <Legend {...legendProps} />}
           {bars}
         </ComposedChart>
       ) : (
-        <ComposedChart data={data} margin={{ top: 6, right: 10, left: 0, bottom: 0 }}>
+        <ComposedChart data={data} margin={{ top: showValues ? 18 : 6, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid {...gridProps(t)} />
           <XAxis {...axisProps(t)} dataKey={xKey} />
           <YAxis {...axisProps(t)} tickFormatter={valueTick} width={62} domain={domain} />
-          <Tooltip {...tipAll} />
+          {tooltip}
           {showLeg && <Legend {...legendProps} />}
           {bars}
         </ComposedChart>

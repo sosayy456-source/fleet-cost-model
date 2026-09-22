@@ -14,6 +14,11 @@
  *   ของไฟล์ต้นทุนจึงอยู่ในเนื้อแท็บที่ใช้ trips ไม่ได้ครอบทั้งหน้าเหมือนเดิม
  *   (แท็บ "กำไรลูกค้า (ปันส่วนต้นทุน)" ย้ายลงไปเป็นแท็บย่อยของ Dashboard รายได้ตามที่สั่ง)
  * ส่วนรายการลูกหนี้รายบิลอยู่ที่เมนู "รายการลูกหนี้" เป็นข้อมูลเก่า ไม่ได้อยู่ในสองเมนูนี้
+ * ★ แท็บ "ต้นทุนที่จมกับที่ว่าง" (22 ก.ย. 2569) อ่านชุด loadfactor/ ของตัวเอง ไม่ใช้ trips เลย — อยู่ใน STANDALONE
+ *   จึงวาดก่อนการตรวจ error/ว่างของ costrev เข้าได้แม้ไฟล์ต้นทุนหาย
+ * ★ แท็บ "เที่ยววิ่งเปล่า" ใช้ **ทุกแถวในไฟล์ต้นทุน** แม้ในโหมด exec (ALL_TRIPS) — เจ้าของข้อมูลชี้ขาด 22 ก.ย. 2569:
+ *   เที่ยวเปล่าดูจากไฟล์ต้นทุนไฟล์เดียวได้ เพราะมีต้นทุนแต่ไม่มีรายได้ จึงไม่มีบิลให้จับคู่ตั้งแต่ต้น
+ *   (ชุดตัวอย่างใหม่: เที่ยวเปล่า 369 ใบ จับคู่ได้ 0 ใบ ถ้ากรอง m แท็บจะว่างทั้งที่ข้อมูลมีอยู่)
  *
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
  */
@@ -31,6 +36,7 @@ import ProfitTab from "./ProfitTab";
 import CostTab from "./CostTab";
 import DamageTab from "./DamageTab";
 import EmptyTab from "./EmptyTab";
+import LoadFactorTab from "./lf/LoadFactorTab";
 import type { RecordsState } from "../../lib/store/useRecords";
 
 export type CostRevMode = "exec" | "all";
@@ -45,8 +51,13 @@ const TABS = [
   // มีเฉพาะ Executive Dashboard ตามที่เจ้าของข้อมูลสั่ง ส่วน Dashboard รวม ไม่มี
   { id: "rev", label: "Dashboard รายได้", execOnly: true },
   { id: "debt", label: "Dashboard ลูกหนี้", execOnly: true },
+  { id: "lf", label: "ต้นทุนที่จมกับที่ว่าง", execOnly: true },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
+/** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
+const STANDALONE: ReadonlySet<TabId> = new Set<TabId>(["lf"]);
+/** แท็บที่ใช้ทุกแถวในไฟล์ต้นทุน ไม่กรองด้วย m แม้อยู่ในโหมด exec (ดูเหตุผลข้างบน) */
+const ALL_TRIPS: ReadonlySet<TabId> = new Set<TabId>(["empty"]);
 
 export default function CostRevDash({ mode, state }: { mode: CostRevMode; state: RecordsState }) {
   const { data, error, loading, reload } = useCostRev();
@@ -62,6 +73,9 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
     if (!data) return [];
     return mode === "exec" ? data.trips.filter((t) => t.m) : data.trips;
   }, [data, mode]);
+
+  /** ชุดที่แท็บปัจจุบันใช้ — ปกติตามโหมด ยกเว้นแท็บใน ALL_TRIPS ที่ใช้ทุกแถวเสมอ */
+  const shown = useMemo(() => (ALL_TRIPS.has(tab) ? data?.trips ?? [] : trips), [data, trips, tab]);
 
   const refreshTitle = "ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่";
   const m = data?.manifest;
@@ -94,7 +108,9 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
       <EtlBanner status={etl} />
       <DashShell title={title} sample={m?.isSample} meta={meta || undefined}
         tabs={tabs || undefined} onRefresh={reload} loading={loading} refreshTitle={refreshTitle}>
-        {error ? (
+        {STANDALONE.has(tab) && mode === "exec" ? (
+          <>{tab === "lf" && <LoadFactorTab />}</>
+        ) : error ? (
           <div className="card">
             <div className="banner">{error}</div>
             <p className="muted">
@@ -104,11 +120,11 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
           </div>
         ) : !m ? (
           <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>
-        ) : trips.length === 0 ? (
+        ) : shown.length === 0 ? (
           <div className="card">
             <h2>ยังไม่มีข้อมูล</h2>
             <p className="muted">
-              {mode === "exec"
+              {mode === "exec" && !ALL_TRIPS.has(tab)
                 ? "ไม่มีเที่ยวไหนที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — ตรวจว่าวางไฟล์รายได้ใน etl/data/revenue/ แล้วรัน ETL ใหม่"
                 : "ไฟล์ต้นทุนไม่มีแถวข้อมูล"}
             </p>
@@ -119,7 +135,7 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
             {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} svc={data?.svc ?? null} />}
             {tab === "cost" && <CostTab trips={trips} />}
             {/* ความเสียหายมาจากบิลในไฟล์รายได้ จึงมีตัวเลขเฉพาะโหมด exec — โหมด all ขึ้นข้อจำกัดแทน */}
-            {tab === "empty" && <EmptyTab trips={trips} />}
+            {tab === "empty" && <EmptyTab trips={shown} mode={mode} />}
             {tab === "damage" && <DamageTab trips={trips} mode={mode} matchedTotal={m.matched} isSample={m.isSample} />}
             {tab === "rev" && mode === "exec" && <RevenueBoard trips={trips} manifest={m} />}
             {tab === "debt" && mode === "exec" && <DebtorBoard state={state} manifest={m} />}
