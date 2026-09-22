@@ -15,15 +15,27 @@ import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev } from "../../lib/data/useCostRev";
 import { fmt } from "../dash-costrev/common";
 import RouteProfitTab from "./RouteProfitTab";
+import CustomerProfitTab from "./CustomerProfitTab";
 
-const TABS = [{ id: "route", label: "กำไรรายเส้นทาง" }] as const;
+const TABS = [
+  { id: "route", label: "กำไรรายเส้นทาง" },
+  { id: "cust", label: "กำไรลูกค้า" },
+] as const;
 type TabId = (typeof TABS)[number]["id"];
+
+/**
+ * แท็บที่ **ไม่ได้อ่าน trips.json เลย** — อ่านชุด alloc/ กับ debtors/ ของตัวเอง
+ * จึงต้องเข้าได้แม้ไม่มีไฟล์ต้นทุน ไม่งั้นด่าน "ยังไม่มีข้อมูล" ข้างล่างจะทับทั้งหน้า
+ * ทั้งที่ข้อมูลของแท็บนั้นพร้อมอยู่ (แนวเดียวกับ STANDALONE ใน dash-costrev/CostRevDash.tsx)
+ */
+const STANDALONE: readonly TabId[] = ["cust"];
 
 export default function DemoDash() {
   const { data, error, loading, reload } = useCostRev();
   const etl = useEtlStatus("costrev");
   useAutoReloadOnEtl(etl, reload);
   const [tab, setTab] = useState<TabId>("route");
+  const standalone = STANDALONE.includes(tab);
   const barRef = useRef<HTMLDivElement>(null);
   const ready = !!data && !error;
   useDashInk(barRef, `${tab}:${ready}`);
@@ -51,10 +63,13 @@ export default function DemoDash() {
 
   return (
     <>
-      <EtlBanner status={etl} />
-      <DashShell sample={m?.isSample} meta={meta || undefined} tabs={tabs}
+      {!standalone && <EtlBanner status={etl} />}
+      <DashShell sample={standalone ? undefined : m?.isSample} meta={standalone ? undefined : meta || undefined}
+        tabs={tabs}
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
-        {error ? (
+        {standalone ? (
+          <CustomerProfitTab />
+        ) : error ? (
           <div className="card">
             <div className="banner">{error}</div>
             <p className="muted">

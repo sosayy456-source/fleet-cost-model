@@ -97,6 +97,12 @@ ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 
+# ข้อความที่ต้นทางใช้แทน "ไม่มีวันที่" — ★ ไฟล์วิเคราะห์ที่ส่งมา 20 ก.ย. 2569 เขียน "(ว่าง)"
+# ลงช่อง "วันที่จบ" ของใบที่ยังค้างชำระ แทนที่จะปล่อยเซลล์ว่าง ถ้าไม่ดักไว้ตรงนี้
+# ใบพวกนั้นจะถูกตีความว่า "ปิดบัญชีแล้วแต่อ่านวันที่ไม่ออก" แทนที่จะเป็น "ยังค้าง"
+BLANK_DATES = frozenset({"(ว่าง)", "(ไม่ระบุ)", "-", "None", "nan", "NaT"})
+
+
 def norm_header(v) -> str:
     """ยุบช่องว่างทุกชนิดให้เหลือช่องเดียว — หัวตารางจาก Excel มักมี   หรือเว้นวรรคท้ายติดมา"""
     return " ".join(text(v).replace(" ", " ").split())
@@ -138,7 +144,7 @@ def parse_date(v) -> date | None:
     if isinstance(v, date):
         return v.replace(year=v.year - 543) if v.year > 2400 else v
     s = str(v).strip()
-    if not s:
+    if not s or s in BLANK_DATES:
         return None
     for sep in ("/", "-", "."):
         parts = [p.strip() for p in s.split(sep)]
@@ -159,34 +165,75 @@ def parse_date(v) -> date | None:
     return None
 
 
-def iter_sheet(path: Path):
-    """คืน (หัวคอลัมน์, ตัวไล่แถว) — อ่านชีตแรกชีตเดียว หัวตารางอยู่แถวบนสุด"""
+def has_value(row) -> bool:
+    return any(c is not None and str(c).strip() != "" for c in row)
+
+
+def header_index(hdr: list[str]) -> dict[str, int] | None:
+    """หัวตาราง → ดัชนีคอลัมน์ของแต่ละช่องที่ต้องใช้ · None = ชีตนี้ไม่ใช่ตารางใบวางบิล
+
+    เทียบผ่าน ALIASES เพื่อให้ไฟล์ที่ใช้ชื่อหัวคนละแบบยังอ่านได้ (ดู ★ ใน docstring หัวไฟล์)
+    """
+    idx: dict[str, int] = {}
+    for name in REQUIRED:
+        for alias in ALIASES[name]:
+            if alias in hdr:
+                idx[name] = hdr.index(alias)
+                break
+    return idx if len(idx) == len(REQUIRED) else None
+
+
+def walk_sheets(path: Path):
+    """ไล่ทีละชีต คืน (ชื่อชีต, หัวตารางที่ผ่าน norm_header แล้ว, ตัวไล่แถวที่เหลือ)
+
+    เป็น generator เพื่อให้ผู้เรียกหยุดได้ทันทีที่เจอชีตที่ใช่ — ชีตถัดไปจะไม่ถูกอ่านเลย
+    """
     if _calamine is not None:
-        rows = _calamine.CalamineWorkbook.from_path(str(path)) \
-            .get_sheet_by_index(0).to_python(skip_empty_area=False)
-        if not rows:
-            return [], iter(())
-        hdr = [text(c) for c in rows[0]]
-        body = (r for r in rows[1:] if any(c is not None and str(c).strip() != "" for c in r))
-        return hdr, body
+        wb = _calamine.CalamineWorkbook.from_path(str(path))
+        for i, name in enumerate(wb.sheet_names):
+            rows = wb.get_sheet_by_index(i).to_python(skip_empty_area=False)
+            if not rows:
+                yield name, [], iter(())
+                continue
+            yield name, [norm_header(c) for c in rows[0]], (r for r in rows[1:] if has_value(r))
+        return
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-    it = wb.worksheets[0].iter_rows(values_only=True)
-    try:
-        hdr = [text(c) for c in next(it)]
-    except StopIteration:
-        return [], iter(())
-    return hdr, (r for r in it if any(c is not None and str(c).strip() != "" for c in r))
+    for ws in wb.worksheets:
+        it = ws.iter_rows(values_only=True)
+        try:
+            hdr = [norm_header(c) for c in next(it)]
+        except StopIteration:
+            yield ws.title, [], iter(())
+            continue
+        yield ws.title, hdr, (r for r in it if has_value(r))
+
+
+def iter_sheet(path: Path):
+    """คืน (ดัชนีคอลัมน์, ตัวไล่แถว) จาก **ชีตแรกที่มีหัวตารางครบ** หัวตารางอยู่แถวบนสุดของชีต
+
+    ★ ห้ามยึดชีต index 0 ตายตัว — ไฟล์ที่เจ้าของข้อมูลส่งมา 20 ก.ย. 2569
+      ("ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx") วางชีต "สรุปวิเคราะห์" ไว้ **ก่อน** Sheet1
+      ของเดิมอ่านชีตแรกชีตเดียวจึงล้มทั้งไฟล์ ทั้งที่ข้อมูลอยู่ครบในชีตถัดไป
+    """
+    seen: list[tuple[str, list[str]]] = []      # ไว้ประกอบข้อความบอกทางเมื่อหาไม่เจอ
+    for name, hdr, body in walk_sheets(path):
+        idx = header_index(hdr)
+        if idx is not None:
+            return idx, body
+        seen.append((name, hdr))
+
+    detail = "\n".join(
+        f"  ชีต \"{name}\": {', '.join(h for h in hdr if h) or '(ไม่มีหัวตาราง)'}"
+        for name, hdr in seen) or "  (ไฟล์ไม่มีชีตเลย)"
+    raise SystemExit(
+        f"ไฟล์ {path.name} ไม่มีชีตไหนที่มีคอลัมน์ครบ: {', '.join(REQUIRED)}\n"
+        f"หัวตารางที่อ่านได้ของแต่ละชีต:\n{detail}\n"
+        f"เติมชื่อหัวที่ใช้จริงลง ALIASES ใน {Path(__file__).name} ได้ ไม่ต้องแก้ไฟล์ Excel"
+    )
 
 
 def read_file(path: Path) -> tuple[list[dict], int]:
-    hdr, body = iter_sheet(path)
-    idx = {name: hdr.index(name) for name in REQUIRED if name in hdr}
-    missing = [c for c in REQUIRED if c not in idx]
-    if missing:
-        raise SystemExit(
-            f"ไฟล์ {path.name} ไม่มีคอลัมน์: {', '.join(missing)}\n"
-            f"  หัวตารางที่อ่านได้: {', '.join(h for h in hdr if h) or '(ว่าง)'}"
-        )
+    idx, body = iter_sheet(path)
 
     def g(row, name):
         i = idx[name]

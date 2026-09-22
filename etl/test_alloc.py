@@ -21,6 +21,8 @@ from src.alloc import (
     DIST_FALLBACK,
     DIST_MEDIAN,
     DIST_REVERSED,
+    DROPPED_TRIP_TYPES,
+    EMPTY_TRIP_TYPES,
     NOT_LINKED,
     Item,
     allocate_trip,
@@ -159,9 +161,15 @@ class Testข้อมูลไม่เชื่อมกัน:
         assert it.share is None and it.alloc is None and it.profit is None
         assert status_of(it.profit) == NOT_LINKED
 
-    def test_ช่องต้นทุนขีดกลางไม่ใช่ศูนย์(self):  # noqa: N802
+    def test_รู้ว่าช่องต้นทุนไม่ใช่ตัวเลข(self):  # noqa: N802
+        """is_number ยังแยก "-" ออกได้ แต่ **ไม่ได้ใช้ตัดเที่ยวทิ้งแล้ว**
+
+        เจ้าของงานสั่งให้ตี "-" เป็น 0 แล้วเชื่อมเที่ยวต่อ (20 ก.ย. 2569)
+        ตอนนี้ค่าที่คืนมาใช้แค่นับจำนวนแถวลง manifest.zeroCost
+        """
         assert is_number("-") is False and is_number("") is False
         assert is_number("1,234.5") is True and num("1,234.5") == 1234.5
+        assert num("-") == 0.0        # ตัวที่ build_alloc ใช้จริงตอนบวกต้นทุน
 
 
 class Testลูกค้าคือผู้จ่ายเงิน:
@@ -196,11 +204,22 @@ class Testรายการที่ตัดออก:
         assert res.unallocated == pytest.approx(2000.0)
         assert res.allocated + res.unallocated == pytest.approx(10000.0)
 
-    def test_เที่ยวตีเปล่าตัดทั้งเที่ยว(self):  # noqa: N802
+    def test_รถว่างไปสาขาตัดทั้งเที่ยว(self):  # noqa: N802
+        """ยังรับต้นทุนของตัวเองแต่ไม่ปันเข้าลูกค้า — เจ้าของงานยืนยันให้คงไว้ 20 ก.ย. 2569"""
         a = Item(doc="T", bill="b1", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=100, qty=1)
-        res = allocate_trip([a], 3000.0, ROUTES, trip_type="ของเหมาตีเปล่า")
-        assert a.excluded == "ของเหมาตีเปล่า"
+        res = allocate_trip([a], 3000.0, ROUTES, trip_type="รถว่างไปสาขา")
+        assert a.excluded == "รถว่างไปสาขา"
         assert res.allocated == 0.0 and res.unallocated == pytest.approx(3000.0)
+
+    def test_ของเหมาตีเปล่าไม่ใช่หน้าที่ของallocate_tripแล้ว(self):  # noqa: N802
+        """ถูกตัดทิ้งตั้งแต่ตอนอ่านไฟล์ (DROPPED_TRIP_TYPES) จึงไม่มีทางมาถึงตรงนี้
+
+        ★ ถ้าหลุดมาได้ แปลว่าตัวกรองใน build_costrev.py/build_alloc.py หายไปข้างหนึ่ง
+          แล้วตัวเลขลูกค้าสองแท็บจะไม่ตรงกันอีก
+        """
+        assert "ของเหมาตีเปล่า" in DROPPED_TRIP_TYPES
+        assert "ของเหมาตีเปล่า" not in EMPTY_TRIP_TYPES
+        assert "รถว่างไปสาขา" in EMPTY_TRIP_TYPES and "รถว่างไปสาขา" not in DROPPED_TRIP_TYPES
 
 
 class Testอ่านค่าจากเซลล์:
@@ -209,3 +228,124 @@ class Testอ่านค่าจากเซลล์:
 
     def test_ตัดช่องว่างหน้าหลัง(self):  # noqa: N802
         assert txt("  สด ต้นทาง   ") == "สด ต้นทาง"
+
+
+# ================================================================ ยุบก้อนเป็นรายลูกค้า
+# ไฟล์สามตัวของแท็บ "กำไรลูกค้า" (custindex / custmonths / topbills) ถูกคัดมาจากตัวสะสม
+# ชุดเดียวกับ customers.json จึงต้อง "ปิดยอด" กับมันเสมอ เทสต์กลุ่มนี้คือด่านที่จับได้ว่า
+# การยุบฝ่ายผู้จ่าย มิติเดือน หรือการคัด 20 รายทำข้อมูลหายไประหว่างทางหรือเปล่า
+from build_alloc import TOP_N, Rollup  # noqa: E402
+
+
+def บิล(doc, bill, code, payment="สดต้นทาง", revenue=100.0, month="2026-01",  # noqa: N802,N803
+        origin="เชียงใหม่", dest="ลำปาง"):
+    return Item(doc=doc, bill=bill, sender=code, receiver=code, payment=payment,
+                revenue=revenue, month=month, origin=origin, dest=dest)
+
+
+def ยุบ(items_allocs):  # noqa: N802
+    """ป้อนรายการแล้วคืนผลของ by_customer() เหมือนที่ write() เรียกจริง"""
+    r = Rollup()
+    for it, alloc in items_allocs:
+        r.add(it, alloc, "")
+    r.flush_file()
+    rows = sorted(r.cust.items(), key=lambda kv: kv[1][3])
+    mo_keys = sorted(k for k in r.months if k)
+    ci, cm, tb, bc = r.by_customer(rows, {}, mo_keys)
+    return r, ci, cm, tb, bc
+
+
+class Testยุบฝ่ายผู้จ่าย:
+    def test_ลูกค้าที่เป็นทั้งผู้ส่งและผู้รับเหลือแถวเดียว(self):  # noqa: N802
+        _, ci, _, _, _ = ยุบ([
+            (บิล("T1", "b1", "AAA", "สดต้นทาง", 300.0), 100.0),
+            (บิล("T1", "b2", "AAA", "สดปลายทาง", 700.0), 200.0),
+        ])
+        assert ci["code"] == ["AAA"]
+        assert ci["sides"] == [1 | 2]            # เป็นทั้งสองฝ่าย
+        assert ci["bills"] == [2]                # 1 บิลอยู่ฝ่ายเดียวเสมอ จึงไม่นับซ้ำ
+        assert ci["revenue"] == [1000.0] and ci["cost"] == [300.0]
+        assert ci["profit"] == [700.0]
+
+    def test_ฝ่ายเดียวได้บิตเดียว(self):  # noqa: N802
+        _, ci, _, _, _ = ยุบ([(บิล("T1", "b1", "AAA", "เชื่อปลายทาง"), 10.0)])
+        assert ci["sides"] == [2]
+
+    def test_เรียงขาดทุนมากสุดขึ้นก่อนเหมือนcustomers(self):  # noqa: N802
+        _, ci, _, _, _ = ยุบ([
+            (บิล("T1", "b1", "กำไร", revenue=900.0), 100.0),
+            (บิล("T1", "b2", "ขาดทุน", revenue=100.0), 900.0),
+        ])
+        assert ci["code"] == ["ขาดทุน", "กำไร"]
+
+
+class Testมิติเดือน:
+    def test_แยกเดือนแล้วรวมกลับได้เท่าเดิม(self):  # noqa: N802
+        _, ci, cm, _, bc = ยุบ([
+            (บิล("T1", "b1", "AAA", month="2026-01", revenue=100.0), 10.0),
+            (บิล("T1", "b2", "AAA", month="2026-02", revenue=200.0), 20.0),
+            (บิล("T1", "b3", "AAA", month="2026-02", revenue=300.0), 30.0),
+        ])
+        assert cm["ci"] == [0, 0] and cm["mi"] == [0, 1]
+        assert cm["bills"] == [1, 2]
+        assert cm["revenue"] == [100.0, 500.0]
+        assert sum(cm["revenue"]) == ci["revenue"][0]
+        assert sum(cm["cost"]) == ci["cost"][0]
+        assert sum(cm["bills"]) == ci["bills"][0]
+        assert bc["noMonth"]["bills"] == 0
+
+    def test_บิลที่ไม่มีเดือนไม่หายเงียบแต่ไปอยู่ในnoMonth(self):  # noqa: N802
+        _, ci, cm, _, bc = ยุบ([
+            (บิล("T1", "b1", "AAA", month="", revenue=100.0), 10.0),
+            (บิล("T1", "b2", "AAA", month="2026-02", revenue=200.0), 20.0),
+        ])
+        assert bc["noMonth"] == {"bills": 1, "revenue": 100.0, "cost": 10.0}
+        assert sum(cm["revenue"]) + bc["noMonth"]["revenue"] == ci["revenue"][0]
+
+    def test_นับบิลที่ขาดทุนแยกรายเดือน(self):  # noqa: N802
+        _, ci, cm, _, _ = ยุบ([
+            (บิล("T1", "b1", "AAA", month="2026-01", revenue=10.0), 900.0),
+            (บิล("T1", "b2", "AAA", month="2026-02", revenue=900.0), 10.0),
+        ])
+        assert cm["lossBills"] == [1, 0]
+        assert sum(cm["lossBills"]) == ci["lossBills"][0]
+
+
+class Testรายการบิลของรายที่กดดูได้:
+    def test_เก็บบิลเฉพาะรายที่อยู่ในdrill(self):  # noqa: N802
+        # ลูกค้า 30 ราย กำไรไล่ขึ้น -> drill ต้องได้ 10 หัว + 10 ท้าย และบิลมีเฉพาะของพวกนั้น
+        items = [(บิล("T1", f"b{i}", f"C{i:02d}", revenue=float(i) * 100), 500.0)
+                 for i in range(30)]
+        _, ci, _, tb, bc = ยุบ(items)
+        assert len(ci["code"]) == 30
+        assert ci["drill"] == list(range(TOP_N)) + list(range(30 - TOP_N, 30))
+        assert sorted(set(tb["ci"])) == ci["drill"]
+        assert bc["drillBills"] == len(tb["ci"]) == 2 * TOP_N
+
+    def test_ยอดบิลปิดกับยอดรายลูกค้า(self):  # noqa: N802
+        _, ci, _, tb, _ = ยุบ([
+            (บิล("T1", "b1", "AAA", revenue=100.0), 10.0),
+            (บิล("T1", "b2", "AAA", revenue=200.0), 20.0),
+        ])
+        assert sum(tb["revenue"]) == ci["revenue"][0]
+        assert sum(tb["cost"]) == ci["cost"][0]
+        assert len(tb["ci"]) == ci["bills"][0]
+
+    def test_ลูกค้าน้อยกว่าสองเท่าของTOPไม่ซ้ำ(self):  # noqa: N802
+        _, ci, _, _, _ = ยุบ([(บิล("T1", f"b{i}", f"C{i}"), 10.0) for i in range(3)])
+        assert ci["drill"] == [0, 1, 2]           # ไม่ใช่ [0,1,2,0,1,2]
+
+    def test_ชื่อสถานที่เก็บครั้งเดียวแล้วอ้างด้วยดัชนี(self):  # noqa: N802
+        _, _, _, tb, _ = ยุบ([
+            (บิล("T1", "b1", "AAA", origin="เชียงใหม่", dest="ลำปาง"), 10.0),
+            (บิล("T1", "b2", "AAA", origin="เชียงใหม่", dest="ลำพูน"), 10.0),
+        ])
+        assert tb["place"] == ["เชียงใหม่", "ลำปาง", "ลำพูน"]
+        assert tb["o"] == [0, 0] and tb["d"] == [1, 2]
+
+    def test_เลขที่บิลคงรูปเดิมแม้ไม่ใช่ตัวเลข(self):  # noqa: N802
+        _, _, _, tb, _ = ยุบ([
+            (บิล("T1", "1126010002014", "AAA"), 10.0),
+            (บิล("T1", "INV-00A", "AAA"), 10.0),
+        ])
+        assert sorted(tb["bill"]) == ["1126010002014", "INV-00A"]

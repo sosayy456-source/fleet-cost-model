@@ -8,6 +8,8 @@
         รายได้  etl/data/revenue/*.xlsx                (ข้อมูลรายได้จริง)
 
 ผลลัพธ์ app/public/data/<dataset>/costrev/
+    svc.json           ปันต้นทุน/รายได้ของเที่ยวเข้ากลุ่มบริการ (ประเภทสินค้าของบิล) 1 ระเบียน = ใบรายการ × กลุ่ม
+                       เก็บเป็นคอลัมน์ id/g/n/rev/cost — Σ ทุกกลุ่มของใบ = รายได้/ต้นทุนของเที่ยวเสมอ (ดู src/svcalloc.py)
     manifest.json      สรุปจำนวน ช่วงวันที่ %จับคู่ระยะทาง
     trips.json         1 แถว = 1 เที่ยว (ทุกแถวในไฟล์) มีธง m = เลขที่ใบรายการตรงกับข้อมูลรายได้
     old_records.json   เที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้ารายการทั้งหมด
@@ -56,7 +58,9 @@ except ImportError:       # ไม่มีก็ยังรันได้ แ
     _calamine = None
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from src.alloc import DROPPED_TRIP_TYPES, Item  # noqa: E402
 from src.custcodes import resolve_codes  # noqa: E402
+from src.svcalloc import SvcAlloc  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -221,10 +225,13 @@ def xlsx_files(folder: Path) -> list[Path]:
 
 
 # ---------------------------------------------------------------- รายได้
-def load_revenue(rev_dir: Path, want: set[str]):
+def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
     """
     อ่านไฟล์รายได้ แล้วคืน (ใบรายการที่ตรงกับ want, บิลของใบเหล่านั้น, จำนวนไฟล์, จำนวนแถว,
     ยอดที่ชำระแล้ว, มูลค่าบิลเคลียร์ต่อใบ, จำนวนรายการบิลเคลียร์ต่อใบ)
+
+    svc = ตัวสะสมปันต้นทุนเข้ากลุ่มบริการ (src/svcalloc.py) — ป้อนทุกบิลของใบที่ตรงกับ want
+    ก่อนตัวกรองสถานะชำระเงิน เพราะการปันต้องใช้ภาระงานของทุกบิลในเที่ยว ไม่ใช่เฉพาะที่ค้างชำระ
 
     ★ เก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (want) — ข้อมูลรายได้จริง 29 ไฟล์รวมเกือบ 2 ล้านแถว
       ถ้าเก็บทุกใบไว้ในหน่วยความจำจะกินหลาย GB ทั้งที่ใช้จริงแค่ไม่กี่พันใบ
@@ -266,6 +273,12 @@ def load_revenue(rev_dir: Path, want: set[str]):
             # ชำระแล้วจะถูก continue ทิ้ง ถ้านับทีหลังบิลเคลียร์ที่ชำระแล้วจะหายไปเงียบ ๆ แล้ว
             # Damage Rate ต่ำกว่าจริง (ชุดตัวอย่างบังเอิญเป็น "ยังไม่ได้ชำระ" ครบ ข้อมูลจริงไม่รับประกัน)
             goods_type = text(g(r, "ประเภทสินค้า"))
+            if svc is not None:
+                svc.add(Item(
+                    doc=doc, bill=text(g(r, "เลขที่บิล")), origin=text(g(r, "ต้นทาง")), dest=text(g(r, "ปลายทาง")),
+                    weight=num(g(r, "น้ำหนักรวม")), qty=num(g(r, "จำนวน")),
+                    width=num(g(r, "กว้าง")), length=num(g(r, "ยาว")), height=num(g(r, "สูง")),
+                    name=text(g(r, "ชื่อสินค้า")), revenue=num(g(r, "ราคารวม")), goods=goods_type))
             if goods_type == GOODS_CLEARED:
                 clr_amt[doc] = clr_amt.get(doc, 0.0) + num(g(r, "ราคารวม"))
                 clr_n[doc] = clr_n.get(doc, 0) + 1
@@ -337,7 +350,7 @@ def build(dataset: str) -> None:
         return float(v) if v is not None else None
 
     trips: list[dict] = []
-    skipped_no_doc = skipped_no_date = 0
+    skipped_no_doc = skipped_no_date = dropped_type = 0
     kinds = Counter()
     for cf in cost_files:
         hrow = find_header_row(cf, "เลขที่ใบรายการ")
@@ -373,6 +386,12 @@ def build(dataset: str) -> None:
             revenue = rev1 if rev1 is not None else num(g(r, COL_REV2))
             cost = num(g(r, COL_COST))
             ttype = text(g(r, "ประเภทใบรายการ"))
+            # ★ ประเภทที่เจ้าของงานสั่งตัดออกจากโมเดลทั้งระบบ (20 ก.ย. 2569) — ทิ้งทั้งแถว
+            #   ไม่เข้า trips.json จึงไม่โผล่ในแท็บไหนเลย และ **ไม่นับเป็นเที่ยววิ่งเปล่าด้วย**
+            #   ต้องกรองที่นี่ด้วย ไม่ใช่แค่ใน build_alloc.py เพราะสองตัวอ่านไฟล์คนละรอบ
+            if ttype in DROPPED_TRIP_TYPES:
+                dropped_type += 1
+                continue
             empty = num(g(r, COL_REV1)) == 0 and num(g(r, COL_REV2)) == 0
             origin, dest = text(g(r, "จุดขึ้น")), text(g(r, "จุดลง"))
             kind = text(g(r, "ชนิดรถ"))
@@ -430,8 +449,9 @@ def build(dataset: str) -> None:
     # อ่านรายได้ทีหลัง แล้วเก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (ดูเหตุผลใน load_revenue)
     print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
     cost_docs = {t["id"] for t in trips}
+    svc = SvcAlloc(routes)
     (rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n, goods,
-     bill_n, payers, service_revenue) = load_revenue(rev_dir, cost_docs)
+     bill_n, payers, service_revenue) = load_revenue(rev_dir, cost_docs, svc)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
     for t in trips:
         t["m"] = t["id"] in rev_docs
@@ -449,6 +469,18 @@ def build(dataset: str) -> None:
             service: round(amount, 2)
             for service, amount in sorted(service_revenue.get(t["id"], {}).items())
         }
+
+    # ปันต้นทุน/รายได้ของเที่ยวเข้ากลุ่มบริการ — ใบที่เลขซ้ำหลายแถวรวมยอดเป็นใบเดียว (เหมือน build_alloc.py)
+    doc_tot: dict[str, list[float]] = {}
+    for t in trips:
+        a = doc_tot.setdefault(t["id"], [0.0, 0.0])
+        a[0] += t["cost"]; a[1] += t["rev"]
+    svc_rows = [(doc, *row) for doc, (cost, rev) in doc_tot.items() for row in svc.finalize(doc, cost, rev)]
+    svc_out = {
+        "id": [r[0] for r in svc_rows], "g": [r[1] for r in svc_rows], "n": [r[2] for r in svc_rows],
+        "rev": [round(r[3], 2) for r in svc_rows], "cost": [round(r[4], 2) for r in svc_rows],
+    }
+    del svc
 
     matched = [t for t in trips if t["m"]]
     route_pairs = {(t["o"], t["de"]) for t in trips if t["o"] and t["de"]}
@@ -497,7 +529,9 @@ def build(dataset: str) -> None:
         "routeDistance": {"routes": len(route_pairs), "matched": route_hit,
                           "tripsWithKm": trips_with_km,
                           "pct": round(100 * trips_with_km / len(trips), 1)},
-        "skipped": {"noDoc": skipped_no_doc, "noDate": skipped_no_date},
+        "skipped": {"noDoc": skipped_no_doc, "noDate": skipped_no_date,
+                    # เที่ยวที่ตัดออกทั้งประเภท (DROPPED_TRIP_TYPES) — ไม่อยู่ใน rows/trips เลย
+                    "droppedType": dropped_type},
         "emptyRule": "เที่ยววิ่งเปล่า = ราคารวมจากรายได้ = 0 และ ค่าบรรทุกทั้งใบรายการ = 0 (ไม่จำกัดประเภทใบรายการ)",
         "debtorBills": len(old_debtors),
         # สรุปบิลเคลียร์เฉพาะฝั่งที่จับคู่ได้ — แท็บ Damage Rate ใช้ตรวจว่ายอดในหน้าเว็บตรงกับไฟล์
@@ -507,8 +541,11 @@ def build(dataset: str) -> None:
         # บิลที่ชำระแล้วไม่ได้เขียนลงไฟล์ (ดูเหตุผลใน load_revenue) เก็บไว้แค่จำนวนกับยอดรวม
         "debtorPaid": rev_paid,
     }
+    manifest["serviceGroups"] = {"rows": len(svc_rows), "trips": len({r[0] for r in svc_rows}),
+                                 "method": "วิธี ค (ภาระงาน × ระยะทาง) — src/svcalloc.py"}
     dump("manifest.json", manifest)
     dump("trips.json", trips)
+    dump("svc.json", svc_out)
     dump("old_records.json", old_records)
     dump("old_debtors.json", old_debtors)
 

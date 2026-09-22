@@ -1430,3 +1430,9 @@ body:has(#view-dash.active){background:#EDE7DF}
 .fleet-detail-dialog .fl-tname{flex-wrap:wrap}
 @media(min-width:1500px){.dz-heroes.fleet-util-heroes{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:720px){.fleet-util-secondary{grid-template-columns:1fr}.fleet-detail-dialog{padding:16px}}
+
+/* Demo · แท็บกำไรลูกค้า: ตารางรายลูกค้า กดได้เฉพาะแถวที่มีข้อมูลบิล (มีเครื่องหมาย ▸)
+   ไม่ใช้ .dm-tbl เพราะตัวนั้นบังคับ cursor:pointer ทุกแถว และตั้งความกว้างไว้ให้ตาราง 4 คอลัมน์ */
+.dm-cust tbody tr{transition:background-color .14s var(--d-ease)}
+.dm-cust tbody tr[title]:hover{background:var(--d-soft)}
+.dm-cust .dm-drill{color:var(--d-indigo);font-weight:700}

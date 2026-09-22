@@ -116,7 +116,7 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
         ) : (
           <>
             {tab === "fleet" && <FleetTab trips={trips} />}
-            {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} />}
+            {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} svc={data?.svc ?? null} />}
             {tab === "cost" && <CostTab trips={trips} />}
             {/* ความเสียหายมาจากบิลในไฟล์รายได้ จึงมีตัวเลขเฉพาะโหมด exec — โหมด all ขึ้นข้อจำกัดแทน */}
             {tab === "empty" && <EmptyTab trips={trips} />}

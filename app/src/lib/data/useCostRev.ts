@@ -83,11 +83,24 @@ export interface CostRevManifest {
   debtorPaid?: { bills: number; total: number };
   /** สรุปบิลเคลียร์เฉพาะเที่ยวที่จับคู่ได้ — ไฟล์รุ่นก่อนแท็บ Damage Rate ไม่มีคีย์นี้ */
   clear?: { trips: number; bills: number; amount: number };
+  /** ปันต้นทุนเข้ากลุ่มบริการ (svc.json) — ไฟล์รุ่นก่อน 20 ก.ย. 2569 ไม่มีคีย์นี้ */
+  serviceGroups?: { rows: number; trips: number; method: string };
+}
+
+/**
+ * ต้นทุน/รายได้ของเที่ยวที่ปันเข้ากลุ่มบริการ (ประเภทสินค้าของบิล) ด้วยวิธี ค — etl/src/svcalloc.py
+ * เก็บเป็นคอลัมน์ ดัชนีเดียวกัน 1 ระเบียน = ใบรายการ × กลุ่ม · Σ ทุกกลุ่มของใบ = รายได้/ต้นทุนของเที่ยว
+ * มีเฉพาะใบที่เลขที่ตรงกับข้อมูลรายได้ (m = true)
+ */
+export interface SvcAlloc {
+  id: string[]; g: string[]; n: number[]; rev: number[]; cost: number[];
 }
 
 export interface CostRevData {
   manifest: CostRevManifest;
   trips: Trip[];
+  /** null = ยังไม่มีไฟล์ (ETL รุ่นเก่า) — แท็บกำไรรายเที่ยวซ่อนตารางกลุ่มบริการ ที่เหลือใช้ได้ตามปกติ */
+  svc: SvcAlloc | null;
 }
 
 /* ---------- ยอดที่คำนวณต่อจากกลุ่มต้นทุน (นิยามตามเอกสารจัดประเภทต้นทุน) ---------- */
@@ -135,11 +148,12 @@ let cache: Promise<CostRevData> | null = null;
 export async function loadCostRev(): Promise<CostRevData> {
   cache ??= (async () => {
     const ds = await detect();
-    const [manifest, trips] = await Promise.all([
+    const [manifest, trips, svc] = await Promise.all([
       fetchJson<CostRevManifest>(ds, "manifest.json"),
       fetchJson<Trip[]>(ds, "trips.json"),
+      fetchJson<SvcAlloc>(ds, "svc.json").catch(() => null),
     ]);
-    return { manifest, trips };
+    return { manifest, trips, svc };
   })().catch((e) => { cache = null; throw e; });
   return cache;
 }

@@ -52,18 +52,30 @@ export function DLine({ data, xKey, series, suffix = " บาท", digits = 0 }:
 }
 
 /* ---------------- dBar: แท่งตั้งหรือแท่งนอน ---------------- */
-export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท", digits = 0, domain, valueTick = fmtShort }: {
+export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท", digits = 0, domain,
+  valueTick = fmtShort, onBarClick, tipFormat }: {
   data: Row[]; xKey: string; series: DSeries[]; horiz?: boolean;
   /** ระบายทีละแท่ง — ใช้กับกราฟชุดเดียวที่ main กำหนดสีเป็นอาร์เรย์ */
   colors?: string[];
   suffix?: string; digits?: number; domain?: [number | string, number | string];
   /** ป้ายบนแกนค่า — ค่าเริ่มต้นเลขเต็มมีคอมมา (กราฟ % ส่งตัวที่เติม % เอง) */
   valueTick?: (n: number) => string;
+  /** กดแท่งแล้วเรียกพร้อมลำดับแท่งนั้น — ไม่ส่ง = แท่งกดไม่ได้เหมือนเดิม */
+  onBarClick?: (index: number) => void;
+  /** แทนข้อความในกล่องชี้ โดยเห็นทั้งแถวของข้อมูล (ใช้เติม % ที่คิดจากฐานอื่น) */
+  tipFormat?: (v: number, name: string, row: Row) => [string, string];
 }) {
   const t = useChartTheme();
   const showLeg = series.length > 1;
+  const tip = tooltipProps(t, suffix, digits);
+  const tipAll = tipFormat
+    ? { ...tip, formatter: (v: number, name: string, item: { payload?: Row }) =>
+        tipFormat(v, name, (item?.payload ?? {}) as Row) }
+    : tip;
   const bars = series.map((s) => (
-    <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={BAR_RADIUS} {...anim}>
+    <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={BAR_RADIUS} {...anim}
+      cursor={onBarClick ? "pointer" : undefined}
+      onClick={onBarClick ? (_: unknown, i: number) => onBarClick(i) : undefined}>
       {colors && data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]} />)}
     </Bar>
   ));
@@ -74,7 +86,7 @@ export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท",
           <CartesianGrid {...gridProps(t)} />
           <XAxis {...axisProps(t)} type="number" tickFormatter={valueTick} domain={domain} />
           <YAxis {...axisProps(t)} type="category" dataKey={xKey} width={catWidth(data, xKey)} />
-          <Tooltip {...tooltipProps(t, suffix, digits)} />
+          <Tooltip {...tipAll} />
           {showLeg && <Legend {...legendProps} />}
           {bars}
         </ComposedChart>
@@ -83,7 +95,7 @@ export function DBar({ data, xKey, series, horiz, colors, suffix = " บาท",
           <CartesianGrid {...gridProps(t)} />
           <XAxis {...axisProps(t)} dataKey={xKey} />
           <YAxis {...axisProps(t)} tickFormatter={valueTick} width={62} domain={domain} />
-          <Tooltip {...tooltipProps(t, suffix, digits)} />
+          <Tooltip {...tipAll} />
           {showLeg && <Legend {...legendProps} />}
           {bars}
         </ComposedChart>

@@ -33,6 +33,17 @@ export interface AllocManifest {
   revenue: { toCustomers: number; notLinked: number };
   itemStatus: Record<string, number>;
   months: string[];
+  /** ไฟล์รุ่นก่อน 20 ก.ย. 2569 ไม่มีคีย์นี้ — แท็บ "กำไรลูกค้า" ของเมนู Demo ใช้ตัวเดียว */
+  byCustomer?: {
+    version: number;
+    customers: number;
+    /** จำนวนรายที่กดดูบิลได้ ฝั่งกำไรสูงสุดและขาดทุนสูงสุดอย่างละเท่านี้ */
+    top: number;
+    bottom: number;
+    drillBills: number;
+    /** บิลที่อ่านเดือนไม่ออก — ไม่อยู่ใน custmonths ผลรวมทุกเดือนจึงน้อยกว่ายอดใน custindex */
+    noMonth: { bills: number; revenue: number; cost: number };
+  };
 }
 
 /** 1 ระเบียน = 1 ลูกค้า (ผู้จ่ายเงิน) */
@@ -81,11 +92,61 @@ export interface AllocUnlinked {
   basisCondition: Record<string, number>;
 }
 
+/* ---------------- ชุดข้อมูลของแท็บ "กำไรลูกค้า" (เมนู Demo) ----------------
+ * ★ สามไฟล์นี้คัดมาจากตัวสะสมชุดเดียวกับ customers.json แต่ยุบฝ่ายผู้จ่ายทิ้งแล้ว
+ *   (เจ้าของงานสั่งตัดคอลัมน์ผู้จ่ายออก 20 ก.ย. 2569) ตัวเลขจึงไม่เท่ากับ customers.json
+ *   ที่แยกผู้ส่ง/ผู้รับเป็นคนละระเบียน — ตั้งใจ ไม่ใช่บั๊ก
+ * ★ ดัชนีในอาเรย์ของ custindex คือคีย์ที่ custmonths.ci และ topbills.ci อ้างถึง
+ */
+
+/** 1 ระเบียน = 1 ลูกค้า (ยุบผู้ส่ง/ผู้รับเข้าด้วยกันแล้ว) เก็บเป็นคอลัมน์เพื่อให้ไฟล์เล็ก */
+export interface AllocCustIndex {
+  code: string[];
+  n: number[];
+  /** บิตแมสก์ฝ่ายที่รหัสนี้เคยเป็น — 1 = ผู้ส่ง · 2 = ผู้รับ · 3 = ทั้งคู่ */
+  sides: number[];
+  bills: number[];
+  revenue: number[];
+  cost: number[];
+  profit: number[];
+  lossBills: number[];
+  /** ดัชนีของรายที่มีข้อมูลบิลใน topbills.json (กดดูรายละเอียดได้) */
+  drill: number[];
+}
+
+/** ยอดรายลูกค้า × เดือน — ฐานของตัวกรองปี/เดือน · mi = ดัชนีใน manifest.months */
+export interface AllocCustMonths {
+  ci: number[];
+  mi: number[];
+  bills: number[];
+  revenue: number[];
+  cost: number[];
+  lossBills: number[];
+}
+
+/** รายการบิลของลูกค้าใน custindex.drill · o/d = ดัชนีใน place (-1 = ไม่ระบุ) */
+export interface AllocTopBills {
+  place: string[];
+  ci: number[];
+  bill: string[];
+  mi: number[];
+  side: number[];
+  o: number[];
+  d: number[];
+  revenue: number[];
+  cost: number[];
+}
+
 export interface AllocData {
   manifest: AllocManifest;
   customers: AllocCustomer[];
   months: AllocMonths;
   unlinked: AllocUnlinked;
+  /** null = ยังไม่มีไฟล์ (ETL รุ่นเก่า) — แท็บ "กำไรลูกค้า" ขึ้นข้อความบอกวิธีสร้าง
+   *  ส่วนหน้า "กำไรลูกค้า (ปันส่วนต้นทุน)" เดิมใช้ได้ตามปกติเพราะไม่ได้อ่านสามไฟล์นี้ */
+  custIndex: AllocCustIndex | null;
+  custMonths: AllocCustMonths | null;
+  topBills: AllocTopBills | null;
 }
 
 const BASE = import.meta.env.BASE_URL;
@@ -142,13 +203,18 @@ let cache: Promise<AllocData> | null = null;
 export async function loadAlloc(): Promise<AllocData> {
   cache ??= (async () => {
     const ds = await detect();
-    const [manifest, columns, months, unlinked] = await Promise.all([
+    const [manifest, columns, months, unlinked, custIndex, custMonths, topBills] = await Promise.all([
       fetchJson<AllocManifest>(ds, "manifest.json"),
       fetchJson<CustomerColumns>(ds, "customers.json"),
       fetchJson<AllocMonths>(ds, "months.json"),
       fetchJson<AllocUnlinked>(ds, "unlinked.json"),
+      // สามไฟล์ของแท็บ "กำไรลูกค้า" เป็นของใหม่ — ETL รุ่นเก่าไม่มี กลืน error เป็น null
+      // แบบเดียวกับ svc.json ใน useCostRev.ts ห้ามให้ล้มทั้งชุดจนหน้าเดิมเปิดไม่ได้
+      fetchJson<AllocCustIndex>(ds, "custindex.json").catch(() => null),
+      fetchJson<AllocCustMonths>(ds, "custmonths.json").catch(() => null),
+      fetchJson<AllocTopBills>(ds, "topbills.json").catch(() => null),
     ]);
-    return { manifest, customers: toRows(columns), months, unlinked };
+    return { manifest, customers: toRows(columns), months, unlinked, custIndex, custMonths, topBills };
   })().catch((e) => { cache = null; throw e; });
   return cache;
 }
