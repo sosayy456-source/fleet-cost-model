@@ -72,3 +72,7 @@ etl/sample_data/ExampleDebtors.xlsx
 #   ต่างจาก sample/ ที่เหลือซึ่งมาจากไฟล์บิลที่ anonymize แล้ว (bill_*_Randomed.xlsx)
 #   คนที่ clone ไปต้องวางไฟล์ลูกหนี้เองแล้วรัน etl/build_debtors.py --dataset sample
 app/public/data/sample/debtors/
+
+# โฟลเดอร์ชั่วคราวของเครื่องมือช่วยงาน (ไลบรารี pip · รูปที่แปลงจาก PDF · สคริปต์ทดสอบครั้งเดียว)
+# ไม่ใช่ของโปรเจกต์ และเป็นไบนารีหลายสิบ MB ที่จะอยู่ในประวัติ git ถาวรถ้าเผลอ commit
+tmp/
