@@ -1091,26 +1091,8 @@ function FleetPane({ state }: { state: RecordsState }) {
     && (!f.group || (r.serviceGroup ?? "") === f.group)
     && (!f.veh || (r.vehicle ?? "") === f.veh)), [base, f]);
 
-  const km = recs.reduce((s, r) => s + num(r.dist), 0);
   const plates = duniq(recs.map((r) => r.plate));
   const usedN = plates.filter((p) => roster.some((x) => x.plate === p)).length;
-
-  const today = todayISO();
-  const endDate = f.year ? `${f.year}-12-31` : today;
-  const endUse = endDate > today ? today : endDate;
-
-  const util = useMemo(() => roster.map((x) => {
-    const own = recs.filter((r) => r.plate === x.plate);
-    const kmOwn = own.reduce((s, r) => s + num(r.dist), 0);
-    const activeDays = duniq(own.map((r) => r.date)).length;
-    const availDays = x.start ? Math.max(1, (daysBetween(x.start, endUse) ?? 0) + 1) : null;
-    const pct = availDays && availDays > 0 ? Math.min(100, Math.round(activeDays / availDays * 100)) : null;
-    return { f: x, n: own.length, km: kmOwn, activeDays, availDays, pct };
-  }).sort((a, b) => (b.pct ?? -1) - (a.pct ?? -1)), [roster, recs, endUse]);
-
-  const withPct = util.filter((x) => x.pct != null);
-  const avgUtil = withPct.length
-    ? Math.round(withPct.reduce((s, x) => s + (x.pct ?? 0), 0) / withPct.length) : 0;
 
   const countBy = (key: (r: TripRecord) => string | undefined, limit?: number) => {
     const m = new Map<string, number>();
@@ -1175,9 +1157,6 @@ function FleetPane({ state }: { state: RecordsState }) {
         <div className="dz-cards">
           <KC dot={D.indigo} l="รถที่มีเที่ยววิ่งในช่วงนี้" v={fmt(usedN)}
             s={<>จาก {fmt(roster.length)} คันในกองรถ</>} />
-          <KC dot={D.teal} l="%การใช้งานเฉลี่ยต่อคัน" v={`${avgUtil}%`}
-            s="วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน" bar={D.teal} />
-          <KC dot={D.violet} l="ระยะทางรวมทุกเที่ยว" v={fmt(km)} s="กม." />
         </div>
 
         <div className="dz-row dz-11" style={{ marginTop: 14 }}>
@@ -1198,41 +1177,8 @@ function FleetPane({ state }: { state: RecordsState }) {
           </CC>
         </div>
 
-        <div className="dz-cc" style={{ marginTop: 14 }}>
-          <h4>%การใช้งานรายคัน (เทียบกับทะเบียนรถในกองรถ)</h4>
-          <div className="scroll">
-            <table className="dz-tbl">
-              <thead><tr>
-                <th>ทะเบียนรถ</th><th>ประเภทรถ</th><th>ชนิดรถ</th><th>เริ่มใช้งาน</th><th>สถานะ</th>
-                <th className="n">จำนวนเที่ยว</th><th className="n">กม.รวม</th>
-                <th className="n">วันที่ใช้งานจริง</th><th className="n">วันพร้อมใช้งาน</th><th className="n">%การใช้งาน</th>
-              </tr></thead>
-              <tbody>
-                {util.length === 0
-                  ? <Empty cols={10} text="ยังไม่มีรถในกองรถ — เพิ่มได้ที่หน้า “การตั้งค่า”" />
-                  : util.map((x) => (
-                    <tr key={x.f.plate}>
-                      <td style={{ fontWeight: 700 }}>{x.f.plate}</td>
-                      <td>{x.f.fleetType || "–"}</td>
-                      <td>{x.f.vehicle || "–"}</td>
-                      <td>{thDateSafe(x.f.start)}</td>
-                      <td>{x.f.status || "–"}</td>
-                      <td className="n">{fmt(x.n)}</td>
-                      <td className="n">{fmt(x.km)}</td>
-                      <td className="n">{fmt(x.activeDays)}</td>
-                      <td className="n">{x.availDays == null ? "–" : fmt(x.availDays)}</td>
-                      <td className="n" style={{ fontWeight: 700 }}>{x.pct == null ? "–" : `${x.pct}%`}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <Note>
-          %การใช้งาน = จำนวนวันที่มีเที่ยววิ่งจริง (นับวันไม่ซ้ำ) ÷ จำนวนวันตั้งแต่ “วันที่เริ่มใช้งาน”
-          ในทะเบียนรถ ถึงวันนี้ (หรือถึงวันสุดท้ายของตัวกรองปีที่เลือก) × 100 ·
-          รถที่ไม่มีเที่ยวเลยจะแสดง 0% · เพิ่ม/แก้ทะเบียนรถได้ที่หน้า “การตั้งค่า”
-        </Note>
+        {/* %การใช้งานเฉลี่ยต่อคัน · ระยะทางรวม · ตาราง %การใช้งานรายคัน ย้ายไป Executive Dashboard ›
+            การใช้ประโยชน์ของกองรถ แล้ว (เจ้าของงานสั่ง 24 ก.ย. 2569 · คิดจากไฟล์ต้นทุนแทนใบรายการ) */}
 
         <ZT>มูลค่าที่สูญเสียจากอัตราบรรทุกต่ำ / เที่ยวเปล่า / รถใช้ไม่คุ้มค่า</ZT>
         <div className="dz-cards">
@@ -1408,7 +1354,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
             <input style={searchStyle} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหา ทะเบียน / ชนิดรถ / ตำแหน่ง" />
           </TableHead>
-          {/* เลื่อนในกล่อง (สูงสุด 60vh) หัวตารางติดบน — กองรถ 274 คัน ถ้าวางยาวทั้งหน้า
+          {/* เลื่อนในกล่อง (สูงสุด 60vh) หัวตารางติดบน — กองรถหลายร้อยคัน ถ้าวางยาวทั้งหน้า
               ต้องเลื่อนผ่านทั้งตารางกว่าจะถึงแผงทะเบียนรถข้างล่าง (เจ้าของงานขอ 23 ก.ย. 2569) */}
           <GrowBox rows={shown} render={(page) => (
             <table className="dz-tbl">

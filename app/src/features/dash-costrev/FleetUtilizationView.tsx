@@ -1,8 +1,10 @@
 /**
  * เนื้อหาแท็บ "การใช้ประโยชน์ของกองรถ" — ดีไซน์ตามภาพที่เจ้าของงานส่ง 23 ก.ย. 2569
  *
- *   การ์ดหลัก 4 ใบ → การ์ดรอง 2 ใบ → สัดส่วนประเภทรถในแต่ละกลุ่มบริการ →
- *   เส้นทาง 5 อันดับแรก (ซ้าย) + โดนัทประเภทรถ (ขวา) → ตารางสรุป เส้นทาง × กลุ่มบริการ × ชนิดรถ
+ *   การ์ดหลัก 4 ใบ → การ์ดรอง 2 ใบ → **%การใช้งานเฉลี่ยต่อคัน · ระยะทางรวมทุกเที่ยว** →
+ *   สัดส่วนประเภทรถในแต่ละกลุ่มบริการ → เส้นทาง 5 อันดับแรก (ซ้าย) + โดนัทประเภทรถ (ขวา) →
+ *   ตารางสรุป เส้นทาง × กลุ่มบริการ × ชนิดรถ → **ตาราง %การใช้งานรายคัน (ท้ายสุด · เลื่อนในกล่อง)**
+ *   การ์ดสองใบกับตารางรายคันย้ายมาจากเมนูแดชบอร์ด แท็บการใช้ประโยชน์กองรถ (เจ้าของงานสั่ง 24 ก.ย. 2569)
  *
  * แทนอันดับความคุ้มค่า/ชนิดรถ 10 อันดับของเดิมทั้งหมด · สูตรทุกตัวอยู่ใน lib/fleetcompare/utilization.ts
  * ★ ส่วนสัดส่วนนับ "เที่ยวของประเภทนั้น" ใบที่มีหัวกับหางคนละฝั่งนับทั้งสอง (ดูหัวข้อใน utilization.ts)
@@ -15,9 +17,14 @@ import {
   type FleetSlice, type Share, type UseAdvice, type UseRow,
 } from "../../lib/fleetcompare/utilization";
 import { Hero, KC, Note } from "../dash-fleet/parts";
-import { duniq, fmt, ListFF, marginTone, pct, signed, SortTable, useSort, type Col } from "./common";
+import { duniq, fmt, ListFF, marginTone, Meter, pct, signed, SortTable, useSort, type Col } from "./common";
 import TripsModal from "../dash-demo/TripsModal";
 import type { Trip } from "../../lib/data/useCostRev";
+import type { VehicleUseRow } from "../../lib/fleetcompare/vehicleUse";
+import { thDateSafe } from "../../lib/record/date";
+
+/** ผลของ %การใช้งานรายคัน — FleetTab คิดให้ (ต้องใช้ทะเบียนรถกับตัวกรองของแท็บ) */
+export interface FleetUse { vehicles: VehicleUseRow[]; avg: number; km: number; noKm: number; to: string }
 
 /** สีประเภทรถ — ตรงกับภาพ: บริษัทคราม · ร่วมเขียวน้ำทะเล · ร่วมนอกพิเศษเหลืองอำพัน */
 const FT_COLOR: Record<string, string> = { "รถบริษัท": D.indigo, "รถร่วม": D.teal, "รถร่วมนอกพิเศษ": D.amber };
@@ -32,7 +39,7 @@ const TOP_ROUTES = 5;
  * @param trips เที่ยวตามตัวกรองระดับใบของแท็บ — ใช้แสดงรายการในป็อปอัปเส้นทางเท่านั้น
  *              ส่วนว่าเที่ยวไหนอยู่ในเส้นทางนั้น ดูจาก `ids` ของ routeUsage ซึ่งผ่านตัวกรองระดับรถแล้ว
  */
-export default function FleetUtilizationView({ rows, trips }: { rows: FleetSlice[]; trips: Trip[] }) {
+export default function FleetUtilizationView({ rows, trips, use }: { rows: FleetSlice[]; trips: Trip[]; use: FleetUse }) {
   const [openRt, setOpenRt] = useState<string | null>(null);
   const kpi = useMemo(() => fleetKpis(rows), [rows]);
   const mix = useMemo(() => serviceFleetMix(rows), [rows]);
@@ -59,6 +66,13 @@ export default function FleetUtilizationView({ rows, trips }: { rows: FleetSlice
         s="รถที่มีเดือนกำไรสุทธิติดลบ · เลือกหลายเดือน รถหนึ่งคันนับครั้งเดียว" />
       <KC dot={D.amber} l="สัดส่วนเที่ยวขาดทุน" v={pct(kpi.lossPct)}
         s="เที่ยวที่กำไรสุทธิติดลบ ÷ เที่ยวทั้งหมด" />
+    </div>
+    <div className="fleet-util-secondary fu-use">
+      {/* Meter ไม่ใช่ KC — แถบยาวตามค่าจริง (KC วาดแถบเต็มเสมอ ค่า 2% จะดูเหมือน 100%) */}
+      <Meter dot={D.teal} l="%การใช้งานเฉลี่ยต่อคัน" v={`${use.avg}%`}
+        s="วันที่มีเที่ยว ÷ วันที่พร้อมใช้งาน · เฉลี่ยเฉพาะรถบริษัท + รถร่วม" fill={use.avg} />
+      <KC dot={D.violet} l="ระยะทางรวมทุกเที่ยว" v={fmt(use.km)}
+        s={use.noKm ? `กม. · ไม่รวม ${fmt(use.noKm)} เที่ยวที่ยังไม่มีระยะทางในตารางเส้นทาง` : "กม."} />
     </div>
 
     <div className="dz-cc fu-card">
@@ -113,6 +127,7 @@ export default function FleetUtilizationView({ rows, trips }: { rows: FleetSlice
     </div>
 
     <UseTable rows={rows} />
+    <VehicleUseTable use={use} />
     {openRt && <TripsModal rt={openRt} trips={openTrips} onClose={() => setOpenRt(null)}
       note="ทุกเที่ยวของเส้นทางนี้ตามตัวกรองของแท็บ" />}
   </>;
@@ -188,4 +203,41 @@ function UseTable({ rows }: { rows: FleetSlice[] }) {
 
 function MarginCell({ m }: { m: number | null }) {
   return <span style={{ fontWeight: 700, color: marginTone(m) }}>{m == null ? "–" : pct(m)}</span>;
+}
+
+/**
+ * ตาราง %การใช้งานรายคัน เทียบกับทะเบียนรถในกองรถ — ท้ายสุดของแท็บ เลื่อนในกล่อง (SortTable ใช้ GrowBox)
+ * ทุกคันในทะเบียน รวมคันที่ไม่มีเที่ยว (0%) · สูตรอยู่ที่ lib/fleetcompare/vehicleUse.ts
+ */
+function VehicleUseTable({ use }: { use: FleetUse }) {
+  const cols = useMemo<Col<VehicleUseRow>[]>(() => [
+    { key: "plate", label: "ทะเบียนรถ", get: (r) => r.v.plate, render: (r) => <b>{r.v.plate}</b> },
+    { key: "ft", label: "ประเภทรถ", get: (r) => r.v.fleetType || "–" },
+    { key: "vk", label: "ชนิดรถ", get: (r) => r.v.vehicle || "–" },
+    { key: "start", label: "เริ่มใช้งาน", get: (r) => r.v.start, render: (r) => thDateSafe(r.v.start) },
+    { key: "status", label: "สถานะ", get: (r) => r.v.status || "–" },
+    { key: "n", label: "จำนวนเที่ยว", get: (r) => r.n, num: true },
+    { key: "km", label: "กม.รวม", get: (r) => r.km, num: true },
+    { key: "activeDays", label: "วันที่ใช้งานจริง", get: (r) => r.activeDays, num: true },
+    { key: "availDays", label: "วันพร้อมใช้งาน", get: (r) => r.availDays, num: true,
+      render: (r) => (r.availDays == null ? "–" : fmt(r.availDays)) },
+    { key: "pct", label: "%การใช้งาน", get: (r) => r.pct, num: true,
+      render: (r) => <b>{r.pct == null ? "–" : `${r.pct}%`}</b> },
+  ], []);
+  const { sorted, sort, toggle } = useSort(use.vehicles, cols, { key: "pct", dir: -1 });
+  return (
+    <div className="dz-cc fu-card">
+      <h4>%การใช้งานรายคัน (เทียบกับทะเบียนรถในกองรถ) · {fmt(use.vehicles.length)} คัน</h4>
+      {/* vu-tbl: หัวคอลัมน์ตัดบรรทัดได้ — 10 คอลัมน์ ถ้าไม่ตัด คอลัมน์ %การใช้งานหลุดขอบขวา */}
+      <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.v.plate}
+        className="vu-tbl" empty="ไม่มีรถในทะเบียนตามตัวกรองที่เลือก" />
+      <Note>
+        %การใช้งาน = วันที่มีเที่ยววิ่งจริง (นับวันไม่ซ้ำ) ÷ วันที่พร้อมใช้งาน × 100 ·
+        วันที่พร้อมใช้งานนับตั้งแต่วันเริ่มใช้งานในทะเบียน (หรือวันแรกของไฟล์ ถ้าเริ่มก่อน) ถึงวันสุดท้ายที่ไฟล์ต้นทุนมีข้อมูล
+        ({thDateSafe(use.to)}) และนับเฉพาะปี/เดือนที่เลือก · รถที่ไม่มีเที่ยวเลยแสดง 0% · ไม่รู้วันเริ่มใช้งานแสดง – ·
+        ใบที่มีหลายทะเบียน (หัว · คันที่ 2 · พ่วง) นับเที่ยวให้ทุกคัน ·
+        ตารางแสดงทุกคันในทะเบียนรวมรถร่วมนอกพิเศษ แต่ค่าเฉลี่ยในการ์ดนับเฉพาะรถบริษัท + รถร่วม
+      </Note>
+    </div>
+  );
 }

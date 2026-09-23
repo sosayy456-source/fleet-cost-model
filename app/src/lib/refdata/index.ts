@@ -6,7 +6,7 @@
  * ทำให้ 3 ฝ่ายคำนวณต้นทุนไม่ตรงกันได้แบบเงียบ ๆ — ที่นี่แยกเป็น "ฐานกลาง" (ไฟล์นี้)
  * กับ "ค่าที่แก้เอง" (RefOverrides) ที่ต้องส่งเข้ามาอย่างชัดเจน
  */
-import type { FuelPrice, RefData, RepairTable, Vehicle } from "../cost/types";
+import type { FleetType, FuelPrice, RefData, RepairTable, Vehicle } from "../cost/types";
 import fuelPrices from "./fuelPrices.json";
 import vehicles from "./vehicles.json";
 import repair from "./repair.json";
@@ -43,7 +43,20 @@ export const vehicleByName = (name: string): Vehicle | undefined =>
 export const VEHICLE_ALIASES: Readonly<Record<string, string>> = {
   "รถเทรเล่อร์ (แม่)": "รถเทรเลอร์",
   "รถ 10 ล้อช่วงยาว": "รถ 10 ล้อยาว",
+  // ไฟล์ทะเบียนรุ่น 24 ก.ย. 2569 — เจ้าของงานเลือกชื่อในหน้าตั้งค่าให้เอง (หางของชุดพ่วงไม่รู้แบบตัวถังจริง
+  // เลือกหางพ่วงคอก เพราะอัตราต้นทุนเท่าหางพ่วงตู้แห้ง) · "รถ 10 ล้อพ่วง(แม่)" เป็นชนิดใหม่ใน vehicles.json ไม่ต้องแมป
+  "รถ 10 ล้อพ่วง(ลูก)": "หางพ่วงคอก",
+  "รถปิกอัพ": "รถปิกอัพ 3 ตัน",
 };
+
+/**
+ * ประเภทรถในทะเบียนมีสามแบบ แต่ตารางอัตราต้นทุน (ค่าซ่อมตามเวลา) มีสองฝั่ง — **รถร่วมนอกพิเศษคิดต้นทุนแบบรถร่วม**
+ * (เจ้าของงานเคาะ 24 ก.ย. 2569 · กติกาเดียวกับตารางสรุปที่นับร่วม + ร่วมนอกพิเศษเป็นฝั่งเดียวกัน)
+ * ★ ทุกที่ที่เอาประเภทรถจากทะเบียนไปเข้าสูตรต้นทุน/ใบรายการต้องผ่านตัวนี้ ไม่งั้นค่าซ่อมหาแถวไม่เจอแล้วเป็น 0 เงียบ ๆ
+ */
+export const ROSTER_FLEET_TYPES = ["รถบริษัท", "รถร่วม", "รถร่วมนอกพิเศษ"] as const;
+export const costFleetType = (ft: string): FleetType | "" =>
+  ft === "รถบริษัท" ? "รถบริษัท" : ft === "รถร่วม" || ft === "รถร่วมนอกพิเศษ" ? "รถร่วม" : "";
 
 export const canonicalVehicleName = (name: string): string => VEHICLE_ALIASES[name] ?? name;
 
@@ -53,6 +66,7 @@ export const ACTIVE_VEHICLE_NAMES: readonly string[] = [
   "รถ 10 ล้อตู้เย็น",
   "รถ 10 ล้อตู้แห้ง",
   "รถ 10 ล้อยาว",
+  "รถ 10 ล้อพ่วง(แม่)",
   "รถ 12 ล้อคอก",
   "รถ 12 ล้อตู้เย็น",
   "รถ 6 ล้อ FC4",

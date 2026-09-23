@@ -63,6 +63,8 @@ export default function FleetRoster() {
             value={draft.plate} onChange={(e) => setDraft({ ...draft, plate: e.target.value })} />
           <select value={draft.fleetType} onChange={(e) => setDraft({ ...draft, fleetType: e.target.value })}>
             <option value="">ประเภทรถ</option><option>รถบริษัท</option><option>รถร่วม</option>
+            {/* คิดต้นทุนแบบรถร่วม (costFleetType) แต่แยกประเภทไว้ในทะเบียน — 24 ก.ย. 2569 */}
+            <option>รถร่วมนอกพิเศษ</option>
           </select>
           <select value={draft.vehicle} onChange={(e) => setDraft({ ...draft, vehicle: e.target.value })}>
             <option value="">ชนิดรถ</option>

@@ -15,7 +15,7 @@
  */
 import { useEffect, useState } from "react";
 import fleet from "../refdata/fleet.json";
-import { canonicalVehicleName } from "../refdata";
+import { canonicalVehicleName, costFleetType } from "../refdata";
 
 export interface FleetKind {
   fleetType: string;
@@ -82,9 +82,33 @@ function readJson<T>(key: string, fallback: T): T {
 export const kindsOf = (f: FleetVehicle): FleetKind[] =>
   f.kinds?.length ? f.kinds : [{ fleetType: f.fleetType, vehicle: f.vehicle, trips: f.trips ?? 0 }];
 
-/** คันนี้เคยวิ่งเป็นคู่ (ประเภท, ชนิด) นี้ไหม — ค่าว่าง = ไม่กรองมิตินั้น */
+/**
+ * คันนี้เคยวิ่งเป็นคู่ (ประเภท, ชนิด) นี้ไหม — ค่าว่าง = ไม่กรองมิตินั้น
+ * ★ ฟอร์มเลือกได้แค่ รถบริษัท/รถร่วม (ฝั่งของตารางต้นทุน) ส่วนทะเบียนมีรถร่วมนอกพิเศษด้วย
+ *   ซึ่งคิดต้นทุนแบบรถร่วม จึงเทียบผ่าน costFleetType ให้เลือก "รถร่วม" แล้วเห็นรถร่วมนอกพิเศษด้วย
+ */
 export const matchesKind = (f: FleetVehicle, fleetType: string, vehicle: string): boolean =>
-  kindsOf(f).some((k) => (!fleetType || k.fleetType === fleetType) && (!vehicle || k.vehicle === vehicle));
+  kindsOf(f).some((k) => (!fleetType || k.fleetType === fleetType || costFleetType(k.fleetType) === fleetType)
+    && (!vehicle || k.vehicle === vehicle));
+
+/** ตัดจุด/ขีด/ช่องว่างออกก่อนเทียบทะเบียน — พิมพ์แค่เลขท้าย ("1815") หรือไม่มีขีด ("7070820") ก็ต้องเจอ */
+export const normPlate = (s: string): string => s.replace(/[\s.\-–—]/g, "").toLowerCase();
+
+/**
+ * ตัวกรองเลือกรถของหน้าจัดรถ (เจ้าของงานขอ 24 ก.ย. 2569 — ทะเบียนมี 899 คันแล้ว dropdown ยาวเกินหา)
+ * ★ ประเภทรถเทียบ **ตรงตัว** ต่างจาก matchesKind ของฟอร์ม — ในตัวกรองมีสามตัวเลือก เลือก "รถร่วม"
+ *   ต้องได้รถร่วมเท่านั้น ไม่รวมรถร่วมนอกพิเศษ (การคิดต้นทุนแบบรถร่วมเป็นอีกเรื่อง อยู่ที่ costFleetType)
+ * ★ ดูทุกคู่ประเภท/ชนิดที่คันนั้นเคยวิ่ง (kinds) เหมือนฟอร์ม — หางที่เปลี่ยนตู้ไปมาต้องโผล่ได้ทุกชนิด
+ */
+export function filterRoster(
+  roster: readonly FleetVehicle[],
+  f: { fleetType?: string; vehicle?: string; q?: string },
+): FleetVehicle[] {
+  const key = normPlate(f.q ?? "");
+  return roster.filter((v) =>
+    kindsOf(v).some((k) => (!f.fleetType || k.fleetType === f.fleetType) && (!f.vehicle || k.vehicle === f.vehicle))
+    && (!key || normPlate(v.plate).includes(key)));
+}
 
 /** รายการคันที่ตรงกับตัวกรองในฟอร์ม — 1 ระเบียนต่อทะเบียน จึงใช้ length เป็นจำนวนคันได้ตรง ๆ */
 export const vehiclesForKind = (

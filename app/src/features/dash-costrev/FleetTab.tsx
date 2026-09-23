@@ -9,6 +9,9 @@
 import { useMemo, useState } from "react";
 import type { Trip } from "../../lib/data/useCostRev";
 import { fleetSlices, UNKNOWN_SERVICE } from "../../lib/fleetcompare/utilization";
+import { avgUse, totalKm, vehicleUse, type UseWindow } from "../../lib/fleetcompare/vehicleUse";
+import { useRoster } from "../../lib/store/roster";
+import { canonicalVehicleName } from "../../lib/refdata";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import { Note } from "../dash-fleet/parts";
 import { BASE_F0, duniq, fmt, isFiltered, ListFF, MonthFF, passBase, YearFF, type BaseFilter } from "./common";
@@ -28,6 +31,21 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
   const legacy = scope.some((trip) => trip.serviceRevenue === undefined);
   const rows = useMemo(() => slices.filter((row) => !filter.service || row.service === filter.service), [slices, filter.service]);
 
+  /* %การใช้งานรายคัน (ย้ายมาจากเมนูแดชบอร์ด 24 ก.ย. 2569) — ทะเบียนรถกรองด้วยประเภท/ชนิดรถของแท็บ
+     ช่วงวันพร้อมใช้งาน = เที่ยวแรก–เที่ยวสุดท้ายของไฟล์ ตัดตามตัวกรองปี/เดือน (ดูหัวไฟล์ lib/fleetcompare/vehicleUse.ts) */
+  const [roster] = useRoster();
+  const span = useMemo(() => trips.reduce((a, t) => (!t.d ? a
+    : { from: !a.from || t.d < a.from ? t.d : a.from, to: t.d > a.to ? t.d : a.to }), { from: "", to: "" }), [trips]);
+  const use = useMemo(() => {
+    const w: UseWindow = { ...span,
+      monthOk: (mo) => (!filter.year || mo.startsWith(filter.year)) && (!filter.month || mo.slice(5) === filter.month) };
+    // ชื่อชนิดรถในไฟล์ต้นทุนกับในทะเบียนสะกดต่างกันได้ (รถ 10 ล้อช่วงยาว ↔ รถ 10 ล้อยาว) เทียบผ่านชื่อมาตรฐาน
+    const list = roster.filter((v) => (!filter.ft || v.fleetType === filter.ft)
+      && (!filter.vk || canonicalVehicleName(v.vehicle) === canonicalVehicleName(filter.vk)));
+    const vehicles = vehicleUse(list, rows, scope, w);
+    return { vehicles, avg: avgUse(vehicles), ...totalKm(rows, scope), to: span.to };
+  }, [roster, rows, scope, span, filter.year, filter.month, filter.ft, filter.vk]);
+
   return <>
     <FilterBar>
       <YearFF trips={trips} value={filter.year} onChange={set("year")} />
@@ -44,6 +62,6 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
       (ไม่มีบิลรายได้ที่ใช้คำนวณสัดส่วนได้ หรือยอดเป็นศูนย์/ติดลบ) จัดไว้ใน “{UNKNOWN_SERVICE}” และยังคงยอดรวมเดิม
       {legacy && <> · ข้อมูลชุดนี้ยังมีไฟล์รุ่นเก่า ต้องแปลงข้อมูลต้นทุนและรายได้ใหม่เพื่อแสดงกลุ่มบริการ</>}
     </Note>}
-    <FleetUtilizationView rows={rows} trips={scope} />
+    <FleetUtilizationView rows={rows} trips={scope} use={use} />
   </>;
 }
