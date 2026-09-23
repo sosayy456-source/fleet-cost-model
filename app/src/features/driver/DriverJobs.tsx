@@ -201,7 +201,7 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
                   {odoEnd.has(r.id) ? "✓ แนบรูปไมล์หลังเสร็จงานแล้ว" : "📷 แนบรูปไมล์หลังเสร็จงาน"}
                 </button>
               </div>
-              <button type="button" className="btn-green" style={{ marginTop: 10, width: "100%" }}
+              <button type="button" className="btn btn-green" style={{ marginTop: 10, width: "100%" }}
                 disabled={busy === r.id || !odoEnd.has(r.id)} onClick={() => askFinish(r)}>
                 {busy === r.id ? "กำลังบันทึก..." : "จบงาน"}
               </button>
@@ -265,7 +265,7 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
               {pinErr && <div className="msg" style={{ color: "var(--red)" }}>รหัสผ่านไม่ถูกต้อง</div>}
               <div className="modal-actions">
                 <button type="button" className="btn-ghost" onClick={() => setAsking(null)}>ยกเลิก</button>
-                <button type="submit" className="btn-green" disabled={!pin.trim()}>ยืนยันจบงาน</button>
+                <button type="submit" className="btn btn-green" disabled={!pin.trim()}>ยืนยันจบงาน</button>
               </div>
             </form>
           </div>
