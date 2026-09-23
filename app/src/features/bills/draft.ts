@@ -3,7 +3,8 @@
  *
  * แยกออกจาก BillEntry.tsx เพื่อให้เทสต์ได้โดยไม่ต้องวาดหน้าจอ
  */
-import { BRANCHES, ORIGINS, destsFor } from "../../lib/refdata";
+import { BRANCHES, ORIGINS, destsFor, distanceFor } from "../../lib/refdata";
+import { randomCargo } from "../../lib/sim/cargo";
 import { todayISO } from "../../lib/record/date";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
 import { SERVICE_GROUPS_V2 } from "../../types/bill";
@@ -53,26 +54,29 @@ const int = (min: number, max: number) => Math.floor(min + Math.random() * (max 
  * ทุกช่องต้องผ่าน `problem()` ของหน้าจอเสมอ (ทุกตัวเลข > 0 · ต้นทาง–ปลายทางเป็นคู่ที่มีจริง)
  * เพื่อกดสุ่มแล้วไปหน้าสรุปได้เลย · วันที่เป็นวันนี้ (ใช้ออกเลขที่บิลตามเดือน) · `key` คงเดิม
  * ให้ React ไม่วาดการ์ดใหม่ทั้งใบ · กลุ่มบริการส่วนใหญ่เป็นสามกลุ่มหลัก นาน ๆ ทีได้บิลเคลียร์/ของเหมาตีเปล่า
+ * ★ จำนวน/น้ำหนัก/ขนาด/ราคามาจาก lib/sim/cargo.ts (แบบสินค้าจริง + ค่าขนส่งต่อ กก. ตามระยะทาง) — เดิมสุ่มแยกกัน
+ *   ได้ของเบาหวิวแต่ใหญ่หลาย ลบ.ม. ฝ่ายจัดรถรวมใบไม่ได้ (เจ้าของงานสั่งแก้ 24 ก.ย. 2569)
  */
 export function randomDraft(key: string = crypto.randomUUID()): Draft {
   const origins = ORIGINS.filter((o) => destsFor(o).length > 0);
   const origin = pick(origins);
+  const dest = pick(destsFor(origin));
   const pricingType = pick(PRICE_BASIS);
-  const qty = int(1, 20);
+  const serviceGroup = Math.random() < 0.85 ? pick(SERVICE_GROUPS_V2.slice(0, 3)) : pick(SERVICE_GROUPS_V2.slice(3));
+  const c = randomCargo({ cold: serviceGroup === "สินค้าแช่เย็น" || serviceGroup === "สินค้าแช่แข็ง", distKm: distanceFor(origin, dest) ?? 500 });
   return {
     key,
     date: todayISO(),
     branch: pick(BRANCHES.length ? BRANCHES : [""]),
     sender: `ลูกค้าทดสอบ ${int(1, 99)}`,
     receiver: `ผู้รับทดสอบ ${int(1, 99)}`,
-    origin, dest: pick(destsFor(origin)),
-    serviceGroup: Math.random() < 0.85 ? pick(SERVICE_GROUPS_V2.slice(0, 3)) : pick(SERVICE_GROUPS_V2.slice(3)),
-    qty: String(qty),
-    weight: String(qty * int(5, 80)),
-    width: String(int(30, 120)), length: String(int(30, 120)), height: String(int(20, 100)),
+    origin, dest, serviceGroup,
+    qty: String(c.qty),
+    weight: String(c.weight),
+    width: String(c.width), length: String(c.length), height: String(c.height),
     payType: pick(PAY_TYPES),
     pricingType,
-    // คิดตามน้ำหนักเป็นบาท/กก. คิดตามหน่วยเป็นบาท/ชิ้น — ช่วงต่างกันให้ราคารวมออกมาพอ ๆ กัน
-    unitPrice: String(pricingType === "คิดตามน้ำหนัก" ? int(2, 15) : int(50, 800)),
+    // คิดตามน้ำหนักเป็นบาท/กก. คิดตามหน่วยเป็นบาท/ชิ้น — มาจากค่าขนส่งต่อ กก. ตัวเดียวกัน ราคารวมจึงพอ ๆ กัน
+    unitPrice: String(pricingType === "คิดตามน้ำหนัก" ? c.perKg : c.perUnit),
   };
 }

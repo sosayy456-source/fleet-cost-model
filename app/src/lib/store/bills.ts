@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BILL_STORE, storePutMany, storeTx } from "./records";
 import { getUrl, loadBills as loadBillsFromSheet, pushBills } from "../sheet/client";
-import { nowStamp } from "../record/date";
+import { nowStamp, toISODate } from "../record/date";
 import type { PendingBill } from "../../types/bill";
 
 export const getAllBills = (): Promise<PendingBill[]> =>
@@ -31,7 +31,10 @@ export function mergeBills(local: PendingBill[], sheet: PendingBill[]): PendingB
   for (const b of local) {
     if (b.synced === false || !byId.has(b.id)) byId.set(b.id, b);
   }
-  return [...byId.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.no.localeCompare(a.no));
+  // วันที่บิลทำเป็น ISO เสมอ — สำเนาในเครื่องที่ดึงจากชีตก่อนแก้ 24 ก.ย. 2569 อาจเก็บข้อความ Date ไว้ (หน้าจัดรถขึ้น NaN)
+  return [...byId.values()]
+    .map((b) => { const d = toISODate(b.date); return d && d !== b.date ? { ...b, date: d } : b; })
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.no.localeCompare(a.no));
 }
 
 /**

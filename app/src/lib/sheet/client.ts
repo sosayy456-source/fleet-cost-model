@@ -12,6 +12,7 @@ import type { TripRecord } from "../../types/record";
 import type { PendingBill } from "../../types/bill";
 import { recordBillRows, recordToRow } from "./serialize";
 import type { Cell } from "./serialize";
+import { toISODate } from "../record/date";
 
 /** ต้องตรงกับ var VERSION ใน apps-script/Code.gs */
 export const GS_VERSION = 17;
@@ -208,7 +209,8 @@ export function pushRecords(list: TripRecord[]): Promise<PushResult> {
  */
 export async function loadBills(): Promise<PendingBill[]> {
   const res = await postToSheet<SheetResponse & { bills?: PendingBill[] }>({ loadBills: true });
-  return (res.bills ?? []).map((b) => ({ ...b, synced: true }));
+  // วันที่จากชีตอาจเป็นข้อความของ Date (ชีตแปลงเซลล์เป็นวันที่เอง) — ทำให้เป็น ISO ก่อนเข้าแอป
+  return (res.bills ?? []).map((b) => ({ ...b, date: toISODate(b.date) || b.date, synced: true }));
 }
 
 /** upsert บิลด้วยคีย์ id — ส่งเฉพาะบิลที่เปลี่ยน ไม่ต้องส่งทั้งชุด */

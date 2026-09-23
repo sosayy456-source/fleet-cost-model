@@ -8,9 +8,36 @@ export const TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", 
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/** '2025-07-17' -> '17 ก.ค. 2568' */
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const BKK_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" });
+
+/**
+ * วันที่รูปแบบใดก็ได้ → ISO yyyy-mm-dd (เวลาไทย) · อ่านไม่ออก = ""
+ *
+ * ★ Google Sheet แปลงข้อความ "2026-09-24" ในแท็บ "บิลรอจัดรถ" เป็นเซลล์วันที่เอง พอ Apps Script อ่านกลับด้วย
+ *   String(date) ได้ "Thu Sep 24 2026 00:00:00 GMT+0700 (ICT)" หน้าจัดรถเลยขึ้น "NaN undefined NaN" (เจอ 24 ก.ย. 2569)
+ *   รับทั้ง ISO ล้วน · ISO มีเวลา/โซน (แปลงเป็นวันของเวลาไทย — "…T17:00:00Z" คือวันถัดไปในไทย) · dd/mm/yyyy (ค.ศ./พ.ศ.)
+ *   · ข้อความวันที่แบบ Date.toString()
+ */
+export function toISODate(v: unknown): string {
+  if (v == null) return "";
+  const s = String(v).trim();
+  if (!s) return "";
+  if (ISO_DAY.test(s)) return s;
+  const dmy = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  if (dmy) {
+    const y = Number(dmy[3]) > 2400 ? Number(dmy[3]) - 543 : Number(dmy[3]);
+    return `${y}-${pad(Number(dmy[2]))}-${pad(Number(dmy[1]))}`;
+  }
+  const t = Date.parse(s);
+  return Number.isFinite(t) ? BKK_DAY.format(new Date(t)) : "";
+}
+
+/** '2025-07-17' -> '17 ก.ค. 2568' · รูปแบบอื่นแปลงผ่าน toISODate ก่อน อ่านไม่ออกคืนค่าเดิม (ไม่ขึ้น NaN) */
 export function thDate(iso: string): string {
-  const [y, m, d] = iso.split("-");
+  const s = ISO_DAY.test(iso) ? iso : toISODate(iso);
+  if (!s) return iso || "–";
+  const [y, m, d] = s.split("-");
   return `${+d!} ${TH_MONTHS[+m! - 1]} ${+y! + 543}`;
 }
 
@@ -18,7 +45,9 @@ export const thDateSafe = (iso: string | null | undefined): string => (iso ? thD
 
 /** '2025-07-17' -> '17/07/2568' (รูปแบบที่ชีตใช้) */
 export function thSlash(iso: string): string {
-  const [y, m, d] = iso.split("-");
+  const s = ISO_DAY.test(iso) ? iso : toISODate(iso);
+  if (!s) return iso || "";
+  const [y, m, d] = s.split("-");
   return `${pad(+d!)}/${pad(+m!)}/${+y! + 543}`;
 }
 

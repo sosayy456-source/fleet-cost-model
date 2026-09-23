@@ -7,49 +7,75 @@
  *   ตอนนี้ฝ่ายจัดรถ/บัญชีเปิดใบที่ cs บันทึกไว้แล้วกดสุ่ม จะได้ค่าเฉพาะช่องของตัวเอง
  *   เลขที่ใบกับวันที่ (ช่องของ cs) ไม่ถูกแตะ · ผู้ดูแลระบบสุ่มครบทุกโซน (และ saveRecord ประทับครบทั้งสามฝ่าย)
  * ค่าที่สุ่มอิงข้อมูลอ้างอิงจริง (เส้นทาง/ชนิดรถ) ให้พอเดาได้ ไม่ใช่ตัวเลขมั่ว ๆ ล้วน
+ * ★ 24 ก.ย. 2569 (เจ้าของงานสั่ง): บิลใช้แบบสินค้าจริงจาก lib/sim/cargo.ts · น้ำหนักบรรทุกจริง = ผลรวมน้ำหนักบิล
+ *   ตั้งเป้า Load Factor 50–95% ของความจุรถ · รายได้ = Σ จำนวน × ราคาต่อชิ้น (ค่าขนส่งต่อ กก. ตามระยะทาง)
+ *   · ลิตรน้ำมันตามระยะทาง ÷ อัตราสิ้นเปลืองของขนาดรถ · เบี้ยเลี้ยงคนขับตามจำนวนวันวิ่ง (500 กม./วัน)
  */
 import { BRANCHES, DOC_TYPES, ORIGINS, SERVICE_GROUPS, destsFor, distanceFor, vehicleByName } from "../../lib/refdata";
 import { genId, todayISO } from "../../lib/record/date";
 import { fieldsOwnedBy } from "../../lib/store/save";
 import { kindsOf, loadRoster } from "../../lib/store/roster";
-import { FUEL_CATS, FUEL_PAYS, PAY_TYPES, PRICE_BASIS } from "../../types/record";
+import { FUEL_CATS, FUEL_PAYS, PAY_TYPES } from "../../types/record";
 import { emptyFuelBill, fuelBillsToTotals } from "../../lib/cost/fuelBills";
 import type { FuelBill, RoleKey, TripRecord } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
 import { emptyBill } from "./emptyRecord";
+import { randomCargo } from "../../lib/sim/cargo";
 
 const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)]!;
 const int = (min: number, max: number) => Math.floor(min + Math.random() * (max - min + 1));
-const round100 = (n: number) => Math.round(n / 100) * 100;
 
-function randomBill(origin: string, dest: string) {
+/**
+ * บิลหนึ่งใบของใบรายการ — ใบรายการไม่มีช่องน้ำหนัก/ขนาดของบิล จึงคิดราคาต่อชิ้นเสมอ (รายได้ = จำนวน × ราคาต่อชิ้น)
+ * คืนน้ำหนักรวมแยกออกมาให้ตัวเรียกเอาไปรวมเป็นน้ำหนักบรรทุกจริงของรถ
+ */
+function randomBill(origin: string, dest: string, dist: number, targetKg?: number) {
   const n = int(1000, 9999);
+  const c = randomCargo({ distKm: dist, targetKg });
   return {
-    ...emptyBill(),
-    no: `ทดสอบ${n}`,
-    goodsType: pick(["สินค้าทั่วไป", "อาหารแห้ง", "เครื่องใช้ไฟฟ้า", "วัสดุก่อสร้าง"]),
-    sender: `ลูกค้าทดสอบ ${int(1, 99)}`,
-    receiver: `ผู้รับทดสอบ ${int(1, 99)}`,
-    origin, dest,
-    payType: pick(PAY_TYPES),
-    qty: int(1, 20),
-    unitPrice: int(50, 2000),
-    pricingType: pick(PRICE_BASIS),
+    weight: c.weight,
+    bill: {
+      ...emptyBill(),
+      no: `ทดสอบ${n}`,
+      goodsType: c.kind,
+      sender: `ลูกค้าทดสอบ ${int(1, 99)}`,
+      receiver: `ผู้รับทดสอบ ${int(1, 99)}`,
+      origin, dest,
+      payType: pick(PAY_TYPES),
+      qty: c.qty,
+      unitPrice: c.perUnit,
+      pricingType: "คิดตามหน่วย",
+    },
   };
 }
 
-/** สุ่มบิลน้ำมัน 2-5 ใบ คละวิธีจ่าย/ประเภท ให้พอเห็นป้ายสถานะครบ ๆ ตอนทดสอบ */
-function randomFuelBills(): FuelBill[] {
+/** บิลทั้งใบรายการ — แบ่งน้ำหนักเป้าหมาย (Load Factor 50–95% ของความจุ) ให้ทุกบิลพอ ๆ กัน */
+function randomBills(n: number, origin: string, dest: string, dist: number, capacityKg: number) {
+  const target = capacityKg * (0.5 + Math.random() * 0.45);
+  const out = Array.from({ length: n }, () => randomBill(origin, dest, dist, (target / n) * (0.7 + Math.random() * 0.6)));
+  return { bills: out.map((o) => o.bill), weight: out.reduce((s, o) => s + o.weight, 0) };
+}
+
+/** กม./ลิตร ตามขนาดรถ (ดูจากความจุ) — ปิกอัพ ~9 · 6 ล้อ ~6 · 10 ล้อ ~4 · 12 ล้อ/เทรเลอร์ ~3 */
+const kmPerL = (capacityKg: number): number =>
+  capacityKg <= 3000 ? 9 : capacityKg <= 7000 ? 6 : capacityKg <= 12000 ? 4 : 3;
+
+/**
+ * สุ่มบิลน้ำมัน 2-4 ใบ คละวิธีจ่าย/ประเภท ให้พอเห็นป้ายสถานะครบ ๆ ตอนทดสอบ
+ * ลิตรรวม ≈ ระยะทาง ÷ กม./ลิตร (±10%) แบ่งลงแต่ละใบ — เดิมสุ่ม 20–150 ลิตรต่อใบโดยไม่ดูระยะทาง
+ */
+function randomFuelBills(totalLitres: number): FuelBill[] {
   const pumps = ["ปั๊มเชียงใหม่", "ปั๊มนครสวรรค์", "ปั๊มลำปาง", "อื่น ๆ"];
   const out: FuelBill[] = [];
-  for (let i = 0, n = int(2, 5); i < n; i++) {
+  const count = int(2, 4);
+  for (let i = 0, n = count; i < n; i++) {
     const pay = pick(FUEL_PAYS);
     const b = { ...emptyFuelBill(todayISO()), pay, cat: pick(FUEL_CATS), pump: pick(pumps) };
     if (pay === "est") {
       out.push({ ...b, km: int(10, 120), ratePerKm: 0.25, pricePerL: 42.03, reason: "บิลหาย" });
       continue;
     }
-    const litres = int(20, 150);
+    const litres = Math.max(10, Math.round((totalLitres / count) * (0.8 + Math.random() * 0.4)));
     out.push({
       ...b,
       no: pay === "cash" ? `บก.111-${int(100, 999)}` : `INV-${int(1000, 9999)}`,
@@ -84,25 +110,31 @@ export function randomRecord(): TripRecord {
   const plate = roster?.plate ?? `ทด.${int(10, 99)}-${int(1000, 9999)}`;
   const fleetType = (roster?.fleetType ?? pick(["รถบริษัท", "รถร่วม"])) as FleetType;
   const vehicleName = roster?.vehicle ?? "";
-  const capacity = vehicleByName(vehicleName)?.capacityKg ?? int(1000, 15000);
-  const fuelBillsRnd = randomFuelBills();
+  const capacity = vehicleByName(vehicleName)?.capacityKg ?? pick([3000, 7000, 12000, 15000]);
+  const days = Math.max(1, Math.ceil(dist / 500));
+  const fuelBillsRnd = randomFuelBills((dist / kmPerL(capacity)) * (0.9 + Math.random() * 0.2));
+  const load = randomBills(1, origin, dest, dist, capacity);
   const fuelTotals = fuelBillsToTotals(fuelBillsRnd);
 
   return {
     id: genId(), docNo: `ทดสอบ${Date.now().toString().slice(-6)}`, source: "ใหม่", synced: false,
     date: todayISO(), routeType: pick(["ขาขึ้น", "ขาล่อง"]), branch: pick(BRANCHES), docType: pick(DOC_TYPES),
-    origin, dest, dist, serviceGroup: pick(SERVICE_GROUPS), revenue: round100(int(3000, 40000)),
-    bills: [randomBill(origin, dest)],
+    origin, dest, dist, serviceGroup: pick(SERVICE_GROUPS),
+    // รายได้ = Σ บิล (EntryForm คิดจากบิลอยู่แล้ว ช่องนี้เป็นค่าสำรองเมื่อไม่มีบิล)
+    revenue: load.bills.reduce((s, b) => s + b.qty * (b.unitPrice ?? 0), 0),
+    bills: load.bills,
     plate,
     fleetType,
     vehicle: vehicleName, releaseDate: todayISO(),
-    capacity, loadActual: int(0, capacity), emptyLeg: Math.random() < 0.1,
+    capacity, loadActual: Math.min(capacity, load.weight), emptyLeg: false,
     gas: int(0, 500),
     // ค่าน้ำมันสุ่มเป็น "รายการบิล" แล้วสรุปลง 9 ช่องด้วยฟังก์ชันจริง ไม่สุ่มยอดลงช่องตรง ๆ
     // ไม่งั้นตัวเลขในช่องกับตารางบิลจะไม่ตรงกัน (และ applyFuelBills จะล้างทิ้งตอนบันทึกอยู่ดี)
     ...fuelTotals, fuelBills: fuelBillsRnd,
     fuelSum: 0, fuelAutoOn: false, fuelAuto: 0, liters: 0, price: 0,
-    drv: int(0, 1500), spare: int(0, 800), snd: int(0, 500), laborOff: int(0, 500),
+    // เบี้ยเลี้ยงคนขับวันละ 300–450 ตามจำนวนวันวิ่ง · สำรอง/นอกเส้นทางมีบ้างไม่มีบ้าง
+    drv: days * int(300, 450), spare: Math.random() < 0.3 ? days * int(200, 300) : 0,
+    snd: Math.random() < 0.3 ? int(100, 400) : 0, laborOff: Math.random() < 0.15 ? int(100, 400) : 0,
     feeTarp: int(0, 300), feePolice: int(0, 300), feeCont: int(0, 500), feePort: int(0, 500),
     feeDoc: int(0, 300), feeToll: int(0, 500),
     repVeh: "", repFix: 0, repRate: 0, repVar: 0, repTotal: 0,
@@ -129,7 +161,11 @@ export function randomFor(base: TripRecord, zones: RoleKey[]): TripRecord {
   // ก่อนแล้วค่อยกดสุ่ม ได้ 3 บิล · ใบเปล่ามีแถวว่างอยู่แล้ว 1 แถว (emptyRecord) จึงได้อย่างน้อย 1 บิลเสมอ
   if (zones.includes("cs")) {
     const n = Math.max(1, base.bills?.length ?? 0);
-    out.bills = Array.from({ length: n }, () => randomBill(out.origin as string, out.dest as string));
+    const cap = Number(out.capacity) || vehicleByName(String(out.vehicle ?? ""))?.capacityKg || 12000;
+    const load = randomBills(n, out.origin as string, out.dest as string, Number(out.dist) || 500, cap);
+    out.bills = load.bills;
+    // น้ำหนักบรรทุกจริงเป็นช่องของฝ่ายจัดรถ — ตามบิลที่สุ่มใหม่เฉพาะตอนสุ่มโซนนั้นด้วย ไม่งั้นทับงานฝ่ายอื่น
+    if (zones.includes("dispatch")) out.loadActual = Math.min(cap, load.weight);
   }
   if (zones.includes("dispatch")) {
     out.releaseDate = (out.date as string) || todayISO();
