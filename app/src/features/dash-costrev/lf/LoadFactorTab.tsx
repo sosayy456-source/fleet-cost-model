@@ -147,7 +147,7 @@ function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; 
           <CargoBar idleShare={sum.share} />
           <div className="lf-legend">
             <span><i className="sw used" />ต้นทุนที่ได้ขนของจริง</span>
-            <span><i className="sw hatch" />ต้นทุนที่จมกับที่ว่าง (จ่ายเต็ม แต่ขนได้ไม่เต็มคัน)</span>
+            <span><i className="sw idle" />ต้นทุนที่จมกับที่ว่าง (จ่ายเต็ม แต่ขนได้ไม่เต็มคัน)</span>
           </div>
         </div>
         <div className="dz-heroes cp-heroes" style={{ marginTop: 14 }}>
@@ -242,8 +242,8 @@ function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; 
           </div>
           )} />
           <Note>
-            <i className="sw used" />แถบน้ำเงินคือ LF เฉลี่ยปัจจุบัน เส้นดำคือจุดคุ้มทุน · เขียว = เผื่อไว้ตั้งแต่ 10 จุดขึ้นไป · เหลือง = เผื่อไม่ถึง 10 จุด ·
-            แดง = LF ต่ำกว่าจุดคุ้มทุน · ต้นทุนเที่ยวถือเป็นต้นทุนคงที่ เพราะค่าจ้างรถ คนขับ และน้ำมันไม่ลดตามน้ำหนักที่บรรทุก
+            <i className="sw used" />แถบเขียวน้ำทะเลคือ LF เฉลี่ยปัจจุบัน เส้นดำคือจุดคุ้มทุน · ป้ายเขียว = เผื่อไว้ตั้งแต่ 10 จุดขึ้นไป · ป้ายเหลือง = เผื่อไม่ถึง 10 จุด ·
+            ป้ายแดง = LF ต่ำกว่าจุดคุ้มทุน · ต้นทุนเที่ยวถือเป็นต้นทุนคงที่ เพราะค่าจ้างรถ คนขับ และน้ำมันไม่ลดตามน้ำหนักที่บรรทุก
           </Note>
         </div>
 
@@ -256,12 +256,12 @@ function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; 
         <div className="dz-t" style={{ marginTop: 22 }}>ถ้าทุกเที่ยวบรรทุกเพิ่มขึ้น จะประหยัดได้เท่าไหร่</div>
         <Note>ลากตัวเลื่อนเพื่อจำลองว่า ถ้าเที่ยวที่ยังว่างอยู่บรรทุกได้เต็มขึ้น (เช่น รวมเที่ยว หรือจัดสินค้าใหม่) ต้นทุนที่จมจะลดลงเท่าไหร่ เพดานคือ LF 100%</Note>
         <div className="dz-cc" style={{ marginTop: 10 }}>
-          <label htmlFor="lf-delta" className="lf-dlabel">เพิ่ม Load Factor ขึ้น <b>+{delta}</b> จุด</label>
+          <label htmlFor="lf-delta" className="lf-dlabel">เพิ่ม Load Factor ขึ้น <b>+{delta}%</b></label>
           <input id="lf-delta" type="range" min={0} max={40} step={1} value={delta} className="lf-range"
             onChange={(e) => setDelta(Number(e.target.value))} />
           <div className="lf-presets">
             {[5, 10, 15, 20, 30].map((d) => (
-              <button key={d} type="button" className={delta === d ? "on" : ""} onClick={() => setDelta(d)}>+{d}</button>
+              <button key={d} type="button" className={delta === d ? "on" : ""} onClick={() => setDelta(d)}>+{d}%</button>
             ))}
           </div>
           <div className="lf-wibar">
@@ -284,14 +284,14 @@ function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; 
   );
 }
 
-/** แถบตู้รถ — ส่วนที่ใช้ขนของจริง (ทึบ) กับส่วนที่จมกับที่ว่าง (ลายทแยง) ต่อ 100 บาท */
+/** แถบตู้รถ — ส่วนที่ใช้ขนของจริง (เขียวน้ำทะเล) กับส่วนที่จมกับที่ว่าง (แดงส้ม) ต่อ 100 บาท */
 function CargoBar({ idleShare, small }: { idleShare: number; small?: boolean }) {
   const i = Math.max(0, Math.min(1, idleShare)) * 100;
   return (
     <div className={"lf-cargo" + (small ? " sm" : "")} role="img"
       aria-label={`ต้นทุน 100 บาท ใช้ขนของจริง ${(100 - i).toFixed(0)} บาท จมกับที่ว่าง ${i.toFixed(0)} บาท`}>
       <div className="seg used" style={{ width: `${100 - i}%` }}><span>{(100 - i).toFixed(0)} บาท</span></div>
-      <div className="seg idle hatch" style={{ width: `${i}%` }}><span className="lbl">{i.toFixed(0)} บาท</span></div>
+      <div className="seg idle" style={{ width: `${i}%` }}><span>{i.toFixed(0)} บาท</span></div>
     </div>
   );
 }
@@ -322,7 +322,7 @@ function RankPanel({ title, unit, rank, picked, onPick }: {
           <div key={g.name}>
             <button type="button" className="row" aria-pressed={picked === g.name} onClick={() => onPick(g.name)}>
               <span className="nm">{g.name}<span className="mt">{fmt(g.n)} เที่ยว · LF เฉลี่ย {pctOf(g.lf)} เป้า {pctOf(g.tg)}</span></span>
-              <span className="bar"><i className="hatch" style={{ width: `${g.idle / max * 100}%` }} /></span>
+              <span className="bar"><i className="idle" style={{ width: `${g.idle / max * 100}%` }} /></span>
               <span className="val">{baht(g.idle)}<small>{pctOf(g.share)} (สะสม {pctOf(g.cum)})</small></span>
             </button>
             {i + 1 === rank.k80 && rank.k80 < rank.rows.length && (
