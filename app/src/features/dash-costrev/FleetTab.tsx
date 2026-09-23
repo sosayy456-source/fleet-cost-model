@@ -44,6 +44,6 @@ export default function FleetTab({ trips }: { trips: Trip[] }) {
       (ไม่มีบิลรายได้ที่ใช้คำนวณสัดส่วนได้ หรือยอดเป็นศูนย์/ติดลบ) จัดไว้ใน “{UNKNOWN_SERVICE}” และยังคงยอดรวมเดิม
       {legacy && <> · ข้อมูลชุดนี้ยังมีไฟล์รุ่นเก่า ต้องแปลงข้อมูลต้นทุนและรายได้ใหม่เพื่อแสดงกลุ่มบริการ</>}
     </Note>}
-    <FleetUtilizationView rows={rows} />
+    <FleetUtilizationView rows={rows} trips={scope} />
   </>;
 }

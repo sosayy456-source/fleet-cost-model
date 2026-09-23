@@ -122,6 +122,8 @@ COL_ALIASES = {"รวมค่าซ่อม": COL_REPAIR, "รวมค่า
 #: ค่าซ่อม/ค่าเสื่อมของ "หาง" อย่างเดียว — ใช้กับแถวค่าเช่า (ดูเหตุผลที่ rent_row ใน build)
 COL_REPAIR_TAIL = "ค่าซ่อมหาง"
 COL_DEP_TAIL = "ค่าเสื่อมหาง"
+#: ค่าเสื่อมของหัว — รวมค่าเสื่อม = ค่าเสื่อมหัว + ค่าเสื่อมหาง ทุกแถว (ใช้แยกค่าเสื่อมรายคันใน vs)
+COL_DEP_HEAD = "ค่าเสื่อมหัว"
 #: ทะเบียนในใบเดียวกัน (คันที่ 1 · คันที่ 2 · พ่วง) กับคอลัมน์ต้นทุนของแต่ละคัน — ไฟล์รุ่นเก่าไม่มีคอลัมน์ต้นทุนต่อคัน
 VEHICLE_COLS = [
     ("ทะเบียนรถ", "ชนิดรถ", "ประเภทรถ", "ต้นทุนรถคันที่ 1"),
@@ -147,6 +149,22 @@ def num(v) -> float:
         return float(str(v).replace(",", "").strip())
     except ValueError:
         return 0.0
+
+
+def line_weight_kg(qty: float, unit_kg: float, total_kg: float) -> float:
+    """
+    น้ำหนักของบิลหนึ่งแถว (กก.) — เจ้าของงานเคาะ 23 ก.ย. 2569 หลังตรวจไฟล์รายได้เอง
+
+    ยึด น้ำหนักรวม ตามไฟล์ · เป็น 0 (บิลคิดตามหน่วยมักไม่กรอก ชุดตัวอย่าง ~20% ของแถว) → จำนวน × น้ำหนักต่อหน่วย
+
+    ★ ห้ามเปลี่ยนเป็น "ผลคูณชนะเสมอ" — เคยลองแล้ว ช่อง น้ำหนักต่อหน่วย บางแถวเก็บน้ำหนักทั้งรายการ
+      (196 ม้วน × 9,800 แต่น้ำหนักรวม 9,800) คูณแล้วได้รถ 10 ล้อพ่วงบรรทุก 1,920 ตัน น้ำหนักทั้งชุดเกือบเท่าตัว
+    """
+    if total_kg > 0:
+        return total_kg
+    if qty > 0 and unit_kg > 0:
+        return qty * unit_kg
+    return 0.0
 
 
 def num_or_none(v) -> float | None:
@@ -274,6 +292,7 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
     goods: dict[str, Counter] = {}     # ประเภทสินค้าที่พบในบิลของแต่ละใบ → กลุ่มบริการของเที่ยว
     bill_n: dict[str, int] = {}        # จำนวนบิลทั้งหมดของใบนั้น (รวมที่ชำระแล้ว)
     payers: dict[str, set[str]] = {}   # รหัสผู้จ่ายเงินของใบนั้น (ไม่ซ้ำ)
+    weight_kg: dict[str, float] = {}   # น้ำหนักสินค้ารวมของใบนั้น (line_weight_kg · ไม่นับบิลเคลียร์)
     service_revenue: dict[str, dict[str, float]] = {}  # ยอดรายได้รายกลุ่ม รวมทั้งบิลที่ชำระแล้ว
     rows_seen = 0
     paid_seen = 0
@@ -320,6 +339,9 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
                        else text(g(r, "ผู้รับ_encoded")) if pay in PAYER_RECEIVER else "")
                 if who:
                     payers.setdefault(doc, set()).add(who)
+                # น้ำหนักก็นับก่อนตัวกรองสถานะชำระเงิน · บิลเคลียร์ไม่ใช่สินค้าที่บรรทุกจริง
+                weight_kg[doc] = weight_kg.get(doc, 0.0) + line_weight_kg(
+                    num(g(r, "จำนวน")), num(g(r, "น้ำหนักต่อหน่วย")), num(g(r, "น้ำหนักรวม")))
             if goods_type != GOODS_CLEARED:
                 service = goods_type or "ไม่ระบุ"
                 amounts = service_revenue.setdefault(doc, {})
@@ -354,7 +376,7 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
     return (doc_set, bills, len(files), rows_seen,
             {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n,
-            goods, bill_n, payers, service_revenue)
+            goods, bill_n, payers, service_revenue, weight_kg)
 
 
 # ---------------------------------------------------------------- ต้นทุน
@@ -451,10 +473,18 @@ def build(dataset: str) -> None:
                 rent = num(g(r, COL_RENT)) if "ค่าเช่า" in note and abs(num(g(r, COL_RENT)) - cost) < 1 else 0.0
             # รายการรถของใบ — ทุกทะเบียนที่มี พร้อมต้นทุนของคันนั้น (รุ่นเก่า: คันเดียว ต้นทุนทั้งใบ)
             if split_cost:
-                vs = [{"pl": text(g(r, pc)), "vk": text(g(r, kc)), "ft": text(g(r, fc)), "c": round(num(g(r, cc)), 2)}
-                      for pc, kc, fc, cc in VEHICLE_COLS if text(g(r, pc))]
+                # ค่าเสื่อมรายคัน (d) — หัว = ค่าเสื่อมหัว (แถวค่าเช่า = 0 เพราะหัวเป็นรถเช่า) · คันที่ 2 = 0 (รถเช่า)
+                # · พ่วง = ค่าเสื่อมหาง → Σ d = dep ของใบเสมอ (ตรวจแล้ว 3,707/3,707 ใบ 23 ก.ย. 2569)
+                # ไฟล์ไม่มีคอลัมน์ค่าเสื่อมหัว → หัวรับ dep ที่เหลือจากหาง
+                dep_tail = num(g(r, COL_DEP_TAIL))
+                dep_head = 0.0 if rent_row else (num(g(r, COL_DEP_HEAD)) if COL_DEP_HEAD in col else dep - dep_tail)
+                deps = [dep_head, 0.0, dep_tail]
+                vs = [{"pl": text(g(r, pc)), "vk": text(g(r, kc)), "ft": text(g(r, fc)), "c": round(num(g(r, cc)), 2),
+                       "d": round(d, 2)}
+                      for (pc, kc, fc, cc), d in zip(VEHICLE_COLS, deps) if text(g(r, pc))]
             else:
-                vs = [{"pl": text(g(r, "ทะเบียนรถ")), "vk": kind, "ft": text(g(r, "ประเภทรถ")), "c": round(cost, 2)}]
+                vs = [{"pl": text(g(r, "ทะเบียนรถ")), "vk": kind, "ft": text(g(r, "ประเภทรถ")), "c": round(cost, 2),
+                       "d": round(dep, 2)}]
             fuel_t = round(sum(fuel.values()), 2)
             allow_t = round(sum(allow.values()), 2)
             fee_t = round(sum(fee.values()), 2)
@@ -482,6 +512,7 @@ def build(dataset: str) -> None:
                 "clrAmt": 0.0, "clrN": 0,
                 # จำนวนบิล + รหัสผู้จ่ายเงินของใบนั้น (หน้า Demo ใช้เป็นตัวหาร กำไร/บิล และ กำไร/ลูกค้า)
                 "bn": 0, "cus": [],
+                "wt": 0.0,    # น้ำหนักสินค้ารวม (ตัน) จากบิลรายได้ — เติมทีหลังเหมือน bn
                 "sg": "",     # กลุ่มบริการ — เติมทีหลังจากบิลรายได้ (ดูกติกาข้างบน)
                 "vs": vs,     # รถทุกคันในใบ + ต้นทุนต่อคัน (แท็บกองรถนับทุกคันและแบ่งรายได้ตามสัดส่วน)
                 # กลุ่มต้นทุน — ยอดที่คำนวณต่อได้ (ปกติ/ผันแปร/อื่น ๆ) ไม่เก็บ ให้ฝั่งแอปคิดเอง ไฟล์จะได้เล็ก
@@ -500,7 +531,7 @@ def build(dataset: str) -> None:
     cost_docs = {t["id"] for t in trips}
     svc = SvcAlloc(routes)
     (rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n, goods,
-     bill_n, payers, service_revenue) = load_revenue(rev_dir, cost_docs, svc)
+     bill_n, payers, service_revenue, weight_kg) = load_revenue(rev_dir, cost_docs, svc)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
     for t in trips:
         t["m"] = t["id"] in rev_docs
@@ -510,6 +541,7 @@ def build(dataset: str) -> None:
         t["clrAmt"] = round(clr_amt.get(t["id"], 0.0), 2)
         t["clrN"] = clr_n.get(t["id"], 0)
         t["bn"] = bill_n.get(t["id"], 0)
+        t["wt"] = round(weight_kg.get(t["id"], 0.0) / 1000, 4)
         # เรียงให้ผลลัพธ์นิ่ง (set ไม่มีลำดับ) ไฟล์จะได้ diff ได้เวลาแก้ ETL
         t["cus"] = sorted(payers.get(t["id"], ()))
         gc = goods.get(t["id"])

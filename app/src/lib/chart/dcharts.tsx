@@ -1,6 +1,6 @@
 /**
- * กราฟสำเร็จรูป 4 แบบของแดชบอร์ด — เทียบหนึ่งต่อหนึ่งกับ dBar / dLine / dMixed / dPie
- * ใน index.html บน main
+ * กราฟสำเร็จรูปของแดชบอร์ด — dBar / dLine / dMixed / dPie เทียบหนึ่งต่อหนึ่งกับของใน index.html บน main
+ * ส่วน DDonut เพิ่มทีหลังสำหรับแท็บการใช้ประโยชน์ของกองรถ
  *
  * ห่อทั้งใบไว้ในคอมโพเนนต์ได้ (ต่างจากแกน/กริดที่ห่อไม่ได้) เพราะ Recharts มองหา
  * displayName เฉพาะ "ลูกโดยตรง" ของตัวกราฟ ไม่ได้มองข้ามคอมโพเนนต์ที่ครอบทั้งกราฟ
@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { anim, axisProps, BAR_RADIUS, dFade, gridProps, legendProps, tooltipProps } from "./primitives";
 import { DFONT, fmtShort, useChartTheme } from "./theme";
+import type { ReactNode } from "react";
 
 /** ชุดข้อมูลหนึ่งเส้น/หนึ่งกลุ่มแท่ง */
 export interface DSeries {
@@ -168,5 +169,28 @@ export function DPie({ data, colors, suffix = " บาท" }: {
         </Pie>
       </PieChart>
     </ResponsiveContainer>
+  );
+}
+
+/* ---------------- dDonut: โดนัทมีตัวเลขกลางวง ไม่มีคำอธิบายสีในตัว (หน้าจอวาดรายการสีเอง) ---------------- */
+export function DDonut({ data, colors, suffix = " บาท", center }: {
+  data: { name: string; v: number }[]; colors: string[]; suffix?: string;
+  /** เนื้อหากลางวง — วางทับด้วย CSS เพราะ Recharts ไม่มีช่องให้ใส่ HTML กลางโดนัท */
+  center?: ReactNode;
+}) {
+  const t = useChartTheme();
+  return (
+    <div className="dz-donut">
+      <ResponsiveContainer width="100%" height="100%">
+        <PieChart>
+          <Tooltip {...tooltipProps(t, suffix)} />
+          <Pie data={data} dataKey="v" nameKey="name" innerRadius="64%" outerRadius="94%" startAngle={90} endAngle={-270}
+            isAnimationActive animationDuration={300} paddingAngle={0} stroke="#FFFFFF" strokeWidth={2}>
+            {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]!} />)}
+          </Pie>
+        </PieChart>
+      </ResponsiveContainer>
+      {center && <div className="dz-donut-c">{center}</div>}
+    </div>
   );
 }

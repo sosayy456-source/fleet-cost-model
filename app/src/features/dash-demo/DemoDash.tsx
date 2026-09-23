@@ -17,15 +17,22 @@ import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev } from "../../lib/data/useCostRev";
 import { fmt } from "../dash-costrev/common";
 import RouteProfitTab from "./RouteProfitTab";
+import Item2Tab from "./Item2Tab";
+import Item3Tab from "./Item3Tab";
 import CustomerProfitTab from "./CustomerProfitTab";
 
 const TABS = [
   { id: "route", label: "กำไรรายเส้นทาง" },
+  { id: "item2", label: "ข้อ 2" },
+  { id: "item3", label: "ข้อ 3" },
   { id: "cust", label: "กำไรลูกค้า" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
 const STANDALONE: ReadonlySet<TabId> = new Set<TabId>(["cust"]);
+/** แท็บที่ใช้ทุกแถวในไฟล์ต้นทุน ไม่กรองด้วย m — เที่ยวเปล่าไม่มีรายได้จึงไม่มีบิลให้จับคู่
+ *  (กฎเดียวกับ ALL_TRIPS ของ CostRevDash · เจ้าของข้อมูลชี้ขาด 22 ก.ย. 2569) */
+const ALL_TRIPS: ReadonlySet<TabId> = new Set<TabId>(["item2"]);
 
 export default function DemoDash() {
   const { data, error, loading, reload } = useCostRev();
@@ -37,6 +44,8 @@ export default function DemoDash() {
   useDashInk(barRef, `${tab}:${ready}`);
 
   const trips = useMemo(() => (data ? data.trips.filter((t) => t.m) : []), [data]);
+  /** ชุดที่แท็บปัจจุบันใช้ตัดสินว่า "มีข้อมูลไหม" — ปกติเฉพาะเที่ยวที่จับคู่ได้ ยกเว้นแท็บใน ALL_TRIPS */
+  const shown = useMemo(() => (ALL_TRIPS.has(tab) ? data?.trips ?? [] : trips), [data, trips, tab]);
 
   const m = data?.manifest;
   const meta = m && (
@@ -73,15 +82,21 @@ export default function DemoDash() {
           </div>
         ) : !m ? (
           <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>
-        ) : trips.length === 0 ? (
+        ) : shown.length === 0 ? (
           <div className="card">
             <h2>ยังไม่มีข้อมูล</h2>
             <p className="muted">
-              ไม่มีเที่ยวไหนที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — ตรวจว่าวางไฟล์รายได้ใน etl/data/revenue/ แล้วรัน ETL ใหม่
+              {ALL_TRIPS.has(tab)
+                ? "ไฟล์ต้นทุนไม่มีแถวข้อมูล"
+                : "ไม่มีเที่ยวไหนที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — ตรวจว่าวางไฟล์รายได้ใน etl/data/revenue/ แล้วรัน ETL ใหม่"}
             </p>
           </div>
         ) : (
-          <>{tab === "route" && <RouteProfitTab trips={trips} />}</>
+          <>
+            {tab === "route" && <RouteProfitTab trips={trips} />}
+            {tab === "item2" && <Item2Tab allTrips={shown} />}
+            {tab === "item3" && <Item3Tab trips={trips} />}
+          </>
         )}
       </DashShell>
     </>

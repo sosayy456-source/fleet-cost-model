@@ -22,7 +22,8 @@
  *
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { clearExecTab, peekExecTab } from "../../lib/ui/dashJump";
 import { useDashInk } from "../../lib/chart/dashfx";
 import DashShell, { Meta } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
@@ -37,13 +38,14 @@ import CostTab from "./CostTab";
 import DamageTab from "./DamageTab";
 import EmptyTab from "./EmptyTab";
 import LoadFactorTab from "./lf/LoadFactorTab";
+import Detail3Tab from "./detail3/Detail3Tab";
 import type { RecordsState } from "../../lib/store/useRecords";
 
 export type CostRevMode = "exec" | "all";
 
 const TABS = [
   { id: "profit", label: "กำไรรายเที่ยว" },
-  { id: "fleet", label: "กองรถ" },
+  { id: "fleet", label: "การใช้ประโยชน์ของกองรถ" },
   { id: "cost", label: "ต้นทุน" },
   { id: "damage", label: "Damage Rate" },
   { id: "empty", label: "เที่ยววิ่งเปล่า" },
@@ -52,6 +54,8 @@ const TABS = [
   { id: "rev", label: "Dashboard รายได้", execOnly: true },
   { id: "debt", label: "Dashboard ลูกหนี้", execOnly: true },
   { id: "lf", label: "ต้นทุนที่จมกับที่ว่าง", execOnly: true },
+  // สเปก ข้อ3.pdf (23 ก.ย. 2569) — ใช้ trips ที่จับคู่รายได้ได้ (ต้องมีน้ำหนัก wt จากบิล)
+  { id: "detail3", label: "รายละเอียด ข้อ 3", execOnly: true },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
@@ -64,7 +68,12 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/Dashboard real data/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("costrev");
   useAutoReloadOnEtl(etl, reload);
-  const [tab, setTab] = useState<TabId>("profit");
+  // แท็บที่หน้าอื่นสั่งให้เปิด (lib/ui/dashJump.ts) — รับเฉพาะโหมด exec และชื่อแท็บที่มีจริง
+  const [tab, setTab] = useState<TabId>(() => {
+    const want = mode === "exec" ? peekExecTab() : null;
+    return TABS.some((t) => t.id === want) ? (want as TabId) : "profit";
+  });
+  useEffect(() => { clearExecTab(); }, []);
   const barRef = useRef<HTMLDivElement>(null);
   const ready = !!data && !error;
   useDashInk(barRef, `${tab}:${ready}`);
@@ -138,6 +147,7 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
             {tab === "empty" && <EmptyTab trips={shown} mode={mode} />}
             {tab === "damage" && <DamageTab trips={trips} mode={mode} matchedTotal={m.matched} isSample={m.isSample} />}
             {tab === "rev" && mode === "exec" && <RevenueBoard trips={trips} manifest={m} />}
+            {tab === "detail3" && mode === "exec" && <Detail3Tab trips={trips} />}
             {tab === "debt" && mode === "exec" && <DebtorBoard state={state} manifest={m} />}
           </>
         )}

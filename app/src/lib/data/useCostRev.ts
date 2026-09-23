@@ -49,6 +49,12 @@ export interface Trip {
    * หน้า Demo ใช้เป็นตัวหารของ กำไร/บิล และ กำไร/ลูกค้า · ไฟล์รุ่นก่อน 21 ก.ย. 2569 ไม่มีสองคีย์นี้
    */
   bn: number; cus: string[];
+  /**
+   * น้ำหนักสินค้ารวม (ตัน) จากบิลรายได้ของใบนั้น — มีค่าเฉพาะเที่ยวที่ m = true · ไม่นับบิลเคลียร์
+   * ต่อแถวบิลยึด น้ำหนักรวม เป็น 0 ค่อยใช้ จำนวน × น้ำหนักต่อหน่วย (line_weight_kg ใน build_costrev.py)
+   * ไฟล์ที่สร้างก่อน 23 ก.ย. 2569 ไม่มีคีย์นี้
+   */
+  wt?: number;
   /** กลุ่มต้นทุน (ยอดที่คำนวณต่อได้ดู helpers ด้านล่าง) */
   waste: number; fuel: number; allow: number; fee: number; repair: number; dep: number; rent: number;
   f_cash: number; f_down: number; f_up: number; f_pickup: number; f_call: number;
@@ -72,6 +78,11 @@ export interface TripVehicle {
   pl: string; vk: string; ft: string;
   /** ต้นทุนของคันนี้ (บาท) */
   c: number;
+  /**
+   * ค่าเสื่อมของคันนี้ — หัว = ค่าเสื่อมหัว · คันที่ 2 = 0 (รถเช่า) · พ่วง = ค่าเสื่อมหาง · Σ d = dep ของใบ
+   * ไฟล์ที่สร้างก่อน 23 ก.ย. 2569 ไม่มี — ผู้ใช้ต้องถอยไปใช้ dep ของใบให้คันแรก
+   */
+  d?: number;
 }
 
 export interface CostRevManifest {
