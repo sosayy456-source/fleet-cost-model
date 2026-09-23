@@ -87,6 +87,8 @@ export interface AllocUnlinked {
  */
 export interface AllocCustMonth {
   ci: number; mo: string; bills: number; revenue: number; cost: number; profit: number; lossBills: number;
+  /** รายได้ของรายการที่ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้) + จำนวนรายการแยกเหตุผล (lib/alloc/review.ts) — ไฟล์เก่าไม่มี = 0 */
+  flagRev: number; fNoSize: number; fBig: number; fTiny: number;
 }
 
 /** บิลรายใบ (bills.json) — มีเฉพาะลูกค้าที่ติด Top 10 ของช่วงเวลาใดช่วงหนึ่ง */
@@ -94,7 +96,7 @@ export interface AllocBill {
   ci: number; bill: string; date: string; doc: string; route: string; revenue: number; cost: number;
 }
 
-/** "ปี|เดือน" → ดัชนีลูกค้า Top 10 อัตรากำไรสูงสุด (gain) / ต่ำสุด (loss) ที่ ETL คัดไว้ */
+/** "ปี|เดือน" → ดัชนีลูกค้า Top 10 กำไรสูงสุด (gain) / ขาดทุนมากสุด (loss) เป็นบาท ที่ ETL คัดไว้ */
 export type AllocTop = Record<string, { gain: number[]; loss: number[] }>;
 
 export interface AllocData {
@@ -107,6 +109,8 @@ export interface AllocData {
    * หน้า "กำไรลูกค้า (ปันส่วนต้นทุน)" เดิมไม่ใช้ ห้ามให้การโหลดสามไฟล์นี้ล้มพาหน้านั้นล้มไปด้วย
    */
   custMonths: AllocCustMonth[] | null;
+  /** cust_months.json มีคอลัมน์ปันตามรายได้ (สร้างตั้งแต่ 23 ก.ย. 2569) — ไม่มี = ไม่มีป้าย */
+  hasReview: boolean;
   bills: AllocBill[] | null;
   top: AllocTop | null;
 }
@@ -114,6 +118,7 @@ export interface AllocData {
 interface CustMonthColumns {
   month: string[]; ci: number[]; mi: number[]; bills: number[]; revenue: number[]; cost: number[];
   profit: number[]; lossBills: number[];
+  flagRev?: number[]; fNoSize?: number[]; fBig?: number[]; fTiny?: number[];
 }
 interface BillColumns {
   ci: number[]; bill: string[]; date: string[]; doc: string[]; route: string[]; revenue: number[]; cost: number[];
@@ -179,6 +184,7 @@ function toCustMonths(c: CustMonthColumns | null): AllocCustMonth[] | null {
     out.push({
       ci: c.ci[i] ?? 0, mo: c.month[c.mi[i] ?? -1] ?? "", bills: c.bills[i] ?? 0, revenue: c.revenue[i] ?? 0,
       cost: c.cost[i] ?? 0, profit: c.profit[i] ?? 0, lossBills: c.lossBills[i] ?? 0,
+      flagRev: c.flagRev?.[i] ?? 0, fNoSize: c.fNoSize?.[i] ?? 0, fBig: c.fBig?.[i] ?? 0, fTiny: c.fTiny?.[i] ?? 0,
     });
   }
   return out;
@@ -212,7 +218,7 @@ export async function loadAlloc(): Promise<AllocData> {
     ]);
     return {
       manifest, customers: toRows(columns), months, unlinked,
-      custMonths: toCustMonths(custMonths), bills: toBills(bills), top,
+      custMonths: toCustMonths(custMonths), hasReview: !!custMonths?.flagRev, bills: toBills(bills), top,
     };
   })().catch((e) => { cache = null; throw e; });
   return cache;

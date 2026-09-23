@@ -8,6 +8,12 @@
  *
  * ไม่มีช่องน้ำหนักถ่วงรายปี — ตารางด้านบนมีให้แก้อยู่แล้ว ไม่ต้องรับซ้ำ
  *
+ * ★ ไม่มีกล่องคำอธิบายวิธีคิดและกล่องบอกที่มาของระยะทาง (เจ้าของงานให้เอาออก 24 ก.ย. 2569)
+ *   ถ้าโหลดไฟล์ต้นทุนไม่ได้ บอกไว้ข้างปุ่มคำนวณแทน
+ * ★ รับไฟล์เดียว — รายงานค่าซ่อม (เจ้าของงานสั่ง 23 ก.ย. 2569) ระยะทางรวม/จำนวนวันรวมของตารางที่ 2
+ *   ไม่ต้องแนบไฟล์แล้ว คิดจากไฟล์ต้นทุนในโมเดล (costrev/trips.json ทุกเที่ยว) ผ่าน lib/repair/fromTrips.ts
+ *   ระยะทาง = Σ km จากตารางเส้นทาง · จำนวนวัน = (ทะเบียน, วันที่ปล่อยรถ) ไม่ซ้ำ
+ *
  * ตรรกะทั้งหมดอยู่ใน lib/repair/ — ที่นี่มีแต่หน้าจอ ตามกติกาว่าฟีเจอร์ห้ามมีสูตรของตัวเอง
  */
 import { useMemo, useRef, useState } from "react";
@@ -16,7 +22,9 @@ import { useOverrides } from "../../lib/store/overrides";
 import { addSnapshot } from "../../lib/store/repairSnapshots";
 import { BASE_YEARS, KNOWN_VEHICLES, planApply } from "../../lib/repair/apply";
 import { readTable } from "../../lib/repair/parse";
-import { ANY_FLEET, TIME_KEYWORDS, computeRates, parseMaintenance, parseOperations } from "../../lib/repair/rates";
+import { ANY_FLEET, computeRates, parseMaintenance } from "../../lib/repair/rates";
+import { monthsOfMaint, opsFromTrips } from "../../lib/repair/fromTrips";
+import { useCostRev } from "../../lib/data/useCostRev";
 
 const Chev = () => (
   <svg className="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -87,15 +95,20 @@ function FileBox({ title, hint, picked, error, onPick, onClear, status, tone }: 
 export default function RepairImport() {
   const [ovr, setOvr] = useOverrides();
   const [maintFile, setMaintFile] = useState<Picked | null>(null);
-  const [opFile, setOpFile] = useState<Picked | null>(null);
-  const [mergeTrailer, setMergeTrailer] = useState(true);
+  // ตัวหาร (ระยะทาง/วันวิ่ง) มาจากไฟล์ต้นทุนในโมเดล — ไม่ต้องแนบไฟล์ที่ 2
+  const costrev = useCostRev();
+  // ยุบหางเทรลเลอร์เข้าหัวลากเสมอ — ตัวเลือกเปิด/ปิดเอาออกแล้ว (เจ้าของงานสั่ง 24 ก.ย. 2569) ใช้ค่าเดิมที่ตั้งไว้เป็นค่าเริ่มต้น
+  const mergeTrailer = true;
   const [preview, setPreview] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: string } | null>(null);
 
   const maint = useMemo(
     () => (maintFile ? parseMaintenance(maintFile.table) : null), [maintFile]);
+  // ตัวหารใช้เฉพาะเดือนที่มีในรายงานค่าซ่อม — รายงานเดือนเดียวต้องหารด้วยวัน/ระยะทางเดือนเดียว ไม่ใช่ทั้งปี
+  const months = useMemo(() => (maint ? monthsOfMaint(maint.rows) : undefined), [maint]);
   const ops = useMemo(
-    () => (opFile ? parseOperations(opFile.table) : null), [opFile]);
+    () => (costrev.data ? opsFromTrips(costrev.data.trips, { mergeTrailer, months }) : null),
+    [costrev.data, mergeTrailer, months]);
 
   const ready = !!maint?.rows.length && !!ops?.rows.length;
 
@@ -145,11 +158,29 @@ export default function RepairImport() {
   };
 
   const clearAll = () => {
-    setMaintFile(null); setOpFile(null); setPreview(false); setMsg(null);
+    setMaintFile(null); setPreview(false); setMsg(null);
   };
 
   const allWarnings = [
-    ...(maint?.warnings ?? []), ...(ops?.warnings ?? []),
+    // ★ ไฟล์ต้นทุนตัวอย่างเป็นเที่ยวสุ่มบางส่วน ไม่ใช่ทุกเที่ยวของกองรถ — หารค่าซ่อมจริงทั้งกองด้วยวัน/ระยะทางของเที่ยวสุ่ม
+    //   อัตราจะสูงเกินจริงหลายสิบเท่า (เจอ 24 ก.ย. 2569: 10 ล้อตู้เย็น 14,478 บาท/วัน เทียบตารางเดิม ~500)
+    ...(costrev.data?.manifest.isSample
+      ? ["⚠ ไฟล์ต้นทุนในโมเดลตอนนี้เป็นข้อมูลตัวอย่าง (เที่ยวสุ่มบางส่วน ไม่ใช่ทุกเที่ยวของกองรถ) — อัตราที่คำนวณได้จะสูงเกินจริงมาก "
+        + "อย่านำไปใส่ตาราง ให้วางไฟล์ต้นทุนจริงของปี/เดือนเดียวกับรายงานค่าซ่อมก่อน"]
+      : []),
+    ...(maint?.warnings ?? []),
+    ...(ops?.noKm ? [`ไฟล์ต้นทุนมี ${ops.noKm.toLocaleString("th-TH")} เที่ยวที่เส้นทางไม่อยู่ในตารางระยะทาง — นับวันวิ่งแต่ไม่ได้บวกระยะทาง`] : []),
+    // ช่วงของตัวหารต้องครอบคลุมช่วงของค่าซ่อม — ไม่งั้นอัตราสูงเกินจริง
+    ...[...new Set(maint?.rows.map((r) => r.year) ?? [])].sort().flatMap((y) => {
+      const want = months?.get(y);
+      const have = ops?.months[y] ?? 0;
+      if (want?.size) {
+        return have < want.size
+          ? [`พ.ศ. ${y}: รายงานค่าซ่อมมี ${want.size} เดือน แต่ไฟล์ต้นทุนมีเที่ยวแค่ ${have} เดือนในนั้น — อัตราปีนี้จะสูงเกินจริง`]
+          : [];
+      }
+      return have < 12 ? [`ไฟล์ต้นทุนปี พ.ศ. ${y} มีข้อมูลแค่ ${have} เดือน — รายงานค่าซ่อมปีนี้ไม่บอกเดือน ถ้าเป็นทั้งปี อัตราจะสูงเกินจริง`] : [];
+    }),
     ...(result?.warnings ?? []), ...(plan?.warnings ?? []),
   ];
 
@@ -161,45 +192,16 @@ export default function RepairImport() {
           <Chev />
         </summary>
 
-        <div className="price-note" style={{ marginTop: 12 }}>
-          เลือกไฟล์ <b>.xlsx</b> หรือ <b>.csv</b> ที่ส่งออกจากระบบบัญชี แล้วกด “คำนวณอัตรา” —
-          ผลลัพธ์จะไปลงตารางค่าซ่อมด้านบนเมื่อกดยืนยัน<br />
-          <b>วิธีแบ่งประเภทค่าใช้จ่าย:</b> ชื่อบัญชีมีคำว่า “สินทรัพย์รอตัดบัญชี” → คิดตามเวลา
-          โดยหารยอดด้วย 8 · รายละเอียดการซ่อมตรงกับคำสำคัญ {TIME_KEYWORDS.length} คำ
-          (ประกันภัย · ภาษี · GPS · ตรวจเช็ค 68 จุด · บำรุงรักษายาง ฯลฯ) → คิดตามเวลาเต็มจำนวน ·
-          ที่เหลือ → คิดตามระยะทาง<br />
-          <b>อัตรา:</b> ตามเวลา = ยอดกลุ่มเวลา ÷ จำนวนวัน <i>(แยกตามประเภทรถ)</i> ·
-          ตามระยะทาง = ยอดกลุ่มระยะทาง ÷ ระยะทางรวม <i>(รวมทุกประเภทรถ เพราะตารางใช้แถวเดียวกัน)</i><br />
-          <b>น้ำหนักถ่วงรายปี</b> ใช้ค่าที่ตั้งไว้ในตารางด้านบน ไม่ต้องใส่ซ้ำที่นี่
-        </div>
-
-        <div className="xls-grid two">
+        <div className="xls-grid" style={{ marginTop: 12 }}>
           <FileBox
-            title="1 · รายงานค่าซ่อมตามงวด"
+            title="รายงานค่าซ่อมตามงวด"
             hint="ต้องมี: ชนิดรถ · จำนวนเงิน · วันที่ตามงวด (หรือ ปี) — ควรมี: ประเภทรถ · ชื่อบัญชี · รายละเอียดการซ่อม"
             picked={maintFile} error={null}
             onPick={setMaintFile} onClear={() => setMaintFile(null)}
             status={statusOf(maint, maintFile).text} tone={statusOf(maint, maintFile).tone}
           />
-          <FileBox
-            title="2 · ข้อมูลการปฏิบัติงาน"
-            hint="ต้องมี: ปี · ชนิดรถ · ระยะทางรวม · จำนวนวันรวม — ควรมี: ประเภทรถ (รถบริษัท/รถร่วม)"
-            picked={opFile} error={null}
-            onPick={setOpFile} onClear={() => setOpFile(null)}
-            status={statusOf(ops, opFile).text} tone={statusOf(ops, opFile).tone}
-          />
         </div>
 
-        <div className="xls-opts">
-          <label>
-            <input type="checkbox" checked={mergeTrailer}
-              onChange={(e) => setMergeTrailer(e.target.checked)} />
-            ยุบค่าซ่อม “หางเทรลเลอร์” เข้ากับ “รถเทรเล่อร์ (แม่)”
-            <span className="xls-hint">
-              เปิดเมื่อรายงานต้นทางรวมต้นทุนหัวลากกับหางเป็นรถหนึ่งชุด · ปิดเมื่อต้องการแยกสองชนิดรถ
-            </span>
-          </label>
-        </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 4 }}>
           <button className="btn-add" type="button" disabled={!ready}
@@ -207,7 +209,12 @@ export default function RepairImport() {
             คำนวณอัตรา
           </button>
           <button className="btn-ghost" type="button" onClick={clearAll}>ล้างทั้งหมด</button>
-          {!ready && <span className="locknote">ต้องเลือกไฟล์ทั้งสองช่องก่อนจึงจะคำนวณได้</span>}
+          {!ready && (
+            <span className="locknote" style={costrev.error ? { color: "var(--red)" } : undefined}>
+              {costrev.error ? `โหลดไฟล์ต้นทุน (ระยะทาง/วันวิ่ง) ไม่ได้ — ${costrev.error}`
+                : !ops ? "กำลังโหลดไฟล์ต้นทุน…" : "เลือกรายงานค่าซ่อมก่อนจึงจะคำนวณได้"}
+            </span>
+          )}
         </div>
 
         {allWarnings.length > 0 && (

@@ -18,6 +18,7 @@ import { useCostRev } from "../../lib/data/useCostRev";
 import { fmt } from "../dash-costrev/common";
 import RouteProfitTab from "./RouteProfitTab";
 import CustomerProfitTab from "./CustomerProfitTab";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 const TABS = [
   { id: "route", label: "กำไรรายเส้นทาง" },
@@ -72,7 +73,7 @@ export default function DemoDash() {
             </p>
           </div>
         ) : !m ? (
-          <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>
+          <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>
         ) : trips.length === 0 ? (
           <div className="card">
             <h2>ยังไม่มีข้อมูล</h2>

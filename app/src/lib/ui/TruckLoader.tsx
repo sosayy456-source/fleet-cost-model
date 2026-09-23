@@ -5,8 +5,11 @@
  * ตัวรถอยู่กับที่ ขยับแค่ถนน เส้นลม และตัวรถเด้งเบา ๆ — ให้ดูเหมือนวิ่งโดยไม่ต้องเลื่อนตำแหน่งจริง
  * ผู้ใช้ที่ตั้งลดการเคลื่อนไหว (prefers-reduced-motion) จะเห็นรถนิ่ง ๆ พร้อมข้อความ
  * CSS อยู่ในส่วนที่ 2 ของ index.css (`.truck-ld`)
+ *
+ * `label={null}` = เอาเฉพาะตัวรถ ไม่มีข้อความ — ใช้ต่อท้ายข้อความ "กำลังโหลด…" ที่แต่ละหน้าเขียนไว้เองอยู่แล้ว
+ * (เจ้าของงานสั่ง 23 ก.ย. 2569: ห้ามแทนข้อความเดิม ให้ต่อรถไว้ท้ายข้อความ)
  */
-export default function TruckLoader({ label = "กำลังบันทึก…" }: { label?: string }) {
+export default function TruckLoader({ label = "กำลังบันทึก…" }: { label?: string | null }) {
   return (
     <span className="truck-ld" role="status" aria-live="polite">
       <svg viewBox="0 0 72 30" width="72" height="30" aria-hidden="true">
@@ -29,7 +32,7 @@ export default function TruckLoader({ label = "กำลังบันทึก
         {/* ถนน — เส้นประเลื่อนไปทางซ้าย */}
         <line className="truck-ld-road" x1="0" y1="28.5" x2="72" y2="28.5" />
       </svg>
-      <span className="truck-ld-t">{label}</span>
+      {label && <span className="truck-ld-t">{label}</span>}
     </span>
   );
 }

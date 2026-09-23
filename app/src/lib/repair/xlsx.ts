@@ -5,7 +5,10 @@
  * ให้คลาย deflate ได้เองอยู่แล้ว จึงอ่านเองได้ด้วยโค้ดไม่กี่ร้อยบรรทัด
  * แทนที่จะลากไลบรารีอ่าน Excel ราว 400 KB เข้ามาใน bundle ที่ทุกคนต้องโหลด
  *
- * อ่าน "ชีตแรก" ของสมุดงานเท่านั้น — รายงานที่ export ออกมาจากระบบบัญชีมีชีตเดียว
+ * อ่าน **ทุกชีต** ต่อกันตามลำดับ (เดิมอ่านชีตแรกชีตเดียว — แก้ 24 ก.ย. 2569 เพราะรายงานจริงแยกชีตรายเดือน/ปี
+ * เช่น "ค่าซ่อม ตย.xlsx" มีชีต 6701 · 6801 · 6901 แล้วนำเข้าได้แค่ปี 2567)
+ * ชีตถัดไปมีหัวรายงาน/หัวตารางซ้ำมาด้วย — ตัวอ่านตาราง (parseMaintenance) ข้ามแถวหัวซ้ำและแถวที่ไม่มีชนิดรถอยู่แล้ว
+ * จึงต่อกันตรง ๆ ได้ถ้าทุกชีตเรียงคอลัมน์เหมือนกัน (รายงานจากระบบเดียวกันเป็นแบบนั้น)
  *
  * ★ วันที่ใน Excel เก็บเป็นตัวเลขลำดับวัน ไม่ใช่ข้อความ
  *   ตัวแปลงปี (toBEYear) จึงต้องรู้จักเลขลำดับวันด้วย ไม่งั้นคอลัมน์วันที่ตามงวด
@@ -143,7 +146,7 @@ function sheetRows(xml: string, shared: string[]): string[][] {
 }
 
 /**
- * อ่าน .xlsx เป็นตาราง (แถว × ช่อง) — ใช้ชีตแรกของสมุดงาน
+ * อ่าน .xlsx เป็นตาราง (แถว × ช่อง) — ทุกชีตต่อกัน
  * @throws Error พร้อมข้อความภาษาไทยเมื่อไฟล์ไม่ใช่ .xlsx หรือเบราว์เซอร์อ่านไม่ได้
  */
 export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
@@ -157,7 +160,9 @@ export async function readXlsx(buf: ArrayBuffer): Promise<string[][]> {
   const ssEntry = dir.find((e) => e.name === "xl/sharedStrings.xml");
   const shared = ssEntry ? sharedStrings(await readEntry(buf, ssEntry)) : [];
 
-  return sheetRows(await readEntry(buf, sheets[0]!), shared);
+  const out: string[][] = [];
+  for (const s of sheets) out.push(...sheetRows(await readEntry(buf, s), shared));
+  return out;
 }
 
 export const isXlsx = (name: string): boolean => /\.xlsx$/i.test(name.trim());

@@ -234,7 +234,9 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <span className="hint">{rows.length} บิล{rows.length !== waiting.length ? ` จากทั้งหมด ${waiting.length}` : ""} · ติ๊กเลือกบิลที่จะไปด้วยกัน</span>
         </div>
 
-        <div className="dz-filters">
+        {/* ★ ใช้ dh-filters ไม่ใช่ dz-filters — สไตล์ของ dz-* ประกาศใต้ #view-dash เท่านั้น
+            หน้านี้เป็นหน้าฟอร์ม ถ้าใช้ dz-filters ช่องกรองจะกลายเป็น select เปล่าไม่มีกรอบ */}
+        <div className="dh-filters">
           <div className="ff"><label>วันที่รับสินค้า</label>
             <select value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })}>
               <option value="">ทุกวัน</option>
@@ -263,7 +265,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <button type="button" className="dh-clear" onClick={() => setF(F0)}>↺ ล้างตัวกรอง</button>
         </div>
 
-        {bills.loading ? <p className="muted">กำลังโหลดบิล…</p>
+        {bills.loading ? <p className="muted">กำลังโหลดบิล… <TruckLoader label={null} /></p>
           : rows.length === 0 ? <p className="muted">ไม่มีบิลที่รอจัดรถตามตัวกรองที่เลือก</p>
           : (
             <GrowBox rows={rows} render={(shown) => (

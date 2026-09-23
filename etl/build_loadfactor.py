@@ -29,7 +29,10 @@ ETL อ่านด้วย **ชื่อคอลัมน์** ไม่ใ�
     ข้อจำกัดหลัก                     AB       ปริมาตร / น้ำหนัก
     เป้าของกลุ่ม                     AC       LF เป้าหมายของกลุ่ม ชนิดรถ × เส้นทาง — ใช้ค่าจากไฟล์ (ฝ่ายปฏิบัติการกำหนด)
     ต้นทุนรวม · รายได้                AL, AM   ★ ต้นทุนรวม = FC + VC ใช้เป็นฐานของทุกสูตร
-    (คอลัมน์อื่น เช่น ความจุ ปริมาณจริง ระยะทาง FC ไม่เก็บ — แท็บไม่ได้ใช้ และข้อมูลจริง 50,000 เที่ยว
+    ระยะทาง · น้ำหนักจริง · VC       M, V, AI  ★ เพิ่ม 23 ก.ย. 2569 ให้แท็บ "กำไรส่วนเกิน/ตัน-กม." (lib/tonkm/calc.ts)
+                                              น้ำหนักจริงเป็น **ตัน** · VC = ต้นทุนรวม − FC (FC = ค่าซ่อมตามเวลา + ค่าเสื่อม)
+                                              ไม่บังคับ — ไฟล์ที่ไม่มีคอลัมน์เหล่านี้ได้ null แท็บนั้นขึ้นข้อความให้รัน ETL ใหม่
+    (คอลัมน์อื่น เช่น ความจุ ปริมาตรจริง FC ไม่เก็บ — แท็บไม่ได้ใช้ และข้อมูลจริง 50,000 เที่ยว
      ทุกฟิลด์ที่เพิ่มคือไฟล์โตขึ้นราว 0.5 MB)
 
 สูตรที่ **คำนวณใหม่ในแอป** ไม่อ่านจากไฟล์ (เจ้าของงานเคาะ 22 ก.ย. 2569 ตามข้อแก้ 6 จุดในเอกสาร):
@@ -64,6 +67,7 @@ COLS = {
     "ทะเบียนรถ": "pl", "ชนิดรถ": "vk", "เส้นทางมาตรฐาน": "rt",
     "สถานะข้อมูล": "st", "(Max LF)": "lf", "ข้อจำกัดหลัก (ปริมาตรหรือน้ำหนักเต็มก่อน)": "bind",
     "เป้าของกลุ่ม": "tg", "ต้นทุนรวม": "cost", "รายได้": "rev",
+    "ระยะทาง": "km", "น้ำหนักจริง": "wt", "VC": "vc",
 }
 #: ไฟล์ที่ไม่มีคอลัมน์เหล่านี้ = ไม่ใช่ไฟล์ Load Factor → ข้ามทั้งไฟล์
 REQUIRED = ("เลขที่ใบรายการ", "(Max LF)", "ต้นทุนรวม", "รายได้", "เป้าของกลุ่ม", "ชนิดรถ", "เส้นทางมาตรฐาน")
@@ -92,6 +96,10 @@ def read_file(path: Path) -> tuple[list[dict], dict[str, int]]:
         i = idx[key]
         return row[i] if 0 <= i < len(row) else None
 
+    def opt(row, key: str, digits: int) -> float | None:
+        """คอลัมน์ไม่บังคับ — ไฟล์ไม่มีคอลัมน์นี้ = None"""
+        return round(num(g(row, key)), digits) if idx[key] >= 0 else None
+
     out: list[dict] = []
     dropped: dict[str, int] = {}
 
@@ -118,6 +126,8 @@ def read_file(path: Path) -> tuple[list[dict], dict[str, int]]:
             "st": st, "lf": round(lf, 4), "tg": round(num(g(r, "tg")), 4),
             "bind": txt(g(r, "bind")),
             "cost": round(cost, 2), "rev": round(num(g(r, "rev")), 2),
+            # ตัน-กม. — ไม่มีคอลัมน์ = null (ไม่ใช่ 0) แอปจะได้แยกออกว่า "ไฟล์รุ่นเก่า" กับ "เที่ยวที่ไม่มีน้ำหนัก"
+            "km": opt(r, "km", 1), "wt": opt(r, "wt", 4), "vc": opt(r, "vc", 2),
         })
     return out, dropped
 
@@ -160,6 +170,12 @@ def build(dataset: str) -> None:
     below = sum(1 for t in trips if t["lf"] < t["tg"])
     rev_full = sum(t["rev"] / t["lf"] for t in trips)
     months = sorted({t["mo"] for t in trips})
+    # กำไรส่วนเกิน/ตัน-กม. ทั้งชุด = ΣContribution ÷ Σตัน-กม. (ห้ามเฉลี่ยอัตรารายเที่ยว) — สูตรเดียวกับ lib/tonkm/calc.ts
+    # นับเฉพาะเที่ยวที่ตัน-กม. > 0 (ขนของจริง) · ไฟล์ไม่มีคอลัมน์ = None
+    has_tk = all(t["km"] is not None and t["wt"] is not None and t["vc"] is not None for t in trips)
+    tk_rows = [t for t in trips if has_tk and t["km"] * t["wt"] > 0]
+    tk = sum(t["km"] * t["wt"] for t in tk_rows)
+    contrib = sum(t["rev"] - t["vc"] for t in tk_rows)
 
     manifest = {
         "dataset": dataset,
@@ -183,6 +199,11 @@ def build(dataset: str) -> None:
             "avgLf": round(sum(t["lf"] for t in trips) / len(trips), 6),
             "avgTarget": round(sum(t["tg"] for t in trips) / len(trips), 6),
             "breakEven": round(cost / rev_full, 6) if rev_full else None,
+            "tonKm": {
+                "trips": len(tk_rows), "noWeight": len(trips) - len(tk_rows),
+                "contribution": round(contrib, 2), "tonKm": round(tk, 2),
+                "rate": round(contrib / tk, 6) if tk else None,
+            } if has_tk else None,
         },
     }
 
@@ -200,6 +221,11 @@ def build(dataset: str) -> None:
     print(f"  ต้นทุนรวม {c['cost']:,.0f} · จม {c['idle']:,.0f} ({c['idleShare'] * 100:.1f}%) · "
           f"กู้คืนได้ {c['recoverable']:,.0f} · ต่ำกว่าเป้า {below:,} เที่ยว · "
           f"LF เฉลี่ย {c['avgLf'] * 100:.1f}% เป้า {c['avgTarget'] * 100:.1f}% · คุ้มทุน {c['breakEven'] * 100:.1f}%")
+    k = c["tonKm"]
+    if k:
+        print(f"  กำไรส่วนเกิน/ตัน-กม. {k['rate']:.4f} บาท · {k['trips']:,} เที่ยว (ไม่มีน้ำหนัก/ระยะทาง {k['noWeight']:,})")
+    else:
+        print("  [!] ไฟล์ไม่มีคอลัมน์ ระยะทาง/น้ำหนักจริง/VC ครบ — แท็บกำไรส่วนเกิน/ตัน-กม. จะไม่มีข้อมูล")
 
 
 def main() -> None:

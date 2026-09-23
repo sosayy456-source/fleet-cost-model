@@ -32,6 +32,7 @@ import type { LfGroupKey, LfRank } from "../../../lib/loadfactor/calc";
 import { FF, Hero, Note, Pane } from "../../dash-fleet/parts";
 import { ListFF, MonthFF, duniq, fmt, isFiltered, monthName, pct } from "../common";
 import LfMatrix from "./LfMatrix";
+import TruckLoader from "../../../lib/ui/TruckLoader";
 
 interface Filter { year: string; month: string; ft: string }
 const F0: Filter = { year: "", month: "", ft: "" };
@@ -55,7 +56,7 @@ export default function LoadFactorTab() {
           </p>
         </div>
       ) : !data ? (
-        <div className="card"><p className="muted">กำลังโหลดข้อมูล Load Factor...</p></div>
+        <div className="card"><p className="muted">กำลังโหลดข้อมูล Load Factor... <TruckLoader label={null} /></p></div>
       ) : (
         <Body trips={data.trips} isSample={data.manifest.isSample} files={data.manifest.sourceFiles} />
       )}

@@ -154,6 +154,16 @@ def parse_date(v) -> date | None:
     s = str(v).strip()
     if not s:
         return None
+    # ★ เลขลำดับวันของ Excel (นับจาก 30/12/1899) — ไฟล์ "สุ่ม 1200 บิล.xlsx" (23 ก.ย. 2569) จัดรูปแบบเซลล์วันที่
+    #   เป็นตัวเลข จึงได้ 46030 แทน 09/01/2026 · ถ้าไม่รู้จัก ทุกแถวจะถูกข้ามว่า "ไม่มีวันที่วางบิล" (เจอจริง: 1,200/1,200)
+    #   ช่วง 20000-80000 ตรงกับ toBEYear() ใน app/src/lib/repair/xlsx.ts (ปี ค.ศ. 1954-2119) ไม่ทับกับ dd/mm/yy
+    if not isinstance(v, bool):
+        try:
+            serial = float(s.replace(",", ""))
+        except ValueError:
+            serial = None
+        if serial is not None and 20000 <= serial <= 80000:
+            return date(1899, 12, 30) + timedelta(days=int(serial))
     for sep in ("/", "-", "."):
         parts = [p.strip() for p in s.split(sep)]
         if len(parts) == 3 and all(p.isdigit() for p in parts):

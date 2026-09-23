@@ -159,6 +159,26 @@ export function toBEYear(v: string | undefined): number | null {
 }
 
 /**
+ * เดือน (1–12) จากค่าวันที่รูปแบบเดียวกับ toBEYear — null ถ้าเป็นปีล้วนหรืออ่านไม่ออก
+ * ใช้จับคู่ตัวหาร (ระยะทาง/วันวิ่ง) ให้เป็นเดือนเดียวกับค่าซ่อมในรายงาน
+ */
+export function toMonth(v: string | undefined): number | null {
+  const s = clean(v ?? "");
+  if (!s) return null;
+  const ok = (m: number) => (m >= 1 && m <= 12 ? m : null);
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  if (iso) return ok(Number(iso[2]));
+  const slash = /^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/.exec(s);
+  if (slash) return ok(Number(slash[2]));
+  const serial = /^(\d{5})(?:\.\d+)?$/.exec(s);
+  if (serial) {
+    const n = Number(serial[1]);
+    if (n >= 20_000 && n <= 80_000) return new Date(Date.UTC(1899, 11, 30) + n * 86_400_000).getUTCMonth() + 1;
+  }
+  return null;
+}
+
+/**
  * อ่านไฟล์ที่ผู้ใช้เลือกเป็นตาราง — รับ .xlsx, .csv, .tsv, .txt
  * @throws Error พร้อมข้อความภาษาไทยเมื่อรูปแบบไฟล์ยังไม่รองรับ
  */

@@ -9,15 +9,16 @@
  *   3. กราฟแท่งจำนวนลูกค้าตามช่วง %Margin 8 ช่วง (< −20 … ≥ 40) **กดแท่งได้** เพื่อกรองตาราง
  *      ลูกค้าที่รายได้ = 0 ใช้ margin −100 ถ้าขาดทุน (ตกช่อง < −20%) / 0 ถ้าไม่ขาดทุน — สูตรเดียวกับ ETL
  *   4. ตารางใต้กราฟ คอลัมน์ชุดเดียวกับหน้ากำไรลูกค้า **ตัดคอลัมน์ผู้จ่ายออก**
- *      ตั้งต้นโชว์ "Top 10 อัตรากำไรสูงสุด + Top 10 อัตรากำไรต่ำสุด" ของช่วงเวลาที่กรอง (ETL คัดไว้ใน top.json)
+ *      ตั้งต้นโชว์ "Top 10 กำไรสูงสุด + Top 10 ขาดทุนมากสุด" **เป็นบาท** ของช่วงเวลาที่กรอง (ETL คัดไว้ใน top.json)
+ *      — เดิมจัดด้วยอัตรากำไร % แล้วติดแต่รายเล็กที่ต้นทุนจัดสรร ~0 (100%) เปลี่ยน 23 ก.ย. 2569 ดู top_by_period()
  *      สลับเป็น "ทุกราย" ได้ · กดแถวที่ติด Top 10 เพื่อเปิดป็อบอัพรายการบิล — **แถวอื่นกดไม่ได้**
  *      เพราะ bills.json เก็บบิลเฉพาะรายที่ติดอันดับ (ข้อมูลจริงมีบิลราว 2 ล้านใบ เก็บทุกใบไม่ไหว) มีโน้ตบอกไว้
  *
  * ส่วนที่ 2 · ลูกหนี้ค้างชำระ (ชุด debtors/ จากไฟล์ "ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx")
  *   อยู่ใน OverdueSection.tsx — ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1 มีตัวกรอง "ข้อมูล ณ วันที่" ของตัวเอง
  *
- * ★ อัตรากำไรใช้ marginOf() ข้างล่าง ซึ่งต้องตรงกับ margin_of() ใน etl/build_alloc.py — ETL คัด Top 10
- *   ด้วยสูตรนั้นและแนบบิลมาให้เฉพาะรายพวกนั้น ถ้าสองฝั่งคิดคนละแบบ ป้าย Top 10 กับบิลจะไม่ตรงกัน
+ * ★ อัตรากำไรใช้ marginOf() ข้างล่าง ซึ่งต้องตรงกับ margin_of() ใน etl/build_alloc.py — ETL ใช้ตัดสินเสมอ
+ *   ตอนคัด Top 10 และช่วง %Margin ของกราฟต้องนับเหมือน ETL ห้ามแก้ข้างเดียว
  */
 import { useMemo, useState } from "react";
 import { DBar } from "../../lib/chart/dcharts";
@@ -33,14 +34,19 @@ import { FF, Hero, Note, Pane } from "../dash-fleet/parts";
 import { MonthFF, SortTable, fmt, isFiltered, marginTone, monthName, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import CustBillsModal from "./CustBillsModal";
+import { needsReview, reviewReasonText } from "../../lib/alloc/review";
+import type { ReviewCounts } from "../../lib/alloc/review";
 import OverdueSection from "./OverdueSection";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 interface Filter { year: string; month: string }
 const F0: Filter = { year: "", month: "" };
 
 /** ลูกค้าหนึ่งรายหลังยุบตามตัวกรอง — ci ชี้กลับไป customers[] ของชุด alloc */
-export interface CustRow extends AllocCustomer {
+export interface CustRow extends AllocCustomer, ReviewCounts {
   ci: number;
+  /** รายได้ของรายการที่ปันตามรายได้ — ป้าย "ปันตามรายได้" (lib/alloc/review.ts) */
+  flagRev: number;
   /** อัตรากำไร % (ไม่เป็น null — ดู marginOf) */
   m: number;
 }
@@ -87,7 +93,7 @@ export default function CustomerProfitTab() {
           </p>
         </div>
       ) : !alloc.data ? (
-        <div className="card"><p className="muted">กำลังโหลดข้อมูลกำไรลูกค้า...</p></div>
+        <div className="card"><p className="muted">กำลังโหลดข้อมูลกำไรลูกค้า... <TruckLoader label={null} /></p></div>
       ) : !alloc.data.custMonths ? (
         <div className="card">
           <h2>ไฟล์ข้อมูลรุ่นเก่า</h2>
@@ -129,10 +135,12 @@ function ProfitPart({ data }: { data: AllocData }) {
       if (!a) {
         const c = data.customers[r.ci];
         if (!c) continue;                 // ดัชนีเกินตาราง = ไฟล์สองชุดไม่ใช่รุ่นเดียวกัน ข้ามแทนที่จะพัง
-        a = { ...c, ci: r.ci, bills: 0, revenue: 0, cost: 0, profit: 0, lossBills: 0, margin: null, m: 0 };
+        a = { ...c, ci: r.ci, bills: 0, revenue: 0, cost: 0, profit: 0, lossBills: 0, margin: null, m: 0,
+          flagRev: 0, fNoSize: 0, fBig: 0, fTiny: 0 };
         acc.set(r.ci, a);
       }
       a.bills += r.bills; a.revenue += r.revenue; a.cost += r.cost; a.profit += r.profit; a.lossBills += r.lossBills;
+      a.flagRev += r.flagRev; a.fNoSize += r.fNoSize; a.fBig += r.fBig; a.fTiny += r.fTiny;
     }
     for (const a of acc.values()) {
       a.m = marginOf(a.revenue, a.profit);
@@ -172,7 +180,11 @@ function ProfitPart({ data }: { data: AllocData }) {
     [subset, showAll, gainSet, lossSet]);
 
   const cols = useMemo<Col<CustRow>[]>(() => [
-    { key: "code", label: "ลูกค้า", get: (r) => r.code, render: (r) => <ShortId v={r.code} n={r.n} /> },
+    { key: "code", label: "ลูกค้า", get: (r) => r.code,
+      // ป้ายเล็ก — ต้นทุนส่วนใหญ่ของรายนี้ปันตามรายได้ เพราะน้ำหนัก/ขนาดในบิลเชื่อไม่ได้ (23 ก.ย. 2569)
+      render: (r) => <>{<ShortId v={r.code} n={r.n} />}{needsReview(r.revenue, r.flagRev) && (
+        <span className="cp-rev" title={`ต้นทุนส่วนใหญ่ปันตามรายได้ — น้ำหนัก/ขนาดในบิลเชื่อไม่ได้: ${reviewReasonText(r)}`}>ปันตามรายได้</span>
+      )}</> },
     { key: "rank", label: "อันดับ", get: (r) => (gainSet.has(r.ci) ? 1 : lossSet.has(r.ci) ? 2 : 3),
       render: (r) => gainSet.has(r.ci) ? <span className="cp-tag gain">Top 10 กำไร</span>
         : lossSet.has(r.ci) ? <span className="cp-tag loss">Top 10 ขาดทุน</span> : <span className="cp-tag none">–</span> },
@@ -185,7 +197,7 @@ function ProfitPart({ data }: { data: AllocData }) {
       render: (r) => <span style={{ fontWeight: 700, color: marginTone(r.margin) }}>{r.margin == null ? "–" : pct(r.m, 0)}</span> },
     { key: "lossBills", label: "บิลที่ขาดทุน", get: (r) => r.lossBills, num: true },
   ], [gainSet, lossSet]);
-  const { sorted, sort, toggle: toggleSort } = useSort(shown, cols, { key: "margin", dir: -1 });
+  const { sorted, sort, toggle: toggleSort } = useSort(shown, cols, { key: "profit", dir: -1 });
 
   /** บิลของรายที่เปิดอยู่ ตามตัวกรองปี/เดือนเดียวกับตาราง */
   const openRow = openCi == null ? null : rows.find((r) => r.ci === openCi) ?? null;
@@ -244,7 +256,7 @@ function ProfitPart({ data }: { data: AllocData }) {
                 กำไรรายลูกค้า ({fmt(sorted.length)} ราย)
                 {pickLabel && <span className="cp-pick"> · {pickLabel}</span>}
               </h4>
-              <p>{periodLabel} · {showAll ? `ทุกรายในกลุ่มนี้ (${fmt(subset.length)} ราย)` : "Top 10 อัตรากำไรสูงสุด และ Top 10 อัตรากำไรต่ำสุด ของช่วงเวลาที่กรอง"}</p>
+              <p>{periodLabel} · {showAll ? `ทุกรายในกลุ่มนี้ (${fmt(subset.length)} ราย)` : "Top 10 กำไรสูงสุด และ Top 10 ขาดทุนมากสุด (เรียงตามยอดบาท) ของช่วงเวลาที่กรอง"}</p>
             </div>
             <div className="cp-seg" role="group" aria-label="ขอบเขตรายชื่อ">
               <button type="button" className={!showAll ? "on" : ""} onClick={() => setShowAll(false)}>Top 10 กำไร / ขาดทุน</button>
@@ -262,9 +274,11 @@ function ProfitPart({ data }: { data: AllocData }) {
             }} />
           <Note>
             กดที่แถวของลูกค้าที่ติด <b>Top 10</b> เพื่อดูรายการบิล · <b>ข้อจำกัด:</b> ระบบเก็บบิลรายใบไว้เฉพาะลูกค้าที่ติด
-            Top 10 อัตรากำไรสูงสุด/ต่ำสุดของช่วงเวลาใดช่วงหนึ่ง (ข้อมูลจริงมีบิลราว 2 ล้านใบ เก็บทุกใบไม่ไหว)
+            Top 10 กำไรสูงสุด/ขาดทุนมากสุด (บาท) ของช่วงเวลาใดช่วงหนึ่ง (ข้อมูลจริงมีบิลราว 2 ล้านใบ เก็บทุกใบไม่ไหว)
             ลูกค้ารายอื่นจึงแสดงเป็นยอดรวมรายลูกค้าโดยกดดูรายละเอียดบิลไม่ได้ ·
-            อัตรากำไร = กำไร ÷ รายได้ · รายได้ 0 แล้วขาดทุนคิดเป็น −100%
+            อัตรากำไร = กำไร ÷ รายได้ · รายได้ 0 แล้วขาดทุนคิดเป็น −100% ·
+            ป้าย <span className="cp-rev">ปันตามรายได้</span> = บิลส่วนใหญ่ของรายนี้ไม่มีน้ำหนัก/ขนาด หรือกรอกขนาดผิดปกติ
+            จึงปันต้นทุนตามสัดส่วนรายได้แทนน้ำหนัก × ระยะทาง
           </Note>
         </div>
       </Pane>

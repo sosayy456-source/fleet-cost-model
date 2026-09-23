@@ -22,8 +22,8 @@
     สามไฟล์ล่างนี้เพิ่ม 22 ก.ย. 2569 ให้แท็บ "กำไรลูกค้า" ของเมนู Demo (ตัวกรองปี/เดือน + ดูบิลรายลูกค้า)
     cust_months.json  1 ระเบียน = ลูกค้า × เดือน เก็บเป็นคอลัมน์ · ci = ดัชนีลูกค้าใน customers.json
                       mi = ดัชนีเดือนในลิสต์ month ของไฟล์เดียวกัน — แอปยุบกลับเป็นรายลูกค้าตามตัวกรองเอง
-    top.json          "ปี|เดือน" → {gain: [ci…], loss: [ci…]} = 10 รายอัตรากำไรสูงสุด (เฉพาะกำไร ≥ 0)
-                      กับ 10 รายอัตรากำไรต่ำสุด (เฉพาะขาดทุน) ของช่วงเวลานั้น คีย์ว่างสองข้าง "|" = ทุกช่วง
+    top.json          "ปี|เดือน" → {gain: [ci…], loss: [ci…]} = 10 รายกำไรสูงสุดเป็นบาท (เฉพาะกำไร ≥ 0)
+                      กับ 10 รายขาดทุนมากสุดเป็นบาท ของช่วงเวลานั้น (เดิมจัดด้วยอัตรากำไร % — ดู top_by_period) คีย์ว่างสองข้าง "|" = ทุกช่วง
                       "2025|" = ทั้งปี · "|07" = เดือน 7 ของทุกปี · "2025|07" = เดือนเดียว (ตรงกับตัวกรองของแอป
                       ที่เลือกปีกับเดือนแยกกันได้) — คัดในนี้เพื่อให้ฝั่งแอปกับบิลที่แนบไปตรงกันเสมอ
     bills.json        บิลรายใบ **เฉพาะลูกค้าที่ติด Top 10 ของช่วงใดช่วงหนึ่ง** (ci · เลขที่บิล · วันที่ ·
@@ -56,8 +56,12 @@ from src.alloc import (
     DIST_FALLBACK,
     DIST_MEDIAN,
     DIST_REVERSED,
+    FLAGS,
     Item,
     basis_of,
+    data_flag,
+    pool_of,
+    share_in_trip,
     divisor_of,
     exclusion_of,
     is_number,
@@ -66,7 +70,6 @@ from src.alloc import (
     payer_of,
     txt,
     volume_cbm,
-    weight_of,
 )
 
 HERE = Path(__file__).resolve().parent
@@ -87,8 +90,30 @@ COL_TTYPE = "ประเภทใบรายการ"
 SRC_COMPUTE = "คำนวณในระบบจากไฟล์ดิบ (src/alloc.py วิธี ค)"
 #: จำนวนรายต่อฝั่งใน top.json — เจ้าของงานเคาะ 22 ก.ย. 2569 (เดิมในสเปกเขียน 100 แล้วลดเหลือ 10)
 TOP_N = 10
+#: ลูกค้าที่รายได้จากรายการที่ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้) ≥ สัดส่วนนี้ = ติดป้าย "ปันตามรายได้" ในแอป
+#: ต้องตรงกับ REVIEW_SHARE ใน app/src/lib/alloc/review.ts · ครึ่งหนึ่งพอดีให้รายใหญ่ที่มีบิลผิดไม่กี่ใบไม่ติดป้าย
+REVIEW_SHARE = 0.5
+#: ตำแหน่งในอาร์เรย์ของ Rollup.cust / cust_mo — [บิล, รายได้, ต้นทุน, กำไร, บิลขาดทุน, รายได้ที่ปันตามรายได้, นับตามเหตุผล×3]
+FLAG_REV = 5
 
 CustKey = tuple[str, str]
+
+
+def needs_review(revenue: float, flag_rev: float) -> bool:
+    """ลูกค้าที่ต้นทุนส่วนใหญ่ปันตามรายได้ — กติกาเดียวกับ needsReview() ใน app/src/lib/alloc/review.ts"""
+    if flag_rev <= 0:
+        return False
+    return revenue <= 0 or flag_rev / revenue >= REVIEW_SHARE
+
+
+def flag_cols(vals: list[list[float]]) -> dict[str, list]:
+    """คอลัมน์ "ต้องตรวจสอบ" ของ customers.json / cust_months.json — ไฟล์รุ่นก่อน 23 ก.ย. 2569 ไม่มี"""
+    return {
+        "flagRev": [round(v[FLAG_REV], 2) for v in vals],
+        "fNoSize": [int(v[FLAG_REV + 1]) for v in vals],
+        "fBig": [int(v[FLAG_REV + 2]) for v in vals],
+        "fTiny": [int(v[FLAG_REV + 3]) for v in vals],
+    }
 
 
 def margin_of(revenue: float, profit: float) -> float:
@@ -112,11 +137,13 @@ class Rollup:
     """
 
     def __init__(self) -> None:
-        # (ฝ่าย, รหัส) -> [บิล, รายได้, ต้นทุนจัดสรร, กำไร, บิลที่ขาดทุน]
-        self.cust: dict[CustKey, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0])
+        # (ฝ่าย, รหัส) -> [บิล, รายได้, ต้นทุนจัดสรร, กำไร, บิลที่ขาดทุน,
+        #                  รายได้ของรายการที่ต้องตรวจสอบ, จำนวนรายการตามเหตุผล FLAGS ×3]
+        self.cust: dict[CustKey, list[float]] = defaultdict(lambda: [0.0] * (FLAG_REV + 1 + len(FLAGS)))
         # (ฝ่าย, รหัส, เดือน) -> ชุดเดียวกัน — ให้แท็บกำไรลูกค้ากรองปี/เดือนได้ (บิลหนึ่งใบมีวันที่เดียว
         # จึงอยู่เดือนเดียว ผลรวมทุกเดือนของรายหนึ่งเท่ากับ self.cust เสมอ)
-        self.cust_mo: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0, 0.0])
+        self.cust_mo: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0] * (FLAG_REV + 1 + len(FLAGS)))
+        self.flag_items: Counter[str] = Counter()
         self.months: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
         self.dist_src: Counter[str] = Counter()
         self.basis_cond: Counter[int] = Counter()
@@ -168,15 +195,20 @@ class Rollup:
 
         b = self._bills.get(it.bill)
         if b is None:
-            self._bills[it.bill] = [side, code, it.revenue, alloc, it.month]
+            b = self._bills[it.bill] = [side, code, it.revenue, alloc, it.month, 0.0] + [0] * len(FLAGS)
         else:
             b[2] += it.revenue
             b[3] += alloc
+        flag = it.flag or data_flag(it)
+        if flag:
+            b[5] += it.revenue
+            b[6 + FLAGS.index(flag)] += 1
+            self.flag_items[flag] += 1
 
     def flush_file(self) -> int:
         """ปิดไฟล์: ยกบิลที่สะสมไว้ขึ้นเป็นลูกค้า แล้วล้างถังของไฟล์นั้น"""
         n = len(self._bills)
-        for side, code, rev, alc, month in self._bills.values():
+        for side, code, rev, alc, month, frev, *fn in self._bills.values():
             for c in (self.cust[(side, code)], self.cust_mo[(side, code, month)]):
                 c[0] += 1
                 c[1] += rev
@@ -184,6 +216,9 @@ class Rollup:
                 c[3] += rev - alc
                 if rev - alc < 0:
                     c[4] += 1
+                c[FLAG_REV] += frev
+                for i, n in enumerate(fn):
+                    c[FLAG_REV + 1 + i] += n
         self._bills = {}
         return n
 
@@ -193,7 +228,12 @@ class Rollup:
         return [k for k, _ in sorted(self.cust.items(), key=lambda kv: kv[1][3])]
 
     def top_by_period(self, index: dict[CustKey, int]) -> dict[str, dict[str, list[int]]]:
-        """Top 10 อัตรากำไรสูงสุด/ต่ำสุด ของทุกช่วงเวลาที่ตัวกรองปี/เดือนของแอปเลือกได้
+        """Top 10 กำไรสูงสุด/ขาดทุนมากสุด **เป็นบาท** ของทุกช่วงเวลาที่ตัวกรองปี/เดือนของแอปเลือกได้
+
+        ★ เปลี่ยนจากอัตรากำไร % เป็นกำไรบาท 23 ก.ย. 2569 (เจ้าของงานเคาะ) — จัดด้วย % แล้ว Top 10 กำไรเต็มไปด้วย
+          ลูกค้าบิลเดียวรายได้หลักร้อยที่ต้นทุนจัดสรร ~0 (บิลกรอกขนาด 1×1×1 ซม. ภาระงานเลยเกือบศูนย์) = 100% ทั้ง 10 ราย
+          ตั้งเกณฑ์รายได้ ≥ 1,000 หรือ ≥ 5 บิลก็ยังได้ 99.6-100% เพราะต้นเหตุอยู่ที่ขนาดหลอก ไม่ใช่ขนาดลูกค้า
+          · ฝั่งขาดทุนก็เช่นกัน (เดิมขึ้นแต่ราย −2,000% ถึง −8,000% ที่รายได้ไม่กี่สิบบาท) · อัตรากำไรใช้แค่ตัดสินเสมอ
 
         ★ ต้องคัดที่นี่ ไม่ใช่ฝั่งแอป — bills.json เก็บบิลเฉพาะรายที่ติดอันดับ ถ้าสองฝั่งจัดอันดับคนละสูตร
           แถวที่แอปบอกว่ากดได้จะไม่มีบิลให้ดู · ยุบตามเดือนก่อนแล้วค่อยรวมเป็นช่วง จะได้แตะแต่ละระเบียน
@@ -210,14 +250,15 @@ class Rollup:
                 for k, v in by_month[m].items():
                     a = acc.get(k)
                     if a is None:
-                        acc[k] = [v[1], v[3]]           # [รายได้, กำไร] พอสำหรับจัดอันดับ
+                        acc[k] = [v[1], v[3], v[FLAG_REV]]   # [รายได้, กำไร, รายได้ที่ต้องตรวจสอบ]
                     else:
-                        a[0] += v[1]; a[1] += v[3]
+                        a[0] += v[1]; a[1] += v[3]; a[2] += v[FLAG_REV]
             return acc
 
         def pick(agg: dict[CustKey, list[float]]) -> dict[str, list[int]]:
-            gain = [(margin_of(r, p), p, k) for k, (r, p) in agg.items() if p >= 0]
-            loss = [(margin_of(r, p), p, k) for k, (r, p) in agg.items() if p < 0]
+            # รายการผิดปกติปันตามรายได้แล้ว (23 ก.ย. 2569) ตัวเลขสมเหตุสมผล จึงติดอันดับได้ตามปกติ
+            gain = [(p, margin_of(r, p), k) for k, (r, p, _f) in agg.items() if p >= 0]
+            loss = [(p, margin_of(r, p), k) for k, (r, p, _f) in agg.items() if p < 0]
             return {
                 "gain": [index[k] for _, _, k in heapq.nlargest(TOP_N, gain, key=lambda x: (x[0], x[1]))],
                 "loss": [index[k] for _, _, k in heapq.nsmallest(TOP_N, loss, key=lambda x: (x[0], x[1]))],
@@ -253,6 +294,7 @@ class Rollup:
             "cost": [round(v[2], 2) for _, v in rows],
             "profit": [round(v[3], 2) for _, v in rows],
             "lossBills": [int(v[4]) for _, v in rows],
+            **flag_cols([v for _, v in rows]),
         }
         mo_keys = sorted(k for k in self.months if k)
         months = {
@@ -296,6 +338,7 @@ class Rollup:
             "cost": [round(v[2], 2) for _, _, v in cm],
             "profit": [round(v[3], 2) for _, _, v in cm],
             "lossBills": [int(v[4]) for _, _, v in cm],
+            **flag_cols([v for _, _, v in cm]),
         }
         bills.sort(key=lambda b: (b[0], b[2], b[1]))
         bills_out = {
@@ -306,6 +349,11 @@ class Rollup:
             "route": [b[4] for b in bills],
             "revenue": [round(b[5], 2) for b in bills],
             "cost": [round(b[6], 2) for b in bills],
+        }
+        manifest["byRevenue"] = {
+            "share": REVIEW_SHARE,
+            "items": dict(self.flag_items.most_common()),
+            "customers": sum(1 for _, v in rows if needs_review(v[1], v[FLAG_REV])),
         }
         manifest["topCustomers"] = len({ci for v in top.values() for ci in v["gain"] + v["loss"]})
         manifest["billsKept"] = len(bills)
@@ -320,6 +368,10 @@ class Rollup:
     def report(self) -> None:
         print(f"  ลูกค้า {len(self.cust):,} ราย · ต้นทุนเข้าลูกค้า {self.allocated:,.2f} บาท")
         print(f"  รายการ: {dict(self.status.most_common())} · ไม่เชื่อมกัน {self.nl_items:,}")
+        if self.flag_items:
+            n = sum(1 for v in self.cust.values() if needs_review(v[1], v[FLAG_REV]))
+            print(f"  ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้): {dict(self.flag_items.most_common())} · "
+                  f"ลูกค้าที่ส่วนใหญ่ปันตามรายได้ {n:,} ราย")
         if self.excluded_cost:
             print("  ต้นทุนที่ไม่ปันเข้าลูกค้า: "
                   + " · ".join(f"{k} {v:,.2f}" for k, v in self.excluded_cost.most_common()))
@@ -422,39 +474,47 @@ def measure(it: Item, routes: dict[str, dict[str, float]]) -> None:
     it.dist, it.dist_source = lookup_distance(routes, it.origin, it.dest)
     it.cbm = volume_cbm(it)
     it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty)
+    it.flag = data_flag(it)
 
 
 class TripAcc:
-    """ตัวสะสมของหนึ่งเที่ยวในรอบแรก — เก็บเท่าที่ต้องใช้หาตัวหาร ไม่เก็บรายการ"""
+    """ตัวสะสมของหนึ่งเที่ยวในรอบแรก — เก็บเท่าที่ต้องใช้หาตัวหาร ไม่เก็บรายการ
 
-    __slots__ = ("dists", "wl_known", "basis_unknown", "revenue", "qty", "n")
+    แยกยอดรายการปกติ (norm) กับรายการผิดปกติ (flag) ไว้ เพราะรายการผิดปกติปันตามรายได้แยกก้อน
+    (pool_of) ตัวหารของรายการปกติจึงต้องไม่มีภาระงานของรายการผิดปกติปน · ระยะทางค่ากลางยังใช้ทุกรายการ
+    """
+
+    __slots__ = ("dists", "norm", "flag")
 
     def __init__(self) -> None:
         self.dists: Counter[float] = Counter()
-        self.wl_known = 0.0
-        self.basis_unknown = 0.0
-        self.revenue = 0.0
-        self.qty = 0.0
-        self.n = 0
+        # [ภาระงานที่รู้ระยะทาง, น้ำหนักที่ใช้คิดของรายการที่ไม่รู้ระยะทาง, รายได้, จำนวน, รายการ]
+        self.norm = [0.0, 0.0, 0.0, 0.0, 0]
+        self.flag = [0.0, 0.0, 0.0, 0.0, 0]
 
     def add(self, it: Item) -> None:
-        self.n += 1
-        self.revenue += it.revenue
-        self.qty += it.qty
+        a = self.flag if it.flag else self.norm
+        a[4] += 1
+        a[2] += it.revenue
+        a[3] += it.qty
         if it.dist is None:
-            self.basis_unknown += it.basis
+            a[1] += it.basis
         else:
             self.dists[it.dist] += 1
-            self.wl_known += it.basis * it.dist
+            a[0] += it.basis * it.dist
 
     def fill(self) -> float:
         if not self.dists:
             return 1.0
         return float(statistics.median(list(self.dists.elements())))
 
-    def divisor(self) -> tuple[float, str]:
-        return divisor_of(self.wl_known + self.basis_unknown * self.fill(),
-                          self.revenue, self.qty, self.n)
+    def divisor(self) -> tuple[float, str, float, float]:
+        """(ตัวหารของรายการปกติ, ตัวถ่วง, สัดส่วนก้อนปันตามรายได้, รายได้ทั้งเที่ยว) — ส่งต่อให้ share_in_trip()"""
+        rev_all = self.norm[2] + self.flag[2]
+        f = pool_of(rev_all, self.flag[2])
+        a = self.norm if f else [x + y for x, y in zip(self.norm, self.flag)]
+        total, source = divisor_of(a[0] + a[1] * self.fill(), a[2], a[3], int(a[4]))
+        return total, source, f, rev_all
 
 
 # ================================================================ ปันส่วนจากไฟล์ดิบ
@@ -513,8 +573,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
                 it.dist = fill_km[it.doc]
                 it.dist_source = DIST_MEDIAN if from_median[it.doc] else DIST_FALLBACK
             it.workload = it.basis * it.dist
-            total, source = divisor[it.doc]
-            share = weight_of(it, source) / total if total > 0 else 0.0
+            share = share_in_trip(it, *divisor[it.doc])
             roll.add(it, cost * share, exclusion_of(it, ttype.get(it.doc, "")))
         bills = roll.flush_file()
         print(f"  {path.name}: บิลที่ปันได้ {bills:,}")
@@ -554,7 +613,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
 
 def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
                   trip_cost: dict[str, float], ttype: dict[str, str],
-                  divisor: dict[str, tuple[float, str]], fill_km: dict[str, float],
+                  divisor: dict[str, tuple[float, str, float, float]], fill_km: dict[str, float],
                   from_median: dict[str, bool], wanted: dict[CustKey, int]) -> list[list]:
     """บิลรายใบของลูกค้าใน wanted — ปันต้นทุนซ้ำด้วยตัวหารชุดเดียวกับรอบสอง ผลจึงเท่ากันทุกสตางค์
 
@@ -575,8 +634,7 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
                 it.dist = fill_km[it.doc]
                 it.dist_source = DIST_MEDIAN if from_median[it.doc] else DIST_FALLBACK
             it.workload = it.basis * it.dist
-            total, source = divisor[it.doc]
-            share = weight_of(it, source) / total if total > 0 else 0.0
+            share = share_in_trip(it, *divisor[it.doc])
             b = acc.get(it.bill)
             if b is None:
                 route = f"{it.origin}→{it.dest}" if it.origin and it.dest else it.origin or it.dest or "(ไม่ระบุ)"

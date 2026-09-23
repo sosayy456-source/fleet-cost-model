@@ -25,6 +25,7 @@ import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { FleetType } from "../../lib/cost/types";
 import type { TripRecord } from "../../types/record";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 interface RouteRow {
   route: string;
@@ -123,7 +124,7 @@ export default function RouteProfit({ state }: { state: RecordsState }) {
           onRefresh={refreshBoth} loading={loading || state.loading} refreshTitle={refreshTitle}>
           {error
             ? <div className="card"><div className="banner">{error}</div></div>
-            : <div className="card"><p className="muted">กำลังโหลด...</p></div>}
+            : <div className="card"><p className="muted">กำลังโหลด... <TruckLoader label={null} /></p></div>}
         </DashShell>
       </>
     );

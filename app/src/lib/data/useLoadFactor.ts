@@ -34,6 +34,11 @@ export interface LfTrip {
   bind: string;
   /** ต้นทุนรวมของเที่ยว · รายได้ (บาท) */
   cost: number; rev: number;
+  /**
+   * ระยะทาง (กม.) · น้ำหนักจริง (**ตัน**) · ต้นทุนผันแปร VC (บาท) — ใช้คิดกำไรส่วนเกิน/ตัน-กม. (lib/tonkm/calc.ts)
+   * null = ไฟล์ที่ ETL อ่านไม่มีคอลัมน์นั้น (trips.json สร้างก่อน 23 ก.ย. 2569) ไม่ใช่ศูนย์
+   */
+  km: number | null; wt: number | null; vc: number | null;
   /* ---- คิดตอนโหลด ---- */
   /** Idle Cost = ต้นทุนรวม × MAX(0, 1 − LF) — ไม่ติดลบ */
   idle: number;
@@ -46,6 +51,8 @@ export interface LfTrip {
 interface TripColumns {
   id: string[]; y: number[]; mo: string[]; ft: string[]; pl: string[]; vk: string[]; rt: string[];
   st: string[]; lf: number[]; tg: number[]; bind: string[]; cost: number[]; rev: number[];
+  /** ไฟล์รุ่นก่อน 23 ก.ย. 2569 ไม่มีสามคอลัมน์นี้เลย · มีคอลัมน์แต่ไฟล์ต้นทางไม่มี = ค่า null ทุกแถว */
+  km?: (number | null)[]; wt?: (number | null)[]; vc?: (number | null)[];
 }
 
 export interface LfManifest {
@@ -65,6 +72,8 @@ export interface LfManifest {
   check: {
     cost: number; idle: number; idleShare: number | null; recoverable: number; belowTarget: number;
     avgLf: number; avgTarget: number; breakEven: number | null;
+    /** กำไรส่วนเกิน/ตัน-กม. ทั้งชุด — null/ไม่มี = ไฟล์ไม่มีคอลัมน์ระยะทาง/น้ำหนักจริง/VC */
+    tonKm?: { trips: number; noWeight: number; contribution: number; tonKm: number; rate: number | null } | null;
   };
 }
 
@@ -108,6 +117,7 @@ function toRows(c: TripColumns): LfTrip[] {
     out.push({
       id: c.id[i] ?? "", y: c.y[i] ?? 0, mo: c.mo[i] ?? "", ft: c.ft[i] ?? "", pl: c.pl[i] ?? "",
       vk: c.vk[i] ?? "", rt: c.rt[i] ?? "", st: c.st[i] ?? "", lf, tg, bind: c.bind[i] ?? "", cost, rev,
+      km: c.km?.[i] ?? null, wt: c.wt?.[i] ?? null, vc: c.vc?.[i] ?? null,
       idle: idleOf(cost, lf), recov: recovOf(cost, lf, tg), profit: rev - cost,
     });
   }
