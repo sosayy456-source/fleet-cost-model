@@ -80,7 +80,6 @@ const PAGES: PageDef[] = [
   { id: "drafts", view: "drafts", label: "ใบที่ยังไม่ครบ", icon: I.check, h1: "ใบที่ยังไม่ครบ", badge: "drafts" },
   { id: "debtors", view: "debtors", label: "รายการลูกหนี้", icon: I.person, h1: "รายการลูกหนี้", badge: "debt" },
   { id: "custcode", view: "custcode", label: "ค้นหารหัสลูกค้า", icon: I.search, h1: "ค้นหารหัสลูกค้า" },
-  { id: "settings", view: "settings", label: "การตั้งค่า", icon: I.gear, h1: "การตั้งค่า" },
   // หน้านี้ไม่มีใน index.html บน main — เป็นของที่โปรเจ็กต์นี้เพิ่ม (Phase 6-8)
   { id: "route-profit", view: "dash", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง" },
   // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) — หน้าตาเดียวกัน ต่างกันที่ข้อมูล
@@ -93,6 +92,9 @@ const PAGES: PageDef[] = [
   // ส่วนกำไรลูกค้า (ปันส่วนต้นทุน) ลงไปเป็นแท็บย่อยของ "Dashboard รายได้" อีกชั้น
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
   { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
+  // ★ "การตั้งค่า" อยู่ล่างสุดของอาร์เรย์นี้เสมอ (สั่ง 23 ก.ย. 2569) — แถบเมนูเรียงตาม PAGES
+  // ไม่ใช่ตาม ROLE_VIEWS จึงพอวางไว้ท้ายสุดที่เดียว ก็อยู่ล่างสุดของทุกตำแหน่ง ห้ามแทรกอะไรต่อท้าย
+  { id: "settings", view: "settings", label: "การตั้งค่า", icon: I.gear, h1: "การตั้งค่า" },
 ];
 
 export default function App() {

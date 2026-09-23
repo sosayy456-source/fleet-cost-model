@@ -1,4 +1,5 @@
 import type { Trip, TripVehicle } from "../data/useCostRev";
+import { sideOf } from "./compare";
 
 export const UNKNOWN_SERVICE = "ไม่ระบุ / ยังแบ่งกลุ่มไม่ได้";
 export type FleetSlice = Pick<Trip, "id" | "mo" | "ft" | "vk" | "pl" | "rt" | "rev" | "cost" | "profit"> & {
@@ -100,28 +101,114 @@ export function fleetKpis(rows: FleetSlice[]) {
     lossPct: n ? docs.filter((r) => r.profit < 0).length / n * 100 : 0 };
 }
 
-/** ชนิดรถที่วิ่งมากที่สุด ไม่จำกัดจำนวนไว้ที่ชั้นคำนวณ เพื่อให้ป็อปอัปแสดงได้ครบ */
-export function fleetKinds(rows: FleetSlice[]) {
-  return fleetGroups(rows, (r) => r.vk || "ไม่ระบุชนิดรถ")
+/* ------------------------------------------------------------------------------------------------
+ * ดีไซน์ "การใช้ประโยชน์ของกองรถ" (เจ้าของงานส่งภาพ 23 ก.ย. 2569) — แทนอันดับความคุ้มค่า/ชนิดรถ 10 อันดับเดิม
+ *
+ * ★ หน่วยนับของส่วนสัดส่วนคือ "เที่ยวของประเภท/ชนิดนั้น" = ใบไม่ซ้ำต่อคีย์ ใบที่มีหัวรถบริษัท + หางรถร่วม
+ *   นับทั้งสองฝั่ง ผลรวมของทุกส่วนจึงเกินจำนวนใบได้ (ชุดตัวอย่างมีใบหลายคันราว 15%) — ร้อยละคิดจากผลรวมนั้น
+ *   ให้แถบ/โดนัทครบ 100% เสมอ หน้าจอต้องบอกผู้ใช้
+ * ------------------------------------------------------------------------------------------------ */
+
+export interface Share { key: string; n: number; share: number }
+
+/** นับใบไม่ซ้ำต่อคีย์ แล้วคิดร้อยละจากผลรวมของทุกคีย์ เรียงมากไปน้อย */
+function shares(rows: FleetSlice[], keyOf: (row: FleetSlice) => string): Share[] {
+  const docs = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    const set = docs.get(key) ?? new Set<string>();
+    set.add(row.id);
+    docs.set(key, set);
+  }
+  const counted = [...docs].map(([key, set]) => ({ key, n: set.size }));
+  const total = counted.reduce((sum, r) => sum + r.n, 0);
+  return counted.map((r) => ({ ...r, share: total ? r.n / total * 100 : 0 }))
     .sort((a, b) => b.n - a.n || a.key.localeCompare(b.key, "th"));
 }
 
-export function fleetRanking(rows: FleetSlice[], mode: "trip" | "vehicle") {
-  return fleetGroups(rows, (r) => JSON.stringify([r.ft || "ไม่ระบุประเภทรถ", r.service, r.rt || "ไม่ระบุเส้นทาง"]))
-    .map((r) => ({ ...r, label: (JSON.parse(r.key) as string[]).join(" · "),
-      value: mode === "trip" ? r.perTrip : r.perVehicle }))
-    .sort((a, b) => b.value - a.value || a.key.localeCompare(b.key, "th"));
+const ftOf = (row: FleetSlice): string => row.ft || "ไม่ระบุประเภทรถ";
+function bucket(rows: FleetSlice[], keyOf: (row: FleetSlice) => string): Map<string, FleetSlice[]> {
+  const m = new Map<string, FleetSlice[]>();
+  for (const row of rows) {
+    const key = keyOf(row);
+    const list = m.get(key);
+    if (list) list.push(row); else m.set(key, [row]);
+  }
+  return m;
+}
+const docCount = (rows: FleetSlice[]): number => new Set(rows.map((r) => r.id)).size;
+
+/** สัดส่วนการใช้รถแต่ละประเภท (โดนัท) */
+export function fleetTypeShare(rows: FleetSlice[]): Share[] {
+  return shares(rows, ftOf);
 }
 
-/** ภายในกลุ่มบริการเดียวกันนับใบไม่ซ้ำ; ใบที่ขนหลายบริการนับในแต่ละบริการได้ */
-export function fleetDistribution(rows: FleetSlice[]) {
-  const services = new Map<string, FleetSlice[]>();
+/** สัดส่วนประเภทรถในแต่ละกลุ่มบริการ — เรียงกลุ่มที่มีเที่ยวน้อยไว้ซ้ายตามภาพ · กลุ่มที่แบ่งไม่ได้อยู่ท้ายเสมอ */
+export function serviceFleetMix(rows: FleetSlice[]) {
+  return [...bucket(rows, (r) => r.service)].map(([service, list]) => {
+    const types = shares(list, ftOf);
+    return { service, n: docCount(list), types, main: types[0]?.key ?? "" };
+  }).sort((a, b) => Number(a.service === UNKNOWN_SERVICE) - Number(b.service === UNKNOWN_SERVICE)
+    || a.n - b.n || a.service.localeCompare(b.service, "th"));
+}
+
+/** เส้นทางที่มีเที่ยวมากที่สุด พร้อมสัดส่วนชนิดรถ — คืนทุกเส้นทาง ผู้เรียกตัดเอง
+ *  `ids` = เลขที่ใบรายการของเส้นทางนั้น (ป็อปอัปรายการเที่ยวใช้ชุดนี้ จำนวนแถวจึงเท่ากับ n เสมอ) */
+export function routeUsage(rows: FleetSlice[]) {
+  return [...bucket(rows, (r) => r.rt || "ไม่ระบุเส้นทาง")].map(([rt, list]) => {
+    const ids = [...new Set(list.map((r) => r.id))];
+    return { rt, n: ids.length, ids, kinds: shares(list, (r) => r.vk || "ไม่ระบุชนิดรถ") };
+  })
+    .sort((a, b) => b.n - a.n || a.rt.localeCompare(b.rt, "th"));
+}
+
+/**
+ * คำแนะนำของตารางสรุป — ดีไซน์เทียบด้วย **Margin** ของสองฝั่ง (ต่างจาก SummaryTable แท็บกำไรรายเที่ยว
+ * ที่เทียบต้นทุน/เที่ยว เพราะที่นั่นรายได้ของสองฝั่งต่างกันได้) ที่นี่รายได้ถูกแบ่งเข้ารถตามสัดส่วนต้นทุน
+ * Margin ของแต่ละคันจึงเท่ากับ Margin ของใบ — เทียบ Margin คือเทียบว่าใบที่ใช้รถฝั่งไหนทำกำไรดีกว่า
+ * ฝั่งเดียว = ไม่มีตัวเทียบ ไม่เดาค่าแทน
+ */
+export type UseAdvice = "comp" | "part" | "only-comp" | "only-part";
+export const USE_ADVICE_LABEL: Record<UseAdvice, string> = {
+  comp: "ใช้รถบริษัท", part: "ใช้รถร่วม", "only-comp": "มีแต่รถบริษัท", "only-part": "มีแต่รถร่วม",
+};
+
+export interface UseRow {
+  key: string; rt: string; service: string; vk: string;
+  n: number; compN: number; partN: number;
+  /** สัดส่วนเที่ยว 0..100 ของสองฝั่งรวมกัน */
+  compShare: number; partShare: number;
+  /** Margin % — null ถ้าฝั่งนั้นไม่มีเที่ยวหรือไม่มีรายได้ */
+  compMargin: number | null; partMargin: number | null;
+  advice: UseAdvice;
+}
+
+const marginPct = (rev: number, profit: number): number | null => (rev ? profit / rev * 100 : null);
+
+/** ตารางสรุป เส้นทาง × กลุ่มบริการ × ชนิดรถ — รถร่วม + รถร่วมนอกพิเศษ = ฝั่งเดียวกัน */
+export function routeServiceKindTable(rows: FleetSlice[]): UseRow[] {
+  type Acc = { docs: Set<string>; rev: number; profit: number };
+  const acc = () => ({ docs: new Set<string>(), rev: 0, profit: 0 });
+  const groups = new Map<string, { rt: string; service: string; vk: string; all: Set<string>; comp: Acc; part: Acc }>();
   for (const row of rows) {
-    const list = services.get(row.service) ?? [];
-    list.push(row);
-    services.set(row.service, list);
+    const rt = row.rt || "ไม่ระบุเส้นทาง", vk = row.vk || "ไม่ระบุชนิดรถ";
+    const key = JSON.stringify([rt, row.service, vk]);
+    const g = groups.get(key) ?? { rt, service: row.service, vk, all: new Set<string>(), comp: acc(), part: acc() };
+    const side = sideOf(row) === "comp" ? g.comp : g.part;
+    g.all.add(row.id);
+    side.docs.add(row.id);
+    side.rev += row.rev;
+    side.profit += row.profit;
+    groups.set(key, g);
   }
-  return [...services].map(([service, list]) => ({ service,
-    n: new Set(list.map((r) => r.id)).size, kinds: fleetKinds(list) }))
-    .sort((a, b) => a.service.localeCompare(b.service, "th"));
+  return [...groups].map(([key, g]) => {
+    const compN = g.comp.docs.size, partN = g.part.docs.size, both = compN + partN;
+    const compMargin = compN ? marginPct(g.comp.rev, g.comp.profit) : null;
+    const partMargin = partN ? marginPct(g.part.rev, g.part.profit) : null;
+    const advice: UseAdvice = !partN ? "only-comp" : !compN ? "only-part"
+      : (compMargin ?? -Infinity) >= (partMargin ?? -Infinity) ? "comp" : "part";
+    return { key, rt: g.rt, service: g.service, vk: g.vk, n: g.all.size, compN, partN,
+      compShare: both ? compN / both * 100 : 0, partShare: both ? partN / both * 100 : 0,
+      compMargin, partMargin, advice };
+  });
 }

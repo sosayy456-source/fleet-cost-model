@@ -1,0 +1,90 @@
+/**
+ * แท็บ "ข้อ 2" ของเมนู Demo — การ์ดสรุป 4 กล่อง (เจ้าของงานสั่ง 23 ก.ย. 2569)
+ *
+ *   1. LF เฉลี่ย                              ┐ ชุด loadfactor/ (ExampleLoadfactor.xlsx)
+ *   2. ต้นทุนค่าเสียโอกาสจากการบรรทุกไม่เต็ม   ┘ = Idle Cost
+ *   3. % เที่ยววิ่งเปล่าเทียบเที่ยวทั้งหมด      ┐ ชุด costrev/ (เหมือน Executive Dashboard)
+ *   4. มูลค่าเที่ยววิ่งเปล่า                    ┘ = ต้นทุนรวมของเที่ยวที่ empty
+ *
+ * ★ สองชุดข้อมูลคนละไฟล์ คนละตัวหาร — **ห้ามเอาตัวเลขข้ามฝั่งมาหารกัน** เช่นเอา idle ของ loadfactor
+ *   ไปหารด้วยต้นทุนของ costrev จำนวนเที่ยวไม่เท่ากัน (ไฟล์ LF กรองสถานะข้อมูลทิ้งไปส่วนหนึ่ง)
+ *   การ์ด 1-2 จึงอ้างยอดรวมของฝั่ง LF ส่วน 3-4 อ้างยอดรวมของฝั่งไฟล์ต้นทุน แยกกันชัดเจนในข้อความใต้การ์ด
+ * ★ ฝั่ง LF โหลดเองด้วย useLoadFactor() — ถ้าชุดนั้นหาย การ์ด 1-2 ขึ้น "–" แต่ 3-4 ยังใช้ได้ ไม่ล้มทั้งแท็บ
+ * ★ การ์ด 3-4 ต้องได้ **ทุกแถวในไฟล์ต้นทุน** ไม่ใช่เฉพาะ m === true — เที่ยวเปล่าไม่มีรายได้จึงไม่มีบิล
+ *   ให้จับคู่ตั้งแต่ต้น (กฎเดียวกับแท็บ "เที่ยววิ่งเปล่า" · ดู ALL_TRIPS ใน DemoDash) ผู้เรียกส่ง allTrips มาให้
+ * ★ สูตร Idle อยู่ใน lib/loadfactor/calc.ts ที่เดียว ห้ามคิดเองในไฟล์นี้
+ *
+ * ★ กดการ์ด 1-2 → แท็บ "ต้นทุนที่จมกับที่ว่าง" · 3-4 → แท็บ "เที่ยววิ่งเปล่า" ของ Executive Dashboard
+ *   (เจ้าของงานสั่ง 23 ก.ย. 2569 · กลไกอยู่ใน lib/ui/dashJump.ts)
+ *
+ * ยังไม่มีตัวกรอง — เจ้าของงานบอกว่า "ดูข้อมูลจาก executive dashboard ไปก่อน จะมีปรับเปลี่ยนทีหลัง"
+ */
+import { useMemo } from "react";
+import { useLoadFactor } from "../../lib/data/useLoadFactor";
+import { summarize } from "../../lib/loadfactor/calc";
+import { Hero, Note } from "../dash-fleet/parts";
+import { fmt, pct } from "../dash-costrev/common";
+import type { Trip } from "../../lib/data/useCostRev";
+import { openExecTab } from "../../lib/ui/dashJump";
+
+const baht = (n: number): string => fmt(Math.round(n));
+/** สัดส่วน 0–1 → "72.5%" */
+const pctOf = (x: number, d = 1): string => pct(x * 100, d);
+const toLf = (): void => openExecTab("lf");
+const toEmpty = (): void => openExecTab("empty");
+
+export default function Item2Tab({ allTrips }: { allTrips: Trip[] }) {
+  const { data: lf, error: lfError } = useLoadFactor();
+
+  /* ---- ฝั่ง Load Factor (การ์ด 1-2) ---- */
+  const sum = useMemo(() => (lf ? summarize(lf.trips) : null), [lf]);
+
+  /* ---- ฝั่งไฟล์ต้นทุน (การ์ด 3-4) ---- */
+  const emp = useMemo(() => {
+    let n = 0, cost = 0, emptyN = 0, emptyCost = 0;
+    for (const t of allTrips) {
+      n++; cost += t.cost;
+      if (t.empty) { emptyN++; emptyCost += t.cost; }
+    }
+    return { n, cost, emptyN, emptyCost,
+      nShare: n ? emptyN / n : 0, costShare: cost ? emptyCost / cost : 0 };
+  }, [allTrips]);
+
+  const lfNote = lfError
+    ? "โหลดชุด Load Factor ไม่ได้ — สร้างด้วย python etl/build_loadfactor.py --dataset sample"
+    : !sum ? "กำลังโหลด…" : null;
+
+  return (
+    <>
+      <div className="dz-heroes i2-heroes">
+        <Hero kind="cust" l="Load Factor เฉลี่ย" onClick={toLf}
+          v={sum ? pctOf(sum.avgLf) : "–"}
+          vSub={sum ? `เป้า ${pctOf(sum.avgTg)}` : undefined}
+          s={sum
+            ? `เฉลี่ยต่อเที่ยวจาก ${fmt(sum.n)} เที่ยว · ห่างจากเป้า ${Math.round((sum.avgTg - sum.avgLf) * 100)} จุด`
+            : lfNote} />
+
+        <Hero kind="loss" l="ต้นทุนค่าเสียโอกาสจากการบรรทุกไม่เต็ม" unit="บาท" onClick={toLf}
+          v={sum ? baht(sum.idle) : "–"}
+          s={sum
+            ? `${pctOf(sum.share)} ของต้นทุนขนส่งรวม ${baht(sum.cost)} บาท`
+            : lfNote} />
+
+        <Hero kind="fleet" l="เที่ยววิ่งเปล่าเทียบเที่ยวทั้งหมด" onClick={toEmpty}
+          v={pctOf(emp.nShare)}
+          s={`${fmt(emp.emptyN)} จาก ${fmt(emp.n)} เที่ยวในไฟล์ต้นทุน`} />
+
+        <Hero kind="loss" l="มูลค่าเที่ยววิ่งเปล่า" unit="บาท" onClick={toEmpty}
+          v={baht(emp.emptyCost)}
+          s={`${pctOf(emp.costShare)} ของต้นทุนรวม ${baht(emp.cost)} บาท`} />
+      </div>
+
+      <Note>
+        กล่องที่ 1–2 มาจากไฟล์ Load Factor (ExampleLoadfactor.xlsx) — ต้นทุนค่าเสียโอกาส = ต้นทุนรวม × (100% − Max LF)
+        ของแต่ละเที่ยว · กล่องที่ 3–4 มาจากไฟล์ต้นทุนชุดเดียวกับ Executive Dashboard โดยนับ
+        <b> ทุกแถวในไฟล์</b> ไม่ใช่เฉพาะเที่ยวที่จับคู่ข้อมูลรายได้ได้ เพราะเที่ยวเปล่าไม่มีรายได้จึงไม่มีบิลให้จับคู่ ·
+        สองชุดนี้คนละไฟล์และมีจำนวนเที่ยวไม่เท่ากัน ตัวเลขจึงเทียบข้ามกล่องกันตรง ๆ ไม่ได้
+      </Note>
+    </>
+  );
+}

@@ -111,6 +111,12 @@ ALIASES: dict[str, tuple[str, ...]] = {
 }
 
 
+# ข้อความที่ต้นทางใช้แทน "ไม่มีวันที่" — ★ ไฟล์วิเคราะห์ที่ส่งมา 20 ก.ย. 2569 เขียน "(ว่าง)"
+# ลงช่อง "วันที่จบ" ของใบที่ยังค้างชำระ แทนที่จะปล่อยเซลล์ว่าง ถ้าไม่ดักไว้ตรงนี้
+# ใบพวกนั้นจะถูกตีความว่า "ปิดบัญชีแล้วแต่อ่านวันที่ไม่ออก" แทนที่จะเป็น "ยังค้าง"
+BLANK_DATES = frozenset({"(ว่าง)", "(ไม่ระบุ)", "-", "None", "nan", "NaT"})
+
+
 def norm_header(v) -> str:
     """ยุบช่องว่างทุกชนิดให้เหลือช่องเดียว — หัวตารางจาก Excel มักมี   หรือเว้นวรรคท้ายติดมา"""
     return " ".join(text(v).replace(" ", " ").split())
@@ -152,7 +158,7 @@ def parse_date(v) -> date | None:
     if isinstance(v, date):
         return v.replace(year=v.year - 543) if v.year > 2400 else v
     s = str(v).strip()
-    if not s:
+    if not s or s in BLANK_DATES:
         return None
     # ★ เลขลำดับวันของ Excel (นับจาก 30/12/1899) — ไฟล์ "สุ่ม 1200 บิล.xlsx" (23 ก.ย. 2569) จัดรูปแบบเซลล์วันที่
     #   เป็นตัวเลข จึงได้ 46030 แทน 09/01/2026 · ถ้าไม่รู้จัก ทุกแถวจะถูกข้ามว่า "ไม่มีวันที่วางบิล" (เจอจริง: 1,200/1,200)
@@ -183,10 +189,28 @@ def parse_date(v) -> date | None:
     return None
 
 
-#: ชีตข้อมูลรายใบในไฟล์รุ่นใหม่ — ไฟล์รุ่นเก่ามีชีตเดียวจึงถอยไปใช้ชีตแรก
+#: ชีตข้อมูลรายใบในไฟล์รุ่นใหม่ — ลองชีตนี้ก่อน ไม่มีค่อยไล่หาชีตที่หัวตารางครบ
 DATA_SHEET = "Sheet1"
 #: ป้ายของเซลล์วันที่อ้างอิงในชีตสรุปวิเคราะห์ (J1) — ค่าอยู่แถวถัดไปถัดจากช่อง "ค่า:" (K2)
 REF_LABEL = "วันที่อ้างอิง"
+
+
+def has_value(row) -> bool:
+    return any(c is not None and str(c).strip() != "" for c in row)
+
+
+def header_index(hdr: list[str]) -> dict[str, int] | None:
+    """หัวตาราง → ดัชนีคอลัมน์ของแต่ละช่องที่ต้องใช้ · None = ชีตนี้ไม่ใช่ตารางใบวางบิล
+
+    เทียบผ่าน ALIASES เพื่อให้ไฟล์ที่ใช้ชื่อหัวคนละแบบยังอ่านได้ (ดู ★ ใน docstring หัวไฟล์)
+    """
+    idx: dict[str, int] = {}
+    for name in REQUIRED:
+        for alias in ALIASES[name]:
+            if alias in hdr:
+                idx[name] = hdr.index(alias)
+                break
+    return idx if len(idx) == len(REQUIRED) else None
 
 
 def _sheets(path: Path) -> dict[str, list[list]]:
@@ -198,48 +222,56 @@ def _sheets(path: Path) -> dict[str, list[list]]:
     return {ws.title: [list(r) for r in ws.iter_rows(values_only=True)] for ws in wb.worksheets}
 
 
-def iter_sheet(path: Path):
-    """คืน (หัวคอลัมน์, ตัวไล่แถว, วันที่อ้างอิง) — อ่านชีต Sheet1 ถ้ามี ไม่งั้นชีตแรก หัวตารางอยู่แถวบนสุด
+def find_ref_date(sheets: dict[str, list[list]], data_sheet: str | None) -> date | None:
+    """วันที่อ้างอิงจากชีตสรุป — เซลล์ที่ขึ้นต้นด้วย REF_LABEL แล้วค่าอยู่แถวถัดไป · ไม่มี = None
 
-    วันที่อ้างอิงมาจากชีตอื่นที่มีเซลล์ขึ้นต้นด้วย "วันที่อ้างอิง" (ค่าอยู่แถวถัดไป ช่องแรกที่เป็นวันที่นับจากคอลัมน์ป้าย)
-    ไฟล์รุ่นเก่าไม่มี → None
+    กวาดจากคอลัมน์ป้ายไปทางขวา เอาช่องแรกที่อ่านเป็นวันที่ได้ จะได้ไม่ผูกกับตำแหน่งคอลัมน์ตายตัว
     """
-    sheets = _sheets(path)
-    if not sheets:
-        return [], iter(()), None
-    rows = sheets.get(DATA_SHEET) or next(iter(sheets.values()))
-    ref = None
     for name, grid in sheets.items():
-        if name == DATA_SHEET or ref is not None:
+        if name == data_sheet:
             continue
         for i, r in enumerate(grid[:-1]):
             for j, c in enumerate(r):
                 if isinstance(c, str) and c.strip().startswith(REF_LABEL):
-                    # แถวถัดไปเป็น "ค่า:" (J2) แล้ววันที่อยู่ช่องถัดไป (K2) — กวาดจากคอลัมน์ป้ายไปทางขวา
-                    # เอาช่องแรกที่อ่านเป็นวันที่ได้ จะได้ไม่ผูกกับตำแหน่งคอลัมน์ตายตัว
                     for v in grid[i + 1][j:]:
                         ref = parse_date(v)
                         if ref is not None:
-                            break
-                    break
-            if ref is not None:
-                break
-    if not rows:
-        return [], iter(()), ref
-    hdr = [text(c) for c in rows[0]]
-    body = (r for r in rows[1:] if any(c is not None and str(c).strip() != "" for c in r))
-    return hdr, body, ref
+                            return ref
+    return None
+
+
+def iter_sheet(path: Path):
+    """คืน (ดัชนีคอลัมน์, ตัวไล่แถว, วันที่อ้างอิง) จาก **ชีตแรกที่มีหัวตารางครบ** (ลอง Sheet1 ก่อน)
+
+    ★ ห้ามยึดชีต index 0 ตายตัว — ไฟล์ที่เจ้าของข้อมูลส่งมา 20 ก.ย. 2569
+      ("ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx") วางชีต "สรุปวิเคราะห์" ไว้ **ก่อน** Sheet1
+      ของเดิมอ่านชีตแรกชีตเดียวจึงล้มทั้งไฟล์ ทั้งที่ข้อมูลอยู่ครบในชีตถัดไป
+    ★ วันที่อ้างอิงอยู่ในชีตสรุป ไม่ใช่ชีตข้อมูล — ไฟล์รุ่นเก่าไม่มีช่องนี้ คืน None ได้
+    """
+    sheets = _sheets(path)
+    order = ([DATA_SHEET] if DATA_SHEET in sheets else []) + [n for n in sheets if n != DATA_SHEET]
+    seen: list[tuple[str, list[str]]] = []      # ไว้ประกอบข้อความบอกทางเมื่อหาไม่เจอ
+    for name in order:
+        rows = sheets[name]
+        hdr = [norm_header(c) for c in rows[0]] if rows else []
+        idx = header_index(hdr)
+        if idx is not None:
+            body = (r for r in rows[1:] if has_value(r))
+            return idx, body, find_ref_date(sheets, name)
+        seen.append((name, hdr))
+
+    detail = "\n".join(
+        f"  ชีต \"{name}\": {', '.join(h for h in hdr if h) or '(ไม่มีหัวตาราง)'}"
+        for name, hdr in seen) or "  (ไฟล์ไม่มีชีตเลย)"
+    raise SystemExit(
+        f"ไฟล์ {path.name} ไม่มีชีตไหนที่มีคอลัมน์ครบ: {', '.join(REQUIRED)}\n"
+        f"หัวตารางที่อ่านได้ของแต่ละชีต:\n{detail}\n"
+        f"เติมชื่อหัวที่ใช้จริงลง ALIASES ใน {Path(__file__).name} ได้ ไม่ต้องแก้ไฟล์ Excel"
+    )
 
 
 def read_file(path: Path) -> tuple[list[dict], int, date | None]:
-    hdr, body, ref = iter_sheet(path)
-    idx = {name: hdr.index(name) for name in REQUIRED if name in hdr}
-    missing = [c for c in REQUIRED if c not in idx]
-    if missing:
-        raise SystemExit(
-            f"ไฟล์ {path.name} ไม่มีคอลัมน์: {', '.join(missing)}\n"
-            f"  หัวตารางที่อ่านได้: {', '.join(h for h in hdr if h) or '(ว่าง)'}"
-        )
+    idx, body, ref = iter_sheet(path)
 
     def g(row, name):
         i = idx[name]

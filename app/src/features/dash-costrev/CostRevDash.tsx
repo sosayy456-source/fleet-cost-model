@@ -17,7 +17,7 @@
  * ★ แท็บ "ต้นทุนที่จมกับที่ว่าง" (22 ก.ย. 2569) อ่านชุด loadfactor/ ของตัวเอง ไม่ใช้ trips เลย — อยู่ใน STANDALONE
  *   จึงวาดก่อนการตรวจ error/ว่างของ costrev เข้าได้แม้ไฟล์ต้นทุนหาย
  * ★ แท็บ "กำไรส่วนเกิน/ตัน-กม." (23 ก.ย. 2569) ใช้ชุด loadfactor/ เดียวกัน — STANDALONE เหมือนกัน
- *   การ์ดสรุปในเมนู Demo กดแล้วเปิดแท็บนี้ตรง ๆ ผ่าน openExecTab() → takeExecTab() ตอนเปิดหน้า
+ *   การ์ดสรุปในเมนู Demo กดแล้วเปิดแท็บนี้ตรง ๆ ผ่าน openExecTab() (lib/ui/dashJump.ts)
  * ★ แท็บ "เที่ยววิ่งเปล่า" ใช้ **ทุกแถวในไฟล์ต้นทุน** แม้ในโหมด exec (ALL_TRIPS) — เจ้าของข้อมูลชี้ขาด 22 ก.ย. 2569:
  *   เที่ยวเปล่าดูจากไฟล์ต้นทุนไฟล์เดียวได้ เพราะมีต้นทุนแต่ไม่มีรายได้ จึงไม่มีบิลให้จับคู่ตั้งแต่ต้น
  *   (ชุดตัวอย่างใหม่: เที่ยวเปล่า 369 ใบ จับคู่ได้ 0 ใบ ถ้ากรอง m แท็บจะว่างทั้งที่ข้อมูลมีอยู่)
@@ -25,6 +25,7 @@
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { clearExecTab, peekExecTab } from "../../lib/ui/dashJump";
 import { useDashInk } from "../../lib/chart/dashfx";
 import DashShell, { Meta } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
@@ -40,7 +41,7 @@ import DamageTab from "./DamageTab";
 import EmptyTab from "./EmptyTab";
 import LoadFactorTab from "./lf/LoadFactorTab";
 import TonKmTab from "./tonkm/TonKmTab";
-import { takeExecTab } from "../../lib/ui/execTab";
+import Detail3Tab from "./detail3/Detail3Tab";
 import type { RecordsState } from "../../lib/store/useRecords";
 import TruckLoader from "../../lib/ui/TruckLoader";
 
@@ -48,7 +49,7 @@ export type CostRevMode = "exec" | "all";
 
 const TABS = [
   { id: "profit", label: "กำไรรายเที่ยว" },
-  { id: "fleet", label: "กองรถ" },
+  { id: "fleet", label: "การใช้ประโยชน์ของกองรถ" },
   { id: "cost", label: "ต้นทุน" },
   { id: "damage", label: "Damage Rate" },
   { id: "empty", label: "เที่ยววิ่งเปล่า" },
@@ -58,6 +59,8 @@ const TABS = [
   { id: "debt", label: "Dashboard ลูกหนี้", execOnly: true },
   { id: "lf", label: "ต้นทุนที่จมกับที่ว่าง", execOnly: true },
   { id: "tonkm", label: "กำไรส่วนเกิน/ตัน-กม.", execOnly: true },
+  // สเปก ข้อ3.pdf (23 ก.ย. 2569) — ใช้ trips ที่จับคู่รายได้ได้ (ต้องมีน้ำหนัก wt จากบิล)
+  { id: "detail3", label: "รายละเอียด ข้อ 3", execOnly: true },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
@@ -70,12 +73,12 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/Dashboard real data/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("costrev");
   useAutoReloadOnEtl(etl, reload);
-  // หน้าอื่นฝากแท็บที่จะเปิดไว้ (openExecTab) — รับเฉพาะชื่อที่มีจริงในเมนูนี้
+  // แท็บที่หน้าอื่นสั่งให้เปิด (lib/ui/dashJump.ts) — รับเฉพาะโหมด exec และชื่อแท็บที่มีจริง
   const [tab, setTab] = useState<TabId>(() => {
-    const want = takeExecTab();
-    const ok = TABS.find((t) => t.id === want && (!("execOnly" in t && t.execOnly) || mode === "exec"));
-    return ok ? ok.id : "profit";
+    const want = mode === "exec" ? peekExecTab() : null;
+    return TABS.some((t) => t.id === want) ? (want as TabId) : "profit";
   });
+  useEffect(() => { clearExecTab(); }, []);
   const barRef = useRef<HTMLDivElement>(null);
   const ready = !!data && !error;
   useDashInk(barRef, `${tab}:${ready}`);
@@ -148,12 +151,13 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
         ) : (
           <>
             {tab === "fleet" && <FleetTab trips={trips} />}
-            {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} />}
+            {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} svc={data?.svc ?? null} />}
             {tab === "cost" && <CostTab trips={trips} />}
             {/* ความเสียหายมาจากบิลในไฟล์รายได้ จึงมีตัวเลขเฉพาะโหมด exec — โหมด all ขึ้นข้อจำกัดแทน */}
             {tab === "empty" && <EmptyTab trips={shown} mode={mode} />}
             {tab === "damage" && <DamageTab trips={trips} mode={mode} matchedTotal={m.matched} isSample={m.isSample} />}
             {tab === "rev" && mode === "exec" && <RevenueBoard trips={trips} manifest={m} />}
+            {tab === "detail3" && mode === "exec" && <Detail3Tab trips={trips} />}
             {tab === "debt" && mode === "exec" && <DebtorBoard state={state} manifest={m} />}
           </>
         )}

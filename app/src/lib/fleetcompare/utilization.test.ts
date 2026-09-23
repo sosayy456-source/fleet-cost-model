@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fleetDistribution, fleetGroups, fleetKinds, fleetKpis, fleetRanking, fleetSlices, UNKNOWN_SERVICE, type FleetSlice } from "./utilization";
+import { fleetGroups, fleetKpis, fleetSlices, fleetTypeShare, routeServiceKindTable, routeUsage, serviceFleetMix, UNKNOWN_SERVICE, type FleetSlice } from "./utilization";
 import type { Trip } from "../data/useCostRev";
 
 const row = (changes: Partial<FleetSlice> = {}): FleetSlice => ({
@@ -82,31 +82,36 @@ describe("การใช้ประโยชน์กองรถ", () => {
       row({ id: "003", mo: "2025-03", rev: 0 })];
     expect(fleetKpis(rows).lossVehicles).toBe(1);
   });
-  it("จัดอันดับชนิดรถรวมทะเบียนและเก็บมากกว่า 10 อันดับไว้ดูต่อได้", () => {
-    const rows = Array.from({ length: 12 }, (_, i) => row({ id: String(i), pl: String(i), vk: `ชนิด${i}` }));
-    rows.push(row({ id: "ใหม่", pl: "อีกคัน", vk: "ชนิด0" }));
-    expect(fleetKinds(rows)).toHaveLength(12);
-    expect(fleetKinds(rows)[0]).toMatchObject({ key: "ชนิด0", n: 2, vehicles: 2 });
+  it("สัดส่วนประเภทรถนับใบไม่ซ้ำต่อประเภท ใบที่มีสองฝั่งนับทั้งสองและร้อยละรวมได้ 100", () => {
+    const rows = [row(), row({ service: "ทั่วไป" }), row({ pl: "หาง", ft: "รถร่วม" }),
+      row({ id: "002", ft: "รถร่วมนอกพิเศษ" })];
+    const s = fleetTypeShare(rows);
+    expect(s.map((r) => [r.key, r.n])).toEqual([["รถบริษัท", 1], ["รถร่วม", 1], ["รถร่วมนอกพิเศษ", 1]]);
+    expect(s.reduce((sum, r) => sum + r.share, 0)).toBeCloseTo(100);
   });
-  it("อันดับกำไรรวมกลุ่มขาดทุนและไม่ตัดทิ้งหลังอันดับห้า", () => {
-    const rows = Array.from({ length: 7 }, (_, i) => row({ id: String(i), rt: String(i), rev: i * 100 }));
-    const ranked = fleetRanking(rows, "trip");
-    expect(ranked).toHaveLength(7);
-    expect(ranked[0]!.value).toBe(200);
-    expect(ranked[6]!.value).toBe(-400);
+  it("สัดส่วนประเภทรถแยกกลุ่มบริการ บอกประเภทที่ใช้เป็นหลัก และเรียงกลุ่มเล็กไว้ก่อน", () => {
+    const rows = [row(), row({ id: "002" }), row({ id: "003", ft: "รถร่วม" }), row({ id: "004", service: "แช่แข็ง", ft: "รถร่วม" })];
+    const mix = serviceFleetMix(rows);
+    expect(mix.map((g) => g.service)).toEqual(["แช่แข็ง", "แช่เย็น"]);
+    expect(mix[1]).toMatchObject({ n: 3, main: "รถบริษัท" });
+    expect(mix[1]!.types[0]!.share).toBeCloseTo(200 / 3);
   });
-  it("กำไรต่อคันใช้ทะเบียนไม่ซ้ำภายในกลุ่ม", () => {
-    const rows = [row(), row({ id: "002" }), row({ id: "003", pl: "รถสอง" })];
-    expect(fleetRanking(rows, "vehicle")[0]).toMatchObject({ n: 3, vehicles: 2, value: 300 });
+  it("เส้นทางเรียงตามเที่ยวไม่ซ้ำ พร้อมสัดส่วนชนิดรถ", () => {
+    const rows = [row(), row({ service: "ทั่วไป" }), row({ id: "002", vk: "รถ 6 ล้อ" }), row({ id: "003", rt: "ค-ง" })];
+    const r = routeUsage(rows);
+    expect(r.map((x) => [x.rt, x.n])).toEqual([["ก-ข", 2], ["ค-ง", 1]]);
+    expect(r[0]!.kinds.map((k) => k.n)).toEqual([1, 1]);
   });
-  it("สัดส่วนแต่ละบริการนับเที่ยวของชนิดรถไม่ซ้ำ", () => {
-    const rows = [row(), row({ rev: 100 }), row({ id: "002", vk: "รถ 6 ล้อ" }),
-      row({ service: "ทั่วไป" })];
-    const groups = fleetDistribution(rows);
-    const cold = groups.find((g) => g.service === "แช่เย็น")!;
-    expect(cold.n).toBe(2);
-    expect(cold.kinds.map((g) => g.n)).toEqual([1, 1]);
-    expect(groups.find((g) => g.service === "ทั่วไป")?.n).toBe(1);
+  it("ตารางสรุปแนะนำฝั่งที่ Margin สูงกว่า และรวมรถร่วมนอกพิเศษเป็นฝั่งรถร่วม", () => {
+    const rows = [row({ rev: 1000, profit: 500 }), row({ id: "002", ft: "รถร่วม", rev: 1000, profit: 100 }),
+      row({ id: "003", ft: "รถร่วมนอกพิเศษ", rev: 1000, profit: 100 })];
+    const [t] = routeServiceKindTable(rows);
+    expect(t).toMatchObject({ n: 3, compN: 1, partN: 2, compMargin: 50, partMargin: 10, advice: "comp" });
+    expect(t!.compShare).toBeCloseTo(100 / 3);
+  });
+  it("ตารางสรุปฝั่งเดียวไม่เดาค่าอีกฝั่ง", () => {
+    const [t] = routeServiceKindTable([row({ ft: "รถร่วม" })]);
+    expect(t).toMatchObject({ compN: 0, compMargin: null, advice: "only-part", partShare: 100 });
   });
   it("ข้อมูลว่างหรือไม่มีทะเบียนไม่ทำให้เกิด NaN หรือคันสมมติ", () => {
     expect(fleetKpis([])).toMatchObject({ n: 0, vehicles: 0, turnover: 0, lossPct: 0 });

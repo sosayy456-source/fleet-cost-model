@@ -7,18 +7,21 @@
  *       VISUAL-06 ฮิสโทแกรมอัตรากำไร · VISUAL-07/08 Top 5 เส้นทางกำไร/ขาดทุน
  *   2.4 VISUAL-09 5 กลุ่มค่าใช้จ่ายหลัก (น้ำมัน เบี้ยเลี้ยง ค่าธรรมเนียม ค่าซ่อม ค่าเสื่อม · ไม่รวมค่าเช่า)
  *       VISUAL-10 ต้นทุนเฉลี่ยตามชนิดรถ สลับ ต่อเที่ยว / ต่อกม. (กม.จาก routes.json เฉพาะที่จับคู่ได้)
+ *       ตารางรายเที่ยว (TripTable.tsx) · ตารางกลุ่มบริการที่ปันต้นทุนวิธี ค (ServiceTable.tsx · ข้อมูล svc.json)
  *   2.5 ตารางสรุป เส้นทาง × กลุ่มบริการ × ชนิดรถ + สัดส่วนรถบริษัท/รถร่วม และคำแนะนำ (SummaryTable.tsx)
  */
 import { useMemo, useState } from "react";
 import { DBar, DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { CC, Hero, Note, Pane, TableHead } from "../dash-fleet/parts";
-import { BASE_F0, isFiltered, ListFF, Meter, YearFF, duniq, fmt, groupBy, marginOf, monthLabel,
+import { BASE_F0, isFiltered, ListFF, Meter, MonthFF, YearFF, duniq, fmt, groupBy, marginOf, monthLabel,
          passBase, pct, signed } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import SummaryTable from "./SummaryTable";
+import ServiceTable from "./ServiceTable";
+import TripTable from "./TripTable";
 import type { BaseFilter } from "./common";
-import type { Trip } from "../../lib/data/useCostRev";
+import type { SvcAlloc, Trip } from "../../lib/data/useCostRev";
 
 /** ช่วงอัตรากำไรของฮิสโทแกรม — ช่วงละ 10% ปลายเปิดสองข้าง */
 const BUCKETS: [number, number, string][] = [
@@ -38,31 +41,42 @@ const COST_GROUPS: { key: keyof Trip; label: string; color: string }[] = [
 /** จำนวนจุดของเส้นแนวโน้มในการ์ดเด่น — 12 เดือนล่าสุด (ดีไซน์ต้องการ 8–12 จุด) */
 const TREND_POINTS = 12;
 
-export default function ProfitTab({ trips, fileRows }: {
+export default function ProfitTab({ trips, fileRows, svc }: {
   trips: Trip[];
+  /** ต้นทุน/รายได้ที่ปันเข้ากลุ่มบริการ — null = ETL รุ่นเก่ายังไม่มี svc.json ซ่อนตารางกลุ่มบริการ */
+  svc: SvcAlloc | null;
   /** จำนวนเที่ยวทั้งหมดในไฟล์ (manifest.rows) — ฐานของแถบ "จำนวนเที่ยว" */
   fileRows: number;
 }) {
   const [f, setF] = useState<BaseFilter>(BASE_F0);
   const set = (k: keyof BaseFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [perKm, setPerKm] = useState(false);
+  /** ตัวกรองเฉพาะแท็บนี้ — จับคู่กับรายได้จริง · ผลประกอบการ (กำไร = ไม่ติดลบ ตรงกับนิยามเที่ยวขาดทุนของ KPI) */
+  const [matched, setMatched] = useState("");
+  const [outcome, setOutcome] = useState("");
+  /** Executive Dashboard มีแต่เที่ยวที่จับคู่ได้ — ตัวกรองจับคู่จึงมีความหมายเฉพาะ Dashboard รวม */
+  const hasBoth = useMemo(() => trips.some((t) => t.m) && trips.some((t) => !t.m), [trips]);
 
-  const rows = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
+  const rows = useMemo(() => trips.filter((t) => passBase(t, f)
+    && (!matched || (matched === "m") === t.m)
+    && (!outcome || (outcome === "profit") === (t.profit >= 0))), [trips, f, matched, outcome]);
 
   const kpi = useMemo(() => {
     const rev = rows.reduce((s, t) => s + t.rev, 0);
     const cost = rows.reduce((s, t) => s + t.cost, 0);
     const loss = rows.filter((t) => t.profit < 0).length;
     return { rev, cost, profit: rev - cost, margin: rev ? (rev - cost) / rev * 100 : 0,
-             n: rows.length, lossPct: rows.length ? loss / rows.length * 100 : 0 };
+             loss, n: rows.length, lossPct: rows.length ? loss / rows.length * 100 : 0 };
   }, [rows]);
 
   /** VISUAL-05 — ทุกเดือนของทุกปี ตัวกรองอื่นใช้ แต่ไม่ใช้ตัวกรองปี */
   const monthly = useMemo(() => {
-    const by = groupBy(trips.filter((t) => passBase(t, f, { ignoreYear: true })), (t) => t.mo)
+    const by = groupBy(trips.filter((t) => passBase(t, f, { ignoreYear: true, ignoreMonth: true })
+      && (!matched || (matched === "m") === t.m)
+      && (!outcome || (outcome === "profit") === (t.profit >= 0))), (t) => t.mo)
       .sort((a, b) => a.key.localeCompare(b.key));
     return by.map((a) => ({ mo: monthLabel(a.key), รายได้: Math.round(a.rev), ต้นทุน: Math.round(a.cost), กำไร: Math.round(a.profit) }));
-  }, [trips, f]);
+  }, [trips, f, matched, outcome]);
 
   /** เส้นแนวโน้มในการ์ดเด่น — ชุดเดียวกับกราฟ VISUAL-05 ตัดเหลือ 12 เดือนล่าสุด */
   const trend = useMemo(() => {
@@ -105,11 +119,19 @@ export default function ProfitTab({ trips, fileRows }: {
     <>
       <FilterBar>
         <YearFF trips={trips} value={f.year} onChange={set("year")} />
+        <MonthFF value={f.month} onChange={set("month")} />
         <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(trips.map((t) => t.o))} />
         <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={duniq(trips.map((t) => t.de))} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(trips.map((t) => t.ft))} />
         <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")} opts={duniq(trips.map((t) => t.vk))} />
-        <ClearFiltersBtn active={isFiltered(f, BASE_F0)} onClick={() => setF(BASE_F0)} />
+        {hasBoth && (
+          <ListFF label="ข้อมูล" all="ทั้งหมด" value={matched} onChange={setMatched} opts={["m", "nm"]}
+            labelOf={(o) => (o === "m" ? "จับคู่ได้" : "จับคู่ไม่ได้")} />
+        )}
+        <ListFF label="ผลประกอบการ" all="ทั้งหมด" value={outcome} onChange={setOutcome} opts={["profit", "loss"]}
+          labelOf={(o) => (o === "profit" ? "กำไร" : "ขาดทุน")} />
+        <ClearFiltersBtn active={isFiltered(f, BASE_F0) || !!matched || !!outcome}
+          onClick={() => { setF(BASE_F0); setMatched(""); setOutcome(""); }} />
       </FilterBar>
 
       <Pane deps={[rows]}>
@@ -124,7 +146,7 @@ export default function ProfitTab({ trips, fileRows }: {
           <Meter dot={D.indigo} l="จำนวนเที่ยว" v={fmt(kpi.n)}
             s={`เที่ยว · จาก ${fmt(fileRows)} เที่ยวในไฟล์`} fill={fileRows ? kpi.n / fileRows * 100 : 0} />
           <Meter dot={D.rose} tone={kpi.lossPct > 0 ? "warn" : undefined} l="%เที่ยวที่ขาดทุน" v={pct(kpi.lossPct)}
-            s="เที่ยวขาดทุน ÷ เที่ยวทั้งหมด" fill={kpi.lossPct} />
+            s={`${fmt(kpi.loss)} เที่ยว · เที่ยวขาดทุน ÷ เที่ยวทั้งหมด`} fill={kpi.lossPct} />
         </div>
 
         {/* [VISUAL-05] */}
@@ -137,7 +159,7 @@ export default function ProfitTab({ trips, fileRows }: {
               { key: "กำไร", label: "กำไร", color: D.emeraldLight },
             ]} />
           </div>
-          <Note>กราฟนี้แสดงทุกเดือนตลอดทุกปีเสมอเพื่อเทียบแนวโน้มปีต่อปี — ตัวกรอง "ปี" ไม่มีผลกับกราฟนี้ ตัวกรองอื่นมีผล</Note>
+          <Note>กราฟนี้แสดงทุกเดือนตลอดทุกปีเสมอเพื่อเทียบแนวโน้มปีต่อปี — ตัวกรอง "ปี" และ "เดือน" ไม่มีผลกับกราฟนี้ ตัวกรองอื่นมีผล</Note>
         </div>
 
         {/* [VISUAL-06] */}
@@ -193,8 +215,12 @@ export default function ProfitTab({ trips, fileRows }: {
           </div>
         </div>
 
+        <TripTable trips={rows} />
+
         {/* 2.5 */}
         <SummaryTable trips={rows} ftFiltered={!!f.ft} />
+
+        {svc && <ServiceTable trips={rows} svc={svc} />}
       </Pane>
     </>
   );

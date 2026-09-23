@@ -49,6 +49,12 @@ export interface Trip {
    * หน้า Demo ใช้เป็นตัวหารของ กำไร/บิล และ กำไร/ลูกค้า · ไฟล์รุ่นก่อน 21 ก.ย. 2569 ไม่มีสองคีย์นี้
    */
   bn: number; cus: string[];
+  /**
+   * น้ำหนักสินค้ารวม (ตัน) จากบิลรายได้ของใบนั้น — มีค่าเฉพาะเที่ยวที่ m = true · ไม่นับบิลเคลียร์
+   * ต่อแถวบิลยึด น้ำหนักรวม เป็น 0 ค่อยใช้ จำนวน × น้ำหนักต่อหน่วย (line_weight_kg ใน build_costrev.py)
+   * ไฟล์ที่สร้างก่อน 23 ก.ย. 2569 ไม่มีคีย์นี้
+   */
+  wt?: number;
   /** กลุ่มต้นทุน (ยอดที่คำนวณต่อได้ดู helpers ด้านล่าง) */
   waste: number; fuel: number; allow: number; fee: number; repair: number; dep: number; rent: number;
   f_cash: number; f_down: number; f_up: number; f_pickup: number; f_call: number;
@@ -72,6 +78,11 @@ export interface TripVehicle {
   pl: string; vk: string; ft: string;
   /** ต้นทุนของคันนี้ (บาท) */
   c: number;
+  /**
+   * ค่าเสื่อมของคันนี้ — หัว = ค่าเสื่อมหัว · คันที่ 2 = 0 (รถเช่า) · พ่วง = ค่าเสื่อมหาง · Σ d = dep ของใบ
+   * ไฟล์ที่สร้างก่อน 23 ก.ย. 2569 ไม่มี — ผู้ใช้ต้องถอยไปใช้ dep ของใบให้คันแรก
+   */
+  d?: number;
 }
 
 export interface CostRevManifest {
@@ -96,11 +107,24 @@ export interface CostRevManifest {
   debtorPaid?: { bills: number; total: number };
   /** สรุปบิลเคลียร์เฉพาะเที่ยวที่จับคู่ได้ — ไฟล์รุ่นก่อนแท็บ Damage Rate ไม่มีคีย์นี้ */
   clear?: { trips: number; bills: number; amount: number };
+  /** ปันต้นทุนเข้ากลุ่มบริการ (svc.json) — ไฟล์รุ่นก่อน 20 ก.ย. 2569 ไม่มีคีย์นี้ */
+  serviceGroups?: { rows: number; trips: number; method: string };
+}
+
+/**
+ * ต้นทุน/รายได้ของเที่ยวที่ปันเข้ากลุ่มบริการ (ประเภทสินค้าของบิล) ด้วยวิธี ค — etl/src/svcalloc.py
+ * เก็บเป็นคอลัมน์ ดัชนีเดียวกัน 1 ระเบียน = ใบรายการ × กลุ่ม · Σ ทุกกลุ่มของใบ = รายได้/ต้นทุนของเที่ยว
+ * มีเฉพาะใบที่เลขที่ตรงกับข้อมูลรายได้ (m = true)
+ */
+export interface SvcAlloc {
+  id: string[]; g: string[]; n: number[]; rev: number[]; cost: number[];
 }
 
 export interface CostRevData {
   manifest: CostRevManifest;
   trips: Trip[];
+  /** null = ยังไม่มีไฟล์ (ETL รุ่นเก่า) — แท็บกำไรรายเที่ยวซ่อนตารางกลุ่มบริการ ที่เหลือใช้ได้ตามปกติ */
+  svc: SvcAlloc | null;
 }
 
 /* ---------- ยอดที่คำนวณต่อจากกลุ่มต้นทุน (นิยามตามเอกสารจัดประเภทต้นทุน) ---------- */
@@ -148,11 +172,12 @@ let cache: Promise<CostRevData> | null = null;
 export async function loadCostRev(): Promise<CostRevData> {
   cache ??= (async () => {
     const ds = await detect();
-    const [manifest, trips] = await Promise.all([
+    const [manifest, trips, svc] = await Promise.all([
       fetchJson<CostRevManifest>(ds, "manifest.json"),
       fetchJson<Trip[]>(ds, "trips.json"),
+      fetchJson<SvcAlloc>(ds, "svc.json").catch(() => null),
     ]);
-    return { manifest, trips };
+    return { manifest, trips, svc };
   })().catch((e) => { cache = null; throw e; });
   return cache;
 }
