@@ -12,6 +12,7 @@
  */
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
+import { isStaleChunkError, reloadBypassingCache } from "./lazyPage";
 
 interface Props {
   children: ReactNode;
@@ -45,12 +46,17 @@ export default class ErrorBoundary extends Component<Props, State> {
     const { err } = this.state;
     if (!err) return this.props.children;
 
+    // ก้อนย่อยโหลดไม่ได้ = เปิดหน้านี้ค้างไว้ตอนมีเวอร์ชันใหม่ขึ้น ไม่ใช่โค้ดพัง
+    // (`lazyPage` รีโหลดให้เองรอบหนึ่งแล้ว มาถึงตรงนี้แปลว่ายังไม่หาย ต้องบอกผู้ใช้ให้ทำเอง)
+    const stale = isStaleChunkError(err);
+
     return (
       <div className="card">
         <div className="card-h"><h2>หน้านี้แสดงผลไม่สำเร็จ</h2></div>
         <p className="muted">
-          {this.props.where ? `เกิดข้อผิดพลาดใน${this.props.where}` : "เกิดข้อผิดพลาดที่ไม่คาดคิด"} ·
-          ข้อมูลที่บันทึกไว้แล้วยังอยู่ครบ ไม่ได้หายไปไหน
+          {stale
+            ? "เว็บมีเวอร์ชันใหม่ขึ้นตอนที่เปิดหน้านี้ค้างไว้ ไฟล์ชุดเก่าจึงไม่มีให้โหลดแล้ว · กด “โหลดเวอร์ชันใหม่” ได้เลย"
+            : `${this.props.where ? `เกิดข้อผิดพลาดใน${this.props.where}` : "เกิดข้อผิดพลาดที่ไม่คาดคิด"} · ข้อมูลที่บันทึกไว้แล้วยังอยู่ครบ ไม่ได้หายไปไหน`}
         </p>
         <pre style={{
           whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12.5,
@@ -58,9 +64,16 @@ export default class ErrorBoundary extends Component<Props, State> {
           border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", margin: "14px 0",
         }}>{err.message || String(err)}</pre>
         <div className="save-row">
-          <button className="btn btn-save" type="button" onClick={() => this.setState({ err: null })}>
-            ลองแสดงผลใหม่
-          </button>
+          {stale ? (
+            // รีโหลดธรรมดาไม่พอ — GitHub Pages แคช index.html ไว้ถึงสิบนาที ต้องข้ามแคชให้
+            <button className="btn btn-save" type="button" onClick={reloadBypassingCache}>
+              โหลดเวอร์ชันใหม่
+            </button>
+          ) : (
+            <button className="btn btn-save" type="button" onClick={() => this.setState({ err: null })}>
+              ลองแสดงผลใหม่
+            </button>
+          )}
           <button className="btn-ghost" type="button" onClick={() => location.reload()}>
             โหลดหน้าเว็บใหม่ทั้งหมด
           </button>

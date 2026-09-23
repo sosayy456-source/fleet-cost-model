@@ -7,7 +7,7 @@
  * ใช้ hash routing (#/records) แทน history API เพราะ GitHub Pages เป็น static host
  * ถ้าใช้ path จริงแล้วผู้ใช้กด refresh หน้ากลางทาง เซิร์ฟเวอร์จะหา path นั้นไม่เจอ → 404
  */
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import EntryForm from "./features/entry/EntryForm";
 import BillEntry from "./features/bills/BillEntry";
 import DispatchPage from "./features/dispatch/DispatchPage";
@@ -17,21 +17,23 @@ import Debtors from "./features/debtors/Debtors";
 import CustCode from "./features/custcode/CustCode";
 import Settings from "./features/settings/Settings";
 import DriverJobs from "./features/driver/DriverJobs";
+import { lazyPage } from "./lib/ui/lazyPage";
 // แดชบอร์ดลากไลบรารีกราฟมาด้วยราว 400 KB แยกเป็นก้อนต่างหาก
 // คนที่เข้ามาแค่กรอกข้อมูลจะได้ไม่ต้องโหลดตาม
-const FleetDash = lazy(() => import("./features/dash-fleet/FleetDash"));
+const FleetDash = lazyPage(() => import("./features/dash-fleet/FleetDash"));
 // หน้าสถานะกองรถเดี่ยว ๆ ของฝ่ายจัดรถ — แท็บเดียวกับในแดชบอร์ดเต็ม อยู่ในก้อนเดียวกัน
-const FleetStatus = lazy(() => import("./features/dash-fleet/FleetDash")
+const FleetStatus = lazyPage(() => import("./features/dash-fleet/FleetDash")
   .then((m) => ({ default: m.FleetStatusPage })));
-const RouteProfit = lazy(() => import("./features/dash-join/RouteProfit"));
-const CostRevDash = lazy(() => import("./features/dash-costrev/CostRevDash"));
-const DemoDash = lazy(() => import("./features/dash-demo/DemoDash"));
+const RouteProfit = lazyPage(() => import("./features/dash-join/RouteProfit"));
+const CostRevDash = lazyPage(() => import("./features/dash-costrev/CostRevDash"));
+const DemoDash = lazyPage(() => import("./features/dash-demo/DemoDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
 import { DashPageContext } from "./lib/ui/dashContext";
 import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
 import { billIsPaid, recBills } from "./lib/record/payment";
 import { useRecords } from "./lib/store/useRecords";
 import { useActiveDataset } from "./lib/dataset";
+import { loadSessionRole, saveSessionRole } from "./lib/store/sessionRole";
 import type { RoleKey } from "./types/record";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
@@ -93,8 +95,13 @@ const PAGES: PageDef[] = [
 ];
 
 export default function App() {
-  // เปิดเว็บทุกครั้งต้องเลือกตำแหน่งใหม่เสมอ ไม่จำไว้ในเครื่อง (ตรงตาม main:2129)
-  const [role, setRole] = useState<RoleKey | null>(null);
+  // เปิดเว็บใหม่ต้องเลือกตำแหน่งเสมอ ไม่จำลงเครื่อง (ตรงตาม main:2129)
+  // แต่จำไว้ระดับ "แท็บ" เพื่อให้รีโหลดแล้วไม่ต้องเลือกซ้ำ — sessionStorage ตายตอนปิดแท็บ ดีไซน์เดิมจึงยังอยู่
+  // (จำเป็นเพราะ lazyPage รีโหลดหน้าเองได้เมื่อมี deploy ทับระหว่างเปิดค้าง)
+  const [role, setRoleState] = useState<RoleKey | null>(loadSessionRole);
+  const setRole = (r: RoleKey | null): void => { saveSessionRole(r); setRoleState(r); };
+  // true เฉพาะรอบแรกที่ตำแหน่งถูกกู้มาจากการรีโหลด — ใช้ตัดสินว่าจะอยู่หน้าเดิมหรือเด้งไปหน้าแรก
+  const restoredRole = useRef(role !== null);
   const state = useRecords();
   const { isSample } = useActiveDataset();
   const [dismissed, setDismissed] = useState(false);
@@ -116,12 +123,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role]);
 
-  /* เลือกตำแหน่งแล้วเปิดหน้าแรกของตำแหน่งนั้นเสมอ — main:2241 showView(ROLE_VIEWS[ROLE][0]) */
+  /* เลือกตำแหน่งแล้วเปิดหน้าแรกของตำแหน่งนั้นเสมอ — main:2241 showView(ROLE_VIEWS[ROLE][0])
+     ยกเว้นรอบที่กู้ตำแหน่งมาจากการรีโหลด ให้กลับไปหน้าเดิมตาม hash (readHash กรองหน้าที่เข้าไม่ได้ทิ้งให้แล้ว) */
   useEffect(() => {
     if (!role) return;
-    const first = allowed[0] ?? "entry";
-    location.hash = `#/${first}`;
-    setPage(first);
+    const want = restoredRole.current ? readHash() : (allowed[0] ?? "entry");
+    restoredRole.current = false;
+    location.hash = `#/${want}`;
+    setPage(want);
     // ใบที่ฝ่ายก่อนหน้าเพิ่งบันทึกต้องขึ้นทันทีที่เลือกหน้าที่ ไม่ต้องกดรีเฟรชเอง
     state.refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
