@@ -81,8 +81,21 @@ export function useBills(): BillsState {
       const sheet = await loadBillsFromSheet();
       if (!alive) return;
       // เก็บสำเนาของชีตลงเครื่อง ไว้ใช้ตอนออฟไลน์ (ไม่ทับบิลที่ยังไม่ได้ sync)
-      const merged = mergeBills(local, sheet);
+      let merged = mergeBills(local, sheet);
       await putBills(merged.filter((b) => b.synced !== false));
+      // ★ ส่งบิลที่ค้างในเครื่อง (synced=false) ขึ้นชีตอีกรอบ — "ส่งรอบหน้า" ตามหัวไฟล์เกิดขึ้นตรงนี้
+      //   ไม่ส่งซ้ำ บิลที่จัดรถแล้วแต่สถานะส่งไม่ถึงชีตจะค้าง "รอจัดรถ" บนชีตตลอด เครื่องอื่นจัดซ้ำได้
+      const unsynced = merged.filter((b) => b.synced === false);
+      if (unsynced.length) {
+        try {
+          await pushBills(unsynced);
+          const done = new Map(unsynced.map((b) => [b.id, { ...b, synced: true }]));
+          await putBills([...done.values()]);
+          merged = merged.map((b) => done.get(b.id) ?? b);
+        } catch {
+          /* ยังส่งไม่ผ่าน — คงธงไว้ เปิดหน้ารอบหน้าค่อยลองใหม่ */
+        }
+      }
       if (alive) setBills(merged);
     })()
       .catch((e) => { if (alive) setError((e as Error).message); })

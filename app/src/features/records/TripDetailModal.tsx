@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { thDateSafe } from "../../lib/record/date";
 import { forecastFor } from "../../lib/forecast/forecast";
+import { COST_PART_LABELS } from "../../lib/forecast/forecast";
 import type { CostParts, ForecastTable } from "../../lib/forecast/forecast";
 import type { TripRecord } from "../../types/record";
 
@@ -35,17 +36,6 @@ function actualParts(r: TripRecord): CostParts {
     other: Math.round((normal - fuel - allow - fee - repair) * 100) / 100,
   };
 }
-
-const PART_LABEL: { key: keyof CostParts; label: string }[] = [
-  { key: "fuel", label: "ค่าน้ำมัน" },
-  { key: "allow", label: "ค่าเบี้ยเลี้ยง/ค่าแรง" },
-  { key: "fee", label: "ค่าธรรมเนียม" },
-  { key: "repair", label: "ค่าซ่อม" },
-  { key: "dep", label: "ค่าเสื่อม" },
-  { key: "rent", label: "ค่าเช่า" },
-  { key: "waste", label: "ต้นทุนสูญเปล่า" },
-  { key: "other", label: "อื่น ๆ" },
-];
 
 export default function TripDetailModal({ rec, table, onClose }: {
   rec: TripRecord; table: ForecastTable | null; onClose: () => void;
@@ -149,7 +139,7 @@ export default function TripDetailModal({ rec, table, onClose }: {
                   <th>กลุ่มต้นทุน</th><th className="n">จริง</th><th className="n">พยากรณ์</th><th className="n">ผลต่าง</th>
                 </tr></thead>
                 <tbody>
-                  {PART_LABEL.map(({ key, label }) => {
+                  {COST_PART_LABELS.map(({ key, label }) => {
                     const a = actual[key];
                     const f = forecast?.parts[key] ?? 0;
                     const d = a - f;

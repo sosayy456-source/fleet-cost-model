@@ -11,6 +11,13 @@
  *
  * กล่องสรุปแสดง กำไร · รายได้ (รวมทุกบิล) · ต้นทุนพยากรณ์ — กรอบเขียวเมื่อกำไร แดงเมื่อขาดทุน
  * (ต้นทุนพยากรณ์ = ค่าเฉลี่ยข้อมูลเก่า N เดือนล่าสุด ตามเส้นทาง × ชนิดรถ ดู lib/forecast/)
+ *
+ * ★ การจัดรถต้องไม่ค้างครึ่งทาง (แก้ 23 ก.ย. 2569 — เดิมสร้างใบในเครื่องแล้วพังตอนส่งชีต
+ *   บิลยังรอจัดรถ กดซ้ำได้ใบซ้ำ คนขับเห็นงานเกิน) กันไว้สามชั้น:
+ *     1. ยังไม่เชื่อมชีต = กดยืนยันไม่ได้ (ฝ่ายอื่นต้องเห็นใบ และบิลต้องไม่ถูกเครื่องอื่นจัดซ้ำ)
+ *     2. สร้างใบรายการไม่สำเร็จ = ลบใบที่ saveRecord เขียนลงเครื่องไปแล้วทิ้ง บิลคงสถานะเดิม กดใหม่ได้
+ *     3. ใบสร้างแล้วแต่สถานะบิลไปไม่ถึงชีต = splitStuckBills() ซ่อนบิลนั้นจากรายการที่จัดได้
+ *        แล้วมีแถบให้กดอัปเดตสถานะ (useBills ก็ลองส่งบิลที่ค้างให้เองทุกครั้งที่เปิดหน้า)
  */
 import { useEffect, useMemo, useState } from "react";
 import { REF, canonicalVehicleName, distanceFor } from "../../lib/refdata";
@@ -19,12 +26,14 @@ import { useOverrides } from "../../lib/store/overrides";
 import { useRoster } from "../../lib/store/roster";
 import { useBills } from "../../lib/store/bills";
 import { loadCostRev } from "../../lib/data/useCostRev";
-import { buildForecast, forecastFor } from "../../lib/forecast/forecast";
+import { COST_PART_LABELS, buildForecast, forecastFor } from "../../lib/forecast/forecast";
 import type { ForecastResult, ForecastTable } from "../../lib/forecast/forecast";
 import { newDocNo } from "../../lib/bill/number";
 import { genId, nowStamp, thDateSafe, todayISO } from "../../lib/record/date";
 import { emptyRecord } from "../entry/emptyRecord";
 import { saveRecord } from "../../lib/store/save";
+import { remove as removeRecord } from "../../lib/store/records";
+import { splitStuckBills } from "../../lib/bill/reconcile";
 import { stampRole } from "../../lib/record/roles";
 import GrowBox from "../../lib/ui/GrowBox";
 import TruckLoader from "../../lib/ui/TruckLoader";
@@ -49,7 +58,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   const [plate, setPlate] = useState("");
   const [releaseDate, setReleaseDate] = useState(todayISO());
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; tone: "ok" | "err" } | null>(null);
+  const [msg, setMsg] = useState<{ text: string; tone: "ok" | "warn" | "err" } | null>(null);
   /** ตารางค่าเฉลี่ยต้นทุนจากข้อมูลเก่า — โหลดครั้งเดียวตอนเปิดหน้า */
   const [fc, setFc] = useState<ForecastTable | null>(null);
 
@@ -61,7 +70,9 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     return () => { alive = false; };
   }, []);
 
-  const waiting = useMemo(() => bills.bills.filter((b) => b.status === "รอจัดรถ"), [bills.bills]);
+  /** บิลรอจัดรถ แยกออกเป็นที่จัดได้จริง กับที่อยู่ในใบรายการแล้ว (จัดรถค้างครึ่งทาง — ดูหัวไฟล์ข้อ 3) */
+  const { free: waiting, stuck } = useMemo(() => splitStuckBills(
+    bills.bills.filter((b) => b.status === "รอจัดรถ"), state.records), [bills.bills, state.records]);
   const rows = useMemo(() => waiting.filter((b) =>
     (!f.date || b.date === f.date) && (!f.branch || b.branch === f.branch)
     && (!f.origin || b.origin === f.origin) && (!f.dest || b.dest === f.dest)
@@ -71,6 +82,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   const sum = useMemo(() => ({
     bills: chosen.length,
     customers: new Set(chosen.flatMap((b) => [b.sender, b.receiver]).filter(Boolean)).size,
+    /** จำนวนสินค้า (ชิ้น) = ช่อง "จำนวน" ของบิลที่ CS กรอก */
+    qty: Math.round(chosen.reduce((s, b) => s + b.qty, 0) * 100) / 100,
     weight: Math.round(chosen.reduce((s, b) => s + b.weight, 0) * 100) / 100,
     volume: Math.round(chosen.reduce((s, b) => s + b.volume, 0) * 10_000) / 10_000,
     revenue: Math.round(chosen.reduce((s, b) => s + b.total, 0) * 100) / 100,
@@ -103,7 +116,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     ? forecastFor(fc, origin, dest, kind) : null;
   const profit = forecast ? sum.revenue - forecast.cost : null;
 
-  const blocked = !chosen.length ? "ยังไม่ได้เลือกบิล"
+  const blocked = !bills.connected ? "ยังไม่ได้เชื่อม Google Sheet — จัดรถได้เมื่อเชื่อมแล้วเท่านั้น"
+    : !chosen.length ? "ยังไม่ได้เลือกบิล"
     : !truck ? "ยังไม่ได้เลือกทะเบียนรถ"
     : overWeight ? `น้ำหนักรวม ${baht(sum.weight)} กก. เกินความจุรถ ${baht(capKg)} กก.`
     : overVolume ? `ปริมาตรรวม ${num3(sum.volume)} ลบ.ม. เกินความจุรถ ${num3(capM3)} ลบ.ม.`
@@ -121,46 +135,73 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     if (blocked || !truck) return;
     setBusy(true);
     setMsg(null);
+    // เลขที่ใบรายการ 13 หลัก — กันซ้ำกับใบที่มีอยู่ทั้งในเครื่องและบนชีต รวมถึงบิลที่จัดรถไปแล้ว
+    const used = [...state.records.map((r) => r.docNo), ...bills.bills.map((b) => b.docNo)].filter(Boolean);
+    const docNo = newDocNo(releaseDate, used);
+    const rec = {
+      ...emptyRecord(),
+      id: genId(), docNo,
+      date: chosen[0]!.date, branch: chosen[0]!.branch,
+      origin, dest,
+      dist: distanceFor(origin, dest) ?? 0,
+      serviceGroup: chosen[0]!.serviceGroup,
+      revenue: sum.revenue,
+      // บิลของใบนี้ — แปลงจากบิลที่เลือกให้ตรงกับรูปแบบเดิมของ TripRecord.bills
+      bills: chosen.map((b) => ({
+        no: b.no, goodsType: b.serviceGroup, sender: b.sender, receiver: b.receiver,
+        origin: b.origin, dest: b.dest, qty: b.qty, total: b.total,
+        payType: b.payType as never, paid: false, payDate: null,
+        unitPrice: b.unitPrice, pricingType: b.pricingType,
+      })),
+      plate: truck.plate,
+      fleetType: (truck.fleetType || "") as FleetType | "",
+      vehicle: kind,
+      releaseDate,
+      // ความจุกับน้ำหนักบรรทุกจริงมาจากบิลที่เลือก ไม่ต้องกรอกเอง (สเปกข้อ "แก้ น้ำหนัก/ปริมาณบรรทุกจริง")
+      capacity: capKg,
+      loadActual: sum.weight,
+    };
+    stampRole(rec, "cs");        // ข้อมูลฝั่งลูกค้ามาจากบิลที่ CS กรอกไว้แล้ว
+    stampRole(rec, "dispatch");
+    rec._v2 = true; rec._v3 = true; rec._v4 = true; rec._v5 = true;
+
+    // ขั้น 1: ใบรายการ — saveRecord เขียนลงเครื่องก่อนแล้วค่อยส่งชีต ถ้าล้ม ต้องลบใบในเครื่องทิ้ง
+    // ไม่งั้นใบค้างอยู่ทั้งที่บิลยังรอจัดรถ กดซ้ำแล้วได้ใบซ้ำ (หัวไฟล์ข้อ 2)
     try {
-      // เลขที่ใบรายการ 13 หลัก — กันซ้ำกับใบที่มีอยู่ทั้งในเครื่องและบนชีต รวมถึงบิลที่จัดรถไปแล้ว
-      const used = [...state.records.map((r) => r.docNo), ...bills.bills.map((b) => b.docNo)].filter(Boolean);
-      const docNo = newDocNo(releaseDate, used);
-
-      const rec = {
-        ...emptyRecord(),
-        id: genId(), docNo,
-        date: chosen[0]!.date, branch: chosen[0]!.branch,
-        origin, dest,
-        dist: distanceFor(origin, dest) ?? 0,
-        serviceGroup: chosen[0]!.serviceGroup,
-        revenue: sum.revenue,
-        // บิลของใบนี้ — แปลงจากบิลที่เลือกให้ตรงกับรูปแบบเดิมของ TripRecord.bills
-        bills: chosen.map((b) => ({
-          no: b.no, goodsType: b.serviceGroup, sender: b.sender, receiver: b.receiver,
-          origin: b.origin, dest: b.dest, qty: b.qty, total: b.total,
-          payType: b.payType as never, paid: false, payDate: null,
-          unitPrice: b.unitPrice, pricingType: b.pricingType,
-        })),
-        plate: truck.plate,
-        fleetType: (truck.fleetType || "") as FleetType | "",
-        vehicle: kind,
-        releaseDate,
-        // ความจุกับน้ำหนักบรรทุกจริงมาจากบิลที่เลือก ไม่ต้องกรอกเอง (สเปกข้อ "แก้ น้ำหนัก/ปริมาณบรรทุกจริง")
-        capacity: capKg,
-        loadActual: sum.weight,
-      };
-      stampRole(rec, "cs");        // ข้อมูลฝั่งลูกค้ามาจากบิลที่ CS กรอกไว้แล้ว
-      stampRole(rec, "dispatch");
-      rec._v2 = true; rec._v3 = true; rec._v4 = true; rec._v5 = true;
-
       await saveRecord(rec as never, { role, overrides: ovr });
-      // ประทับเลขที่ใบรายการกลับลงบิลทุกใบที่เลือก แล้วเปลี่ยนสถานะ
-      await bills.save(chosen.map((b) => ({ ...b, status: "จัดรถแล้ว" as const, docNo, updatedAt: nowStamp() })));
-      state.reload();
-      setPicked(new Set());
-      setMsg({ text: `จัดรถแล้ว — ใบรายการ ${docNo} · ${chosen.length} บิล · ${truck.plate}`, tone: "ok" });
     } catch (e) {
-      setMsg({ text: `จัดรถไม่สำเร็จ: ${(e as Error).message}`, tone: "err" });
+      await removeRecord(rec.id).catch(() => { /* ไม่มีในเครื่องอยู่แล้ว */ });
+      state.reload();
+      setMsg({ text: `จัดรถไม่สำเร็จ — ยังไม่ได้สร้างใบรายการ บิลยังรอจัดรถเหมือนเดิม กดยืนยันใหม่ได้ · ${(e as Error).message}`, tone: "err" });
+      setBusy(false);
+      return;
+    }
+
+    // ขั้น 2: ประทับเลขที่ใบรายการลงบิล — saveBills ไม่โยน error ตอนส่งชีตไม่ผ่าน แต่คืน synced=false
+    let billsOnSheet = false;
+    try {
+      const saved = await bills.save(chosen.map((b) => ({ ...b, status: "จัดรถแล้ว" as const, docNo, updatedAt: nowStamp() })));
+      billsOnSheet = saved.every((b) => b.synced !== false);
+    } catch {
+      /* เขียนลงเครื่องก็ไม่ได้ — ใบรายการสร้างแล้ว แถบ "บิลค้าง" จะขึ้นให้ซ่อมหลังโหลดใหม่ */
+    }
+    state.reload();
+    setPicked(new Set());
+    const done = `จัดรถแล้ว — ใบรายการ ${docNo} · ${chosen.length} บิล · ${truck.plate}`;
+    setMsg(billsOnSheet
+      ? { text: done, tone: "ok" }
+      : { text: `${done} · แต่ยังส่งสถานะบิลขึ้นชีตไม่สำเร็จ — ระบบจะส่งให้อีกครั้งเมื่อเปิดหน้านี้ครั้งถัดไป เครื่องอื่นจะไม่จัดบิลนี้ซ้ำเพราะอยู่ในใบรายการแล้ว`, tone: "warn" });
+    setBusy(false);
+  }
+
+  /** อัปเดตสถานะบิลที่ค้างครึ่งทางให้ตรงกับใบรายการที่บิลนั้นอยู่ */
+  async function fixStuck() {
+    setBusy(true);
+    try {
+      const saved = await bills.save(stuck.map(({ bill, docNo }) => ({ ...bill, status: "จัดรถแล้ว" as const, docNo, updatedAt: nowStamp() })));
+      const ok = saved.every((b) => b.synced !== false);
+      setMsg(ok ? { text: `อัปเดตสถานะบิลแล้ว ${saved.length} บิล`, tone: "ok" }
+        : { text: "อัปเดตในเครื่องแล้ว แต่ยังส่งขึ้นชีตไม่สำเร็จ — ลองใหม่เมื่อเน็ตกลับมา", tone: "warn" });
     } finally {
       setBusy(false);
     }
@@ -170,7 +211,20 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     <>
       {!bills.connected && (
         <div className="banner">
-          ยังไม่ได้เชื่อม Google Sheet — เห็นเฉพาะบิลที่กรอกจากเครื่องนี้
+          ยังไม่ได้เชื่อม Google Sheet — เห็นเฉพาะบิลที่กรอกจากเครื่องนี้ และยังยืนยันการจัดรถไม่ได้
+          (ใบรายการต้องขึ้นชีตให้ฝ่ายอื่นเห็น และกันไม่ให้เครื่องอื่นจัดบิลเดียวกันซ้ำ)
+        </div>
+      )}
+      {stuck.length > 0 && (
+        <div className="stuck-bar">
+          <span>
+            มี <b>{stuck.length}</b> บิลที่อยู่ในใบรายการแล้ว แต่สถานะยังเป็น “รอจัดรถ”
+            (การจัดรถครั้งก่อนบันทึกไม่ครบ) — ซ่อนไว้ไม่ให้จัดซ้ำ ·
+            ใบรายการ {[...new Set(stuck.map((x) => x.docNo))].join(", ")}
+          </span>
+          <button type="button" className="btn-mini" disabled={busy || !bills.connected} onClick={fixStuck}>
+            อัปเดตสถานะบิล
+          </button>
         </div>
       )}
 
@@ -223,7 +277,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
                       return next;
                     })} /></th>
                   <th>วันที่บิล</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>ต้นทาง</th><th>ปลายทาง</th>
-                  <th>กลุ่มบริการ</th><th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th>
+                  <th>กลุ่มบริการ</th><th className="n">จำนวน (ชิ้น)</th><th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th>
                   <th className="n">ราคารวม</th>
                 </tr></thead>
                 <tbody>
@@ -237,6 +291,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
                       <td>{b.origin}</td>
                       <td>{b.dest}</td>
                       <td>{b.serviceGroup}</td>
+                      <td className="n">{num3(b.qty)}</td>
                       <td className="n">{baht(b.weight)}</td>
                       <td className="n">{num3(b.volume)}</td>
                       <td className="n">{baht(b.total)}</td>
@@ -273,6 +328,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         <div className="dispatch-sum">
           <div><span>จำนวนบิล</span><b>{sum.bills}</b></div>
           <div><span>จำนวนลูกค้า</span><b>{sum.customers}</b></div>
+          <div><span>จำนวนสินค้า</span><b>{num3(sum.qty)} <small>ชิ้น</small></b></div>
           <div><span>น้ำหนักรวม</span><b>{baht(sum.weight)} <small>กก.</small></b></div>
           <div><span>ปริมาตรรวม</span><b>{num3(sum.volume)} <small>ลบ.ม.</small></b></div>
           <div><span>รายได้รวม</span><b>{baht(sum.revenue)} <small>บาท</small></b></div>
@@ -301,6 +357,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <div className="box"><span>ต้นทุนพยากรณ์</span>
             <b>{forecast ? `${baht(forecast.cost)} บาท` : "—"}</b></div>
         </div>
+        {forecast && forecast.n > 0 && <ForecastParts fc={forecast} />}
         <div className="price-note">
           {forecast
             ? <>ต้นทุนพยากรณ์จากค่าเฉลี่ยข้อมูลเก่า <b>{forecast.n}</b> เที่ยว ({forecast.note}) ·
@@ -309,7 +366,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           {mixedRoute && <> · <b>บิลที่เลือกมีหลายเส้นทาง</b> — ใบรายการจะใช้ {origin}–{dest} เป็นเส้นทางหลัก</>}
         </div>
 
-        {msg && <div className={"save-msg " + (msg.tone === "ok" ? "ok" : "err")}>{msg.text}</div>}
+        {msg && <div className={"save-msg " + msg.tone}>{msg.text}</div>}
 
         <div className="bill-actions">
           {busy ? <TruckLoader label="กำลังสร้างใบรายการ…" /> : blocked && <span className="muted">{blocked}</span>}
@@ -319,5 +376,35 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * รายละเอียดต้นทุนพยากรณ์แยกตามกลุ่มต้นทุน (เฉลี่ยต่อเที่ยว) — ชื่อกลุ่มมาจาก COST_PART_LABELS
+ * ชุดเดียวกับป็อบอัพ "จริงเทียบพยากรณ์" ของฝ่ายบัญชี
+ * "อื่น ๆ" = ต้นทุนรวมหักกลุ่มที่แยกได้ จึงติดลบได้ — แถบวาดเฉพาะค่าบวก
+ */
+function ForecastParts({ fc }: { fc: ForecastResult }) {
+  const rows = COST_PART_LABELS
+    .map(({ key, label }) => ({ key, label, v: fc.parts[key] }))
+    .filter((r) => Math.abs(r.v) >= 0.5);
+  const max = Math.max(1, ...rows.map((r) => r.v));
+  const share = (v: number): string => (fc.cost ? `${(v / fc.cost * 100).toFixed(0)}%` : "–");
+  return (
+    <div className="fc-parts">
+      <div className="fc-h">รายละเอียดต้นทุนพยากรณ์<span>เฉลี่ยต่อเที่ยว · แยกตามกลุ่มต้นทุน</span></div>
+      {rows.map((r) => (
+        <div key={r.key} className="fc-row">
+          <span className="k">{r.label}</span>
+          <span className="bar"><i style={{ width: `${Math.max(0, r.v) / max * 100}%` }} /></span>
+          <b>{r.v < 0 ? "−" : ""}{baht(Math.abs(r.v))}</b>
+          <small>{share(r.v)}</small>
+        </div>
+      ))}
+      <div className="fc-row total">
+        <span className="k">รวมต้นทุนพยากรณ์</span><span />
+        <b>{baht(fc.cost)}</b><small>100%</small>
+      </div>
+    </div>
   );
 }

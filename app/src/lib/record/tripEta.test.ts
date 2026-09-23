@@ -99,3 +99,27 @@ describe("tripProgress.moving", () => {
     expect(tripProgress({ date: "", releaseDate: "", dist: 720 }, "2026-09-10").moving).toBe(false);
   });
 });
+
+describe("tripProgress.upcoming — จัดรถแล้วแต่ยังไม่ถึงวันปล่อยรถ (หน้าคนขับ)", () => {
+  const run = (over: Partial<TripRecord>, today: string) => tripProgress(t(over), today);
+
+  it("วันปล่อยรถอยู่ในอนาคต = รอออกเดินทาง และยังไม่นับว่าวิ่ง", () => {
+    const p = run({ releaseDate: "2026-09-25", dist: 720 }, "2026-09-23");
+    expect(p.upcoming).toBe(true);
+    expect(p.moving).toBe(false);
+  });
+  it("ถึงวันปล่อยรถแล้ว = ย้ายไปกำลังวิ่ง ไม่ซ้อนสองกลุ่ม", () => {
+    const p = run({ releaseDate: "2026-09-25", dist: 720 }, "2026-09-25");
+    expect(p.upcoming).toBe(false);
+    expect(p.moving).toBe(true);
+  });
+  it("ไม่มีวันปล่อยรถ ถอยไปใช้วันที่ในใบเหมือนกฎเดิม", () => {
+    expect(run({ releaseDate: "", date: "2026-09-30" }, "2026-09-23").upcoming).toBe(true);
+  });
+  it("กดจบงานไปแล้ว (ยกเลิกเที่ยวล่วงหน้า) ไม่ขึ้นเป็นงานรอ", () => {
+    expect(run({ releaseDate: "2026-09-25", _tripDone: true } as Partial<TripRecord>, "2026-09-23").upcoming).toBe(false);
+  });
+  it("วันปล่อยรถผ่านไปแล้วไม่ใช่งานรอ", () => {
+    expect(run({ releaseDate: "2026-09-20", dist: 720 }, "2026-09-23").upcoming).toBe(false);
+  });
+});

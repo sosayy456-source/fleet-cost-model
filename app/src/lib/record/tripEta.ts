@@ -46,6 +46,11 @@ export interface TripProgress {
   done: boolean;
   /** ตอนนี้ถือว่ายังวิ่งอยู่ */
   moving: boolean;
+  /**
+   * จัดรถแล้วแต่ยังไม่ถึงวันปล่อยรถ (ฝ่ายจัดรถลงวันไว้ล่วงหน้า) — หน้าคนขับแสดงเป็น "รอออกเดินทาง"
+   * ไม่ทับกับ moving เพราะ moving ต้อง today >= start
+   */
+  upcoming: boolean;
 }
 
 export function tripProgress(r: Partial<TripRecord>, today = todayISO()): TripProgress {
@@ -57,5 +62,6 @@ export function tripProgress(r: Partial<TripRecord>, today = todayISO()): TripPr
   // ไม่รู้ ETA → ถอยไปใช้กฎเดิม "ออกวันนี้ = กำลังวิ่ง"
   const moving = !done && !!start && today >= start
     && (eta ? today <= eta : today === start);
-  return { start, dist, eta, done, moving };
+  const upcoming = !done && !!start && today < start;
+  return { start, dist, eta, done, moving, upcoming };
 }

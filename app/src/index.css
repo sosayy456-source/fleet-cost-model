@@ -1659,6 +1659,28 @@ body:has(#view-dash.active){background:#EDE7DF}
 .dispatch-result.bad{border-color:var(--red);background:var(--red-soft)}
 .dispatch-result .box span{display:block;font-size:12.5px;color:var(--ink-soft)}
 .dispatch-result .box b{font-family:var(--font-num);font-size:24px}
+/* ข้อความผลการบันทึก (หน้าจัดรถ + หน้าบันทึกบิล) — เดิมไม่มีสไตล์ เป็นตัวหนังสือธรรมดา
+   warn = ทำสำเร็จแต่มีส่วนที่ยังไม่ขึ้นชีต (เช่น ใบรายการสร้างแล้ว แต่สถานะบิลยังส่งไม่ผ่าน) */
+.save-msg{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:14px;line-height:1.55}
+.save-msg.ok{background:var(--green-soft);color:var(--green)}
+.save-msg.warn{background:#FFF4DB;color:#8A5A00}
+.save-msg.err{background:var(--red-soft);color:var(--red)}
+/* แถบบิลที่ค้างครึ่งทาง — อยู่ในใบรายการแล้วแต่สถานะยังรอจัดรถ (lib/bill/reconcile.ts) */
+.stuck-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;
+  padding:12px 16px;border-radius:12px;background:#FFF4DB;border:1px solid #F2D58A;color:#6B4700;font-size:14px}
+/* หน้าจัดรถ · รายละเอียดต้นทุนพยากรณ์แยกกลุ่ม (DispatchPage ForecastParts) */
+.fc-parts{margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:12px 16px;background:var(--card)}
+.fc-h{font-weight:700;font-size:14.5px;margin-bottom:4px}
+.fc-h span{font-weight:400;font-size:12.5px;color:var(--ink-soft);margin-left:8px}
+.fc-row{display:grid;grid-template-columns:minmax(140px,1fr) 2fr minmax(90px,auto) 48px;gap:12px;align-items:center;
+  padding:7px 0;font-size:14px}
+.fc-row+.fc-row{border-top:1px dashed var(--border)}
+.fc-row .bar{height:8px;border-radius:999px;background:var(--bg);overflow:hidden}
+.fc-row .bar i{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.fc-row b{font-family:var(--font-num);text-align:right}
+.fc-row small{text-align:right;color:var(--ink-soft);font-family:var(--font-num)}
+.fc-row.total{border-top:1px solid var(--border);font-weight:700}
+@media(max-width:560px){.fc-row{grid-template-columns:1fr auto 44px}.fc-row .bar{display:none}}
 /* ตารางของสองหน้านี้ — ใช้หน้าตาเดียวกับ .rec-table แต่คลาสสั้นกว่าเพราะใช้หลายที่ */
 .tbl{width:100%;border-collapse:collapse;font-size:13.5px}
 .tbl thead th{background:var(--field-bg);color:var(--ink-faint);font-weight:700;font-size:11.5px;
@@ -1677,6 +1699,15 @@ body:has(#view-dash.active){background:#EDE7DF}
 .odo-btn:hover{border-color:var(--ink-soft)}
 .odo-btn.on{border-style:solid;border-color:var(--green);background:var(--green-soft);color:var(--green);font-weight:600}
 .odo-note{margin-top:6px;font-size:12.5px;color:var(--ink-faint);text-align:center}
+
+/* ---- หน้าคนขับ: งานที่รอออกเดินทาง (จัดรถแล้ว ยังไม่ถึงวันปล่อยรถ) ----
+   พื้นสีธีม (--accent-tint) ให้แยกจากการ์ดงานที่กำลังวิ่งซึ่งเป็นสีเขียว */
+.job-up{background:var(--accent-tint);border:1px solid var(--accent-tint-2);border-radius:12px;padding:16px 18px;margin-bottom:12px}
+.job-up .cc-row+.cc-row{border-top-color:var(--accent-tint-2)}
+.job-up-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.job-up-h b{font-size:18px}
+.job-chip{font-size:12.5px;font-weight:700;padding:4px 11px;border-radius:999px;background:#fff;color:var(--accent);
+  border:1px solid var(--accent-tint-2);white-space:nowrap}
 
 /* ---- ตัวบอกว่ากำลังบันทึก: รถบรรทุกวิ่ง (lib/ui/TruckLoader.tsx) ----
    รถอยู่กับที่ ขยับแค่ถนน/เส้นลม/ตัวรถเด้งเบา ๆ · สีเดียวกับปุ่มบันทึก (--accent) */
