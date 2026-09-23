@@ -1355,6 +1355,28 @@ body:has(#view-dash.active){background:#EDE7DF}
 .dmg-line:hover{border-color:rgba(26,23,20,.3)}
 .dmg-line.on{color:var(--c);border-color:var(--c);background:color-mix(in srgb,var(--c) 8%,#fff)}
 .dmg-line.on i{background:var(--c)}
+/* Damage Alert · ป้ายระดับความเสียหาย · สัดส่วนประเภทรถใต้วงกลม · บรรทัดเกณฑ์ P75 */
+.dmg-alerts{margin-top:14px}
+.dmg-alerts h5{margin:0 0 8px;font-size:13.5px;font-weight:700;color:var(--d-ink2)}
+.dmg-alerts h5 span{font-weight:400;color:var(--d-ink5)}
+.dmg-alist{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow:auto}
+.dmg-alert{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 14px;
+  border-radius:12px;background:#FDF1F3;border-left:4px solid #E11D48}
+.dmg-alert b{font-size:14px;color:var(--d-ink)}
+.dmg-alert small{display:block;font-size:12.5px;color:var(--d-ink4);margin-top:3px}
+.dmg-ok{font-size:13px;color:var(--d-ink5)}
+.dmg-lv{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.dmg-lv.high{background:#FBE3E7;color:#BE123C}
+.dmg-lv.medium{background:#FEF0D9;color:#B45309}
+.dmg-lv.low{background:#E3F0FA;color:#0369A1}
+.dmg-lv.none{background:var(--d-rail);color:var(--d-ink4)}
+.dmg-fleet{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:13px;color:var(--d-ink4)}
+.dmg-fleet b{color:var(--d-ink2)}
+.dmg-th{font-size:13px;color:var(--d-ink4);margin-bottom:10px}
+.dmg-th b{color:var(--d-ink2)}
+#view-dash .dmg-tbl th{white-space:normal;text-transform:none;letter-spacing:0;vertical-align:bottom;line-height:1.35}
+#view-dash .dmg-tbl td:first-child{min-width:170px}
+#view-dash .dmg-tbl th:nth-child(2),#view-dash .dmg-tbl th:nth-child(8){white-space:nowrap}
 
 /* ---- เมนู Demo · แท็บกำไรรายเส้นทาง (features/dash-demo/) ---- */
 #view-dash .dz-cards.four{grid-template-columns:repeat(4,minmax(0,1fr))}
