@@ -289,7 +289,7 @@ describe("ตัวอ่านตารางทั้งสามชุด", (
 
     expect(t.missing).toEqual([]);
     expect(t.rows[0]).toEqual({
-      year: 2567, vehicle: "รถ 12 ล้อตู้เย็น", fleet: "รถบริษัท",
+      year: 2567, month: 3, vehicle: "รถ 12 ล้อตู้เย็น", fleet: "รถบริษัท",
       account: "ค่าล้างรถ", detail: "ค่าล้างรถตู้เย็น ครึ่ง คัน", amount: 125,
     });
   });

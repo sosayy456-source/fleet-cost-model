@@ -22,7 +22,7 @@
  *   ถ้าไฟล์ค่าซ่อมไม่มีคอลัมน์ประเภทรถ จะยุบตามเอกสาร (ปี × ชนิดรถ) แล้วลงอัตรา
  *   เดียวกันให้ทุกประเภทที่พบในตารางการปฏิบัติงาน
  */
-import { findCol, normHeader, parseDelimited, toBEYear, toNumber, toWeight } from "./parse";
+import { findCol, normHeader, parseDelimited, toBEYear, toMonth, toNumber, toWeight } from "./parse";
 
 export type CostDriver = "ระยะเวลา" | "ระยะทาง";
 
@@ -50,6 +50,8 @@ const loose = (s: string): string => s.toLowerCase().replace(/[\s.·]/g, "");
 
 export interface MaintRow {
   year: number;
+  /** เดือน 1–12 จากคอลัมน์วันที่ — null ถ้าไฟล์บอกแค่ปี (ตัวหารจะใช้ทั้งปี) */
+  month?: number | null;
   vehicle: string;
   /** รถบริษัท / รถร่วม — ว่างได้ถ้าไฟล์ไม่มีคอลัมน์นี้ */
   fleet: string;
@@ -278,12 +280,13 @@ export function computeRates(
     }
   }
 
-  // ชนิดรถที่มีในตารางปฏิบัติงานแต่ไม่มีค่าซ่อมเลย ไม่ใช่ความผิดพลาด แค่บอกให้รู้
-  for (const [k, total] of totalBy) {
-    const vehicle = vehicleOf(k);
-    if (!seenVehicles.has(vehicle) && (total.km || total.days)) {
-      warnings.push(`${vehicle}: มีข้อมูลการปฏิบัติงานแต่ไม่มีรายการค่าซ่อม — อัตราเป็น 0`);
-    }
+  // ชนิดรถที่มีระยะทาง/วันวิ่งแต่ไม่มีค่าซ่อมเลย ไม่ใช่ความผิดพลาด แค่บอกให้รู้ — รวมเป็นบรรทัดเดียว
+  // (ตั้งแต่ 23 ก.ย. 2569 ตัวหารมาจากไฟล์ต้นทุนที่มีรถทุกชนิด ถ้าแจ้งทีละชนิดทีละปีจะรกหลายสิบบรรทัด)
+  // ชนิดพวกนี้ไม่อยู่ใน vehicles ของผลลัพธ์ planApply จึงไม่เขียนทับอัตราเดิมในตาราง
+  const noCost = [...new Set([...totalBy.entries()]
+    .filter(([k, t]) => !seenVehicles.has(vehicleOf(k)) && (t.km || t.days)).map(([k]) => vehicleOf(k)))];
+  if (noCost.length) {
+    warnings.push(`${noCost.length} ชนิดรถมีเที่ยววิ่งแต่ไม่มีในรายงานค่าซ่อม — คงอัตราเดิมในตารางไว้: ${noCost.join(", ")}`);
   }
 
   const weightMap: Record<number, number> = {};
@@ -387,11 +390,19 @@ export function parseMaintenance(src: string | string[][]): ParsedTable<MaintRow
     if (!vehicle || isHeaderEcho(vehicle, HEAD_MAINT.vehicle)) continue;
 
     let year: number | null = iYear >= 0 ? toBEYear(r[iYear]) : null;
-    for (const c of dateCols) { if (year) break; year = toBEYear(r[c]); }
+    let month: number | null = null;
+    for (const c of dateCols) {
+      if (year && month) break;
+      const y = toBEYear(r[c]);
+      if (!y) continue;
+      // เดือนต้องมาจากคอลัมน์เดียวกับปี (หรือคอลัมน์วันที่ตัวแรกที่อ่านได้เมื่อปีมาจากคอลัมน์ "ปี")
+      if (!year) { year = y; month = toMonth(r[c]); } else if (y === year) month = toMonth(r[c]);
+    }
     if (!year) { noYear++; continue; }
 
     rows.push({
       year,
+      month,
       vehicle,
       fleet: iFleet >= 0 ? (r[iFleet] ?? "") : "",
       account: iAcc >= 0 ? (r[iAcc] ?? "") : "",

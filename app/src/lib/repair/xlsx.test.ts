@@ -106,6 +106,18 @@ describe("readXlsx", () => {
     expect(rows[3]![0]).toBe("ค่าซ่อม & บำรุง");
   });
 
+  it("อ่านทุกชีตต่อกัน — รายงานจริงแยกชีตรายปี (6701 · 6801 · 6901)", async () => {
+    const two = zip({
+      "[Content_Types].xml": "<Types/>",
+      "xl/sharedStrings.xml": SHARED,
+      "xl/worksheets/sheet1.xml": SHEET,
+      "xl/worksheets/sheet2.xml": SHEET,
+    });
+    const rows = await readXlsx(two);
+    expect(rows).toHaveLength(8);
+    expect(rows[4]).toEqual(["ชนิดรถ", "ประเภทรถ", "จำนวนเงิน"]);   // หัวตารางของชีตที่สอง — ตัวอ่านตารางข้ามเอง
+  });
+
   it("บอกชัดเมื่อไฟล์ไม่ใช่ .xlsx", async () => {
     await expect(readXlsx(enc.encode("ไม่ใช่ zip").buffer as ArrayBuffer))
       .rejects.toThrow(/ไม่ใช่ไฟล์ \.xlsx/);
