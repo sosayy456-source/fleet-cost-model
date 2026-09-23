@@ -54,8 +54,12 @@ export default function ProfitTab({ trips, fileRows, svc }: {
   /** ตัวกรองเฉพาะแท็บนี้ — จับคู่กับรายได้จริง · ผลประกอบการ (กำไร = ไม่ติดลบ ตรงกับนิยามเที่ยวขาดทุนของ KPI) */
   const [matched, setMatched] = useState("");
   const [outcome, setOutcome] = useState("");
-  /** Executive Dashboard มีแต่เที่ยวที่จับคู่ได้ — ตัวกรองจับคู่จึงมีความหมายเฉพาะ Dashboard รวม */
-  const hasBoth = useMemo(() => trips.some((t) => t.m) && trips.some((t) => !t.m), [trips]);
+  /**
+   * ตัวกรองจับคู่มีความหมายเฉพาะ Dashboard รวม — Executive Dashboard มีแค่เที่ยวจับคู่ได้ + เที่ยววิ่งเปล่า
+   * ★ ดูเฉพาะเที่ยวที่ **มีรายได้** แต่จับคู่ไม่ได้ ไม่งั้นเที่ยวเปล่า (m = false เสมอ) จะทำให้ตัวกรองโผล่ใน exec
+   *   แล้วตัวเลือก "จับคู่ไม่ได้" กลายเป็นเที่ยวเปล่าล้วน ชวนเข้าใจผิด
+   */
+  const hasBoth = useMemo(() => trips.some((t) => t.m) && trips.some((t) => !t.m && !t.empty), [trips]);
 
   const rows = useMemo(() => trips.filter((t) => passBase(t, f)
     && (!matched || (matched === "m") === t.m)

@@ -209,15 +209,21 @@ export const routeArrow = (t: { o: string; de: string }): string =>
  * การ์ดตัวเลขรอง + แถบสัดส่วน (ดีไซน์ 1A) — รูปเดียวกับ KC แต่แถบยาวตามค่าจริง (KC วาดแถบเต็มเสมอ)
  * ลำดับ: ป้าย → ตัวเลข → แถบ → คำอธิบาย · แถบใช้สี `bar` (ไม่ส่ง = สีเดียวกับจุด) บนรางสีเดียวกันจาง ๆ
  */
-export function Meter({ l, v, s, dot, bar, tone, fill }: {
+export function Meter({ l, v, s, dot, bar, tone, fill, onClick }: {
   l: string; v: string; s: string; dot: string; bar?: string;
   tone?: "good" | "warn" | "bad"; fill: number;
+  /** การ์ดกดได้ (Demo: %เที่ยวที่ขาดทุน → ป็อบอัพรายการเที่ยว) — ไม่ส่ง = การ์ดธรรมดา */
+  onClick?: () => void;
 }) {
   const w = Math.max(0, Math.min(100, fill));
   const c = bar ?? dot;
+  const press = onClick ? {
+    role: "button", tabIndex: 0, onClick,
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } },
+  } : {};
   return (
-    <div className={"dz-kc meter" + (tone ? ` t-${tone}` : "")}
-      style={{ "--dot": dot, "--bar": c } as CSSProperties}>
+    <div className={"dz-kc meter" + (tone ? ` t-${tone}` : "") + (onClick ? " clickable" : "")}
+      style={{ "--dot": dot, "--bar": c } as CSSProperties} {...press}>
       <div className="l"><i className="d" />{l}</div>
       {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
       <div className="v" key={v} data-real={v}>{v}</div>

@@ -1,9 +1,10 @@
 /**
  * เมนู "Demo" — หน้าทดลอง เห็นเฉพาะผู้ดูแลระบบ (ROLE_VIEWS.admin)
  *
- * ใช้ข้อมูลชุดเดียวกับ Executive Dashboard คือ `costrev/trips.json` เฉพาะเที่ยวที่
- * **เลขที่ใบรายการฝั่งต้นทุนตรงกับฝั่งรายได้** (m = true) — เที่ยวที่จับคู่ไม่ได้ไม่มีบิล
- * จึงคิด จำนวนบิล / จำนวนลูกค้า ไม่ได้ ซึ่งเป็นตัวหารหลักของหน้านี้
+ * ใช้ `costrev/trips.json` ชุด `inProfitScope()` = **เที่ยวที่จับคู่เลขที่ใบรายการกับไฟล์รายได้ได้ (m)
+ * + เที่ยววิ่งเปล่า** (เจ้าของงานเคาะ 24 ก.ย. 2569 — เดิมใช้ m อย่างเดียว เที่ยวเปล่าหลุดออกไปเองโดยไม่ได้ตั้งใจ
+ * เพราะไม่มีบิลให้จับคู่ กำไรจึงสูงเกินจริง) · เที่ยวที่จับคู่ไม่ได้ทั้งที่มีรายได้ยังไม่นับ เพราะไม่มีบิล
+ * คิด จำนวนบิล / จำนวนลูกค้า ไม่ได้ · เที่ยวเปล่ามีบิล 0 ลูกค้าว่าง กลุ่มบริการว่าง (ขึ้นเป็น "ไม่ระบุ")
  *
  * แท็บ "กำไรลูกค้า" (22 ก.ย. 2569) **ไม่ใช้ trips เลย** — อ่านชุด alloc/ กับ debtors/ ของตัวเอง
  * จึงต้องเข้าได้แม้ไฟล์ต้นทุนจะหาย/ยังโหลดไม่เสร็จ (ทำนองเดียวกับ STANDALONE ใน CostRevDash)
@@ -14,7 +15,7 @@ import { useDashInk } from "../../lib/chart/dashfx";
 import DashShell, { Meta } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
-import { useCostRev } from "../../lib/data/useCostRev";
+import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
 import { fmt } from "../dash-costrev/common";
 import RouteProfitTab from "./RouteProfitTab";
 import Item2Tab from "./Item2Tab";
@@ -31,9 +32,6 @@ const TABS = [
 type TabId = (typeof TABS)[number]["id"];
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
 const STANDALONE: ReadonlySet<TabId> = new Set<TabId>(["cust"]);
-/** แท็บที่ใช้ทุกแถวในไฟล์ต้นทุน ไม่กรองด้วย m — เที่ยวเปล่าไม่มีรายได้จึงไม่มีบิลให้จับคู่
- *  (กฎเดียวกับ ALL_TRIPS ของ CostRevDash · เจ้าของข้อมูลชี้ขาด 22 ก.ย. 2569) */
-const ALL_TRIPS: ReadonlySet<TabId> = new Set<TabId>(["item2"]);
 
 export default function DemoDash() {
   const { data, error, loading, reload } = useCostRev();
@@ -44,14 +42,13 @@ export default function DemoDash() {
   const ready = !!data && !error;
   useDashInk(barRef, `${tab}:${ready}`);
 
-  const trips = useMemo(() => (data ? data.trips.filter((t) => t.m) : []), [data]);
-  /** ชุดที่แท็บปัจจุบันใช้ตัดสินว่า "มีข้อมูลไหม" — ปกติเฉพาะเที่ยวที่จับคู่ได้ ยกเว้นแท็บใน ALL_TRIPS */
-  const shown = useMemo(() => (ALL_TRIPS.has(tab) ? data?.trips ?? [] : trips), [data, trips, tab]);
+  const trips = useMemo(() => (data ? data.trips.filter(inProfitScope) : []), [data]);
+  const emptyN = useMemo(() => trips.filter((t) => t.empty).length, [trips]);
 
   const m = data?.manifest;
   const meta = m && (
     <Meta parts={[
-      <><b>{fmt(m.matched)}</b> เที่ยวที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
+      <><b>{fmt(trips.length)}</b> เที่ยว = จับคู่กับข้อมูลรายได้ได้ <b>{fmt(trips.length - emptyN)}</b> + เที่ยววิ่งเปล่า <b>{fmt(emptyN)}</b> จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
       `ข้อมูลรายได้ ${m.revenueFiles} ไฟล์`,
       <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
     ]} />
@@ -83,19 +80,18 @@ export default function DemoDash() {
           </div>
         ) : !m ? (
           <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>
-        ) : shown.length === 0 ? (
+        ) : trips.length === 0 ? (
           <div className="card">
             <h2>ยังไม่มีข้อมูล</h2>
             <p className="muted">
-              {ALL_TRIPS.has(tab)
-                ? "ไฟล์ต้นทุนไม่มีแถวข้อมูล"
-                : "ไม่มีเที่ยวไหนที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — ตรวจว่าวางไฟล์รายได้ใน etl/data/revenue/ แล้วรัน ETL ใหม่"}
+              ไม่มีเที่ยวไหนที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง และไม่มีเที่ยววิ่งเปล่า —
+              ตรวจว่าวางไฟล์รายได้ใน etl/data/revenue/ แล้วรัน ETL ใหม่
             </p>
           </div>
         ) : (
           <>
             {tab === "route" && <RouteProfitTab trips={trips} />}
-            {tab === "item2" && <Item2Tab allTrips={shown} />}
+            {tab === "item2" && <Item2Tab allTrips={trips} />}
             {tab === "item3" && <Item3Tab trips={trips} />}
           </>
         )}

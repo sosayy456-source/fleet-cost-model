@@ -1015,6 +1015,11 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .dz-kc.meter .kbar{height:4px;margin-top:12px;background:color-mix(in srgb,var(--bar) 16%,transparent)}
 #view-dash .dz-kc.meter .kbar i{background:var(--bar);animation:dBarGrow 1.1s .5s var(--dh-ease) both}
 #view-dash .dz-kc.meter .s{margin-top:10px}
+/* การ์ด meter ที่กดได้ (Demo · %เที่ยวที่ขาดทุน → ป็อบอัพ) */
+#view-dash .dz-kc.meter.clickable{cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s}
+#view-dash .dz-kc.meter.clickable:hover{border-color:var(--bar);transform:translateY(-2px);
+  box-shadow:0 10px 22px -16px color-mix(in srgb,var(--bar) 70%,transparent)}
+#view-dash .dz-kc.meter.clickable:focus-visible{outline:3px solid color-mix(in srgb,var(--bar) 45%,transparent);outline-offset:2px}
 #view-dash .dz-cards.three{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;
   animation:dhRise .7s .36s var(--dh-ease) both}
 #view-dash .dz-cards.three .dz-kc{animation:none}
