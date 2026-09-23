@@ -4,7 +4,7 @@
  * แดชบอร์ดชุดนี้อ่านจาก trips.json ของ etl/build_costrev.py ไม่ได้ผ่าน recCost/computeCost
  * เพราะต้นทุนมาเป็นยอดสำเร็จรูปจากไฟล์บริษัท ไม่ใช่จากสูตรของโมเดล
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { fmtN } from "../../lib/chart/theme";
 import { FF } from "../dash-fleet/parts";
@@ -121,7 +121,18 @@ export interface Col<T> {
   num?: boolean;
 }
 
+/**
+ * เรียงตารางได้ทุกคอลัมน์ — **กดหัวคอลัมน์วนสามจังหวะ** (เจ้าของงานสั่ง 22 ก.ย. 2569)
+ *
+ *   กดครั้งแรก  มากไปน้อย ▼  (ทุกคอลัมน์เริ่มทางนี้เสมอ ทั้งตัวเลขและข้อความ)
+ *   กดซ้ำ       น้อยไปมาก ▲
+ *   กดอีกครั้ง  ล้าง — กลับไปใช้การเรียงตั้งต้นของตารางนั้น
+ *
+ * `initial` อ่านครั้งเดียวผ่าน ref เพราะทุกหน้าส่งมาเป็น object literal ที่สร้างใหม่ทุก render
+ * ถ้าอ้างตรง ๆ การเทียบว่า "กลับไปค่าเริ่มต้นแล้วหรือยัง" จะไม่มีวันจริง
+ */
 export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; dir: 1 | -1 }) {
+  const base = useRef(initial);
   const [sort, setSort] = useState(initial);
   const sorted = useMemo(() => {
     const c = cols.find((x) => x.key === sort.key);
@@ -134,8 +145,13 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
       return String(x).localeCompare(String(y), "th") * sort.dir;
     });
   }, [rows, cols, sort]);
-  const toggle = (key: string) => setSort((s) => (s.key === key ? { key, dir: (s.dir * -1) as 1 | -1 } : { key, dir: -1 }));
-  return { sorted, sort, toggle };
+  const toggle = (key: string) => setSort((s) =>
+    s.key !== key ? { key, dir: -1 }
+      : s.dir === -1 ? { key, dir: 1 }
+        : base.current);
+  /** ตอนนี้เรียงตามค่าตั้งต้นอยู่ไหม — ใช้บอกผู้ใช้ว่ากดอีกครั้งแล้วจะล้าง */
+  const isDefault = sort.key === base.current.key && sort.dir === base.current.dir;
+  return { sorted, sort, toggle, isDefault };
 }
 
 export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps }: {
@@ -152,7 +168,8 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, classNam
         <thead><tr>
           {cols.map((c) => (
             <th key={c.key} className={c.num ? "n" : undefined} onClick={() => onSort(c.key)}
-              style={{ cursor: "pointer", userSelect: "none" }} title="คลิกเพื่อเรียง">
+              style={{ cursor: "pointer", userSelect: "none" }}
+              title="กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อล้างกลับค่าเริ่มต้น">
               {c.label}
               <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 11.5 }}>
                 {sort.key === c.key ? (sort.dir === 1 ? "▲" : "▼") : "▲▼"}

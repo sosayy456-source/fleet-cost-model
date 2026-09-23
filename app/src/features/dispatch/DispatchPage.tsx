@@ -27,6 +27,7 @@ import { emptyRecord } from "../entry/emptyRecord";
 import { saveRecord } from "../../lib/store/save";
 import { stampRole } from "../../lib/record/roles";
 import GrowBox from "../../lib/ui/GrowBox";
+import TruckLoader from "../../lib/ui/TruckLoader";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { FleetType } from "../../lib/cost/types";
 import type { RoleKey } from "../../types/record";
@@ -311,9 +312,9 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         {msg && <div className={"save-msg " + (msg.tone === "ok" ? "ok" : "err")}>{msg.text}</div>}
 
         <div className="bill-actions">
-          {blocked && <span className="muted">{blocked}</span>}
-          <button type="button" className="btn-primary" disabled={!!blocked || busy} onClick={confirmDispatch}>
-            {busy ? "กำลังสร้างใบรายการ…" : "ยืนยันการจัดรถ"}
+          {busy ? <TruckLoader label="กำลังสร้างใบรายการ…" /> : blocked && <span className="muted">{blocked}</span>}
+          <button type="button" className="btn btn-save" disabled={!!blocked || busy} onClick={confirmDispatch}>
+            ยืนยันการจัดรถ
           </button>
         </div>
       </div>

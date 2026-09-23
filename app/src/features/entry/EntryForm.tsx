@@ -36,6 +36,7 @@ import type { RecordsState } from "../../lib/store/useRecords";
 import type { Bill, PayType, RoleKey, TripRecord } from "../../types/record";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
 import type { FleetType } from "../../lib/cost/types";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 const baht = (n: number) =>
   n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -806,7 +807,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
             onClick={() => { setRec((r) => randomFor(r, randomZones)); setMsg(null); }}>
             🎲 สุ่มข้อมูล{role === "admin" ? "" : ` (${ROLES[role].label})`}
           </button>
-          {msg && <span className="msg" style={{ color: tone[msg.tone] }}>{msg.text}</span>}
+          {busy ? <TruckLoader />
+            : msg && <span className="msg" style={{ color: tone[msg.tone] }}>{msg.text}</span>}
         </div>
       </div>
     </>

@@ -14,32 +14,17 @@
 import { useMemo, useState } from "react";
 import { BRANCHES, ORIGINS, destsFor } from "../../lib/refdata";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
+import { emptyDraft, n, problem, randomDraft } from "./draft";
+import type { Draft } from "./draft";
 import { SERVICE_GROUPS_V2, billTotalOf, billVolume } from "../../types/bill";
 import type { PendingBill } from "../../types/bill";
 import { newBillNos } from "../../lib/bill/number";
-import { todayISO, nowStamp } from "../../lib/record/date";
+import { nowStamp } from "../../lib/record/date";
 import { useBills } from "../../lib/store/bills";
 import ThaiDateInput from "../entry/ThaiDateInput";
 import PendingBillList from "./PendingBillList";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
-/** แถวที่กำลังกรอก — เลขที่บิลยังไม่มี (ออกตอนบันทึก) และตัวเลขเก็บเป็นสตริงเพื่อให้ช่องว่างได้ */
-interface Draft {
-  key: string;
-  date: string; branch: string;
-  sender: string; receiver: string; origin: string; dest: string; serviceGroup: string;
-  qty: string; weight: string; width: string; length: string; height: string;
-  payType: string; pricingType: string; unitPrice: string;
-}
-
-const emptyDraft = (): Draft => ({
-  key: crypto.randomUUID(),
-  date: todayISO(), branch: BRANCHES[0] ?? "",
-  sender: "", receiver: "", origin: "", dest: "", serviceGroup: SERVICE_GROUPS_V2[0],
-  qty: "", weight: "", width: "", length: "", height: "",
-  payType: PAY_TYPES[0], pricingType: PRICE_BASIS[0], unitPrice: "",
-});
-
-const n = (s: string): number => Number(s) || 0;
 const baht = (v: number): string => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 
 /** ค่าที่คิดให้จากแถวที่กรอก — ปริมาตรและราคารวม (สูตรกลางอยู่ใน types/bill.ts) */
@@ -48,22 +33,6 @@ function derive(d: Draft) {
   const volume = billVolume({ width: n(d.width), length: n(d.length), height: n(d.height), qty });
   const total = billTotalOf({ pricingType: d.pricingType, weight, qty, unitPrice: n(d.unitPrice) });
   return { qty, weight, volume, total };
-}
-
-/** ข้อความบอกว่าแถวไหนยังกรอกไม่ครบ — "" = ผ่าน */
-function problem(d: Draft): string {
-  if (!d.date) return "ยังไม่ได้เลือกวันที่รับสินค้า";
-  if (!d.sender.trim() || !d.receiver.trim()) return "ยังไม่ได้กรอกผู้ส่ง/ผู้รับ";
-  if (!d.origin || !d.dest) return "ยังไม่ได้เลือกต้นทาง/ปลายทาง";
-  if (!d.serviceGroup) return "ยังไม่ได้เลือกกลุ่มบริการ";
-  if (!d.payType) return "ยังไม่ได้เลือกประเภทการชำระเงิน";
-  // สเปกบังคับ: ทุกค่าต้องมากกว่า 0 — กันบิลที่มีน้ำหนัก/ขนาดเป็น 0 หรือค่าติดลบ
-  for (const [label, v] of [["จำนวน", d.qty], ["น้ำหนักรวม", d.weight],
-                            ["กว้าง", d.width], ["ยาว", d.length], ["สูง", d.height],
-                            ["ราคาต่อหน่วย", d.unitPrice]] as const) {
-    if (!(n(v) > 0)) return `${label} ต้องมากกว่า 0`;
-  }
-  return "";
 }
 
 export default function BillEntry() {
@@ -191,11 +160,12 @@ export default function BillEntry() {
             </table>
           </div>
           <div className="bill-actions">
+            {busy && <TruckLoader />}
             <button type="button" className="btn-ghost" onClick={() => setReview(null)} disabled={busy}>
               ← กลับไปแก้
             </button>
-            <button type="button" className="btn-primary" onClick={confirm} disabled={busy}>
-              {busy ? "กำลังบันทึก…" : "ยืนยันบันทึก"}
+            <button type="button" className="btn btn-save" onClick={confirm} disabled={busy}>
+              ยืนยันบันทึก
             </button>
           </div>
         </div>
@@ -289,7 +259,12 @@ export default function BillEntry() {
           {msg && <div className={"save-msg " + (msg.tone === "ok" ? "ok" : "err")}>{msg.text}</div>}
 
           <div className="bill-actions">
-            <button type="button" className="btn-primary" onClick={check}>
+            {/* สำหรับทดสอบเท่านั้น — สุ่มทับทุกแถวที่มีอยู่ (เพิ่มบิลไว้กี่แถวก็ได้กี่บิล) ไม่บันทึกเอง */}
+            <button type="button" className="btn-ghost" title="สุ่มค่าทุกช่องของทุกบิลในฟอร์ม เพื่อทดสอบ"
+              onClick={() => { setRows((r) => r.map((d) => randomDraft(d.key))); setMsg(null); }}>
+              🎲 สุ่มข้อมูล
+            </button>
+            <button type="button" className="btn btn-save" onClick={check}>
               ตรวจสอบและบันทึก →
             </button>
           </div>

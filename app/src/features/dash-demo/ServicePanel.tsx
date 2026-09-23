@@ -103,18 +103,21 @@ export default function ServicePanel({ trips, groups, picked }: {
 
       <div className="dz-cc" style={{ marginTop: 14 }}>
         <TableHead title={`รายเส้นทาง · ${picked}`}>
-          <span className="dm-fix" title="ล็อกตามการ์ดที่กดไว้ กดการ์ดอื่นเพื่อเปลี่ยน">
-            <i style={{ background: GROUP_COLORS[picked] ?? D.indigo }} />กลุ่มบริการ: <b>{picked}</b>
-          </span>
-          <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")}
-            opts={duniq(trips.filter((t) => t.sg === picked).map((t) => t.o))} />
-          <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")}
-            opts={duniq(trips.filter((t) => t.sg === picked).map((t) => t.de))} />
-          <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")}
-            opts={duniq(trips.filter((t) => t.sg === picked).map((t) => t.vk))} />
-          <div className="fl-toggle" role="group" aria-label="จำนวนแถวที่แสดง">
-            <button type="button" className={!all ? "on" : ""} onClick={() => setAll(false)}>{TOP_N} อันดับแรก</button>
-            <button type="button" className={all ? "on" : ""} onClick={() => setAll(true)}>ทั้งหมด ({fmt(byRoute.length)})</button>
+          {/* ทุกตัวในแถวนี้สูงเท่ากันและวางชิดเส้นล่างเดียวกัน — สามกล่องเลือกกว้างเท่ากัน (.dm-head) */}
+          <div className="dm-head">
+            <span className="dm-fix" title="ล็อกตามการ์ดที่กดไว้ กดการ์ดอื่นเพื่อเปลี่ยน">
+              <i style={{ background: GROUP_COLORS[picked] ?? D.indigo }} />กลุ่มบริการ: <b>{picked}</b>
+            </span>
+            <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")}
+              opts={duniq(trips.filter((t) => t.sg === picked).map((t) => t.o))} />
+            <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")}
+              opts={duniq(trips.filter((t) => t.sg === picked).map((t) => t.de))} />
+            <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")}
+              opts={duniq(trips.filter((t) => t.sg === picked).map((t) => t.vk))} />
+            <div className="fl-toggle" role="group" aria-label="จำนวนแถวที่แสดง">
+              <button type="button" className={!all ? "on" : ""} onClick={() => setAll(false)}>{TOP_N} อันดับแรก</button>
+              <button type="button" className={all ? "on" : ""} onClick={() => setAll(true)}>ทั้งหมด ({fmt(byRoute.length)})</button>
+            </div>
           </div>
         </TableHead>
         <SortTable rows={shown} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}
