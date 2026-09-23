@@ -28,6 +28,7 @@ import type { DebtorRow, DebtorState } from "../../lib/data/useDebtors";
 import { KC, Note, Pane } from "../dash-fleet/parts";
 import { SortTable, fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 /** ช่วงวันที่เกินกำหนด — ช่องแรกคือยังไม่ครบกำหนด · สีตามรูปในสเปก (เทา → เหลือง → ส้ม → แดง → แดงเข้ม) */
 const BUCKETS = [
@@ -61,7 +62,7 @@ export default function OverdueSection({ state }: { state: DebtorState }) {
             <code>etl/data/debtors/</code> แล้ว dev server จะแปลงให้เอง (หรือรัน{" "}
             <code>python etl/build_debtors.py --dataset real</code>) · {error}
           </p>
-        ) : <p className="dz-note" style={{ marginTop: 6 }}>กำลังโหลดข้อมูลลูกหนี้...</p>}
+        ) : <p className="dz-note" style={{ marginTop: 6 }}>กำลังโหลดข้อมูลลูกหนี้... <TruckLoader label={null} /></p>}
       </div>
     );
   }

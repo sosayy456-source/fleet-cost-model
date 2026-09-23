@@ -16,6 +16,7 @@ import GrowBox from "../../lib/ui/GrowBox";
 import ThaiDateInput from "../entry/ThaiDateInput";
 import type { RecordsState, OldDebtor } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 const baht = (n: number) => n.toLocaleString("th-TH", { maximumFractionDigits: 0 });
 
@@ -245,7 +246,7 @@ export default function Debtors({ state }: { state: RecordsState }) {
       </div>
 
       {msg && <div className="msg" style={{ color: "var(--green)", marginBottom: 10 }}>{msg}</div>}
-      {loading && <p className="muted">กำลังโหลด...</p>}
+      {loading && <p className="muted">กำลังโหลด... <TruckLoader label={null} /></p>}
 
       {table(outstanding, true)}
       {table(paidRows, false)}

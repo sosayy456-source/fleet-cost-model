@@ -34,6 +34,7 @@ import { MonthFF, SortTable, fmt, isFiltered, marginTone, monthName, pct, signed
 import type { Col } from "../dash-costrev/common";
 import CustBillsModal from "./CustBillsModal";
 import OverdueSection from "./OverdueSection";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 interface Filter { year: string; month: string }
 const F0: Filter = { year: "", month: "" };
@@ -87,7 +88,7 @@ export default function CustomerProfitTab() {
           </p>
         </div>
       ) : !alloc.data ? (
-        <div className="card"><p className="muted">กำลังโหลดข้อมูลกำไรลูกค้า...</p></div>
+        <div className="card"><p className="muted">กำลังโหลดข้อมูลกำไรลูกค้า... <TruckLoader label={null} /></p></div>
       ) : !alloc.data.custMonths ? (
         <div className="card">
           <h2>ไฟล์ข้อมูลรุ่นเก่า</h2>

@@ -10,6 +10,7 @@ import type { BillsState } from "../../lib/store/bills";
 import type { PendingBill } from "../../types/bill";
 import { thDateSafe } from "../../lib/record/date";
 import GrowBox from "../../lib/ui/GrowBox";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 const baht = (v: number): string => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 
@@ -45,7 +46,7 @@ export default function PendingBillList({ state }: { state: BillsState }) {
       <input className="bill-search" value={q} onChange={(e) => setQ(e.target.value)}
         placeholder="ค้นหาเลขที่บิล ลูกค้า หรือเส้นทาง" />
 
-      {state.loading && <p className="muted">กำลังโหลดบิล…</p>}
+      {state.loading && <p className="muted">กำลังโหลดบิล… <TruckLoader label={null} /></p>}
 
       {rows.length === 0 && !state.loading ? (
         <p className="muted">ไม่มีบิลที่รอจัดรถ</p>

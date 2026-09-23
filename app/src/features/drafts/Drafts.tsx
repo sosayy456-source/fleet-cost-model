@@ -12,6 +12,7 @@ import { daysBetween, thDateSafe, todayISO } from "../../lib/record/date";
 import { remove } from "../../lib/store/records";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { TripRecord } from "../../types/record";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 export default function Drafts({ state }: { state: RecordsState }) {
   const { records, loading, reload } = state;
@@ -110,7 +111,7 @@ export default function Drafts({ state }: { state: RecordsState }) {
         {drafts.length === 0 && !loading && (
           <div className="rec-empty">ไม่มีใบที่กรอกค้างอยู่ 🎉</div>
         )}
-        {loading && <div className="rec-empty">กำลังโหลด...</div>}
+        {loading && <div className="rec-empty">กำลังโหลด... <TruckLoader label={null} /></div>}
       </div>
     </>
   );

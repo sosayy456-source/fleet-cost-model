@@ -35,6 +35,7 @@ import { useRecords } from "./lib/store/useRecords";
 import { useActiveDataset } from "./lib/dataset";
 import { loadSessionRole, saveSessionRole } from "./lib/store/sessionRole";
 import type { RoleKey } from "./types/record";
+import TruckLoader from "./lib/ui/TruckLoader";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
 const I = {
@@ -214,7 +215,7 @@ export default function App() {
               roleLabel: ROLES[role].en ?? ROLES[role].label,
               onSwitchRole: () => setRole(null),
             } : null}>
-              <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด...</p></div>}>
+              <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด... <TruckLoader label={null} /></p></div>}>
                 {page === "dash-fleet" && <FleetDash state={state} role={role} sample={isSample} />}
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
                 {page === "route-profit" && <RouteProfit state={state} />}

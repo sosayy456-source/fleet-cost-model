@@ -17,6 +17,7 @@ import { CUSTMAP_URL, custCode, isFullHash, isHashLike, loadCustMap } from "../.
 import type { CustMap } from "../../lib/custmap/custmap";
 import { clearNewCodes, newCodeRows, nextNumber, origOfCode, useNewCodes } from "../../lib/custmap/newCodes";
 import { debtorOfNumber, numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 const CODE_RE = /^CUS(\d{7})$/i;
 /** รหัสลูกหนี้จากไฟล์ใบวางบิล — SHA-1 40 ตัว ไม่ใช่ 64 ตัวแบบไฟล์บิล */
@@ -191,7 +192,7 @@ export default function CustCode() {
           วางรหัสต้นฉบับเต็ม ๆ จากชีตได้เลย · <b>เทียบแบบเป๊ะทุกตัวอักษร</b>
         </div>
 
-        {!map && !err && <p className="muted">กำลังโหลดตาราง ...</p>}
+        {!map && !err && <p className="muted">กำลังโหลดตาราง ... <TruckLoader label={null} /></p>}
 
         {map && input && (hit ? (
           <div className="cc-hit" style={{ marginTop: 16 }}>

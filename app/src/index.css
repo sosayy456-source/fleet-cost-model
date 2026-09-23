@@ -1651,7 +1651,10 @@ body:has(#view-dash.active){background:#EDE7DF}
 
 /* ---- ตัวบอกว่ากำลังบันทึก: รถบรรทุกวิ่ง (lib/ui/TruckLoader.tsx) ----
    รถอยู่กับที่ ขยับแค่ถนน/เส้นลม/ตัวรถเด้งเบา ๆ · สีเดียวกับปุ่มบันทึก (--accent) */
-.truck-ld{display:inline-flex;align-items:center;gap:10px;color:var(--accent);font-size:13.5px;font-weight:600}
+.truck-ld{display:inline-flex;align-items:center;gap:10px;color:var(--accent);font-size:13.5px;font-weight:600;
+  vertical-align:middle}
+/* ต่อท้ายข้อความ "กำลังโหลด…" ของแต่ละหน้า — เว้นจากตัวหนังสือนิดหน่อย (เจ้าของงานสั่ง 23 ก.ย. 2569) */
+.muted .truck-ld,.rec-empty .truck-ld,.dz-note .truck-ld{margin-left:6px}
 .truck-ld svg{overflow:visible;flex:none}
 .truck-ld-body{fill:var(--accent);animation:truckBob .42s ease-in-out infinite alternate}
 .truck-ld-glass{fill:#fff;opacity:.85}

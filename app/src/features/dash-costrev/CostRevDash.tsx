@@ -38,6 +38,7 @@ import DamageTab from "./DamageTab";
 import EmptyTab from "./EmptyTab";
 import LoadFactorTab from "./lf/LoadFactorTab";
 import type { RecordsState } from "../../lib/store/useRecords";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 export type CostRevMode = "exec" | "all";
 
@@ -119,7 +120,7 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
             </p>
           </div>
         ) : !m ? (
-          <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>
+          <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>
         ) : shown.length === 0 ? (
           <div className="card">
             <h2>ยังไม่มีข้อมูล</h2>

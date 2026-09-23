@@ -209,7 +209,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <button type="button" className="dh-clear" onClick={() => setF(F0)}>↺ ล้างตัวกรอง</button>
         </div>
 
-        {bills.loading ? <p className="muted">กำลังโหลดบิล…</p>
+        {bills.loading ? <p className="muted">กำลังโหลดบิล… <TruckLoader label={null} /></p>
           : rows.length === 0 ? <p className="muted">ไม่มีบิลที่รอจัดรถตามตัวกรองที่เลือก</p>
           : (
             <GrowBox rows={rows} render={(shown) => (

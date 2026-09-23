@@ -29,6 +29,7 @@ import { useRoster } from "../../lib/store/roster";
 import FleetRoster from "../entry/panels/FleetRoster";
 import type { OldDebtor, RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 const TABS = [
   { id: "main", label: "หลัก" },
@@ -134,7 +135,7 @@ export default function FleetDash({ state, role, sample = false }: {
         ? "ดึงใบรายการล่าสุดจาก Google Sheet มาคำนวณใหม่"
         : "ยังไม่ได้ตั้งค่า Google Sheet — อ่านจากในเครื่องอย่างเดียว"}>
       {showLoading ? (
-        <div className="card"><p className="muted">กำลังโหลด...</p></div>
+        <div className="card"><p className="muted">กำลังโหลด... <TruckLoader label={null} /></p></div>
       ) : nothing ? (
         <div className="card">
           <h2>ยังไม่มีข้อมูล</h2>

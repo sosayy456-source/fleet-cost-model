@@ -23,6 +23,7 @@ import RefreshBtn from "../../lib/ui/RefreshBtn";
 import { CC, KC, Note, Pane, ResetBtn, TableHead, searchStyle, selectStyle } from "../dash-fleet/parts";
 import { SortTable, fmt, marginTone, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
+import TruckLoader from "../../lib/ui/TruckLoader";
 
 const TOP_N = 15;
 
@@ -68,7 +69,7 @@ export default function AllocDash({ embedded }: { embedded?: boolean } = {}) {
       </div>
     );
   }
-  if (!data) return <div className="card"><p className="muted">กำลังโหลดข้อมูล...</p></div>;
+  if (!data) return <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>;
 
   return (
     <>
