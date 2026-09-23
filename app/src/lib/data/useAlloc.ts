@@ -94,7 +94,7 @@ export interface AllocBill {
   ci: number; bill: string; date: string; doc: string; route: string; revenue: number; cost: number;
 }
 
-/** "ปี|เดือน" → ดัชนีลูกค้า Top 10 อัตรากำไรสูงสุด (gain) / ต่ำสุด (loss) ที่ ETL คัดไว้ */
+/** "ปี|เดือน" → ดัชนีลูกค้า Top 10 กำไรสูงสุด (gain) / ขาดทุนมากสุด (loss) เป็นบาท ที่ ETL คัดไว้ */
 export type AllocTop = Record<string, { gain: number[]; loss: number[] }>;
 
 export interface AllocData {

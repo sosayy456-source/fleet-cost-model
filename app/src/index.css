@@ -1494,7 +1494,28 @@ body:has(#view-dash.active){background:#EDE7DF}
   border-radius:12px;padding:8px 12px;font-size:13.5px;color:var(--d-ink3)}
 .cp-date input{font-family:inherit;font-size:14px;border:1px solid var(--d-line);border-radius:8px;padding:5px 8px;
   background:var(--d-soft);color:var(--d-ink)}
-.cp-date b{font-family:var(--d-num);color:var(--d-ink)}
+/* การ์ดใหญ่ไล่สี 5 ใบของส่วนลูกหนี้ (ทั้งหมด · ชำระแล้ว · ยังไม่ชำระ · ยังไม่ถึงกำหนด · DSO) — ขนาดเท่ากันทุกใบ
+   ยกเลิกกฎตัวเลขใหญ่กว่าของใบแรก · ตัวเลขเล็กลงจาก 40px เพราะแต่ละใบแคบกว่าชุด 3 ใบ */
+#view-dash .dz-heroes.dso-heroes{grid-template-columns:repeat(5,minmax(0,1fr))}
+#view-dash .dz-heroes.dso-heroes > .dz-kc.hero .v,
+#view-dash .dz-heroes.dso-heroes > .dz-kc.hero:first-child .v{font-size:34px;letter-spacing:-.02em;line-height:1.15}
+@media(max-width:1380px){#view-dash .dz-heroes.dso-heroes{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){#view-dash .dz-heroes.dso-heroes{grid-template-columns:minmax(0,1fr)}}
+/* ปุ่มเลือกชุดข้อมูลของกราฟลูกหนี้ — เปิดได้ทีละชุดหรือทั้งคู่ · ใบที่เปิดมีกรอบ/พื้นสีของชุดนั้นและเครื่องหมายถูก */
+.od-series{display:flex;gap:8px;flex-wrap:wrap}
+.od-chip{display:inline-flex;align-items:center;gap:9px;font-family:inherit;cursor:pointer;text-align:left;
+  background:var(--d-card);border:1.5px solid var(--d-line2);border-radius:12px;padding:7px 13px 7px 9px;
+  color:var(--d-ink5);transition:border-color .16s,background-color .16s,color .16s,box-shadow .16s}
+.od-chip:hover{border-color:color-mix(in srgb,var(--c) 55%,transparent)}
+.od-chip:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+.od-chip i{width:18px;height:18px;border-radius:6px;border:1.5px solid var(--d-line2);flex:none;
+  display:inline-flex;align-items:center;justify-content:center;font-style:normal;font-size:12px;font-weight:800;color:#fff}
+.od-chip span{display:flex;flex-direction:column;line-height:1.2;font-size:12.5px;font-weight:600}
+.od-chip b{font-family:var(--d-num);font-size:14px;font-weight:700;color:var(--d-ink4)}
+.od-chip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 7%,var(--d-card));color:var(--c);
+  box-shadow:0 6px 16px -10px var(--c)}
+.od-chip.on i{background:var(--c);border-color:var(--c)}
+.od-chip.on b{color:var(--d-ink)}
 
 /* ===== Executive Dashboard · แท็บ "ต้นทุนที่จมกับที่ว่าง" (Load Factor · 22 ก.ย. 2569) ===== */
 /* ลายทแยง = ต้นทุนที่จมกับที่ว่าง (สเปกใช้ลาย hazard สีเหลือง) · ทึบ = ใช้ขนของจริง */

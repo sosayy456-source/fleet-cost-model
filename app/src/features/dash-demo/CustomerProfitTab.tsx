@@ -9,15 +9,16 @@
  *   3. กราฟแท่งจำนวนลูกค้าตามช่วง %Margin 8 ช่วง (< −20 … ≥ 40) **กดแท่งได้** เพื่อกรองตาราง
  *      ลูกค้าที่รายได้ = 0 ใช้ margin −100 ถ้าขาดทุน (ตกช่อง < −20%) / 0 ถ้าไม่ขาดทุน — สูตรเดียวกับ ETL
  *   4. ตารางใต้กราฟ คอลัมน์ชุดเดียวกับหน้ากำไรลูกค้า **ตัดคอลัมน์ผู้จ่ายออก**
- *      ตั้งต้นโชว์ "Top 10 อัตรากำไรสูงสุด + Top 10 อัตรากำไรต่ำสุด" ของช่วงเวลาที่กรอง (ETL คัดไว้ใน top.json)
+ *      ตั้งต้นโชว์ "Top 10 กำไรสูงสุด + Top 10 ขาดทุนมากสุด" **เป็นบาท** ของช่วงเวลาที่กรอง (ETL คัดไว้ใน top.json)
+ *      — เดิมจัดด้วยอัตรากำไร % แล้วติดแต่รายเล็กที่ต้นทุนจัดสรร ~0 (100%) เปลี่ยน 23 ก.ย. 2569 ดู top_by_period()
  *      สลับเป็น "ทุกราย" ได้ · กดแถวที่ติด Top 10 เพื่อเปิดป็อบอัพรายการบิล — **แถวอื่นกดไม่ได้**
  *      เพราะ bills.json เก็บบิลเฉพาะรายที่ติดอันดับ (ข้อมูลจริงมีบิลราว 2 ล้านใบ เก็บทุกใบไม่ไหว) มีโน้ตบอกไว้
  *
  * ส่วนที่ 2 · ลูกหนี้ค้างชำระ (ชุด debtors/ จากไฟล์ "ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx")
  *   อยู่ใน OverdueSection.tsx — ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1 มีตัวกรอง "ข้อมูล ณ วันที่" ของตัวเอง
  *
- * ★ อัตรากำไรใช้ marginOf() ข้างล่าง ซึ่งต้องตรงกับ margin_of() ใน etl/build_alloc.py — ETL คัด Top 10
- *   ด้วยสูตรนั้นและแนบบิลมาให้เฉพาะรายพวกนั้น ถ้าสองฝั่งคิดคนละแบบ ป้าย Top 10 กับบิลจะไม่ตรงกัน
+ * ★ อัตรากำไรใช้ marginOf() ข้างล่าง ซึ่งต้องตรงกับ margin_of() ใน etl/build_alloc.py — ETL ใช้ตัดสินเสมอ
+ *   ตอนคัด Top 10 และช่วง %Margin ของกราฟต้องนับเหมือน ETL ห้ามแก้ข้างเดียว
  */
 import { useMemo, useState } from "react";
 import { DBar } from "../../lib/chart/dcharts";
@@ -186,7 +187,7 @@ function ProfitPart({ data }: { data: AllocData }) {
       render: (r) => <span style={{ fontWeight: 700, color: marginTone(r.margin) }}>{r.margin == null ? "–" : pct(r.m, 0)}</span> },
     { key: "lossBills", label: "บิลที่ขาดทุน", get: (r) => r.lossBills, num: true },
   ], [gainSet, lossSet]);
-  const { sorted, sort, toggle: toggleSort } = useSort(shown, cols, { key: "margin", dir: -1 });
+  const { sorted, sort, toggle: toggleSort } = useSort(shown, cols, { key: "profit", dir: -1 });
 
   /** บิลของรายที่เปิดอยู่ ตามตัวกรองปี/เดือนเดียวกับตาราง */
   const openRow = openCi == null ? null : rows.find((r) => r.ci === openCi) ?? null;
@@ -245,7 +246,7 @@ function ProfitPart({ data }: { data: AllocData }) {
                 กำไรรายลูกค้า ({fmt(sorted.length)} ราย)
                 {pickLabel && <span className="cp-pick"> · {pickLabel}</span>}
               </h4>
-              <p>{periodLabel} · {showAll ? `ทุกรายในกลุ่มนี้ (${fmt(subset.length)} ราย)` : "Top 10 อัตรากำไรสูงสุด และ Top 10 อัตรากำไรต่ำสุด ของช่วงเวลาที่กรอง"}</p>
+              <p>{periodLabel} · {showAll ? `ทุกรายในกลุ่มนี้ (${fmt(subset.length)} ราย)` : "Top 10 กำไรสูงสุด และ Top 10 ขาดทุนมากสุด (เรียงตามยอดบาท) ของช่วงเวลาที่กรอง"}</p>
             </div>
             <div className="cp-seg" role="group" aria-label="ขอบเขตรายชื่อ">
               <button type="button" className={!showAll ? "on" : ""} onClick={() => setShowAll(false)}>Top 10 กำไร / ขาดทุน</button>
@@ -263,7 +264,7 @@ function ProfitPart({ data }: { data: AllocData }) {
             }} />
           <Note>
             กดที่แถวของลูกค้าที่ติด <b>Top 10</b> เพื่อดูรายการบิล · <b>ข้อจำกัด:</b> ระบบเก็บบิลรายใบไว้เฉพาะลูกค้าที่ติด
-            Top 10 อัตรากำไรสูงสุด/ต่ำสุดของช่วงเวลาใดช่วงหนึ่ง (ข้อมูลจริงมีบิลราว 2 ล้านใบ เก็บทุกใบไม่ไหว)
+            Top 10 กำไรสูงสุด/ขาดทุนมากสุด (บาท) ของช่วงเวลาใดช่วงหนึ่ง (ข้อมูลจริงมีบิลราว 2 ล้านใบ เก็บทุกใบไม่ไหว)
             ลูกค้ารายอื่นจึงแสดงเป็นยอดรวมรายลูกค้าโดยกดดูรายละเอียดบิลไม่ได้ ·
             อัตรากำไร = กำไร ÷ รายได้ · รายได้ 0 แล้วขาดทุนคิดเป็น −100%
           </Note>
