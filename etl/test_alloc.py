@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from src.alloc import FLAG_NO_SIZE, FLAG_OVERSIZE
+
 from src.alloc import (
     DIST_EXACT,
     DIST_FALLBACK,
@@ -209,3 +211,59 @@ class Testอ่านค่าจากเซลล์:
 
     def test_ตัดช่องว่างหน้าหลัง(self):  # noqa: N802
         assert txt("  สด ต้นทาง   ") == "สด ต้นทาง"
+
+
+def test_ติดธงข้อมูลที่ต้องตรวจสอบ():
+    """ไม่เปลี่ยนการปัน — แค่บอกว่ารายการไหนน้ำหนัก/ขนาดเชื่อไม่ได้ (23 ก.ย. 2569)"""
+    from src.alloc import FLAG_TINY, basis_of, data_flag, volume_cbm
+
+    def mk(**kw):
+        it = Item(doc="1", bill="1", **kw)
+        it.cbm = volume_cbm(it)
+        it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty)
+        return it
+
+    assert data_flag(mk(qty=3, name="ของสด แป้ง")) == FLAG_NO_SIZE                      # นับชิ้นเป็นตัน
+    assert data_flag(mk(qty=2, weight=2, width=360, length=600, height=600)) == FLAG_OVERSIZE  # ยางรถไถ 259 ลบ.ม.
+    assert data_flag(mk(qty=1, width=1, length=1, height=1)) == FLAG_TINY               # 1×1×1 ซม. ไม่มีน้ำหนัก
+    assert data_flag(mk(qty=1, weight=5, width=1, length=1, height=1)) == ""            # มีน้ำหนักจริง ใช้ได้
+    assert data_flag(mk(qty=20, weight=200, width=40, length=50, height=30)) == ""
+
+
+class Testรายการผิดปกติปันตามรายได้:
+    """23 ก.ย. 2569 — แบ่งต้นทุนเที่ยวสองก้อนตามสัดส่วนรายได้ ก้อนปกติยังใช้ภาระงาน"""
+
+    def _trip(self):
+        # ยางรถไถกรอกขนาด 360×600×600 ซม. (259 ลบ.ม.) รายได้ 200 · ผ้า 1,000 กก. รายได้ 3,000 · ผ้า 500 กก. รายได้ 1,800
+        tire = Item(doc="T", bill="b1", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=2, qty=2,
+                    width=360, length=600, height=600, revenue=200)
+        a = Item(doc="T", bill="b2", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=1000, qty=1, revenue=3000)
+        b = Item(doc="T", bill="b3", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=500, qty=1, revenue=1800)
+        return tire, a, b
+
+    def test_ขนาดเกินจริงรับตามสัดส่วนรายได้(self):  # noqa: N802
+        tire, a, b = self._trip()
+        res = allocate_trip([tire, a, b], 5000.0, ROUTES)
+        assert tire.flag == FLAG_OVERSIZE
+        assert res.by_revenue == pytest.approx(200 / 5000)
+        assert tire.alloc == pytest.approx(5000 * 200 / 5000)                 # 200 บาท ไม่ใช่เกือบทั้งเที่ยว
+        # ที่เหลือ 4,800 แบ่งตามภาระงาน 1,000 : 500
+        assert a.alloc == pytest.approx(4800 * 1000 / 1500)
+        assert b.alloc == pytest.approx(4800 * 500 / 1500)
+        assert tire.alloc + a.alloc + b.alloc == pytest.approx(5000)          # ต้นทุนเที่ยวครบทุกบาท
+
+    def test_ไม่มีน้ำหนักขนาดไม่ถูกนับชิ้นเป็นตัน(self):  # noqa: N802
+        flour = Item(doc="T", bill="b1", origin="เชียงใหม่", dest="ปากคลองตลาด", qty=3, revenue=210)
+        fish = Item(doc="T", bill="b2", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=540, qty=9, revenue=990)
+        allocate_trip([flour, fish], 1200.0, ROUTES)
+        assert flour.flag == FLAG_NO_SIZE
+        assert flour.alloc == pytest.approx(210.0)       # ตามรายได้ — เดิม 3 ชิ้น = 3 ตัน รับ 85%
+        assert fish.alloc == pytest.approx(990.0)
+
+    def test_รายได้รวมศูนย์ใช้ภาระงานทั้งเที่ยวตามเดิม(self):  # noqa: N802
+        tire, a, b = self._trip()
+        for it in (tire, a, b):
+            it.revenue = 0
+        res = allocate_trip([tire, a, b], 5000.0, ROUTES)
+        assert res.by_revenue == 0
+        assert tire.alloc > a.alloc                      # ยังใช้ภาระงาน (ไม่มีรายได้ให้แยกก้อน)

@@ -1771,3 +1771,6 @@ body:has(#view-dash.active){background:#EDE7DF}
 .tk-clear{height:38px;align-self:flex-end;font-family:inherit;font-size:13px;color:var(--d-ink3);background:var(--d-card);
   border:1px solid var(--d-line2);border-radius:10px;padding:0 12px;cursor:pointer}
 .tk-clear:hover{border-color:var(--d-ink4);color:var(--d-ink)}
+/* ป้ายเล็ก "ปันตามรายได้" ข้างรหัสลูกค้า (Demo › กำไรลูกค้า · lib/alloc/review.ts) */
+.cp-rev{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:600;color:var(--d-ink4);background:var(--d-soft,#F4F2EE);
+  border:1px solid var(--d-line2);border-radius:6px;padding:0 6px;vertical-align:1px;white-space:nowrap;cursor:help}

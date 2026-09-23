@@ -8,6 +8,13 @@
 ไฟล์นี้ไม่อ่านไฟล์และไม่ใช้ pandas — รับ Item แล้วคืนผลลัพธ์ เพื่อให้ทดสอบตัวเลข
 ตามตัวอย่างในเอกสารได้ตรง ๆ ส่วนการแปลงชื่อคอลัมน์ไทยเป็น Item อยู่ที่ตัวเรียกใช้
 
+★ รายการที่น้ำหนัก/ขนาดเชื่อไม่ได้ (data_flag) ปันตามรายได้แทนภาระงาน — เจ้าของงานสั่ง 23 ก.ย. 2569
+  แบ่งต้นทุนเที่ยวเป็นสองก้อนตามสัดส่วนรายได้: ก้อนรายการผิดปกติ = ต้นทุนเที่ยว × (รายได้ของมัน ÷ รายได้ทั้งเที่ยว)
+  ก้อนที่เหลือแบ่งให้รายการปกติตามภาระงานเหมือนเดิม (pool_of / allocate_trip) · ต้นทุนทั้งเที่ยวยังครบทุกบาท
+  เหตุผล: เงื่อนไข 4 ของเอกสารนับ 1 ชิ้น = 1 ตัน (แป้ง 3 ถุงรับต้นทุนมากกว่าลูกชิ้น 540 กก. 6 เท่า) · ขนาดกรอกผิด
+  (ยางรถไถ 360×600×600 ซม. รับ 85% ของเที่ยว) · ขนาดหลอก 1×1×1 ซม. (ต้นทุน ~0 กำไร 100%)
+  เที่ยวที่รายได้รวม 0 แยกก้อนไม่ได้ → ใช้ภาระงานทั้งเที่ยวตามเดิม
+
 กติกาที่เจ้าของข้อมูลชี้ขาด (16 ก.ย. 2569):
     ลูกค้า = ผู้จ่ายเงิน — สด/เชื่อต้นทาง → ผู้ส่ง · สด/เชื่อปลายทาง → ผู้รับ
     บิลเคลียร์ กับ เที่ยวตีเปล่า/รถว่างไปสาขา ตัดออกจากกำไรลูกค้า
@@ -137,6 +144,7 @@ class Item:
     alloc: float | None = None
     profit: float | None = None
     excluded: str = ""       # เหตุผลที่ไม่นับเป็นลูกค้า ("" = นับ)
+    flag: str = ""           # เหตุผลที่น้ำหนัก/ขนาดเชื่อไม่ได้ ("" = ปกติ) — ปันตามรายได้ ดู data_flag()
 
 
 @dataclass
@@ -147,7 +155,8 @@ class TripResult:
     items: list[Item] = field(default_factory=list)
     allocated: float = 0.0             # ต้นทุนที่ปันเข้าลูกค้าได้
     unallocated: float = 0.0           # ต้นทุนของรายการที่ถูกตัดออก
-    weights_from: str = "ภาระงาน"      # ตัวถ่วงที่ใช้จริง (ลำดับสำรองข้อ 5 ขั้นที่ 5)
+    weights_from: str = "ภาระงาน"      # ตัวถ่วงที่ใช้จริงของรายการปกติ (ลำดับสำรองข้อ 5 ขั้นที่ 5)
+    by_revenue: float = 0.0            # สัดส่วนต้นทุนเที่ยวที่ไปก้อนรายการผิดปกติ (ปันตามรายได้)
 
 
 def lookup_distance(routes: dict[str, dict[str, float]], origin: str, dest: str
@@ -240,6 +249,40 @@ def payer_of(it: Item) -> tuple[str, str]:
     return "", ""
 
 
+# ---------------- รายการที่น้ำหนัก/ขนาดเชื่อไม่ได้ → ปันตามรายได้ (23 ก.ย. 2569) ----------------
+#   ตรวจจากข้อมูลจริง ม.ค. 2568 ก่อนแก้: ไม่มีน้ำหนัก/ขนาด 578 รายการรับต้นทุน 1.5 ล้าน (7.1%) ทั้งที่รายได้ 1.6 แสน
+#   เพราะเงื่อนไข 4 นับ 1 ชิ้น = 1 ตัน · ขนาดเกินจริง เช่นยางรถไถ 360×600×600 ซม. รับ 85% ของทั้งเที่ยว
+#   · ขนาดหลอก 1×1×1 ซม. ไม่มีน้ำหนัก ~2,500 รายการ รับต้นทุน ~0 จนกำไร 100%
+FLAG_NO_SIZE = "ไม่มีน้ำหนัก/ขนาด"
+FLAG_OVERSIZE = "ขนาดเกินจริง"
+FLAG_TINY = "ขนาดเล็กผิดปกติ"
+FLAGS = (FLAG_NO_SIZE, FLAG_OVERSIZE, FLAG_TINY)
+#: ลบ.ม. ต่อชิ้นที่ถือว่ากรอกผิด
+PIECE_CBM_MAX = 10.0
+#: ลบ.ม. รวมของรายการที่ไม่มีน้ำหนักแล้วถือว่าขนาดหลอก (1×1×1 ซม. = 0.000001)
+TINY_CBM = 0.001
+
+
+def data_flag(it: Item) -> str:
+    """เหตุผลที่ข้อมูลน้ำหนัก/ขนาดของรายการนี้เชื่อไม่ได้ — "" = ปกติ · ต้องเรียกหลัง basis_of/volume_cbm"""
+    if it.basis_cond == 4:
+        return FLAG_NO_SIZE
+    per_piece = it.cbm / it.qty if it.qty > 0 else it.cbm
+    if per_piece > PIECE_CBM_MAX:
+        return FLAG_OVERSIZE
+    if it.weight <= 0 and 0 < it.cbm < TINY_CBM:
+        return FLAG_TINY
+    return ""
+
+
+def pool_of(rev_total: float, rev_flag: float) -> float:
+    """สัดส่วนต้นทุนเที่ยวที่ไปก้อนรายการผิดปกติ (ปันตามรายได้) — 0 = ไม่แยกก้อน ใช้ภาระงานทั้งเที่ยว
+
+    ใช้ร่วมกันระหว่าง allocate_trip() กับ build_alloc.py (TripAcc) — ต้องได้ค่าเดียวกันทุกทาง
+    """
+    return rev_flag / rev_total if rev_total > 0 and rev_flag > 0 else 0.0
+
+
 def exclusion_of(it: Item, trip_type: str = "") -> str:
     """เหตุผลที่ไม่นับรายการนี้เป็นลูกค้า — "" ถ้านับ"""
     t = trip_type.strip()
@@ -280,20 +323,28 @@ def allocate_trip(items: list[Item], trip_cost: float | None,
             it.dist, it.dist_source = fill, (DIST_MEDIAN if known else DIST_FALLBACK)
         it.workload = it.basis * it.dist          # ขั้นที่ 4
 
-    # ขั้นที่ 5 · ตัวถ่วง — ภาระงาน แล้วสำรองเป็น ราคารวม → จำนวน → เท่ากันทุกรายการ
+    # แยกก้อนรายการผิดปกติ (ปันตามรายได้) ออกก่อน — ดู pool_of()
+    for it in items:
+        it.flag = data_flag(it)
+    rev_all = sum(it.revenue for it in items)
+    f = res.by_revenue = pool_of(rev_all, sum(it.revenue for it in items if it.flag))
+    normal = [it for it in items if not (f and it.flag)]
+
+    # ขั้นที่ 5 · ตัวถ่วงของรายการปกติ — ภาระงาน แล้วสำรองเป็น ราคารวม → จำนวน → เท่ากันทุกรายการ
     # (ข้อ 10.3: ทั้งเที่ยวภาระงาน 0 ต้องไม่กลายเป็นหารด้วยศูนย์ ต้นทุนเที่ยวต้องถูกปันครบเสมอ)
     total, res.weights_from = divisor_of(
-        sum(it.workload for it in items),
-        sum(it.revenue for it in items),
-        sum(it.qty for it in items),
-        len(items),
+        sum(it.workload for it in normal),
+        sum(it.revenue for it in normal),
+        sum(it.qty for it in normal),
+        len(normal),
     )
+    if not normal:
+        res.weights_from = W_REVENUE            # ทั้งเที่ยวเป็นรายการผิดปกติ = ปันตามรายได้ทั้งเที่ยว
     for it in items:
-        w = weight_of(it, res.weights_from)
         if trip_cost is None:
             it.share = it.alloc = it.profit = None
             continue
-        it.share = w / total
+        it.share = share_in_trip(it, total, res.weights_from, f, rev_all)
         it.alloc = trip_cost * it.share
         it.profit = it.revenue - it.alloc        # ขั้นที่ 6
         if it.excluded:
@@ -301,6 +352,16 @@ def allocate_trip(items: list[Item], trip_cost: float | None,
         else:
             res.allocated += it.alloc
     return res
+
+
+def share_in_trip(it: Item, total: float, source: str, f: float, rev_all: float) -> float:
+    """สัดส่วนต้นทุนเที่ยวของรายการหนึ่ง — ก้อนรายการผิดปกติตามรายได้ · ที่เหลือตามตัวถ่วงของรายการปกติ
+
+    ใช้ร่วมกันระหว่าง allocate_trip() กับ build_alloc.py ทั้งรอบสองและรอบสาม ห้ามคิดซ้ำที่อื่น
+    """
+    if f and it.flag:
+        return it.revenue / rev_all
+    return (1 - f) * weight_of(it, source) / total if total > 0 else 0.0
 
 
 def status_of(profit: float | None) -> str:
