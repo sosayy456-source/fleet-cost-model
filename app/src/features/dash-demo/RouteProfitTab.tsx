@@ -4,6 +4,8 @@
  *   1. การ์ดเด่น 3 ใบ  รายได้รวม · ต้นทุนรวม · กำไร (ชุดเดียวกับ Executive Dashboard)
  *   2. การ์ดย่อย 8 ใบ  จำนวนบิล · จำนวนเที่ยว · จำนวนลูกค้า · %Margin
  *                      กำไรเฉลี่ย/บิล · กำไรเฉลี่ย/เที่ยว · กำไรเฉลี่ย/ลูกค้า · %เที่ยวที่ขาดทุน
+ *   2b. การ์ดกำไรส่วนเกิน/ตัน-กม. 4 ใบ (23 ก.ย. 2569) — ชุด loadfactor/ ไม่ตามตัวกรองของแท็บนี้
+ *      กดแล้วไป Executive Dashboard › แท็บ "กำไรส่วนเกิน/ตัน-กม." (dash-costrev/tonkm/)
  *   3. กราฟ รายได้/ต้นทุน/กำไร รายเดือน — **ตามตัวกรองปีด้วย** (ต่างจากแท็บกำไรรายเที่ยวของ
  *      Executive Dashboard ที่จงใจโชว์ทุกปีเสมอ)
  *   4. ตารางกำไรระดับเที่ยววิ่ง (ซ้าย) + รายละเอียดเส้นทางที่เลือก (ขวา) พร้อมปุ่ม i เปิดรายการทุกเที่ยว
@@ -25,6 +27,7 @@ import {
 import type { BaseFilter, Col } from "../dash-costrev/common";
 import ServicePanel from "./ServicePanel";
 import TripsModal from "./TripsModal";
+import TonKmDemoRow from "../dash-costrev/tonkm/TonKmDemoRow";
 import { fixedOf, otherOf, semiOf, variableOf } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
 
@@ -200,6 +203,9 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
           <Meter dot={D.rose} bar={D.rose} tone={kpi.lossPct > 0 ? "bad" : "good"}
             l="%เที่ยวที่ขาดทุน" v={pct(kpi.lossPct)} s="เที่ยวขาดทุน ÷ เที่ยวทั้งหมด" fill={kpi.lossPct} />
         </div>
+
+        {/* 2b — กำไรส่วนเกิน/ตัน-กม. (ข้อมูลคนละชุด ไม่ตามตัวกรอง) */}
+        <TonKmDemoRow />
 
         {/* 3 */}
         <div className="dz-cc" style={{ marginTop: 14 }}>

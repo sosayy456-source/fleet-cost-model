@@ -1215,6 +1215,14 @@ body:has(#view-dash.active){background:#EDE7DF}
 .sm-parts>b:first-child{color:#1A1714}
 .sm-parts span b{color:#1A1714;font-family:var(--d-num,inherit)}
 .sm-list{flex:1;min-height:0;overflow:auto}
+/* ป็อบอัพที่ใส่ SortTable (GrowBox เลื่อนในตัวเอง) — ให้ GrowBox เป็นตัวเลื่อนตัวเดียว สูงเต็มที่ว่างของป็อบอัพ
+   ไม่งั้นมีแถบเลื่อนซ้อนสองอัน (.sm-list + GrowBox 60vh) · ต้องเป็น GrowBox ที่เลื่อน ไม่ใช่ .sm-list
+   เพราะ GrowBox เติมแถวถัดไปจาก onScroll ของตัวเอง ถ้าให้กล่องนอกเลื่อนแทนจะค้างอยู่ 300 แถวแรก
+   (ป็อบอัพที่ใส่ตารางธรรมดา เช่น TripDetailModal ไม่มี .scroll-y จึงยังเลื่อนที่ .sm-list ตามเดิม) */
+.sm-list:has(> .scroll-y){display:flex;flex-direction:column;overflow:hidden}
+.sm-list > .scroll-y{flex:1 1 auto;min-height:0;max-height:none!important}
+/* ทุกอย่างในป็อบอัพที่ไม่ใช่ตาราง (หัว · ตัวเลข · ปุ่มสลับมุมมอง · โน้ต) ห้ามหด — ให้ตารางเป็นส่วนเดียวที่ยืดหด */
+.sm-modal > :not(.sm-list){flex-shrink:0}
 .sm-list .dz-tbl{font-size:13.5px}
 /* ป็อบอัพรายการเที่ยวมีคอลัมน์เยอะ บีบช่องไฟลงเล็กน้อยให้คอลัมน์สุดท้ายไม่โดนตัด */
 .sm-list .dz-tbl th,.sm-list .dz-tbl td{padding:9px 8px}
@@ -1713,3 +1721,53 @@ body:has(#view-dash.active){background:#EDE7DF}
 .bill-grid .dmy>*:first-child{border-left:none}
 .bill-grid .dmy input,.bill-grid .dmy select{padding:8px 10px;text-align:center;text-align-last:center}
 .bill-grid .dmy input{font-family:var(--font-num);font-weight:700}
+
+/* ===== กำไรส่วนเกิน/ตัน-กม. (dash-costrev/tonkm/ · 23 ก.ย. 2569) ===== */
+/* การ์ด 4 ใบ — ขอบซ้ายสีตามความหมายของใบ (ตามรูปในสไลด์) · ใช้ทั้งใน Demo และแท็บของ Executive Dashboard */
+#view-dash .tk-cards{margin-top:14px}
+#view-dash .tk-card{border-left:4px solid var(--edge);display:flex;flex-direction:column}
+#view-dash .tk-card.clickable{cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s}
+#view-dash .tk-card.clickable:hover{transform:translateY(-2px);box-shadow:0 10px 22px -14px rgba(26,23,20,.45)}
+#view-dash .tk-card.clickable:focus-visible{outline:2px solid var(--edge);outline-offset:2px}
+.tk-vrow{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.tk-unit{font-size:13px;color:var(--d-ink4)}
+.tk-name{font-size:21px;font-weight:700;color:var(--d-ink);margin-top:7px;line-height:1.25}
+.tk-foot{margin-top:auto;padding-top:8px}
+.tk-up{color:var(--d-emerald-d,#047857);font-weight:600}
+.tk-down{color:var(--d-rose-d,#BE123C);font-weight:600}
+/* ป้ายสถานะ — ชุดสีเดียวกับแท่งในกราฟ */
+.tk-tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.tk-tag.ok{color:#047857;background:#DCFCE7}
+.tk-tag.near{color:#B45309;background:#FEF3C7}
+.tk-tag.far,.tk-tag.vcloss{color:#BE123C;background:#FFE4E6}
+.tk-tag.nobase,.tk-tag.nodata{color:var(--d-ink4);background:var(--d-soft,#F4F2EE)}
+/* ป้ายจำนวนปีฐาน (2ปี / 1ปี) — ตามสไลด์ · 1ปี สีอุ่นให้รู้ว่าเป้าเชื่อถือได้น้อยกว่า */
+.tk-base{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;white-space:nowrap;vertical-align:1px}
+.tk-base.n2{color:#047857;background:#ECFDF5;border:1px solid #A7F3D0}
+.tk-base.n1{color:#B45309;background:#FFFBEB;border:1px solid #FDE68A}
+/* แถวใน Demo */
+#view-dash .tk-demo{margin-top:2px}
+.tk-demo-note{margin-top:14px}
+/* ช่องกรอก X% ในแถบตัวกรอง — ไม่ใช่ select จึงเอาลูกศรของ .dh-filters ออก */
+.dh-filters .tk-x input{background:none;padding:0;width:52px;min-width:0;cursor:text;
+  font-family:var(--d-num);font-weight:700;-moz-appearance:textfield}
+/* กราฟแท่งนอน: ชื่อ | แท่ง + ขีดเป้า | ค่า | สถานะ */
+.tk-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:12.5px;color:var(--d-ink4)}
+.tk-legend span{display:inline-flex;align-items:center;gap:5px}
+.tk-legend i{width:11px;height:11px;border-radius:3px}
+.tk-legend i.ok{background:#10B981}
+.tk-legend i.near{background:#F59E0B}
+.tk-legend i.far{background:#F43F5E}
+.tk-legend i.nobase{background:#CBD5E1}
+.tk-tick-key{display:inline-block;width:3px;height:14px;border-radius:2px;background:var(--d-ink)}
+.tk-tbl td:nth-child(2){white-space:nowrap}
+/* หัวตารางรายปี × ชนิดรถ: ชื่อซ้าย · ตัวกรองของตาราง (ปี · ชนิดรถ · สถานะ) ขวา — ใช้กล่องเลือกชุด .dm-head */
+.tk-th{display:flex;align-items:flex-end;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;margin-bottom:12px}
+.tk-th h4{margin:0}
+.tk-th p{margin:4px 0 0;font-size:13px;color:var(--d-ink5)}
+.tk-th .dm-head .ff{width:170px}
+/* ไม่มีป้ายเหนือกล่อง (เจ้าของงานสั่ง — ซ้ำกับตัวเลือก "ทุกปี/ทุกชนิดรถ/ทุกสถานะ" ที่บอกอยู่แล้ว) */
+.tk-th .dm-head .ff label{display:none}
+.tk-clear{height:38px;align-self:flex-end;font-family:inherit;font-size:13px;color:var(--d-ink3);background:var(--d-card);
+  border:1px solid var(--d-line2);border-radius:10px;padding:0 12px;cursor:pointer}
+.tk-clear:hover{border-color:var(--d-ink4);color:var(--d-ink)}
