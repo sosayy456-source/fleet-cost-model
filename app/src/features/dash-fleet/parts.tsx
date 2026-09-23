@@ -123,15 +123,17 @@ export const ZT = ({ children }: { children: ReactNode }) => <div className="dz-
 export const Note = ({ children }: { children: ReactNode }) => <div className="dz-note">{children}</div>;
 
 /** ช่องตัวกรองหนึ่งช่อง */
-export function FF({ label, value, onChange, children }: {
+export function FF({ label, value, onChange, children, disabled }: {
   label: string; value: string;
   onChange: (v: string) => void;
   children: ReactNode;
+  /** ปิดช่องชั่วคราว (แท็บ Damage Rate: ช่วงเดือนเลือกได้เมื่อเลือกปีแล้ว) — ไม่ส่ง = ใช้ได้ตามปกติ */
+  disabled?: boolean;
 }) {
   return (
     <div className="ff">
       <label>{label}</label>
-      <select value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
+      <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>{children}</select>
     </div>
   );
 }

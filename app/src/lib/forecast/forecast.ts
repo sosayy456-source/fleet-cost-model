@@ -25,6 +25,21 @@ export interface CostParts {
   other: number;
 }
 
+/**
+ * ชื่อกลุ่มต้นทุนตามลำดับที่แสดง — ใช้ทั้งหน้าจัดรถ (รายละเอียดต้นทุนพยากรณ์) และป็อบอัพ "จริงเทียบพยากรณ์"
+ * ของฝ่ายบัญชี ห้ามเขียนรายการนี้ซ้ำในหน้าจอ ไม่งั้นสองหน้าจะเรียกกลุ่มเดียวกันคนละชื่อ
+ */
+export const COST_PART_LABELS: { key: keyof CostParts; label: string }[] = [
+  { key: "fuel", label: "ค่าน้ำมัน" },
+  { key: "allow", label: "ค่าเบี้ยเลี้ยง/ค่าแรง" },
+  { key: "fee", label: "ค่าธรรมเนียม" },
+  { key: "repair", label: "ค่าซ่อม" },
+  { key: "dep", label: "ค่าเสื่อม" },
+  { key: "rent", label: "ค่าเช่า" },
+  { key: "waste", label: "ต้นทุนสูญเปล่า" },
+  { key: "other", label: "อื่น ๆ" },
+];
+
 export interface ForecastResult {
   /** ต้นทุนรวมเฉลี่ยต่อเที่ยว (บาท) */
   cost: number;

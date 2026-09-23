@@ -1,6 +1,11 @@
 /**
  * หน้าของคนขับ — ดูงานที่กำลังวิ่งของรถตัวเอง แล้วกดจบงานเมื่อส่งของเสร็จ
  *
+ * ★ งานที่ "รอออกเดินทาง" (เจ้าของงานขอ 23 ก.ย. 2569) = จัดรถแล้วแต่วันปล่อยรถยังไม่มาถึง
+ *   (ฝ่ายจัดรถลงวันไว้ล่วงหน้า) — เดิมหน้านี้ไม่แสดงเลยเพราะ tripProgress().moving ต้อง today >= start
+ *   คนขับจึงไม่รู้ว่ามีงานรออยู่ แสดงแยกเป็นส่วนของตัวเอง กดจบงานไม่ได้จนกว่าจะถึงวันปล่อยรถ
+ *   ถึงวันแล้วใบจะย้ายไป "งานที่กำลังวิ่ง" เอง (upcoming กับ moving ไม่ซ้อนกัน)
+ *
  * ★ ในใบรายการไม่มีช่อง "ชื่อคนขับ" เลย (ช่อง drv คือเบี้ยเลี้ยง ไม่ใช่ชื่อคน)
  *   จึงให้คนขับค้นหา/เลือกทะเบียนรถของตัวเองทุกครั้งที่เข้าหน้านี้แทนการล็อกอิน
  *   (ไม่จำไว้ในเครื่อง — เผื่อมีคนอื่นใช้เครื่องเดียวกันขับคนละคัน)
@@ -97,6 +102,14 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
 
   const mine = plate ? moving.filter((x) => x.r.plate === plate) : [];
 
+  /** จัดรถแล้วแต่ยังไม่ถึงวันปล่อยรถ ทั้งกอง — ใกล้วันออกเดินทางก่อน */
+  const upcoming = useMemo(() => state.records
+    .map((r) => ({ r, p: tripProgress(r, today) }))
+    .filter((x) => x.p.upcoming)
+    .sort((a, b) => a.p.start.localeCompare(b.p.start)), [state.records, today]);
+
+  const mineUp = plate ? upcoming.filter((x) => x.r.plate === plate) : [];
+
   /**
    * ★ รูปไมล์รถ — เป็น **เดโม** เท่านั้น (เจ้าของงานเคาะ 22 ก.ย. 2569)
    *   กดแล้วนับว่าแนบแล้ว แต่ระบบไม่ได้เก็บไฟล์จริง เพราะโมเดลนี้ไม่มีที่เก็บไฟล์
@@ -177,7 +190,10 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
         {!plate ? (
           <p className="muted">เลือกทะเบียนรถด้านบนก่อน แล้วงานของรถคันนั้นจะขึ้นตรงนี้</p>
         ) : mine.length === 0 ? (
-          <p className="muted">ตอนนี้ไม่มีงานที่กำลังวิ่งของ {plate}</p>
+          <p className="muted">
+            ตอนนี้ไม่มีงานที่กำลังวิ่งของ {plate}
+            {mineUp.length > 0 && <> · มีงานรอออกเดินทาง <b>{mineUp.length}</b> งาน (ดูด้านล่าง)</>}
+          </p>
         ) : mine.map(({ r, p }) => {
           const left = p.eta ? daysBetween(today, p.eta) : null;
           return (
@@ -208,6 +224,41 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
               {!odoEnd.has(r.id) && (
                 <div className="odo-note">แนบรูปไมล์หลังเสร็จงานก่อนจึงจะกดจบงานได้ (เดโม — ระบบไม่ได้เก็บไฟล์จริง)</div>
               )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="card">
+        <div className="card-h">
+          <span className="step">3</span>
+          <h2>งานที่รอออกเดินทาง</h2>
+          <span className="hint">เฉพาะรถของฉัน · จัดรถแล้ว แต่ยังไม่ถึงวันปล่อยรถ</span>
+        </div>
+
+        {!plate ? (
+          <p className="muted">เลือกทะเบียนรถด้านบนก่อน แล้วงานที่รอออกเดินทางของรถคันนั้นจะขึ้นตรงนี้</p>
+        ) : mineUp.length === 0 ? (
+          <p className="muted">ยังไม่มีงานที่จัดล่วงหน้าไว้ให้ {plate}</p>
+        ) : mineUp.map(({ r, p }) => {
+          const wait = daysBetween(today, p.start);
+          return (
+            <div key={r.id} className="job-up">
+              <div className="job-up-h">
+                <b>{routeLabel(r)}</b>
+                <span className="job-chip">{wait === 1 ? "ออกเดินทางพรุ่งนี้" : `ออกเดินทางอีก ${wait} วัน`}</span>
+              </div>
+              <div className="cc-row">เลขที่ใบรายการ · {r.docNo || "–"}</div>
+              <div className="cc-row">วันปล่อยรถ · {thDateSafe(p.start)}</div>
+              <div className="cc-row">
+                ระยะทาง · {p.dist == null ? "ไม่ทราบ" : `${p.dist.toLocaleString("th-TH")} กม.`}
+                {p.eta && <> · ประมาณการถึงปลายทาง {thDateSafe(p.eta)}</>}
+              </div>
+              <div className="cc-row">สินค้า · {cargoLabel(r)}</div>
+              <div className="odo-note">
+                กดจบงานได้เมื่อถึงวันปล่อยรถ — งานนี้จะย้ายขึ้นไปที่ “งานที่กำลังวิ่ง” เอง ·
+                ถ้าวันปล่อยรถไม่ถูกต้อง แจ้งฝ่ายจัดรถให้แก้
+              </div>
             </div>
           );
         })}
@@ -249,6 +300,36 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
         </div>
       </div>
 
+      <div className="card">
+        <div className="card-h">
+          <h2>งานที่รอออกเดินทางทั้งกอง</h2>
+          <span className="hint">{upcoming.length} งาน · จัดรถแล้ว ยังไม่ถึงวันปล่อยรถ</span>
+        </div>
+        <div className="scroll">
+          <table className="dz-tbl">
+            <thead><tr>
+              <th>ทะเบียนรถ</th><th>เลขที่ใบรายการ</th><th>เส้นทาง</th><th>วันปล่อยรถ</th><th>อีกกี่วัน</th><th>สินค้า</th>
+            </tr></thead>
+            <tbody>
+              {upcoming.length === 0 ? (
+                <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 16 }}>
+                  ไม่มีงานที่จัดล่วงหน้าไว้
+                </td></tr>
+              ) : upcoming.map(({ r, p }) => (
+                <tr key={r.id}>
+                  <td style={{ fontWeight: 700 }}>{r.plate || "–"}</td>
+                  <td>{r.docNo || "–"}</td>
+                  <td>{routeLabel(r)}</td>
+                  <td>{thDateSafe(p.start)}</td>
+                  <td>{(() => { const d = daysBetween(today, p.start); return d === 1 ? "พรุ่งนี้" : `${d} วัน`; })()}</td>
+                  <td>{cargoLabel(r)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {asking && (
         <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) setAsking(null); }}>
           <div className="modal">
@@ -273,4 +354,15 @@ export default function DriverJobs({ state, role }: { state: RecordsState; role:
       )}
     </>
   );
+}
+
+/** สรุปของที่ต้องขน — จำนวนบิล · ชิ้น · น้ำหนัก ให้คนขับเตรียมตัวก่อนวันออกเดินทาง */
+function cargoLabel(r: TripRecord): string {
+  const bills = r.bills ?? [];
+  const qty = bills.reduce((s, b) => s + (Number(b.qty) || 0), 0);
+  const kg = Number(r.loadActual) || 0;
+  const parts = [`${bills.length} บิล`];
+  if (qty > 0) parts.push(`${qty.toLocaleString("th-TH")} ชิ้น`);
+  if (kg > 0) parts.push(`${kg.toLocaleString("th-TH", { maximumFractionDigits: 0 })} กก.`);
+  return parts.join(" · ");
 }

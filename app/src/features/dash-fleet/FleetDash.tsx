@@ -1369,7 +1369,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
     return rows
       .filter((x) =>
         (!filterStatus || x.statusKey === filterStatus)
-        && (!needle || `${x.v.plate} ${x.v.vehicle} ${x.position}`.toLowerCase().includes(needle)))
+        && (!needle || `${x.v.plate} ${x.v.vehicle} ${x.v.fleetType} ${x.position}`.toLowerCase().includes(needle)))
       // เดินทาง (ต้องติดตาม) ขึ้นก่อน แล้วว่าง สุดท้ายค่อยไม่พร้อมใช้งาน — ตามที่เจ้าของข้อมูลขอ
       .sort((a, b) => STATUS_SORT[a.statusKey] - STATUS_SORT[b.statusKey]);
   }, [rows, filterStatus, q]);
@@ -1408,18 +1408,21 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
             <input style={searchStyle} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหา ทะเบียน / ชนิดรถ / ตำแหน่ง" />
           </TableHead>
-          <div className="scroll">
+          {/* เลื่อนในกล่อง (สูงสุด 60vh) หัวตารางติดบน — กองรถ 274 คัน ถ้าวางยาวทั้งหน้า
+              ต้องเลื่อนผ่านทั้งตารางกว่าจะถึงแผงทะเบียนรถข้างล่าง (เจ้าของงานขอ 23 ก.ย. 2569) */}
+          <GrowBox rows={shown} render={(page) => (
             <table className="dz-tbl">
               <thead><tr>
                 {/* คอลัมน์ "ว่างมาแล้ว" ถูกตัดออกตามสเปก 22 ก.ย. 2569 — ตำแหน่งปัจจุบันคือจุดลงของเที่ยวล่าสุด */}
-                <th>ทะเบียนรถ</th><th>ชนิดรถ</th><th>สถานะ</th><th>ตำแหน่งปัจจุบัน</th>
+                <th>ทะเบียนรถ</th><th>ชนิดรถ</th><th>ประเภทรถ</th><th>สถานะ</th><th>ตำแหน่งปัจจุบัน</th>
                 <th>ใบล่าสุด</th><th>ประมาณการเสร็จ</th><th />
               </tr></thead>
               <tbody>
-                {shown.length === 0 ? <Empty cols={7} text="ไม่พบรถตามเงื่อนไข" /> : shown.map((x) => (
+                {page.length === 0 ? <Empty cols={8} text="ไม่พบรถตามเงื่อนไข" /> : page.map((x) => (
                   <tr key={x.v.plate}>
                     <td style={{ fontWeight: 700 }}>{x.v.plate}</td>
                     <td>{x.v.vehicle || "–"}</td>
+                    <td>{x.v.fleetType || "–"}</td>
                     <td><span className={`badge ${STATUS_META[x.statusKey].badge}`}>{STATUS_META[x.statusKey].label}</span></td>
                     <td>{x.position}</td>
                     <td>{x.latest ? `${thDateSafe(x.latest.date)} · ${x.latest.docNo || "–"}` : "ไม่มีประวัติ"}</td>
@@ -1437,7 +1440,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          )} />
         </div>
 
         <Note>
