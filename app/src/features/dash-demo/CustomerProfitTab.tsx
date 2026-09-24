@@ -156,7 +156,11 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   const kpi = useMemo(() => {
     const gain = rows.filter((r) => r.profit >= 0).length;
     const n = rows.length;
-    return { n, gain, loss: n - gain, gainPct: n ? gain / n * 100 : 0, lossPct: n ? (n - gain) / n * 100 : 0 };
+    // ยอดเงินใต้การ์ด = กำไรสุทธิของกลุ่มนั้น (เจ้าของงานเลือก 24 ก.ย. 2569) · กำไร 0 นับฝั่งทำกำไรเหมือนจำนวนคน
+    let gainAmt = 0, lossAmt = 0;
+    for (const r of rows) if (r.profit >= 0) gainAmt += r.profit; else lossAmt += r.profit;
+    return { n, gain, loss: n - gain, gainPct: n ? gain / n * 100 : 0, lossPct: n ? (n - gain) / n * 100 : 0,
+      gainAmt, lossAmt, netAmt: gainAmt + lossAmt };
   }, [rows]);
 
   /* ---------- กราฟช่วง %Margin ---------- */
@@ -223,12 +227,13 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
           <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"
+            foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
             onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
           <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} vSub={`(${pct(kpi.gainPct, 0)})`}
-            s="คน · รายได้ ≥ ต้นทุน"
+            s="คน · รายได้ ≥ ต้นทุน" foot={`กำไรรวม ${signed(kpi.gainAmt)} บาท`}
             onClick={() => toggle(sel("gain"))} active={sameSel(pick, sel("gain"))} />
           <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} vSub={`(${pct(kpi.lossPct, 0)})`}
-            s="คน · รายได้ < ต้นทุน"
+            s="คน · รายได้ < ต้นทุน" foot={`ขาดทุนรวม ${fmt(-kpi.lossAmt)} บาท`}
             onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
         </div>
 

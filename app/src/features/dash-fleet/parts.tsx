@@ -39,8 +39,9 @@ function Trend({ data }: { data: number[] }) {
  * ไม่ส่ง trend → ใช้เส้นตกแต่ง SPARK แบบเดิม (หน้าที่ยังไม่มีชุดข้อมูลรายเดือนให้)
  * vSub  = ตัวเล็กข้างตัวเลขใหญ่ เช่น "(81%)" — อยู่นอก .v เพราะ useCountUp เขียน textContent ทับทั้งกล่อง
  * onClick/active = การ์ดกดได้ (แท็บกำไรลูกค้าของ Demo ใช้กรองตาราง) — ไม่ส่ง = การ์ดธรรมดา
+ * foot  = บรรทัดใต้ชิป s เช่น ยอดกำไรของกลุ่มนั้น (แท็บกำไรลูกค้าของ Demo) — ไม่ส่ง = ไม่มีบรรทัดนี้
  */
-export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active }: {
+export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot }: {
   kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc";
   l: string; v: string; s?: ReactNode;
   unit?: string;
@@ -48,6 +49,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active }: {
   vSub?: string;
   onClick?: () => void;
   active?: boolean;
+  foot?: ReactNode;
 }) {
   const cls = `dz-kc hero ${kind}` + (trend ? " has-trend" : "") + (onClick ? " clickable" : "") + (active ? " on" : "");
   const press = onClick ? {
@@ -73,11 +75,13 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active }: {
       {trend ? (
         <div className="hf">
           {s && <div className="s">{s}</div>}
+          {foot && <div className="ft">{foot}</div>}
           <Trend data={trend} />
         </div>
       ) : (
         <>
           {s && <div className="s">{s}</div>}
+          {foot && <div className="ft">{foot}</div>}
           {SPARK}
         </>
       )}

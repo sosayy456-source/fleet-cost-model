@@ -1509,6 +1509,8 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .dz-heroes.cp-heroes,
 #view-dash .dz-heroes.cp-heroes:has(> :nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
 #view-dash .dz-heroes.cp-heroes > .dz-kc.hero:first-child .v{font-size:40px;letter-spacing:-.02em;line-height:1.15}
+/* บรรทัดยอดเงินใต้ชิป (Hero foot) — อยู่เหนือเส้นตกแต่ง */
+#view-dash .dz-kc.hero .ft{margin-top:8px;font:700 17px/1.4 var(--font-num);color:#fff;position:relative;z-index:1}
 @media(max-width:900px){#view-dash .dz-heroes.cp-heroes,#view-dash .dz-heroes.cp-heroes:has(> :nth-child(3):last-child){grid-template-columns:1fr}}
 /* ตัวเลขใหญ่ + ตัวเล็ก (81%) ข้างกัน — .vs อยู่นอก .v เพราะ useCountUp เขียน textContent ทับทั้ง .v */
 #view-dash .dz-kc.hero .vrow{display:flex;align-items:baseline;gap:10px;position:relative;z-index:1}
@@ -1672,10 +1674,64 @@ body:has(#view-dash.active){background:#EDE7DF}
 .bill-card-h b{font-size:15px}
 .bill-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 16px}
 .bill-grid .f{display:flex;flex-direction:column;gap:4px}
-/* หน้าจัดรถ · กล่องค้นหารถ (ตัวกรองรายการทะเบียน) — พื้นอ่อนให้แยกจากช่องข้อมูลรถที่เลือก */
-.dispatch-vf{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px}
-.dispatch-vf-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--ink-soft)}
-.dispatch-vf-foot b{color:var(--ink);font-family:var(--font-num)}
+/* หน้าจัดรถ · ขั้นที่ 1 สองฝั่ง: บิลที่รอจัดรถ (ซ้าย) + สถานะการบรรทุก (ขวา) — จอแคบเรียงบนลงล่าง
+   stretch = สองกล่องสูงเท่ากันเสมอ (เจ้าของงานสั่ง 24 ก.ย. 2569) */
+.dispatch-top{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:stretch;margin-bottom:16px}
+.dispatch-top>.card{min-width:0;margin-bottom:0}
+/* แถบบอกว่าตารางบิลล็อกตามเส้นทางของบิลแรกอยู่ */
+.dispatch-lock{margin:0 0 12px;padding:9px 13px;border-radius:10px;background:var(--accent-tint);
+  border:1px solid var(--accent-line);font-size:13.5px;color:var(--ink-muted);line-height:1.6}
+.dispatch-lock b{color:var(--accent)}
+.dispatch-lock span{color:var(--ink-soft)}
+/* หน้าตั้งค่า · จุดระหว่างทาง — ช่องติ๊กเรียงเป็นกริด */
+.enroute-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 16px;margin-top:12px}
+@media(max-width:1100px){.dispatch-top{grid-template-columns:minmax(0,1fr)}}
+/* รูปรถเติมของ (LoadTruck.tsx) — แบบจาก "Truck Load Factor (standalone).html" แต่สีเป็นโทเคนของโมเดล */
+.lt-stage{background:var(--bg);border-radius:16px;padding:28px 12px 14px;overflow:hidden}
+.lt-svg{display:block;width:100%;height:auto;overflow:visible}
+.lt-shadow{fill:rgba(27,27,31,.08)}
+.lt-ground{stroke:var(--border-strong);stroke-width:3;stroke-linecap:round;fill:none}
+.lt-body{transition:transform .6s cubic-bezier(.34,1.56,.64,1)}
+.lt-frame{fill:var(--border)}
+.lt-inner{fill:var(--field-bg)}
+.lt-rail{fill:var(--border-strong)}
+.lt-fillg{transition:transform .7s cubic-bezier(.22,1,.36,1)}
+/* ของในตู้: ยังไม่เต็ม = เหลือง · เต็ม/ล้น = แดง (โมเดลไม่มีโทเคนสีเหลือง จึงใส่ค่าตรงนี้) */
+.lt-fill{fill:#E3A82B;transition:fill .4s}
+.lt-fill.full{fill:var(--red)}
+.lt-pct{font:800 36px var(--font-num);fill:var(--ink);transition:fill .3s}
+.lt-cap{font:700 11px var(--font-num);letter-spacing:1px;fill:var(--ink-soft);transition:fill .3s}
+.lt-pct.on,.lt-cap.on{fill:#fff}
+.lt-tick{stroke:rgba(27,27,31,.25);stroke-width:2;stroke-linecap:round;fill:none}
+.lt-chassis{fill:var(--ink-muted)}
+.lt-cab{fill:var(--accent)}
+.lt-cab-low{fill:var(--accent-hover)}
+.lt-glass{fill:var(--divider)}
+.lt-door{stroke:var(--accent-hover);stroke-width:2.5;stroke-linecap:round}
+.lt-handle{fill:var(--accent-tint-2)}
+.lt-lamp{fill:var(--accent-tint)}
+.lt-tire{fill:var(--ink)}
+.lt-hub{fill:var(--border-strong)}
+.lt-bolt{fill:var(--ink-faint)}
+.lt-barhead{display:flex;justify-content:space-between;gap:10px;margin-top:16px;font-size:13.5px;color:var(--ink-soft)}
+.lt-bar{height:14px;margin-top:8px;background:var(--bg);border-radius:99px;overflow:hidden}
+.lt-bar-fill{display:block;height:100%;border-radius:99px;background:var(--accent);
+  transition:width .7s cubic-bezier(.22,1,.36,1),background-color .4s}
+.lt-bar-fill.full{background:var(--green)}
+.lt-bar-fill.over{background:var(--red)}
+@media (prefers-reduced-motion: reduce){
+  .lt-body,.lt-fillg,.lt-fill,.lt-bar-fill,.lt-pct,.lt-cap{transition:none}
+}
+/* หน้าจัดรถ · หางพ่วง (ทะเบียนรถคันที่ 2) — ไม่มีกรอบ ช่องเสมอแนวเดียวกับแถวรถหัวด้านบน (เจ้าของงานสั่ง 24 ก.ย. 2569) */
+.dispatch-trailer{margin-top:14px}
+.dispatch-trailer-h{display:flex;align-items:center;gap:10px;min-height:28px;margin-bottom:8px;font-size:14.5px;font-weight:700}
+.dispatch-trailer-h .dh-clear{margin-left:auto}
+/* หน้า "บันทึกข้อมูลรวม" ของผู้ดูแลระบบ — หัวคั่นของแต่ละฝ่าย (features/entry/EntryAll.tsx) */
+.ea-part{scroll-margin-top:16px}
+.ea-part + .ea-part{margin-top:34px}
+.ea-part-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding-bottom:10px;
+  border-bottom:2px solid var(--accent-line);font-size:20px;font-weight:800;color:var(--accent)}
+.ea-part-h span{font-size:13.5px;font-weight:400;color:var(--ink-soft)}
 .bill-grid label{font-size:12.5px;color:var(--ink-soft)}
 .bill-grid input,.bill-grid select{font-family:inherit;font-size:14.5px;padding:8px 10px;
   border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--ink);width:100%}
@@ -2122,3 +2178,18 @@ body:has(#view-dash.active){background:#EDE7DF}
 /* ---- การ์ดแรกของแท็บเที่ยววิ่งเปล่า: หัวข้อ + 3 บรรทัดเปรียบเทียบ YTD (EmptyTab.tsx YtdLines · 24 ก.ย. 2569) ---- */
 #view-dash .em-ytd{display:flex;flex-direction:column;gap:2px;line-height:1.45}
 #view-dash .em-ytd b{color:#fff;font-weight:700}
+
+/* ป็อบอัพส่วนของหน้า Demo — เด้งใต้ปุ่ม Demo ในแถบเมนูซ้าย (ที่ไม่พอขึ้นเหนือปุ่ม · .up) · lib/ui/demoNav.ts · 24 ก.ย. 2569
+   position:fixed พิกัดจากปุ่ม — ลอยทับเมนูอื่น ไม่ดันรายการข้างล่างลง */
+.navpop{position:fixed;z-index:60;display:flex;flex-direction:column;gap:2px;padding:6px;background:#fff;
+  border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 32px rgba(27,27,31,.14);
+  animation:navPopIn .16s var(--ease) both}
+.navpop.up{transform:translateY(-100%);animation-name:navPopUp}
+.navpopitem{display:block;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;
+  font-family:inherit;font-size:14.5px;color:var(--ink-muted);padding:10px 14px;border-radius:10px;
+  transition:background-color .15s var(--ease),color .15s var(--ease)}
+.navpopitem:hover,.navpopitem:focus-visible{background:var(--accent-tint);color:var(--accent);outline:none}
+.navpopitem.active{color:var(--accent);font-weight:700}
+@keyframes navPopIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes navPopUp{from{opacity:0;transform:translateY(calc(-100% + 4px))}to{opacity:1;transform:translateY(-100%)}}
+@media (prefers-reduced-motion: reduce){.navpop{animation:none}}

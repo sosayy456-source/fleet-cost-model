@@ -153,9 +153,17 @@ export interface TripRecord {
   fleetType: FleetType | "";
   vehicle: string;
   releaseDate: string;
+  /** น้ำหนักบรรทุกสูงสุด (กก.) — มีหางพ่วง = หัว + หาง รวมกัน */
   capacity: number;
   loadActual: number;
   emptyLeg: boolean;
+  /**
+   * หางพ่วง (ทะเบียนรถคันที่ 2) — หน้าจัดรถเลือกได้ ไม่บังคับ (เจ้าของงานเคาะ 24 ก.ย. 2569)
+   * ไม่มี = ใบก่อนหน้านั้น หรือเที่ยวที่ไม่มีหาง · ต้นทุน/พยากรณ์ยังคิดตามชนิดรถของหัวเหมือนเดิม
+   */
+  trailerPlate?: string;
+  trailerFleetType?: string;
+  trailerVehicle?: string;
 
   // ---- ฝ่ายบัญชี (ผลจาก computeCost) ----
   gas: number;

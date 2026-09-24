@@ -36,7 +36,6 @@ import {
 } from "../../lib/damage/damage";
 import type { DamageAgg, DamageCase, DamageLevel, DamagePeriod, DamageThresholds } from "../../lib/damage/damage";
 import type { Col } from "./common";
-import type { CostRevMode } from "./CostRevDash";
 import type { Trip } from "../../lib/data/useCostRev";
 
 const TOP_ROUTES = 10;
@@ -83,8 +82,8 @@ interface GroupRow extends DamageAgg {
 
 const rankOf = (l: DamageLevel | null): number => (l ? levelOf(l).rank : -1);
 
-export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
-  trips: Trip[]; mode: CostRevMode; matchedTotal: number; isSample: boolean;
+export default function DamageTab({ trips, matchedTotal, isSample }: {
+  trips: Trip[]; matchedTotal: number; isSample: boolean;
 }) {
   const [f, setF] = useState<TopFilter>(F0);
   const [tf, setTf] = useState<TableFilter>(T0);
@@ -228,23 +227,6 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
       render: (r) => <LevelBadge level={r.level} kase={r.kase} /> },
   ], []);
   const { sorted, sort, toggle } = useSort(shown, cols, { key: "level", dir: -1 });
-
-  if (mode === "all") {
-    return (
-      <div className="card">
-        <h2>ดูได้เฉพาะใน Executive Dashboard</h2>
-        <p className="muted">
-          มูลค่าและจำนวนรายการความเสียหาย (บิลเคลียร์) อยู่ในไฟล์รายได้ ไม่ได้อยู่ในไฟล์ต้นทุน
-          จึงคิดได้เฉพาะเที่ยวที่ <b>เลขที่ใบรายการจับคู่กับไฟล์รายได้ได้</b> เท่านั้น
-          — เที่ยวที่เหลือในหน้านี้ไม่มีบิลให้อ้างอิง ถ้านับรวมเข้าไปตัวหารจะใหญ่เกินจริงและอัตราทุกตัวจะต่ำผิด
-        </p>
-        <p className="muted">
-          ตัวเลขจริงดูได้ที่เมนู <b>Executive Dashboard</b> → แท็บ <b>Damage Rate</b>
-          ({fmt(matchedTotal)} เที่ยวที่จับคู่ได้)
-        </p>
-      </div>
-    );
-  }
 
   const unfiltered = !isFiltered(f, F0);
   /** ฐานที่ควรได้ = เที่ยวที่จับคู่บิลได้ ลบเที่ยววิ่งเปล่าที่ตัดออกจากตัวหาร */

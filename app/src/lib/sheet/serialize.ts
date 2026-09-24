@@ -10,8 +10,9 @@ import { billIsPaid, billPayDate, recBills, recPayInfo } from "../record/payment
 import { roleAllDone, roleDone } from "../record/roles";
 import type { TripRecord } from "../../types/record";
 
-/** จำนวนช่องที่ฝั่งเราส่ง — คอลัมน์ที่ 61 (_DATA) Apps Script เติมเอง */
-export const TRIP_ROW_LENGTH = 60;
+/** จำนวนช่องที่ฝั่งเราส่ง — คอลัมน์ที่ 61 (_DATA) ส่งเป็นช่องว่างให้ Apps Script เติม JSON เอง
+ *  แล้วต่อด้วยหางพ่วง 3 ช่อง (v18 — อยู่หลัง _DATA เพราะแถวเก่ามี JSON ค้างที่คอลัมน์ 61) */
+export const TRIP_ROW_LENGTH = 64;
 /** ชีต "ลูกหนี้" มี 20 คอลัมน์ */
 export const BILL_ROW_LENGTH = 20;
 
@@ -98,7 +99,11 @@ export function recordToRow(r: TripRecord): Cell[] {
     /* 58 สถานะฝ่ายบัญชี */ roleDone(r, "account") ? "กรอกแล้ว" : "ยังไม่กรอก",
     /* 59 เวลาบัญชีกรอก */ r._accountAt || "",
     /* 60 ความครบถ้วน */ roleAllDone(r) ? "ครบทั้ง 3 ฝ่าย" : "ยังไม่ครบ",
-    /* 61 _DATA — Apps Script เติมเอง */
+    /* 61 _DATA */ "",                        // Apps Script ใส่ JSON เต็มของใบทับช่องนี้
+    // ───── หางพ่วง (v18) ─────
+    /* 62 ทะเบียนหางพ่วง */ r.trailerPlate || "",
+    /* 63 ประเภทรถหางพ่วง */ r.trailerFleetType || "",
+    /* 64 ชนิดรถหางพ่วง */ r.trailerVehicle || "",
   ];
 }
 
