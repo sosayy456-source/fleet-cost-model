@@ -19,28 +19,32 @@
  *
  * ★ อัตรากำไรใช้ marginOf() ข้างล่าง ซึ่งต้องตรงกับ margin_of() ใน etl/build_alloc.py — ETL ใช้ตัดสินเสมอ
  *   ตอนคัด Top 10 และช่วง %Margin ของกราฟต้องนับเหมือน ETL ห้ามแก้ข้างเดียว
+ *
+ * ★ Demo รวมเป็นหน้ายาวหน้าเดียว (24 ก.ย. 2569) — ส่วนนี้ไม่มีตัวกรองของตัวเองแล้ว ใช้ ปี/เดือน จากตัวกรองของหน้า
+ *   (ชุด alloc/ ยุบได้แค่ลูกค้า × เดือนตามวันที่บิล ตัวกรองอื่นขึ้นบรรทัดบอกผ่าน FilterScope)
+ *   ส่วนที่ 2 (DSO) ไม่ขึ้นกับตัวกรองของหน้า มี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ที่หัวส่วนที่ 2
+ *   ป้ายตัวอย่าง/จริงของแต่ละส่วนอยู่ที่ SourceTag — สองชุดเลือก real/sample แยกกัน
  */
 import { useMemo, useState } from "react";
 import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { ShortId } from "../../lib/custmap/ShortId";
-import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useAlloc } from "../../lib/data/useAlloc";
 import type { AllocBill, AllocCustomer, AllocData } from "../../lib/data/useAlloc";
 import { useDebtors } from "../../lib/data/useDebtors";
-import { FF, Hero, Note, Pane } from "../dash-fleet/parts";
-import { MonthFF, SortTable, fmt, isFiltered, marginTone, monthName, pct, signed, useSort } from "../dash-costrev/common";
+import SourceTag from "../../lib/ui/SourceTag";
+import { Hero, Note, Pane } from "../dash-fleet/parts";
+import { SortTable, fmt, marginTone, monthName, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import CustBillsModal from "./CustBillsModal";
 import { needsReview, reviewReasonText } from "../../lib/alloc/review";
 import type { ReviewCounts } from "../../lib/alloc/review";
 import OverdueSection from "./OverdueSection";
+import { FilterScope } from "./filter";
+import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
-
-interface Filter { year: string; month: string }
-const F0: Filter = { year: "", month: "" };
 
 /** ลูกค้าหนึ่งรายหลังยุบตามตัวกรอง — ci ชี้กลับไป customers[] ของชุด alloc */
 export interface CustRow extends AllocCustomer, ReviewCounts {
@@ -73,7 +77,7 @@ interface Sel { kind: "all" | "gain" | "loss" | "bucket"; i: number }
 const sel = (kind: Sel["kind"], i = -1): Sel => ({ kind, i });
 const sameSel = (a: Sel | null, b: Sel): boolean => !!a && a.kind === b.kind && a.i === b.i;
 
-export default function CustomerProfitTab() {
+export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
   const alloc = useAlloc();
   const debtors = useDebtors();
   // ETL ของสองชุดนี้แยกกัน (วางไฟล์คนละโฟลเดอร์) — รีเฟรชเฉพาะชุดที่เปลี่ยน
@@ -103,7 +107,7 @@ export default function CustomerProfitTab() {
           </p>
         </div>
       ) : (
-        <ProfitPart data={alloc.data} />
+        <ProfitPart data={alloc.data} f={f} />
       )}
 
       {/* ส่วนที่ 2 — เว้นบรรทัดจากส่วนแรกตามสเปก */}
@@ -114,16 +118,15 @@ export default function CustomerProfitTab() {
 }
 
 /* ================================================================ ส่วนที่ 1 */
-function ProfitPart({ data }: { data: AllocData }) {
-  const [f, setF] = useState<Filter>(F0);
-  const set = (k: keyof Filter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
+  // ใช้แค่ปี/เดือนของตัวกรองหน้า — แยกออกมาเป็น object เล็ก ตัวกรองอื่นเปลี่ยนแล้วจะได้ไม่คำนวณซ้ำ
+  const f = useMemo(() => ({ year: page.year, month: page.month }), [page.year, page.month]);
   const [pick, setPick] = useState<Sel | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [openCi, setOpenCi] = useState<number | null>(null);
   const toggle = (p: Sel) => setPick((cur) => (sameSel(cur, p) ? null : p));
 
   const cm = data.custMonths ?? [];
-  const years = useMemo(() => [...new Set(cm.map((r) => r.mo.slice(0, 4)))].sort(), [cm]);
 
   /* ---------- ยุบลูกค้า × เดือน → รายลูกค้า ตามตัวกรอง ---------- */
   const rows = useMemo<CustRow[]>(() => {
@@ -214,16 +217,9 @@ function ProfitPart({ data }: { data: AllocData }) {
 
   return (
     <>
-      <FilterBar>
-        <FF label="ปี" value={f.year} onChange={set("year")}>
-          <option value="">ทุกปี</option>
-          {years.map((y) => <option key={y} value={y}>พ.ศ. {+y + 543}</option>)}
-        </FF>
-        <MonthFF value={f.month} onChange={set("month")} />
-        <ClearFiltersBtn active={isFiltered(f, F0)} onClick={() => setF(F0)} />
-      </FilterBar>
-
       <Pane deps={[rows]}>
+        <SourceTag block sample={data.manifest.isSample} what="ส่วนกำไรลูกค้า (ไฟล์ต้นทุน + บิลรายได้)" />
+        <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
           <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"

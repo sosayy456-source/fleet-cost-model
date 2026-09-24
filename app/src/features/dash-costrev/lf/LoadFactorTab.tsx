@@ -23,7 +23,8 @@ import FilterBar, { ClearFiltersBtn } from "../../../lib/ui/FilterBar";
 import GrowBox from "../../../lib/ui/GrowBox";
 import EtlBanner from "../../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../../lib/data/etlStatus";
-import { useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { lfShellSource, useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { useShellSource } from "../../../lib/ui/dashContext";
 import type { LfTrip } from "../../../lib/data/useLoadFactor";
 import {
   BE_LABEL, beTone, groupTrips, rankGroups, summarize, trend, whatIf,
@@ -44,6 +45,7 @@ export default function LoadFactorTab() {
   const { data, error, reload } = useLoadFactor();
   const etl = useEtlStatus("loadfactor");
   useAutoReloadOnEtl(etl, reload);
+  useShellSource(lfShellSource(data?.manifest));
   return (
     <>
       <EtlBanner status={etl} />

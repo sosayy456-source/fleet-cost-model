@@ -38,12 +38,13 @@ import { anim, axisProps, gridProps } from "../../lib/chart/primitives";
 import { D, DFONT, fmtShort, useChartTheme } from "../../lib/chart/theme";
 import { numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { ShortId } from "../../lib/custmap/ShortId";
-import { thDateSafe, thSlash } from "../../lib/record/date";
+import { monthSpan, thDateSafe, thMonthRange, thSlash } from "../../lib/record/date";
 import type { DebtorRow, DebtorState } from "../../lib/data/useDebtors";
 import { Hero, Note, Pane, TableHead } from "../dash-fleet/parts";
 import { SortTable, fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import TruckLoader from "../../lib/ui/TruckLoader";
+import SourceTag from "../../lib/ui/SourceTag";
 
 /**
  * ช่วงวันที่เกินกำหนด 6 ช่วง (เจ้าของงานสั่ง 23 ก.ย. 2569 — แยก 1–7 วันออกจาก 1–30 เดิม)
@@ -110,11 +111,24 @@ export default function OverdueSection({ state }: { state: DebtorState }) {
     );
   }
   return <OverdueBody rows={data.rows} refDate={data.manifest.refDate ?? data.manifest.asOf}
-    range={data.manifest.dateRange} />;
+    range={data.manifest.dateRange} isSample={data.manifest.isSample} />;
 }
 
-function OverdueBody({ rows, refDate, range }: {
-  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null };
+/**
+ * ข้อจำกัดเมื่อไฟล์ลูกหนี้ครอบไม่ถึง 12 เดือน — null ถ้าครบ (เจ้าของงานสั่ง 24 ก.ย. 2569: ไฟล์จริงมีเฉพาะปี 2569
+ * ยังไม่ครบปี) · คิดจากช่วงวันที่วางบิลในไฟล์ทุกครั้ง ไม่เขียนปี/เดือนตายตัว ไฟล์รอบหน้าครบปีแล้วบรรทัดนี้หายเอง
+ */
+function coverageLimit(min: string, max: string): string | null {
+  const span = monthSpan(min, max);
+  if (span >= 12) return null;
+  const y1 = min.slice(0, 4), y2 = max.slice(0, 4);
+  const range = thMonthRange(min, max);
+  const what = y1 === y2 ? `มีเฉพาะปี ${+y1 + 543} (${range.replace(` ${+y1 + 543}`, "")})` : `มีเฉพาะ ${range} (${span} เดือน)`;
+  return `ข้อจำกัดด้านข้อมูล: ไฟล์ลูกหนี้${what} ยังไม่ครบทั้งปี — ยอดค้าง ยอดชำระ และ DSO ในส่วนนี้คิดจากช่วงนี้เท่านั้น`;
+}
+
+function OverdueBody({ rows, refDate, range, isSample }: {
+  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null }; isSample: boolean;
 }) {
   useDebtorCodes();
   const [asOf, setAsOf] = useState(refDate);
@@ -184,14 +198,17 @@ function OverdueBody({ rows, refDate, range }: {
     [aged, picked]);
 
   const dsoGap = kpi.dso != null && kpi.term != null ? Math.round(kpi.dso - kpi.term) : null;
+  const limit = range.min && range.max ? coverageLimit(range.min, range.max) : null;
 
   return (
     <Pane deps={[aged]}>
       <div className="cp-sec">
         <div>
-          <h3>ลูกหนี้รายใดจ่ายช้ากระทบกระแสเงินสด (DSO)</h3>
+          <h3>ลูกหนี้รายใดจ่ายช้ากระทบกระแสเงินสด (DSO)<SourceTag sample={isSample} what="ไฟล์ลูกหนี้" /></h3>
           <p>ใช้ข้อมูลทั้งที่รับชำระแล้วและยังไม่ได้รับชำระ · สถานะของทุกใบวางบิล ณ วันที่ที่เลือก ·
-            ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)}</p>
+            ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)} ·
+            ส่วนนี้ไม่ขึ้นกับตัวกรองด้านบน ใช้ "ข้อมูล ณ วันที่" ทางขวาแทน</p>
+          {limit && <p className="dso-limit">{limit}</p>}
         </div>
         <label className="cp-date">
           <span>ข้อมูล ณ วันที่</span>

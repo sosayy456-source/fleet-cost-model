@@ -16,6 +16,25 @@ export function thDate(iso: string): string {
 
 export const thDateSafe = (iso: string | null | undefined): string => (iso ? thDate(iso) : "–");
 
+/** จำนวนเดือนปฏิทินที่ช่วงครอบ (นับทั้งเดือนต้นและเดือนท้าย) · '2026-01-05','2026-03-20' → 3 */
+export function monthSpan(minIso: string, maxIso: string): number {
+  const [y1, m1] = minIso.split("-").map(Number);
+  const [y2, m2] = maxIso.split("-").map(Number);
+  return (y2! * 12 + m2!) - (y1! * 12 + m1!) + 1;
+}
+
+/**
+ * ช่วงเดือนแบบไทย รับ ISO ('2026-01-05') หรือเดือน ('2026-01')
+ *   ปีเดียวกัน → 'ม.ค.–มี.ค. 2569' · เดือนเดียว → 'ม.ค. 2569' · ข้ามปี → 'ธ.ค. 2568 – มี.ค. 2569'
+ */
+export function thMonthRange(minIso: string, maxIso: string): string {
+  const [y1, m1] = minIso.split("-").map(Number);
+  const [y2, m2] = maxIso.split("-").map(Number);
+  const mo = (m: number) => TH_MONTHS[m - 1];
+  if (y1 === y2) return m1 === m2 ? `${mo(m1!)} ${y1! + 543}` : `${mo(m1!)}–${mo(m2!)} ${y1! + 543}`;
+  return `${mo(m1!)} ${y1! + 543} – ${mo(m2!)} ${y2! + 543}`;
+}
+
 /** '2025-07-17' -> '17/07/2568' (รูปแบบที่ชีตใช้) */
 export function thSlash(iso: string): string {
   const [y, m, d] = iso.split("-");

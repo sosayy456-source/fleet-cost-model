@@ -1,8 +1,13 @@
 """สร้างข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน → app/public/data/<ds>/alloc/
 
 คำนวณเองจากไฟล์ดิบเสมอ — ไม่มีทางรับไฟล์ที่ปันเสร็จแล้วอีกแล้ว
-      รายงานค่าเดินทาง etl/data/travel/ + ไฟล์บิล etl/data/revenue/ + routes.json
+      ไฟล์ต้นทุน etl/data/Dashboard real data/ + ไฟล์บิล etl/data/revenue/ + routes.json
       ใช้สูตรใน src/alloc.py (วิธี ค) ซึ่งตรวจแล้วตรงกับเอกสารข้อ 11 ทุกตัว
+
+★ ไฟล์ต้นทุนชุดเดียวกับ build_costrev.py (Executive Dashboard / Demo) — เจ้าของงานเคาะ 24 ก.ย. 2569
+  เดิมอ่าน etl/data/travel/ ซึ่งไม่มีไฟล์ ชุดจริงจึงไม่เคยถูกสร้างและแอปถอยไปใช้ข้อมูลตัวอย่างเงียบ ๆ
+  (ชุดตัวอย่างใช้ ExampleCost.xlsx ไฟล์เดียวกันทั้งสองตัวมาตั้งแต่ต้น) · load_trips อ่านแค่ เลขที่ใบรายการ/ต้นทุน/
+  ประเภทใบรายการ และหาแถวหัวเอง ไฟล์รุ่นใหม่ที่หัวตารางอยู่แถว 2 จึงอ่านได้โดยไม่ต้องแก้อะไร
 
     python etl/build_alloc.py --dataset real
     python etl/build_alloc.py --dataset sample
@@ -79,7 +84,7 @@ ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
 
 SAMPLE_COST = HERE / "sample_data" / "ExampleCost.xlsx"   # เปลี่ยนชื่อไฟล์ 22 ก.ย. 2569
 SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
-REAL_COST_DIR = HERE / "data" / "travel"
+REAL_COST_DIR = HERE / "data" / "Dashboard real data"   # = REAL_COST_DIR ของ build_costrev.py
 REAL_REV_DIR = HERE / "data" / "revenue"
 
 COL_DOC = "เลขที่ใบรายการ"
@@ -655,7 +660,7 @@ def build(dataset: str) -> None:
         rev_files = xlsx_files(SAMPLE_REV_DIR) if SAMPLE_REV_DIR.exists() else []
 
     if not cost_files:
-        sys.exit(f"ไม่มีรายงานค่าเดินทางใน {REAL_COST_DIR if dataset == 'real' else SAMPLE_COST}")
+        sys.exit(f"ไม่มีไฟล์ต้นทุนใน {REAL_COST_DIR if dataset == 'real' else SAMPLE_COST}")
     if not rev_files:
         sys.exit(f"ไม่มีไฟล์บิลใน {REAL_REV_DIR if dataset == 'real' else SAMPLE_REV_DIR}")
     routes: dict[str, dict[str, float]] = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))

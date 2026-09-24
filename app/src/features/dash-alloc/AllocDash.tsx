@@ -43,7 +43,7 @@ const F0: Filter = { side: "", q: "", only: "", minBills: "" };
  */
 export default function AllocDash({ embedded }: { embedded?: boolean } = {}) {
   const { data, error, loading, reload } = useAlloc();
-  // วางไฟล์ใน etl/data/travel/ แล้ว dev server ปันใหม่ให้เอง — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
+  // วางไฟล์ต้นทุนใน etl/data/Dashboard real data/ แล้ว dev server ปันใหม่ให้เอง — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("alloc");
   useAutoReloadOnEtl(etl, reload);
   const [f, setF] = useState<Filter>(F0);
@@ -61,7 +61,7 @@ export default function AllocDash({ embedded }: { embedded?: boolean } = {}) {
         <EtlBanner status={etl} />
         <div className="banner">{error}</div>
         <p className="muted">
-          ต้องมีสองอย่างคู่กัน: รายงานค่าเดินทางใน <code>etl/data/travel/</code> และไฟล์บิลใน{" "}
+          ต้องมีสองอย่างคู่กัน: ไฟล์ต้นทุนใน <code>etl/data/Dashboard real data/</code> (ไฟล์เดียวกับ Executive Dashboard) และไฟล์บิลใน{" "}
           <code>etl/data/revenue/</code> แล้วระบบจะปันให้เอง (หรือรัน{" "}
           <code>python etl/build_alloc.py --dataset real</code> เอง)
         </p>
