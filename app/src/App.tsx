@@ -316,8 +316,8 @@ function RolePicker({ onPick }: { onPick: (k: RoleKey) => void }) {
     <div className="picker-ov">
       <div className="picker-bx">
         <div className="rs-head">
-          <h1>Select your role</h1>
-          <p>เลือกตำแหน่งของคุณเพื่อเข้าสู่หน้าจอการทำงานที่ตรงกับหน้าที่</p>
+          <h1 className="rs-in" style={{ "--i": 0 } as React.CSSProperties}>Select your role</h1>
+          <p className="rs-in" style={{ "--i": 1 } as React.CSSProperties}>เลือกตำแหน่งของคุณเพื่อเข้าสู่หน้าจอการทำงานที่ตรงกับหน้าที่</p>
         </div>
 
         <div className="rs-grid" role="radiogroup" aria-label="Select your role">
@@ -325,7 +325,8 @@ function RolePicker({ onPick }: { onPick: (k: RoleKey) => void }) {
             <button
               key={k} type="button" role="radio"
               aria-checked={sel === k}
-              className={"ropt" + (k === "admin" ? " wide" : "")}
+              className={"ropt rs-in" + (k === "admin" ? " wide" : "")}
+              style={{ "--i": i + 2 } as React.CSSProperties}
               onClick={() => setSel(k)}
               onKeyDown={(e) => onKey(e, i)}
             >
@@ -339,7 +340,7 @@ function RolePicker({ onPick }: { onPick: (k: RoleKey) => void }) {
           ))}
         </div>
 
-        <div className="rs-foot">
+        <div className="rs-foot rs-in" style={{ "--i": ROLE_PICK.length + 2 } as React.CSSProperties}>
           <button
             type="button"
             className={"rs-cta" + (sel ? " on" : "")}

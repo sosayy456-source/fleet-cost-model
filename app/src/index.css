@@ -545,6 +545,11 @@
     background:rgba(23,19,26,.08);color:var(--rs-subtle);cursor:not-allowed;
     transition:background .2s,color .2s}
   .rs-cta.on{background:var(--rs-accent);color:var(--rs-bg);cursor:pointer}
+  /* หน้าเลือกหน้าที่ค่อย ๆ โผล่ — หัวเรื่อง → คำอธิบาย → การ์ดทีละใบ → ปุ่ม (ลำดับจาก --i ที่ตั้งใน RolePicker)
+     fill-mode backwards: จบแอนิเมชันแล้วคืน transform ให้ .ropt:hover ใช้ต่อได้ */
+  .rs-in{animation:rsIn .6s var(--ease) backwards;animation-delay:calc(var(--i,0) * 70ms + 80ms)}
+  @keyframes rsIn{from{opacity:0;transform:translateY(18px);filter:blur(6px)}}
+  @media (prefers-reduced-motion: reduce){.rs-in{animation:none}}
   @media(max-width:720px){
     .picker-ov{padding:40px 20px}
     .rs-head h1{font-size:36px}
@@ -2054,7 +2059,6 @@ body:has(#view-dash.active){background:#EDE7DF}
    สีเป็นค่าตายตัวตาม handoff · การ์ดส่วนเรียงแนวตั้งชิดกัน (ช่องไฟ 16px ไม่ใช่ 64px ตาม handoff — เจ้าของงานขอ 24 ก.ย. 2569) · หัวข้อป้ายไล่สี · แท่ง 3D (ชั้น gloss) · โดนัท SVG ไล่เฉด */
 .d3-anchor{scroll-margin-top:90px}
 .i3-page{--i3-ink:#1F1B2E;--i3-muted:#7B7690;--i3-muted2:#6A6580;--i3-subtle:#9A95AE;--i3-border:#ECEAF2;--i3-row:#F2F0F6;
-  --i3-gloss:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.1) 45%,rgba(0,0,0,.22) 100%);
   width:100%;display:flex;flex-direction:column;gap:16px;color:var(--i3-ink);padding-bottom:40px}
 .i3-sec{background:#fff;border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:20px;scroll-margin-top:90px;
   box-shadow:0 1px 2px rgba(31,27,46,.05),0 20px 40px -30px rgba(31,27,46,.25);animation:dFadeUp .5s var(--d-ease) both}
@@ -2100,15 +2104,14 @@ body:has(#view-dash.active){background:#EDE7DF}
 .i3-note .bad{color:#D2304F}
 .i3-note .good{color:#0C8A68}
 
-/* แท่ง diverging 3D — ฝั่งลบ 18% ของช่อง · เส้นศูนย์ · ฝั่งบวกใช้ที่เหลือ */
+/* แท่ง diverging — ฝั่งลบ 18% ของช่อง · เส้นศูนย์ · ฝั่งบวกใช้ที่เหลือ
+   สีทึบปลายมน ไม่มีเงา/ไล่สี แบบเดียวกับแท่งอื่นของโมเดล (เจ้าของงานสั่ง 24 ก.ย. 2569 — เดิมเป็นแท่ง 3D ของ handoff) */
 .i3-div{display:flex;height:12px;align-items:center}
 .i3-div-neg{flex:0 0 18%;display:flex;justify-content:flex-end;height:100%}
 .i3-div-pos{flex:1;height:100%}
 .i3-div i{display:block;height:100%;animation:dBarGrow .9s var(--d-ease) both}
-.i3-div-neg i{background:var(--i3-gloss),linear-gradient(270deg,rgba(240,102,127,.25),#D2304F);border-radius:6px 0 0 6px;
-  box-shadow:0 3px 6px -2px rgba(210,48,79,.45);transform-origin:right}
-.i3-div-pos i{background:var(--i3-gloss),linear-gradient(90deg,rgba(22,174,156,.25),#0C8A68);border-radius:0 6px 6px 0;
-  box-shadow:0 3px 6px -2px rgba(12,138,104,.45);transform-origin:left}
+.i3-div-neg i{background:#E11D48;border-radius:6px 0 0 6px;transform-origin:right}
+.i3-div-pos i{background:#059669;border-radius:0 6px 6px 0;transform-origin:left}
 .i3-div-zero{width:1px;height:16px;background:#C9C4D8;flex:none}
 
 /* ส่วนที่ 3 */
@@ -2124,10 +2127,8 @@ body:has(#view-dash.active){background:#EDE7DF}
 .i3-group-head{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .i3-group-head b{font-size:14px;font-weight:700}
 .i3-group-head span{font-size:12px;color:var(--i3-subtle);white-space:nowrap;font-family:var(--d-num)}
-.i3-stack{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:linear-gradient(180deg,#E6E3EE,#F6F5FA);
-  box-shadow:inset 0 1px 2px rgba(31,27,46,.12),0 4px 8px -4px rgba(31,27,46,.3)}
-.i3-stack i{display:block;height:100%;background:var(--i3-gloss),linear-gradient(90deg,color-mix(in srgb,var(--c) 25%,transparent),var(--c));
-  transform-origin:left;animation:dBarGrow .9s var(--d-ease) both}
+.i3-stack{display:flex;height:12px;border-radius:999px;overflow:hidden;gap:2px;background:var(--d-rail)}
+.i3-stack i{display:block;height:100%;background:var(--c);transform-origin:left;animation:dBarGrow .9s var(--d-ease) both}
 .i3-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--i3-muted2)}
 .i3-legend span{display:flex;align-items:center;gap:5px}
 .i3-legend i{width:7px;height:7px;border-radius:50%}
@@ -2136,7 +2137,7 @@ body:has(#view-dash.active){background:#EDE7DF}
 .i3-verdict.comp{background:#EEEAFE;color:#5B3FE0}
 .i3-verdict.part{background:#E3F6EE;color:#0C8A68}
 .i3-donut{display:flex;flex-direction:column;align-items:center;gap:8px;align-self:center}
-.i3-donut svg{width:190px;height:190px;filter:drop-shadow(0 10px 16px rgba(31,27,46,.14))}
+.i3-donut svg{width:190px;height:190px}
 .i3-donut-total{display:flex;align-items:baseline;gap:6px}
 .i3-donut-total b{font-size:28px;line-height:1.1;font-weight:700;font-family:var(--d-num)}
 .i3-donut-total span{font-size:12px;color:var(--i3-muted)}
