@@ -38,7 +38,7 @@ const toPart2 = (): void => openExecTab("detail3", "d3-part2");
 const toFleet = (): void => openExecTab("fleet");
 /** props ของสิ่งที่กดแล้วลิงก์ไป Executive Dashboard — แถวตาราง/แผง · กด Enter/เว้นวรรคได้ด้วย */
 const linkProps = (go: () => void, label: string) => ({
-  role: "link" as const, tabIndex: 0, title: `กดเพื่อเปิด${label}ใน Executive Dashboard`, onClick: go,
+  role: "link" as const, tabIndex: 0, title: `กดเพื่อเปิด${label}ใน Overall Dashboard`, onClick: go,
   onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } },
 });
 

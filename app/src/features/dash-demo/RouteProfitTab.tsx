@@ -81,7 +81,7 @@ const COST_TREE: { group: string; parts: CostPart[] }[] = [
 
 /** ความกว้างคอลัมน์แผนที่ (%) — ค่าตั้งต้น/ขอบล่าง/ขอบบนตามดีไซน์ · คีย์ localStorage */
 const MAP_PCT_KEY = "rpMapPct";
-/** โหมดแผนที่ขาว/ดำ (เจ้าของงานขอ 24 ก.ย. 2569 · ค่าเริ่ม = ดำ) — จำรายเครื่องใน localStorage */
+/** โหมดแผนที่ขาว/ดำ (เจ้าของงานขอ 24 ก.ย. 2569) — ค่าเริ่ม = ขาว (เปลี่ยนจากดำ 25 ก.ย. 2569) · จำรายเครื่องใน localStorage */
 const MAP_THEME_KEY = "rpMapTheme";
 const MAP_PCT_DEFAULT = 38, MAP_PCT_MIN = 20, MAP_PCT_MAX = 65;
 
@@ -196,7 +196,7 @@ export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFil
     } catch { return MAP_PCT_DEFAULT; }
   });
   const [mapDark, setMapDark] = useState<boolean>(() => {
-    try { return localStorage.getItem(MAP_THEME_KEY) !== "light"; } catch { return true; }
+    try { return localStorage.getItem(MAP_THEME_KEY) === "dark"; } catch { return false; }
   });
   const pickTheme = (dark: boolean) => {
     setMapDark(dark);
@@ -380,7 +380,7 @@ export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFil
         </div>
         <Note>
           ปุ่ม <b>i</b> เปิดรายการทุกเที่ยวของเส้นทางนั้นตามตัวกรองด้านบน · ต้นทุนแยกตามการจัดประเภท: <b>ต้นทุนปกติ</b>
-          (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ) และ <b>ต้นทุนสูญเปล่า</b> — ชุดเดียวกับแท็บ "ต้นทุน" ใน Executive Dashboard ·
+          (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ) และ <b>ต้นทุนสูญเปล่า</b> ·
           % ของกำไรเทียบรายได้ · % ของต้นทุนแต่ละกลุ่มเทียบต้นทุนรวม · แนวเส้นบนแผนที่ตามทางหลวงหลักโดยประมาณ ไม่ใช่เส้นทาง GPS จริง
         </Note>
 

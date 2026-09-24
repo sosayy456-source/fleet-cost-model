@@ -34,7 +34,7 @@ function Card({ edge, onClick, children }: { edge: string; onClick?: () => void;
   const press = onClick ? {
     role: "button", tabIndex: 0, onClick,
     onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } },
-    title: "กดเพื่อดูรายละเอียดใน Executive Dashboard",
+    title: "กดเพื่อดูรายละเอียดใน Overall Dashboard",
   } : {};
   return (
     <div className={"dz-kc tk-card" + (onClick ? " clickable" : "")} style={{ "--edge": edge } as CSSProperties} {...press}>

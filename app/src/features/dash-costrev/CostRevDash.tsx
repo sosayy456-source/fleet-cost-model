@@ -1,11 +1,12 @@
 /**
- * Executive Dashboard — แดชบอร์ดต้นทุน+รายได้รายเที่ยว จากไฟล์ realalldata
+ * Overall Dashboard (เดิมชื่อ Executive Dashboard — เปลี่ยน 25 ก.ย. 2569 · ชื่อ Executive Dashboard ย้ายไปเป็นของเมนู Demo)
+ *   แดชบอร์ดต้นทุน+รายได้รายเที่ยว จากไฟล์ realalldata
  *   ชุด inProfitScope() = จับคู่กับข้อมูลรายได้ได้ (m) + เที่ยววิ่งเปล่า (เจ้าของงานเคาะ 24 ก.ย. 2569 — ชุดเดียวกับเมนู Demo)
  *   ★ เมนู "Dashboard ค่าเดินทาง(ไม่ใช้)" (โหมด all = ทุกเที่ยวในไฟล์) ลบออกแล้ว 24 ก.ย. 2569 — ไม่มีโหมดอีก
  *
- * ห้าแท็บจากไฟล์ต้นทุน: กำไรรายเที่ยว (สเปกส่วนที่ 2) · กองรถ (ส่วนที่ 1) · ต้นทุน (เอกสารจัดประเภทต้นทุน)
- *          · Damage Rate · เที่ยววิ่งเปล่า (docs/spec-เที่ยววิ่งเปล่า.md)
- * กำไรรายเที่ยวขึ้นก่อนตามที่ผู้บริหารขอ — เป็นคำถามแรกที่เปิดหน้านี้มาดู
+ * แท็บจากไฟล์ต้นทุน: การใช้ประโยชน์ของกองรถ · Damage Rate · เที่ยววิ่งเปล่า (docs/spec-เที่ยววิ่งเปล่า.md) · รายละเอียด ข้อ 3
+ * ★ แท็บ "กำไรรายเที่ยว" (+ ตารางสรุป · ตารางกลุ่มบริการ · ตารางรายเที่ยว) และแท็บ "ต้นทุน" ลบโค้ดทิ้งแล้ว 25 ก.ย. 2569
+ *   (เจ้าของงานสั่ง) — แท็บแรกจึงเป็น "การใช้ประโยชน์ของกองรถ"
  *
  * ★ แท็บ Dashboard รายได้ · Dashboard ลูกหนี้ (รวมแท็บย่อย "กำไรลูกค้า (ปันส่วนต้นทุน)") ลบออกแล้ว 24 ก.ย. 2569
  *   (เจ้าของงานสั่ง) — กำไรลูกค้าดูที่ Demo › กำไรลูกค้า · รายการลูกหนี้รายบิลอยู่ที่เมนู "รายการลูกหนี้"
@@ -28,8 +29,6 @@ import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
 import { fmt } from "./common";
 import FleetTab from "./FleetTab";
-import ProfitTab from "./ProfitTab";
-import CostTab from "./CostTab";
 import DamageTab from "./DamageTab";
 import EmptyTab from "./EmptyTab";
 import LoadFactorTab from "./lf/LoadFactorTab";
@@ -38,9 +37,7 @@ import Detail3Tab from "./detail3/Detail3Tab";
 import TruckLoader from "../../lib/ui/TruckLoader";
 
 const TABS = [
-  { id: "profit", label: "กำไรรายเที่ยว" },
   { id: "fleet", label: "การใช้ประโยชน์ของกองรถ" },
-  { id: "cost", label: "ต้นทุน" },
   { id: "damage", label: "Damage Rate" },
   { id: "empty", label: "เที่ยววิ่งเปล่า" },
   { id: "lf", label: "ต้นทุนที่จมกับที่ว่าง" },
@@ -60,7 +57,7 @@ export default function CostRevDash() {
   // แท็บที่หน้าอื่นสั่งให้เปิด (lib/ui/dashJump.ts) — รับเฉพาะชื่อแท็บที่มีจริง
   const [tab, setTab] = useState<TabId>(() => {
     const want = peekExecTab();
-    return TABS.some((t) => t.id === want) ? (want as TabId) : "profit";
+    return TABS.some((t) => t.id === want) ? (want as TabId) : "fleet";
   });
   useEffect(() => { clearExecTab(); }, []);
   const barRef = useRef<HTMLDivElement>(null);
@@ -80,7 +77,7 @@ export default function CostRevDash() {
 
   const refreshTitle = "ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่";
   const m = data?.manifest;
-  const title = "Executive Dashboard";
+  const title = "Overall Dashboard";
   // บรรทัดที่มาของข้อมูลใต้หัวเรื่อง — ข้อความตามดีไซน์ 1A
   const meta = m && (
     <Meta parts={[
@@ -126,8 +123,6 @@ export default function CostRevDash() {
         ) : (
           <>
             {tab === "fleet" && <FleetTab trips={trips} />}
-            {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} svc={data?.svc ?? null} />}
-            {tab === "cost" && <CostTab trips={trips} />}
             {tab === "empty" && <EmptyTab trips={trips} />}
             {tab === "damage" && <DamageTab trips={trips} matchedTotal={m.matched} isSample={m.isSample} />}
             {tab === "detail3" && <Detail3Tab trips={trips} />}

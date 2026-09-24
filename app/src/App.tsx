@@ -25,7 +25,6 @@ const FleetDash = lazyPage(() => import("./features/dash-fleet/FleetDash"));
 // หน้าสถานะกองรถเดี่ยว ๆ ของฝ่ายจัดรถ — แท็บเดียวกับในแดชบอร์ดเต็ม อยู่ในก้อนเดียวกัน
 const FleetStatus = lazyPage(() => import("./features/dash-fleet/FleetDash")
   .then((m) => ({ default: m.FleetStatusPage })));
-const RouteProfit = lazyPage(() => import("./features/dash-join/RouteProfit"));
 const CostRevDash = lazyPage(() => import("./features/dash-costrev/CostRevDash"));
 const DemoDash = lazyPage(() => import("./features/dash-demo/DemoDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
@@ -70,6 +69,9 @@ interface PageDef {
 }
 
 const PAGES: PageDef[] = [
+  // ★ เมนู Demo เดิม — ย้ายขึ้นบนสุดและเปลี่ยนชื่อเป็น "Executive Dashboard" (เจ้าของงานสั่ง 25 ก.ย. 2569)
+  //   id ยังเป็น "demo" (hash #/demo · demoNav) · เห็นเฉพาะผู้ดูแลระบบเหมือนเดิม (เจ้าของงานเลือก)
+  { id: "demo", view: "dash", label: "Executive Dashboard", icon: I.chart, h1: "Executive Dashboard" },
   // เปลี่ยนชื่อจาก "แดชบอร์ด" (เจ้าของงานสั่ง 24 ก.ย. 2569) · id เดิม — เหลือแค่มุมมอง "หน้างาน" ดู SHOW_TABS ใน FleetDash
   { id: "dash-fleet", view: "dash", label: "Manager Dashboard", icon: I.dash, h1: "Manager Dashboard" },
   // ฝ่ายบริการลูกค้ากรอกบิล (ไม่มีเลขที่ใบรายการ) — ใบรายการเกิดที่หน้า "จัดรถ" ของฝ่ายจัดรถ
@@ -86,12 +88,10 @@ const PAGES: PageDef[] = [
   { id: "drafts", view: "drafts", label: "ใบที่ยังไม่ครบ", icon: I.check, h1: "ใบที่ยังไม่ครบ", badge: "drafts" },
   { id: "debtors", view: "debtors", label: "รายการลูกหนี้", icon: I.person, h1: "รายการลูกหนี้", badge: "debt" },
   { id: "custcode", view: "custcode", label: "ค้นหารหัสลูกค้า", icon: I.search, h1: "ค้นหารหัสลูกค้า" },
-  // หน้านี้ไม่มีใน index.html บน main — เป็นของที่โปรเจ็กต์นี้เพิ่ม (Phase 6-8)
-  { id: "route-profit", view: "dash", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง" },
+  // เมนู "กำไรรายเส้นทาง" (route-profit · features/dash-join/) ลบโค้ดทิ้งแล้ว 25 ก.ย. 2569 (เจ้าของงานสั่ง)
   // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) · เมนู "Dashboard ค่าเดินทาง(ไม่ใช้)" ลบแล้ว 24 ก.ย. 2569
-  { id: "exec-dash", view: "dash", label: "Executive Dashboard", icon: I.dash, h1: "Executive Dashboard" },
-  // หน้าทดลองสำหรับผู้ดูแลระบบ — ข้อมูลชุดเดียวกับ Executive Dashboard (เฉพาะเที่ยวที่จับคู่บิลได้)
-  { id: "demo", view: "dash", label: "Demo", icon: I.chart, h1: "Demo" },
+  // ★ เดิมชื่อ "Executive Dashboard" — เปลี่ยนเป็น "Overall Dashboard" 25 ก.ย. 2569 (id exec-dash เหมือนเดิม)
+  { id: "exec-dash", view: "dash", label: "Overall Dashboard", icon: I.dash, h1: "Overall Dashboard" },
   // แท็บ "Dashboard รายได้" / "Dashboard ลูกหนี้" / "กำไรลูกค้า (ปันส่วนต้นทุน)" ลบออกแล้ว 24 ก.ย. 2569 (เจ้าของงานสั่ง)
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
   { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
@@ -189,7 +189,7 @@ export default function App() {
             return (
               <div key={p.id} className="navgroup">
                 {btn}
-                <div className="navsub" role="group" aria-label="ส่วนของหน้า Demo">
+                <div className="navsub" role="group" aria-label="ส่วนของหน้า Executive Dashboard">
                   {DEMO_PARTS.map((x) => (
                     <button key={x.id} type="button"
                       className={"navsubitem" + (page === "demo" && demoNav.active === x.id ? " active" : "")}
@@ -248,7 +248,6 @@ export default function App() {
               <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด... <TruckLoader label={null} /></p></div>}>
                 {page === "dash-fleet" && <FleetDash state={state} role={role} sample={isSample} />}
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
-                {page === "route-profit" && <RouteProfit state={state} />}
                 {page === "exec-dash" && <CostRevDash />}
                 {page === "demo" && <DemoDash />}
               </Suspense>

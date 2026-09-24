@@ -3,12 +3,21 @@
  *
  * fixture ไม่ได้เขียนด้วยมือ แต่ได้จากการ "รันโค้ดเดิมจริง ๆ" ผ่าน tools/gen-golden.mjs
  * ถ้าเทสต์นี้แดง แปลว่าการพอร์ตทำให้ตัวเลขเพี้ยน ห้าม merge
+ *
+ * ★ ตารางค่าซ่อมใช้ของ v5 ที่แช่ไว้ (__fixtures__/repair-v5.json) ไม่ใช่ refdata/repair.json —
+ *   เทสต์นี้ตรวจ "สูตร" ค่าตั้งต้นของอัตราเปลี่ยนได้ตามรายงานค่าซ่อมจริง (เปลี่ยนครั้งแรก 25 ก.ย. 2569)
+ *   ถ้าใช้ตารางปัจจุบัน ทุกเคสที่มีค่าซ่อมจะไม่ตรงกับ v5 ทั้งที่สูตรไม่ได้เปลี่ยน
  */
 import { describe, expect, it } from "vitest";
 import { computeCost, num, priceForDate } from "./computeCost";
 import { REF } from "../refdata";
 import type { CostInput, FleetType } from "./types";
 import golden from "./__fixtures__/golden.json";
+import repairV5 from "./__fixtures__/repair-v5.json";
+import type { RefData, RepairTable } from "./types";
+
+/** REF ที่ตารางค่าซ่อมเป็นของ v5 — ตัวเดียวกับที่ใช้สร้าง golden.json */
+const REF_V5: RefData = { ...REF, repair: repairV5 as RepairTable };
 import { totalsFromOldRow } from "./adapters/oldRow";
 
 const toInput = (c: (typeof golden.cases)[number]["input"]): CostInput => {
@@ -55,7 +64,7 @@ describe("computeCost เทียบกับโมเดลเดิม v5", (
     const bad: string[] = [];
 
     golden.cases.forEach((c, i) => {
-      const got = computeCost(toInput(c.input), REF);
+      const got = computeCost(toInput(c.input), REF_V5);
       const e = c.expected;
       const cmp: Array<[string, unknown, unknown]> = [
         ["fuelSum", got.fuelSum, e.fuelSum],
@@ -123,7 +132,7 @@ describe("แถวเก่า vs แถวใหม่ ใช้สูตร�
   it("อนุมานยอดจากคอลัมน์รวมของชีตเก่า แล้วได้ normal/profit เท่ากับ computeCost", () => {
     for (const c of golden.cases) {
       const input = toInput(c.input);
-      const got = computeCost(input, REF);
+      const got = computeCost(input, REF_V5);
       const old = totalsFromOldRow({
         revenue: input.revenue,
         sheetTotal: got.sheetTotal,

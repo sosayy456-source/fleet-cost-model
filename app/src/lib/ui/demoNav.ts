@@ -15,8 +15,9 @@ import { useSyncExternalStore } from "react";
 /** ส่วนของหน้า Demo เรียงตามหน้า — แถบเมนูใช้วาดรายการได้แม้หน้า Demo ยังไม่เปิด */
 export const DEMO_PARTS = [
   { id: "route", label: "กำไรรายเส้นทาง" },
-  { id: "item2", label: "ข้อ 2" },
-  { id: "item3", label: "ข้อ 3" },
+  // ชื่อส่วนเปลี่ยน 25 ก.ย. 2569 (เจ้าของงานสั่ง · เดิม "ข้อ 2" / "ข้อ 3") — id เดิม
+  { id: "item2", label: "Inefficient Transportation Cost" },
+  { id: "item3", label: "Vehicle Utilization Cost" },
   { id: "cust", label: "กำไรลูกค้า" },
 ] as const;
 
