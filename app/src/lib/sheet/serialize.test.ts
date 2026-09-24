@@ -64,15 +64,28 @@ function labelled(row: unknown[], headers: string[]): Record<string, unknown> {
 describe("แถวชีต ค่าเดินทาง ต้องตรงกับ HEADERS ใน Code.gs", () => {
   const headers = headersFromAppsScript("HEADERS");
 
-  it("Code.gs มี 61 คอลัมน์ และช่องสุดท้ายคือ _DATA", () => {
-    expect(headers.length).toBe(61);
-    expect(headers.at(-1)).toBe("_DATA");
+  it("Code.gs มี 64 คอลัมน์ และ _DATA ยังอยู่คอลัมน์ที่ 61", () => {
+    // ★ ห้ามเลื่อน _DATA — แถวเก่าในชีตมี JSON อยู่ที่คอลัมน์ 61 ของเพิ่มต้องต่อท้าย
+    expect(headers.length).toBe(64);
+    expect(headers.indexOf("_DATA")).toBe(60);
   });
 
-  it("ฝั่งเราส่ง 60 ช่อง — ช่องที่ 61 ให้ Apps Script เติมเอง", () => {
+  it("ฝั่งเราส่งครบทุกช่อง — ช่อง _DATA ว่างไว้ให้ Apps Script เติมเอง", () => {
     const row = recordToRow(rec());
     expect(row.length).toBe(TRIP_ROW_LENGTH);
-    expect(row.length).toBe(headers.length - 1);
+    expect(row.length).toBe(headers.length);
+    expect(row[60]).toBe("");
+  });
+
+  it("หางพ่วงลงคอลัมน์ของตัวเอง · ไม่มีหาง = ช่องว่าง", () => {
+    const withTrailer = labelled(recordToRow(rec({
+      trailerPlate: "71-2752", trailerFleetType: "รถบริษัท", trailerVehicle: "หางพ่วงคอก",
+    })), headers);
+    expect(withTrailer["ทะเบียนหางพ่วง"]).toBe("71-2752");
+    expect(withTrailer["ประเภทรถหางพ่วง"]).toBe("รถบริษัท");
+    expect(withTrailer["ชนิดรถหางพ่วง"]).toBe("หางพ่วงคอก");
+    const none = labelled(recordToRow(rec()), headers);
+    expect(none["ทะเบียนหางพ่วง"]).toBe("");
   });
 
   it("ค่าลงตรงคอลัมน์ตามชื่อ", () => {

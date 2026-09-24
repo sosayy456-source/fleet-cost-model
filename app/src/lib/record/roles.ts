@@ -30,7 +30,9 @@ export const ROLES: Record<RoleKey, RoleDef> = {
   dispatch: {
     label: "ฝ่ายเจ้าหน้าที่จัดรถ", en: "Fleet Coordinator", icon: "🚚",
     desc: "จัดรถ จัดคนขับ และติดตามเส้นทาง",
-    fields: ["plate", "fleetType", "vehicle", "releaseDate", "capacity", "loadActual", "emptyLeg"],
+    // ★ ช่องหางพ่วงต้องอยู่ในรายการนี้ ไม่งั้น saveRecord (read-modify-write) ทิ้งทะเบียนหางเงียบ ๆ
+    fields: ["plate", "fleetType", "vehicle", "releaseDate", "capacity", "loadActual", "emptyLeg",
+             "trailerPlate", "trailerFleetType", "trailerVehicle"],
   },
   account: {
     label: "ฝ่ายบัญชีการเงิน", en: "Accounting Department", icon: "🧾",

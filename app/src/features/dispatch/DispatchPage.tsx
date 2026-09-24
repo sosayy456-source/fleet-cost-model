@@ -4,9 +4,13 @@
  * รับบิลที่ฝ่ายบริการลูกค้ากรอกไว้ (สถานะ "รอจัดรถ") มารวมเข้ารถคันเดียวกัน
  *   1. ตารางบิลรอจัดรถ + ตัวกรอง วันที่รับสินค้า · สาขา · ต้นทาง · ปลายทาง · กลุ่มบริการ
  *   2. ติ๊กเลือกบิล → ระบบรวม น้ำหนัก/ปริมาตร/รายได้/จำนวนลูกค้า ให้เอง
- *   3. เลือกรถ (ทะเบียนที่สถานะ "ใช้งาน" เท่านั้น) → น้ำหนัก/ปริมาณบรรทุกจริงมาจากบิลที่เลือก
+ *      ข้างตารางบิลมีกล่อง "สถานะการบรรทุก" (LoadTruck.tsx) รูปรถเติมของตามบิลที่ติ๊ก + หลอด Load Factor
+ *   3. เลือกรถ ประเภทรถ → ชนิดรถ → ทะเบียน (ทะเบียนที่สถานะ "ใช้งาน" เท่านั้น · ชุดช่องเดียวกับหางพ่วง)
+ *      → น้ำหนัก/ปริมาณบรรทุกจริงมาจากบิลที่เลือก
  *      **ใช้ฝั่งที่เต็มกว่า** ระหว่างน้ำหนักกับปริมาตรในการคิด Load Factor
  *   4. เกินความจุรถ = กดยืนยันไม่ได้ (บล็อกทั้งสองฝั่ง)
+ *      หางพ่วง (ทะเบียนรถคันที่ 2) เลือกเพิ่มได้ ไม่บังคับ — ความจุ = หัว + หาง รวมกัน (เจ้าของงานเคาะ 24 ก.ย. 2569)
+ *      ช่องหางแสดงเฉพาะชนิดรถที่เป็นหาง ส่วนช่องหัวไม่มีหางให้เลือก · ต้นทุนพยากรณ์ยังคิดตามชนิดรถของหัว
  *   5. กด "ยืนยันการจัดรถ" → ออกเลขที่ใบรายการ 13 หลัก สร้างใบรายการให้ แล้วประทับเลขกลับลงบิล
  *
  * กล่องสรุปแสดง กำไร · รายได้ (รวมทุกบิล) · ต้นทุนพยากรณ์ — กรอบเขียวเมื่อกำไร แดงเมื่อขาดทุน
@@ -20,10 +24,15 @@
  *        แล้วมีแถบให้กดอัปเดตสถานะ (useBills ก็ลองส่งบิลที่ค้างให้เองทุกครั้งที่เปิดหน้า)
  */
 import { useEffect, useMemo, useState } from "react";
-import { ACTIVE_VEHICLE_NAMES, REF, ROSTER_FLEET_TYPES, canonicalVehicleName, costFleetType, distanceFor } from "../../lib/refdata";
+import {
+  ACTIVE_VEHICLE_NAMES, REF, ROSTER_FLEET_TYPES, TRAILER_VEHICLE_NAMES, costFleetType, distanceFor, isTrailerKind,
+} from "../../lib/refdata";
 import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { useOverrides } from "../../lib/store/overrides";
-import { filterRoster, kindsOf, normPlate, useRoster } from "../../lib/store/roster";
+import { kindsOf, useRoster } from "../../lib/store/roster";
+import { splitLoad } from "../../lib/dispatch/loadSplit";
+import LoadTruck from "./LoadTruck";
+import type { FleetKind, FleetVehicle } from "../../lib/store/roster";
 import { useBills } from "../../lib/store/bills";
 import { loadCostRev } from "../../lib/data/useCostRev";
 import { COST_PART_LABELS, buildForecast, forecastFor } from "../../lib/forecast/forecast";
@@ -48,13 +57,77 @@ const F0: Filter = { date: "", branch: "", origin: "", dest: "", group: "" };
 
 const uniq = (xs: string[]): string[] => [...new Set(xs.filter(Boolean))].sort((a, b) => a.localeCompare(b, "th"));
 
+/**
+ * คู่ประเภท/ชนิดของคันนี้ในบทบาทที่ใช้ (หัว หรือ หาง) — คันเดียวเคยวิ่งได้ทั้งสองแบบ (ชม.71-2752 เป็นทั้ง
+ * หางพ่วงคอกและรถ 10 ล้อ) · ตรงตัวกรองก่อน → คู่หลักของคัน → คู่แรกที่เจอ
+ */
+function roleKind(v: FleetVehicle, trailer: boolean, want: { fleetType?: string; vehicle?: string } = {}): FleetKind | null {
+  const ks = kindsOf(v).filter((k) => isTrailerKind(k.vehicle) === trailer);
+  return ks.find((k) => (!want.fleetType || k.fleetType === want.fleetType) && (!want.vehicle || k.vehicle === want.vehicle))
+    ?? ks.find((k) => k.vehicle === v.vehicle) ?? ks[0] ?? null;
+}
+
+/** คันนี้เป็นหัว/หางตามตัวเลือกประเภท/ชนิดได้ไหม — ค่าว่าง = ไม่กรองมิตินั้น */
+const fitsRole = (v: FleetVehicle, trailer: boolean, fleetType: string, vehicle: string): boolean =>
+  kindsOf(v).some((k) => isTrailerKind(k.vehicle) === trailer
+    && (!fleetType || k.fleetType === fleetType) && (!vehicle || k.vehicle === vehicle));
+
+/** ตัวเลือกรถหนึ่งคัน ประเภท → ชนิด → ทะเบียน — ใช้ชุดเดียวกันทั้งหัวและหางพ่วง (เจ้าของงานสั่ง 24 ก.ย. 2569) */
+interface VehiclePick { fleetType: string; vehicle: string; plate: string }
+const P0: VehiclePick = { fleetType: "", vehicle: "", plate: "" };
+
+/** ช่องเลือก ประเภทรถ · ชนิดรถ · ทะเบียน ของรถหนึ่งบทบาท (หัว/หาง) — เปลี่ยนตัวบนแล้วล้างตัวล่างที่ไม่เข้ากัน */
+function VehiclePickFields({ pick, setPick, pool, trailer, kindNames, anyKind, plateLabel, noneLabel }: {
+  pick: VehiclePick; setPick: (p: VehiclePick) => void; pool: FleetVehicle[]; trailer: boolean;
+  kindNames: readonly string[]; anyKind: string; plateLabel: string; noneLabel: (n: number) => string;
+}) {
+  const cur = pool.find((v) => v.plate === pick.plate) ?? null;
+  const ftOpts = ROSTER_FLEET_TYPES.filter((ft) => pool.some((v) => fitsRole(v, trailer, ft, "")));
+  const vkOpts = kindNames.filter((n) => pool.some((v) => fitsRole(v, trailer, pick.fleetType, n)));
+  const choices = pool.filter((v) => fitsRole(v, trailer, pick.fleetType, pick.vehicle));
+  return (
+    <>
+      <div className="f"><label>ประเภทรถ</label>
+        <select value={pick.fleetType} onChange={(e) => {
+          const fleetType = e.target.value;
+          // ชนิด/ทะเบียนเดิมที่ไม่เข้ากับประเภทใหม่ = ล้างทิ้ง ไม่งั้นช่องค้างค่าที่เลือกไม่ได้
+          const vehicle = pick.vehicle && pool.some((v) => fitsRole(v, trailer, fleetType, pick.vehicle)) ? pick.vehicle : "";
+          setPick({ fleetType, vehicle, plate: cur && fitsRole(cur, trailer, fleetType, vehicle) ? pick.plate : "" });
+        }}>
+          <option value="">ทุกประเภทรถ</option>
+          {ftOpts.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
+        </select></div>
+      <div className="f"><label>ชนิดรถ</label>
+        <select value={pick.vehicle} onChange={(e) => {
+          const vehicle = e.target.value;
+          setPick({ ...pick, vehicle, plate: cur && fitsRole(cur, trailer, pick.fleetType, vehicle) ? pick.plate : "" });
+        }}>
+          <option value="">{anyKind}</option>
+          {vkOpts.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select></div>
+      <div className="f"><label>{plateLabel}</label>
+        <select value={pick.plate} onChange={(e) => {
+          const v = pool.find((x) => x.plate === e.target.value);
+          // เลือกทะเบียนก่อนเลือกประเภท/ชนิด = เติมสองช่องนั้นจากทะเบียนให้เลย
+          const k = v ? roleKind(v, trailer, pick) : null;
+          setPick(v && k ? { fleetType: k.fleetType, vehicle: k.vehicle, plate: v.plate } : { ...pick, plate: "" });
+        }}>
+          <option value="">{noneLabel(choices.length)}</option>
+          {choices.map((v) => {
+            const k = roleKind(v, trailer, pick);
+            return <option key={v.plate} value={v.plate}>{v.plate} · {k?.vehicle} ({k?.fleetType})</option>;
+          })}
+        </select></div>
+    </>
+  );
+}
+
 export default function DispatchPage({ state, role }: { state: RecordsState; role: RoleKey }) {
   const bills = useBills();
   const [roster] = useRoster();
   const [ovr] = useOverrides();
   const [f, setF] = useState<Filter>(F0);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [plate, setPlate] = useState("");
   const [releaseDate, setReleaseDate] = useState(todayISO());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: "ok" | "warn" | "err" } | null>(null);
@@ -90,30 +163,29 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
 
   /* ---------- รถที่เลือก ---------- */
   const usable = useMemo(() => roster.filter((v) => v.status === "ใช้งาน"), [roster]);
-  const truck = usable.find((v) => v.plate === plate) ?? null;
-
-  /* ---------- ตัวกรองเลือกรถ (ทะเบียน 899 คันแล้ว dropdown ยาวเกินหา — เจ้าของงานขอ 24 ก.ย. 2569) ---------- */
-  const [vf, setVf] = useState({ fleetType: "", vehicle: "", q: "" });
-  const ftOpts = useMemo(() => ROSTER_FLEET_TYPES.filter((ft) =>
-    usable.some((v) => kindsOf(v).some((k) => k.fleetType === ft))), [usable]);
-  /** ชนิดรถที่มีรถจริงตามประเภทที่เลือก — เรียงตามหน้าตั้งค่า */
-  const vkOpts = useMemo(() => ACTIVE_VEHICLE_NAMES.filter((n) =>
-    filterRoster(usable, { fleetType: vf.fleetType, vehicle: n }).length > 0), [usable, vf.fleetType]);
-  const choices = useMemo(() => filterRoster(usable, vf), [usable, vf]);
-  // คันที่เลือกไว้แล้วแต่หลุดตัวกรอง ต้องยังอยู่ใน dropdown ไม่งั้นช่องเลือกโชว์ว่างทั้งที่ยังเลือกคันนั้นอยู่
-  const shownChoices = truck && !choices.includes(truck) ? [truck, ...choices] : choices;
-  const vFiltered = !!(vf.fleetType || vf.vehicle || vf.q.trim());
-  // พิมพ์ทะเบียนตรงเต็มคัน = เลือกให้เลย (แบบเดียวกับหน้าคนขับ) · พิมพ์บางส่วนแค่กรองรายการ
-  useEffect(() => {
-    const key = normPlate(vf.q);
-    if (!key) return;
-    const exact = choices.find((v) => normPlate(v.plate) === key);
-    if (exact && exact.plate !== plate) setPlate(exact.plate);
-  }, [vf.q, choices, plate]);
-  const kind = truck ? canonicalVehicleName(truck.vehicle) : "";
+  /* ---------- รถหัว — เลือก ประเภท → ชนิด → ทะเบียน (แทนกล่องค้นหารถเดิม · เจ้าของงานสั่ง 24 ก.ย. 2569) ---------- */
+  const [hp, setHp] = useState<VehiclePick>(P0);
+  const [tp, setTp] = useState<VehiclePick>(P0);
+  /** รถที่เป็นหัวได้ — ตัดคันที่เป็นหางล้วน และคันที่เลือกเป็นหางอยู่ */
+  const heads = useMemo(() => usable.filter((v) => roleKind(v, false) && v.plate !== tp.plate), [usable, tp.plate]);
+  const truck = heads.find((v) => v.plate === hp.plate) ?? null;
+  const kind = truck ? hp.vehicle : "";
   const spec = vehicleSpec(REF.vehicles.find((v) => v.name === kind), ovr.vehicleSpecs);
-  const capKg = spec?.capacityKg ?? 0;
-  const capM3 = spec?.volumeM3 ?? 0;
+
+  /* ---------- หางพ่วง (ทะเบียนรถคันที่ 2) — ชุดช่องเดียวกับหัว · ไม่บังคับ ---------- */
+  const trailersAll = useMemo(() => usable.filter((v) => roleKind(v, true) && v.plate !== hp.plate), [usable, hp.plate]);
+  const trailer = trailersAll.find((v) => v.plate === tp.plate) ?? null;
+  const tSpec = trailer ? vehicleSpec(REF.vehicles.find((v) => v.name === tp.vehicle), ovr.vehicleSpecs) : null;
+  // เลือกทะเบียนหัวเป็นคันเดียวกับหาง (คันที่วิ่งได้ทั้งสองแบบ) = ปลดหางออก
+  useEffect(() => { if (tp.plate && tp.plate === hp.plate) setTp((t) => ({ ...t, plate: "" })); }, [hp.plate, tp.plate]);
+
+  /** ความจุ = หัว + หาง รวมกัน แล้วยังใช้ฝั่งที่เต็มกว่าเหมือนเดิม */
+  const headKg = spec?.capacityKg ?? 0;
+  const headM3 = spec?.volumeM3 ?? 0;
+  const tailKg = tSpec?.capacityKg ?? 0;
+  const tailM3 = tSpec?.volumeM3 ?? 0;
+  const capKg = headKg + tailKg;
+  const capM3 = headM3 + tailM3;
 
   /** ฝั่งที่เต็มกว่า — ใช้คิด Load Factor และใช้บล็อกการยืนยัน */
   const useWeight = capKg > 0 ? sum.weight / capKg : 0;
@@ -122,6 +194,10 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   const loadFactor = Math.max(useWeight, useVolume) * 100;
   const overWeight = capKg > 0 && sum.weight > capKg;
   const overVolume = capM3 > 0 && sum.volume > capM3;
+  /** % ของตู้หัว/ตู้หาง สำหรับรูปรถ — เติมตู้หัวก่อน ล้นไปตู้หาง */
+  const split = truck
+    ? splitLoad(sum, { kg: headKg, m3: headM3 }, trailer ? { kg: tailKg, m3: tailM3 } : null)
+    : { head: 0, tail: null };
 
   /* ---------- เส้นทางของเที่ยว ---------- */
   const origins = uniq(chosen.map((b) => b.origin));
@@ -173,10 +249,13 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
       })),
       plate: truck.plate,
       // รถร่วมนอกพิเศษคิดต้นทุนแบบรถร่วม (costFleetType) — ใบรายการเก็บฝั่งของตารางต้นทุน
-      fleetType: costFleetType(truck.fleetType),
+      fleetType: costFleetType(hp.fleetType),
       vehicle: kind,
+      // หางพ่วงเก็บประเภทตามทะเบียนจริง (ไม่ผ่าน costFleetType) — ไม่ได้เข้าสูตรต้นทุน ใช้แสดง/ดูย้อนหลัง
+      ...(trailer ? { trailerPlate: trailer.plate, trailerFleetType: tp.fleetType, trailerVehicle: tp.vehicle } : {}),
       releaseDate,
       // ความจุกับน้ำหนักบรรทุกจริงมาจากบิลที่เลือก ไม่ต้องกรอกเอง (สเปกข้อ "แก้ น้ำหนัก/ปริมาณบรรทุกจริง")
+      // มีหางพ่วง = ความจุหัว + หาง
       capacity: capKg,
       loadActual: sum.weight,
     };
@@ -206,7 +285,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     }
     state.reload();
     setPicked(new Set());
-    const done = `จัดรถแล้ว — ใบรายการ ${docNo} · ${chosen.length} บิล · ${truck.plate}`;
+    setTp(P0);
+    const done = `จัดรถแล้ว — ใบรายการ ${docNo} · ${chosen.length} บิล · ${truck.plate}${trailer ? ` + หาง ${trailer.plate}` : ""}`;
     setMsg(billsOnSheet
       ? { text: done, tone: "ok" }
       : { text: `${done} · แต่ยังส่งสถานะบิลขึ้นชีตไม่สำเร็จ — ระบบจะส่งให้อีกครั้งเมื่อเปิดหน้านี้ครั้งถัดไป เครื่องอื่นจะไม่จัดบิลนี้ซ้ำเพราะอยู่ในใบรายการแล้ว`, tone: "warn" });
@@ -247,6 +327,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         </div>
       )}
 
+      {/* ขั้นที่ 1 แบ่งสองฝั่ง: ซ้าย = บิลที่รอจัดรถ · ขวา = สถานะการบรรทุก (รูปรถ + หลอด Load Factor) */}
+      <div className="dispatch-top">
       <div className="card">
         <div className="card-h">
           <span className="step">1</span><h2>บิลที่รอจัดรถ</h2>
@@ -324,56 +406,72 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           )}
       </div>
 
+      <LoadTruck
+        hint={truck
+          ? `${truck.plate} · ${kind} (${hp.fleetType})${trailer ? ` + หาง ${trailer.plate}` : ""}`
+          : "ยังไม่ได้เลือกรถ"}
+        lf={truck ? loadFactor : 0} head={split.head} tail={split.tail}
+        basis={truck && chosen.length ? `คิดจากฝั่ง${binding}` : ""}
+        over={overWeight || overVolume}>
+        {!truck ? (
+          <div className="lf">ยังไม่ได้เลือกรถ <small>— เลือกประเภทรถ ชนิดรถ และทะเบียนในขั้นที่ 2</small></div>
+        ) : (
+          <>
+            <div className="lf">Load Factor <b>{loadFactor.toFixed(1)}%</b>
+              <small> {overWeight || overVolume ? "เกินความจุรถ"
+                : !chosen.length ? "ยังไม่ได้เลือกบิล"
+                : loadFactor >= 95 ? "เต็มคันพอดี"
+                : `ยังว่างอยู่ ${(100 - loadFactor).toFixed(1)}%`}{trailer ? " · ความจุหัว + หางพ่วง" : ""}</small></div>
+            <div className="cap">
+              น้ำหนัก {baht(sum.weight)} / {baht(capKg)} กก. ({(useWeight * 100).toFixed(1)}%) ·
+              ปริมาตร {num3(sum.volume)} / {num3(capM3)} ลบ.ม. ({(useVolume * 100).toFixed(1)}%)
+            </div>
+            {trailer && (
+              <div className="cap">
+                หัว {truck.plate} {baht(headKg)} กก. / {num3(headM3)} ลบ.ม. +
+                หาง {trailer.plate} {baht(tailKg)} กก. / {num3(tailM3)} ลบ.ม.
+              </div>
+            )}
+            {(overWeight || overVolume) && <div className="bill-bad">⚠ เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้</div>}
+            {headKg === 0 && headM3 === 0 && (
+              <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของ "{kind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
+            )}
+            {trailer && tailKg === 0 && tailM3 === 0 && (
+              <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของหาง "{tp.vehicle}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
+            )}
+          </>
+        )}
+      </LoadTruck>
+      </div>
+
       <div className="card">
         <div className="card-h">
           <span className="step">2</span><h2>เลือกรถและยืนยัน</h2>
           <span className="hint">เลือกได้เฉพาะทะเบียนที่สถานะ "ใช้งาน" ({usable.length} คัน)</span>
         </div>
 
-        {/* ค้นหารถ — กรองรายการในช่อง "ทะเบียนรถ" ด้านล่าง ไม่ได้เปลี่ยนรถที่เลือกไว้ */}
-        <div className="dispatch-vf">
-          <div className="bill-grid">
-            <div className="f"><label>ประเภทรถ</label>
-              <select value={vf.fleetType} onChange={(e) => {
-                const fleetType = e.target.value;
-                // ชนิดรถเดิมไม่มีในประเภทใหม่ = ล้างทิ้ง ไม่งั้นรายการว่างโดยไม่รู้สาเหตุ
-                const keep = !vf.vehicle || filterRoster(usable, { fleetType, vehicle: vf.vehicle }).length > 0;
-                setVf({ ...vf, fleetType, vehicle: keep ? vf.vehicle : "" });
-              }}>
-                <option value="">ทุกประเภทรถ</option>
-                {ftOpts.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
-              </select></div>
-            <div className="f"><label>ชนิดรถ</label>
-              <select value={vf.vehicle} onChange={(e) => setVf({ ...vf, vehicle: e.target.value })}>
-                <option value="">ทุกชนิดรถ</option>
-                {vkOpts.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select></div>
-            <div className="f"><label>ค้นหาทะเบียน</label>
-              <input type="search" value={vf.q} placeholder="พิมพ์เลขท้ายก็ได้ เช่น 0820"
-                onChange={(e) => setVf({ ...vf, q: e.target.value })} /></div>
-          </div>
-          <div className="dispatch-vf-foot">
-            {vFiltered
-              ? <>พบ <b>{choices.length}</b> คันจาก {usable.length} คัน
-                  <button type="button" className="dh-clear" onClick={() => setVf({ fleetType: "", vehicle: "", q: "" })}>↺ ล้างตัวกรอง</button></>
-              : <>เลือกประเภท/ชนิดรถ หรือพิมพ์ทะเบียน เพื่อให้รายการในช่องทะเบียนรถสั้นลง</>}
-          </div>
-        </div>
-
         <div className="bill-grid">
-          <div className="f"><label>ทะเบียนรถ</label>
-            <select value={plate} onChange={(e) => setPlate(e.target.value)}>
-              <option value="">{choices.length ? `เลือกทะเบียน (${choices.length} คัน)` : "ไม่พบรถตามตัวกรอง"}</option>
-              {shownChoices.map((v) => (
-                <option key={v.plate} value={v.plate}>{v.plate} · {v.vehicle} ({v.fleetType})</option>
-              ))}
-            </select></div>
-          <div className="f"><label>ชนิดรถ</label>
-            <input value={kind || "—"} readOnly tabIndex={-1} /></div>
-          <div className="f"><label>ประเภทรถ</label>
-            <input value={truck?.fleetType || "—"} readOnly tabIndex={-1} /></div>
+          <VehiclePickFields pick={hp} setPick={setHp} pool={heads} trailer={false}
+            kindNames={ACTIVE_VEHICLE_NAMES} anyKind="ทุกชนิดรถ" plateLabel="ทะเบียนรถ"
+            noneLabel={(n) => (n ? `เลือกทะเบียน (${n} คัน)` : "ไม่พบรถตามที่เลือก")} />
           <div className="f"><label>วันปล่อยรถ</label>
             <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} /></div>
+        </div>
+
+        <div className="dispatch-trailer">
+          <div className="dispatch-trailer-h">
+            หางพ่วง (ทะเบียนรถคันที่ 2)
+            {(tp.fleetType || tp.vehicle || tp.plate) && (
+              <button type="button" className="dh-clear" onClick={() => setTp(P0)}>✕ ไม่มีหางพ่วง</button>
+            )}
+          </div>
+          <div className="bill-grid">
+            <VehiclePickFields pick={tp} setPick={setTp} pool={trailersAll} trailer
+              kindNames={TRAILER_VEHICLE_NAMES} anyKind="ทุกชนิดหาง" plateLabel="ทะเบียนหางพ่วง"
+              noneLabel={(n) => (n ? `ไม่มีหางพ่วง (มีให้เลือก ${n} คัน)` : "ไม่พบหางตามที่เลือก")} />
+            {/* ช่องเปล่าแทน "วันปล่อยรถ" ของแถวหัว — ให้กริดมี 4 ช่องเท่ากัน ความกว้างช่องจึงตรงกับแถวบน */}
+            <div aria-hidden="true" />
+          </div>
         </div>
 
         <div className="dispatch-sum">
@@ -384,21 +482,6 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <div><span>ปริมาตรรวม</span><b>{num3(sum.volume)} <small>ลบ.ม.</small></b></div>
           <div><span>รายได้รวม</span><b>{baht(sum.revenue)} <small>บาท</small></b></div>
         </div>
-
-        {truck && (
-          <div className={"dispatch-load" + (overWeight || overVolume ? " over" : "")}>
-            <div className="lf">Load Factor <b>{loadFactor.toFixed(1)}%</b>
-              <small> คิดจากฝั่ง{binding} (ฝั่งที่เต็มกว่า)</small></div>
-            <div className="cap">
-              น้ำหนัก {baht(sum.weight)} / {baht(capKg)} กก. ({(useWeight * 100).toFixed(1)}%) ·
-              ปริมาตร {num3(sum.volume)} / {num3(capM3)} ลบ.ม. ({(useVolume * 100).toFixed(1)}%)
-            </div>
-            {(overWeight || overVolume) && <div className="bill-bad">⚠ เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้</div>}
-            {capKg === 0 && capM3 === 0 && (
-              <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของ "{kind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
-            )}
-          </div>
-        )}
 
         {/* กล่องสรุปผล — แทนกล่องต้นทุนเดิม ใช้ต้นทุนพยากรณ์จากข้อมูลเก่า */}
         <div className={"dispatch-result " + (profit == null ? "" : profit >= 0 ? "good" : "bad")}>
