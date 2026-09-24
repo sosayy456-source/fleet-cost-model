@@ -255,7 +255,10 @@ export default function App() {
         )}
 
         <section className="view active" id={`view-${cur?.view ?? "form"}`}>
-          {cur && !isDash && <div className="page-h"><h1>{cur.h1}</h1></div>}
+          {cur && !isDash && (
+            // หน้ารายการทั้งหมดค่อย ๆ โผล่แบบหน้าเลือกหน้าที่ — หัวเรื่องเป็นลำดับแรก (--i 0)
+            <div className={"page-h" + (cur.id === "records" ? " rs-in" : "")}><h1>{cur.h1}</h1></div>
+          )}
 
           {/* ครอบเฉพาะเนื้อหน้า เพื่อให้หน้าที่พังไม่ลากเมนูซ้ายไปด้วย — เปลี่ยนหน้าแล้วลองใหม่ได้เลย */}
           <ErrorBoundary resetKey={page} where={cur ? `หน้า “${cur.h1}”` : undefined}>

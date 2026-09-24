@@ -40,6 +40,10 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
   const [src, setSrc] = useState<Src>("all");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // เข้าหน้าแล้วค่อย ๆ โผล่แบบหน้าเลือกหน้าที่ (.rs-in) — เฉพาะช่วงแรกที่เปิดหน้า
+  // ถ้าไม่ปิดทิ้ง พิมพ์ค้นหา/สลับตัวกรองแล้วแถวใหม่จะเด้งซ้ำทุกครั้ง
+  const [intro, setIntro] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setIntro(false), 1600); return () => clearTimeout(t); }, []);
   const [open, setOpen] = useState<Set<string>>(new Set());
   /** ใบที่เปิดป็อบอัพรายละเอียดอยู่ (null = ไม่เปิด) + ตารางค่าเฉลี่ยต้นทุนไว้เทียบพยากรณ์ */
   const [detail, setDetail] = useState<TripRecord | null>(null);
@@ -142,7 +146,7 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
 
   return (
     <>
-      <div className="rec-bar">
+      <div className="rec-bar rs-in" style={{ "--i": 1 } as React.CSSProperties}>
         <div className="searchbox">
           <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.2" strokeLinecap="round">
             <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
@@ -167,7 +171,7 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
       {sheetError && (
         <div className="banner">โหลดจากชีตไม่สำเร็จ (ยังใช้ข้อมูลในเครื่องได้) · {sheetError}</div>
       )}
-      <div className="rec-card">
+      <div className="rec-card rs-in" style={{ "--i": 2 } as React.CSSProperties}>
         <GrowBox rows={list} render={(shown) => (
           <table className="rec-table">
             <thead><tr>
@@ -194,7 +198,8 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
                         ★ เฉพาะ "เที่ยวที่บันทึกใหม่ในโมเดล" — แถวข้อมูลเก่าจากไฟล์/ชีตไม่มีบิลและ
                           ไม่มีรายละเอียดกลุ่มต้นทุนให้เทียบ กดแล้วจะได้ตารางที่อ่านแล้วเข้าใจผิด
                         ปุ่ม/ชิปในแถวเรียก stopPropagation เองไม่ได้ทุกตัว จึงเช็คว่ากดโดนปุ่มไหม */}
-                    <tr className={locked ? "oldrow" : "clickable"}
+                    <tr className={(locked ? "oldrow" : "clickable") + (intro && i < 12 ? " rs-in" : "")}
+                      style={intro && i < 12 ? { "--i": i + 3 } as React.CSSProperties : undefined}
                       title={locked ? undefined : "กดเพื่อดูรายละเอียดบิลและต้นทุนของเที่ยวนี้"}
                       onClick={locked ? undefined : (e) => {
                         if ((e.target as HTMLElement).closest("button, .badge, .act")) return;
