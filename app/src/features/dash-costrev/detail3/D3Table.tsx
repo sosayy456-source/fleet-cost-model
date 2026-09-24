@@ -1,7 +1,7 @@
 /**
- * กรอบตารางของแท็บ "รายละเอียด ข้อ 3" — ดีไซน์ตามภาพที่เจ้าของงานส่ง 23 ก.ย. 2569 ใช้กับ**ทุกตาราง**ในแท็บนี้
- *   หัวเรื่องตัวใหญ่ + จำนวน (สีเทา) + ช่องค้นหาด้านขวา · กรอบมุมมน หัวคอลัมน์พื้นชมพู แถวสลับสี ·
- *   แถบท้าย "แสดง x จาก y" + ป้ายสีของตารางนั้น
+ * กรอบตารางของแท็บ "รายละเอียด ข้อ 3" ใช้กับ**ทุกตาราง**ในแท็บนี้ — หน้าตาเดียวกับตารางอื่นของ Executive Dashboard
+ *   (แบบ "รายละเอียดรายปี × ชนิดรถ" ของแท็บตัน-กม. · เจ้าของงานสั่ง 24 ก.ย. 2569 แทนกรอบดำหัวชมพูของ 23 ก.ย.)
+ *   หัวเรื่อง + บรรทัดรอง "แสดง x จาก y" + ป้ายสี · ช่องค้นหาด้านขวา · ตารางไม่มีกรอบ ไม่มีแถวสลับสี
  * ข้างในยังเป็น SortTable/useSort/GrowBox ชุดเดียวกับทั้งระบบ (เรียงสามจังหวะ · แสดงครบทุกแถว)
  * คลาสช่วยวาดเซลล์ (d3-tt-kind · d3-tt-id · d3-tt-neg/pos · d3-tt-cov) อยู่ในส่วนที่ 2 ของ index.css
  */
@@ -34,20 +34,20 @@ export default function D3Table<T>({ title, unit, rows, cols, initial, rowKey, e
   }, [rows, q]);
   const { sorted, sort, toggle } = useSort(shown, cols, initial);
   return <div className="dz-cc d3-tt" style={{ marginTop: 14 }}>
-    <div className="d3-tt-head">
-      <h4>{title} <small>{fmt(rows.length)} {unit}</small></h4>
+    <div className="tk-th d3-tt-head">
+      <div>
+        <h4>{title}</h4>
+        <p>
+          แสดง {fmt(sorted.length)} จาก {fmt(rows.length)} {unit}
+          {legend && <span className="d3-tt-legend">{legend.map(([c, l]) => <span key={l}><i style={{ background: c }} />{l}</span>)}</span>}
+        </p>
+      </div>
       {search && <input type="search" className="d3-tt-search" placeholder={placeholder ?? "ค้นหา…"} value={q}
         onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาในตาราง" />}
     </div>
     {note && <p className="dz-note d3-tt-note">{note}</p>}
-    <div className="d3-tt-frame">
-      <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={rowKey}
-        empty={q ? "ไม่พบรายการที่ค้นหา" : empty} className="d3-nowrap d3-tt-tbl" />
-      <div className="d3-tt-foot">
-        <span>แสดง <b>{fmt(sorted.length)}</b> จาก {fmt(rows.length)} {unit}</span>
-        {legend && <span className="d3-tt-legend">{legend.map(([c, l]) => <span key={l}><i style={{ background: c }} />{l}</span>)}</span>}
-      </div>
-    </div>
+    <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={rowKey}
+      empty={q ? "ไม่พบรายการที่ค้นหา" : empty} className="d3-nowrap d3-tt-tbl" />
     {children}
   </div>;
 }

@@ -73,8 +73,8 @@ function KindBoard({ kinds }: { kinds: KindRow[] }) {
     <div className="fl-legend d3-kb-legend">
       <span><i style={{ background: D.emeraldLight }} />คุ้มค่าเสื่อมกว่าค่าเฉลี่ยรวม</span>
       <span><i style={{ background: D.rose }} />ต่ำกว่าค่าเฉลี่ยรวม</span>
-      <span><i style={{ background: D.indigo }} />แท่งทึบ = ต้นทุนผันแปร (VC)</span>
-      <span><i className="d3-kb-stripe" />แท่งลาย = ต้นทุนคงที่ · ค่าเสื่อม (FC)</span>
+      <span><i style={{ background: D.indigo }} />แท่งคราม = ต้นทุนผันแปร (VC)</span>
+      <span><i className="d3-kb-stripe" />แท่งส้ม = ต้นทุนคงที่ · ค่าเสื่อม (FC)</span>
     </div>
     <div className="d3-kb" role="table">
       <div className="d3-kb-row d3-kb-th" role="row">

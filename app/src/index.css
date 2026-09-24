@@ -1899,81 +1899,69 @@ body:has(#view-dash.active){background:#EDE7DF}
 .d3-kb-stack>span{display:flex;align-items:center;justify-content:center;overflow:hidden;white-space:nowrap;
   font-size:12.5px;font-weight:700;font-family:var(--d-num);transform-origin:left;animation:dBarGrow .9s var(--d-ease) both}
 .d3-kb-stack .vc{color:#fff}
-.d3-kb-stack .fc,.d3-kb-stripe{color:#8A4B06;
-  background:repeating-linear-gradient(-45deg,#F59E0B 0 6px,#FBC45A 6px 12px)}
+/* FC สีส้มทึบแบบเดียวกับแท่งอื่น (เจ้าของงานสั่งตัดลายทางออก 24 ก.ย. 2569) */
+.d3-kb-stack .fc,.d3-kb-stripe{color:#fff;background:#F59E0B}
 .d3-kb-stripe{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:1px}
 .d3-kb-fcout{flex:none;width:50px;font-size:12px;font-weight:700;color:#B45309;white-space:nowrap;font-family:var(--d-num)}
 .d3-kb-total{font-size:15px;font-weight:700;color:var(--d-ink)}
-/* รายละเอียดทุกเที่ยว (TripTable) — กรอบมุมมน หัวชมพู ป้ายชนิดรถ/coverage */
-.d3-tt-head{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap;margin-bottom:18px}
-#view-dash .d3-tt-head h4{margin:0;font-size:24px}
-.d3-tt-head h4 small{font-size:15px;font-weight:400;color:var(--d-ink5);margin-left:10px}
-.d3-tt-search{width:310px;max-width:100%;padding:11px 18px;border:1px solid var(--d-line2);border-radius:12px;
-  background:var(--d-row);font:inherit;font-size:14.5px;color:var(--d-ink);outline:none}
-.d3-tt-search:focus{border-color:#E11D48;background:var(--d-card)}
-.d3-tt-frame{border:2px solid var(--d-ink);border-radius:18px;overflow:hidden;background:var(--d-card)}
-.d3-tt-frame .scroll-y{overflow-x:auto}
-/* หัวติดบน (sticky) + border-collapse ทำให้เส้นขอบ th หายเป็นบางช่อง จึงวาดเส้นด้วย box-shadow แทน */
-.scroll-y .d3-tt-tbl thead th{background:#FCE8EC;color:#BE1E3C;font-weight:700;padding:15px 16px;border-bottom:0;
-  box-shadow:inset -1px 0 0 #F6CDD6,inset 0 -2px 0 #E11D48}
-.scroll-y .d3-tt-tbl thead th:last-child{box-shadow:inset 0 -2px 0 #E11D48}
-.d3-tt-tbl td{padding:14px 16px;vertical-align:middle;color:var(--d-ink2)}
-.d3-tt-tbl tbody tr:nth-child(even){background:#FAF8F5}
-.d3-tt-tbl tbody tr:hover{background:var(--d-row)}
+/* ตารางของแท็บรายละเอียด ข้อ 3 (D3Table) — หน้าตาเดียวกับตารางอื่น (.tk-th + SortTable ธรรมดา) เจ้าของงานสั่ง 24 ก.ย. 2569
+   เลิกใช้กรอบดำ/หัวชมพู/แถวสลับสี/แถบท้ายแล้ว · ค่าตัวเลขเป็นตัวหนาสีตามเครื่องหมาย ไม่มีพื้นป้าย */
+.d3-tt-head{align-items:center}
+.d3-tt-search{width:260px;max-width:100%;padding:9px 14px;border:1px solid var(--d-line2);border-radius:10px;
+  background:var(--d-card);font:inherit;font-size:13.5px;color:var(--d-ink);outline:none}
+.d3-tt-search:focus{border-color:var(--d-ink4)}
 .d3-tt-tbl td b{color:var(--d-ink)}
 .d3-tt-id{color:var(--d-ink4);font-family:var(--d-num)}
-.d3-tt-kind{display:inline-block;padding:5px 11px;border-radius:8px;background:#F1ECE5;color:var(--d-ink);font-size:14px}
+.d3-tt-kind{color:var(--d-ink2)}
+.d3-tt-kind + .d3-tt-kind::before{content:"· ";color:var(--d-ink4)}
 #view-dash .d3-tt-tbl b.d3-tt-neg{color:#BE1E3C}
 #view-dash .d3-tt-tbl b.d3-tt-pos{color:#0F7A4F}
-.d3-tt-cov{display:inline-block;padding:5px 10px;border-radius:8px;font-weight:700;font-family:var(--d-num)}
-.d3-tt-cov.neg{background:#FCE8EC;color:#BE1E3C}
-.d3-tt-cov.pos{background:#E6F4EC;color:#0F7A4F}
-.d3-tt-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:14px 20px;border-top:1px solid var(--d-line);background:#F8F5F0;font-size:14px;color:var(--d-ink3)}
-.d3-tt-foot b{color:var(--d-ink)}
-.d3-tt-legend{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap}
-.d3-tt-legend>span{display:inline-flex;align-items:center;gap:6px}
-.d3-tt-legend i{width:10px;height:10px;border-radius:2px}
-.d3-tt-note{margin:-8px 0 14px}
-.d3-tt>.dz-note:last-child,.d3-tt>.d3-tt-frame+*{margin-top:12px}
+.d3-tt-cov{font-weight:700;font-family:var(--d-num)}
+.d3-tt-cov.neg{color:#BE1E3C}
+.d3-tt-cov.pos{color:#0F7A4F}
+.d3-tt-legend{display:inline-flex;align-items:center;gap:4px 12px;flex-wrap:wrap;margin-left:12px}
+.d3-tt-legend>span{display:inline-flex;align-items:center;gap:5px}
+.d3-tt-legend i{width:9px;height:9px;border-radius:2px}
+.d3-tt-note{margin:-4px 0 12px}
+.d3-tt>.dz-note:last-child,.d3-tt>.scroll-y+*{margin-top:12px}
 .d3-tt-kinds{display:inline-flex;gap:6px;flex-wrap:nowrap}
 @media(max-width:760px){.d3-tt-search{width:100%}}
 
 /* ควรทำอย่างไรต่อ (AdviceBoard) — แผงสีตามโทน */
-.d3-adv-head{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap;margin-bottom:18px}
-#view-dash .d3-adv-head h4{margin:0;font-size:24px}
+.d3-adv-head{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap;margin-bottom:14px}
+#view-dash .d3-adv-head h4{margin:0;font-size:18px}
 .d3-adv-pills{display:flex;gap:8px;flex-wrap:wrap}
-.d3-adv-pills span{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;font-size:14px;font-weight:700}
+.d3-adv-pills span{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:700}
 .d3-adv-pills i{width:8px;height:8px;border-radius:50%;background:currentColor}
 .d3-adv-pills .good{background:#E6F4EC;color:#0F7A4F}
 .d3-adv-pills .watch{background:#FDF3DC;color:#A16207}
 .d3-adv-pills .warn{background:#FCE8EC;color:#BE1E3C}
 .d3-adv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px}
 .d3-adv-panel{border:1px solid var(--d-line);border-radius:18px;overflow:hidden;background:var(--d-card)}
-.d3-adv-panel header{padding:18px 24px 16px;border-bottom:1px solid var(--d-line)}
+.d3-adv-panel header{padding:14px 20px 12px;border-bottom:1px solid var(--d-line)}
 .d3-adv-panel.good header{background:#EFF7F2}
 .d3-adv-panel.watch header{background:#FDF6E7}
 .d3-adv-panel.warn header{background:#FDF0F2}
-.d3-adv-panel h5{margin:0 0 4px;font-size:18px;font-weight:800;font-family:var(--d-num)}
+.d3-adv-panel h5{margin:0 0 4px;font-size:15.5px;font-weight:800;font-family:var(--d-num)}
 .d3-adv-panel.good h5{color:#0F7A4F}
 .d3-adv-panel.watch h5{color:#A16207}
 .d3-adv-panel.warn h5{color:#BE1E3C}
-.d3-adv-panel header p{margin:0;font-size:14px;line-height:1.65;color:var(--d-ink3)}
-.d3-adv-th{display:flex;justify-content:space-between;padding:12px 24px 10px;font-size:12.5px;color:var(--d-ink5);border-bottom:1px solid var(--d-line)}
+.d3-adv-panel header p{margin:0;font-size:12.5px;line-height:1.6;color:var(--d-ink3)}
+.d3-adv-th{display:flex;justify-content:space-between;padding:10px 20px 8px;font-size:12px;color:var(--d-ink5);border-bottom:1px solid var(--d-line)}
 .d3-adv-panel ul{list-style:none;margin:0;padding:0}
-.d3-adv-panel li{display:flex;align-items:center;gap:20px;padding:16px 24px;border-top:1px solid var(--d-line);animation:dFadeUp .45s var(--d-ease) both}
+.d3-adv-panel li{display:flex;align-items:center;gap:16px;padding:11px 20px;border-top:1px solid var(--d-line);animation:dFadeUp .45s var(--d-ease) both}
 .d3-adv-panel li:first-child{border-top:0}
 .d3-adv-main{flex:1;min-width:0}
 .d3-adv-line{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
-.d3-adv-line>b{font-size:15.5px;color:var(--d-ink);white-space:nowrap}
-.d3-adv-line small{font-size:13px;color:var(--d-ink3);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.d3-adv-line>b{font-size:14px;color:var(--d-ink);white-space:nowrap}
+.d3-adv-line small{font-size:12px;color:var(--d-ink3);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .d3-adv-line small b{color:var(--d-ink);font-family:var(--d-num)}
-.d3-adv-rail{height:7px;margin-top:12px;border-radius:999px;background:var(--d-rail);overflow:hidden}
+.d3-adv-rail{height:6px;margin-top:9px;border-radius:999px;background:var(--d-rail);overflow:hidden}
 .d3-adv-panel.warn .d3-adv-rail{background:#FBE3E8}
 .d3-adv-rail i{display:block;height:100%;border-radius:999px;transform-origin:left;animation:dBarGrow .9s var(--d-ease) both}
-.d3-adv-panel li>strong{flex:none;width:118px;text-align:right;font-size:26px;font-weight:800;font-family:var(--d-num)}
+.d3-adv-panel li>strong{flex:none;width:84px;text-align:right;font-size:18px;font-weight:800;font-family:var(--d-num)}
 @media(max-width:760px){
-  .d3-adv-panel li>strong{font-size:19px;width:78px}
+  .d3-adv-panel li>strong{font-size:16px;width:70px}
   .d3-adv-panel li{gap:10px;padding:14px 16px}
   .d3-adv-panel header,.d3-adv-th{padding-left:16px;padding-right:16px}
   .d3-adv-line small{white-space:normal}
@@ -2184,35 +2172,33 @@ body:has(#view-dash.active){background:#EDE7DF}
 .rp-track i{display:block;height:100%;border-radius:999px}
 .rp-margin{font-size:16px;font-weight:700}
 
-/* การ์ดรายละเอียด */
-.rp-dbody{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;padding:20px 24px 24px}
-.rp-dleft{display:flex;flex-direction:column;gap:18px}
-.rp-stats{display:flex;flex-direction:column;gap:8px;flex:1}
-.rp-stats div{flex:1;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;
-  padding:12px 16px;border-radius:14px;background:#F7F4F1}
-.rp-stats span{font-size:12px;color:#7A7280;white-space:nowrap}
-.rp-stats b{font-size:18px;font-weight:800;color:#1C1B22}
-.rp-stats div.hi{background:linear-gradient(135deg,#0F8F76,#17A99A)}
-.rp-stats div.hi.loss{background:linear-gradient(135deg,#C8384E,#E0607A)}
-.rp-stats div.hi span{color:#E3F7F2}
-.rp-stats div.hi b{color:#fff}
-.rp-stack{display:flex;gap:2px;height:12px;border-radius:999px;overflow:hidden;background:#EEE}
+/* การ์ดรายละเอียด — ภาพที่เจ้าของงานส่ง 24 ก.ย. 2569 (รอบสอง): หัวไม่มีไอคอน · ตัวเลข 3 กล่องเรียงแถวเดียว ·
+   แถบสัดส่วนต้นทุน (ไม่รวมกำไร) · รายการแยกกลุ่ม (ต้นทุนปกติ / สูญเปล่า) จุดกลมสีต่อก้อน ค่าเป็น ฿/เที่ยว */
+.rp-dh{border-bottom:0;padding-bottom:4px}
+.rp-dbody{display:flex;flex-direction:column;gap:18px;padding:12px 24px 24px}
+.rp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.rp-stats div{display:flex;flex-direction:column;gap:6px;min-width:0;padding:14px 16px;border-radius:14px;
+  background:#FBFAF8;border:1px solid #EFEAE5}
+.rp-stats span{font-size:12.5px;color:#7A7280;white-space:nowrap}
+.rp-stats b{font-size:24px;font-weight:800;color:#1C1B22;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
+.rp-stats div.pf b{color:#0F7A55}
+.rp-stats div.pf.loss b{color:#C8384E}
+.rp-stack{display:flex;height:14px;border-radius:999px;overflow:hidden;background:#EEE}
 .rp-stack i{display:block;height:100%}
-/* จองที่ให้ครบ 11 แถว (กำไร · ต้นทุนรวม · ผันแปร + ย่อย 3 · กึ่งผันแปร · คงที่ · ค่าเช่า · อื่น ๆ · สูญเปล่า)
+/* จองที่ให้ครบ 11 แถว (ต้นทุนปกติ · ผันแปร + ย่อย 3 · กึ่งผันแปร · คงที่ · ค่าเช่า · อื่น ๆ · ต้นทุนสูญเปล่า · สูญเปล่า)
    ไม่งั้นความสูงการ์ดเปลี่ยนตามจำนวนแถวของเส้นทางที่เลือก → กล่องแผนที่ที่ยืดตามก็สูง/เตี้ยลงทุกครั้ง
    แล้วแผนที่จัดกรอบใหม่ (เจ้าของงานแจ้ง 24 ก.ย. 2569) · ค่านี้วัดจากหน้าจริงหลังเปลี่ยนดีไซน์ */
-.rp-cl{list-style:none;margin:0;padding:0;font-size:13px;display:flex;flex-direction:column;gap:2px;min-height:408px}
-.rp-cl li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;color:#1C1B22;font-weight:700}
-.rp-cl li i{flex:none;width:10px;height:10px;border-radius:3px}
+.rp-cl{list-style:none;margin:0;padding:0;font-size:14px;display:flex;flex-direction:column;gap:2px;min-height:414px}
+.rp-cl li{display:flex;align-items:center;gap:10px;padding:6px 0;color:#1C1B22}
+.rp-cl li i{flex:none;width:10px;height:10px;border-radius:50%}
 .rp-cl li span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rp-cl li b{width:60px;text-align:right;font-weight:inherit}
-.rp-cl li small{width:64px;text-align:right;font-size:13px;color:#6E6875}
-.rp-cl li.head{background:#E3F4EF}
-.rp-cl li.head.loss{background:#FBE7EA}
-.rp-cl li.total{border-top:1px solid #F1ECE8;margin-top:6px;border-radius:0}
-.rp-cl li.total i{visibility:hidden}
-.rp-cl li.sub{padding:5px 10px 5px 26px;font-weight:400;color:#6E6875}
-.rp-cl li.sub i{width:7px;height:7px;border-radius:2px;border:1.5px solid #9A94A0;background:transparent}
+.rp-cl li b{width:70px;text-align:right;font-weight:800}
+.rp-cl li small{width:120px;text-align:right;font-size:13.5px;color:#6E6875}
+.rp-cl li.grp{font-weight:800;font-size:15px}
+.rp-cl li.grp + li{margin-top:2px}
+.rp-cl li:not(.grp) + li.grp{margin-top:10px;padding-top:12px;border-top:1px solid #F1ECE8}
+.rp-cl li.sub{padding-left:22px}
+.rp-cl li.sub i{width:9px;height:9px}
 
 @media(max-width:860px){
   .rp-wrap{grid-template-columns:1fr!important}

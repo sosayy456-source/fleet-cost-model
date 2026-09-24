@@ -51,16 +51,18 @@ interface CostPart { label: string; color: string; of: (t: Trip) => number; subs
  * สีตามดีไซน์ที่เจ้าของงานส่ง 24 ก.ย. 2569 (แผนที่ + จัดอันดับ + รายละเอียดต้นทุน) — กำไรเขียว · ผันแปรดำ ·
  * กึ่งผันแปรส้มทอง · คงที่เทา · ก้อนย่อยของผันแปรเป็นสี่เหลี่ยมโปร่ง (.rp-cl li.sub) จึงไม่ต้องมีสีของตัวเอง
  */
-const RP = { profit: "#0f7a55", loss: "#c8384e", variable: "#1f2124", semi: "#c98b3b", fixed: "#bfc3c9",
-  rent: "#6f8fae", other: "#9aa0a6", waste: "#d9707f" };
+const RP = { profit: "#0f7a55", loss: "#c8384e", variable: "#4f46e5", semi: "#f59e0b", fixed: "#475569",
+  rent: "#6f8fae", other: "#9aa0a6", waste: "#d9707f",
+  // ก้อนย่อยของผันแปร — แต่ละก้อนมีสีของตัวเองตามภาพที่เจ้าของงานส่ง 24 ก.ย. 2569 (รอบสอง)
+  fuel: "#4f46e5", allow: "#9333ea", fee: "#0f9488" };
 const COST_TREE: { group: string; parts: CostPart[] }[] = [
   { group: "ต้นทุนปกติ", parts: [
     { label: "ผันแปร", color: RP.variable, of: variableOf, subs: [
       // ★ ไฟล์มีคอลัมน์ย่อยของสามก้อนนี้เท่านั้น (น้ำมัน 5 · เบี้ยเลี้ยง 3 · ค่าธรรมเนียม 7)
       //   เจ้าของงานเลือกให้แสดงแค่สองชั้น จึงหยุดที่ระดับนี้ ไม่ลงรายก้อนย่อย (21 ก.ย. 2569)
-      { label: "น้ำมัน", color: RP.variable, of: (t) => t.fuel },
-      { label: "เบี้ยเลี้ยง", color: RP.variable, of: (t) => t.allow },
-      { label: "ค่าธรรมเนียม", color: RP.variable, of: (t) => t.fee },
+      { label: "น้ำมัน", color: RP.fuel, of: (t) => t.fuel },
+      { label: "เบี้ยเลี้ยง", color: RP.allow, of: (t) => t.allow },
+      { label: "ค่าธรรมเนียม", color: RP.fee, of: (t) => t.fee },
     ] },
     // ค่าซ่อมรวม / ค่าเสื่อม / ค่าเช่ารวม เป็นคอลัมน์เดียวในไฟล์ต้นฉบับ ไม่มีรายละเอียดย่อยให้แยก
     { label: "กึ่งผันแปร (ค่าซ่อม)", color: RP.semi, of: semiOf },
@@ -440,56 +442,49 @@ type CostTree = { group: string; parts: (CostVal & { subs: CostVal[] })[]; sum: 
 function RouteDetail({ r, tree, onList }: { r: RouteRow; tree: CostTree; onList: () => void }) {
   const per = (v: number) => fmt(Math.round(v / r.n));
   const ofCost = (v: number) => (r.cost ? pct(v / r.cost * 100, 1) : "–");
-  const base = Math.max(r.rev, r.cost) || 1;
   const parts = tree.flatMap((g) => g.parts);
+  const barBase = parts.reduce((s, p) => s + Math.max(0, p.v), 0) || 1;
   const loss = r.profit < 0;
   return (
     <>
-      <header className="rp-sh">
-        <span className="rp-ico violet" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 4v8l6 4" /></svg>
-        </span>
+      <header className="rp-sh rp-dh">
         <div className="rp-sht">
           <h3>{r.rt}</h3>
-          <p>{fmt(r.n)} เที่ยว · อัตรากำไร {r.margin == null ? "–" : pct(r.margin, 1)} · หน่วย บาท/เที่ยว</p>
+          <p>{fmt(r.n)} เที่ยว · {loss ? "ขาดทุนรวม" : "กำไรรวม"} {fmt(Math.round(Math.abs(r.profit)))} บาท</p>
         </div>
         <button type="button" className="rp-i" onClick={onList}
           title="ดูรายการทุกเที่ยวของเส้นทางนี้" aria-label="ดูรายการทุกเที่ยวของเส้นทางนี้">i</button>
       </header>
       <div className="rp-dbody">
-        <div className="rp-dleft">
-          <div className="rp-stats">
-            <div><span>รายได้/เที่ยว</span><b>{per(r.rev)}</b></div>
-            <div><span>ต้นทุน/เที่ยว</span><b>{per(r.cost)}</b></div>
-            <div className={loss ? "hi loss" : "hi"}><span>กำไร/เที่ยว</span><b>{signed(Math.round(r.perTrip))}</b></div>
-          </div>
-          <div className="rp-stack" role="img" aria-label="รายได้ต่อเที่ยวแบ่งเป็นกำไรและต้นทุนแต่ละกลุ่ม">
-            {!loss && r.profit > 0 && (
-              <i style={{ width: `${r.profit / base * 100}%`, background: RP.profit }} title={`กำไร ${per(r.profit)} บาท/เที่ยว`} />
-            )}
-            {parts.filter((p) => p.v > 0).map((p) => (
-              <i key={p.label} style={{ width: `${p.v / base * 100}%`, background: p.color }}
-                title={`${p.label} ${per(p.v)} บาท/เที่ยว`} />
-            ))}
-          </div>
-          {loss && <p className="rp-foot">ขาดทุน — ต้นทุนสูงกว่ารายได้ แถบจึงแสดงเฉพาะต้นทุน</p>}
+        <div className="rp-stats">
+          <div><span>รายได้/เที่ยว</span><b>{per(r.rev)}</b></div>
+          <div><span>ต้นทุน/เที่ยว</span><b>{per(r.cost)}</b></div>
+          <div className={loss ? "pf loss" : "pf"}><span>กำไร/เที่ยว</span><b>{signed(Math.round(r.perTrip))}</b></div>
+        </div>
+        {/* แถบสัดส่วนต้นทุน (ไม่รวมกำไร) — ก้อนละสีตามรายการด้านล่าง · "อื่น ๆ" ติดลบได้จึงวาดเฉพาะค่าบวก */}
+        <div className="rp-stack" role="img" aria-label="สัดส่วนต้นทุนต่อเที่ยวแยกตามกลุ่ม">
+          {parts.filter((p) => p.v > 0).map((p) => (
+            <i key={p.label} style={{ width: `${p.v / barBase * 100}%`, background: p.color }}
+              title={`${p.label} ${per(p.v)} บาท/เที่ยว`} />
+          ))}
         </div>
         <ul className="rp-cl">
-          <li className={loss ? "head loss" : "head"}>
-            <i style={{ background: loss ? RP.loss : RP.profit }} /><span>{loss ? "ขาดทุน" : "กำไร"}</span>
-            <b>{r.margin == null ? "–" : pct(r.margin, 1)}</b><small>{signed(Math.round(r.perTrip))}</small>
-          </li>
-          <li className="total"><i /><span>ต้นทุนรวม</span><b>100%</b><small>{per(r.cost)}</small></li>
-          {parts.map((p) => [
-            <li key={p.label}>
-              <i style={{ background: p.color }} /><span>{p.label}</span>
-              <b>{ofCost(p.v)}</b><small>{per(p.v)}</small>
+          {tree.map((g) => [
+            <li key={g.group} className="grp">
+              <span>{g.group}</span><b>{ofCost(g.sum)}</b><small>{per(g.sum)} ฿/เที่ยว</small>
             </li>,
-            ...p.subs.map((c) => (
-              <li key={`${p.label}/${c.label}`} className="sub">
-                <i /><span>{c.label}</span><b>{ofCost(c.v)}</b><small>{per(c.v)}</small>
-              </li>
-            )),
+            ...g.parts.flatMap((p) => [
+              <li key={p.label}>
+                <i style={{ background: p.color }} /><span>{p.label}</span>
+                <b>{ofCost(p.v)}</b><small>{per(p.v)} ฿/เที่ยว</small>
+              </li>,
+              ...p.subs.map((c) => (
+                <li key={`${p.label}/${c.label}`} className="sub">
+                  <i style={{ background: c.color }} /><span>{c.label}</span>
+                  <b>{ofCost(c.v)}</b><small>{per(c.v)} ฿/เที่ยว</small>
+                </li>
+              )),
+            ]),
           ])}
         </ul>
       </div>
