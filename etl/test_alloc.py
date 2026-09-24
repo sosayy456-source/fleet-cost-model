@@ -23,6 +23,8 @@ from src.alloc import (
     DIST_FALLBACK,
     DIST_MEDIAN,
     DIST_REVERSED,
+    DROPPED_TRIP_TYPES,
+    EMPTY_TRIP_TYPES,
     NOT_LINKED,
     Item,
     allocate_trip,
@@ -161,9 +163,15 @@ class Testข้อมูลไม่เชื่อมกัน:
         assert it.share is None and it.alloc is None and it.profit is None
         assert status_of(it.profit) == NOT_LINKED
 
-    def test_ช่องต้นทุนขีดกลางไม่ใช่ศูนย์(self):  # noqa: N802
+    def test_รู้ว่าช่องต้นทุนไม่ใช่ตัวเลข(self):  # noqa: N802
+        """is_number ยังแยก "-" ออกได้ แต่ **ไม่ได้ใช้ตัดเที่ยวทิ้งแล้ว**
+
+        เจ้าของงานสั่งให้ตี "-" เป็น 0 แล้วเชื่อมเที่ยวต่อ (20 ก.ย. 2569)
+        ตอนนี้ค่าที่คืนมาใช้แค่นับจำนวนแถวลง manifest.zeroCost
+        """
         assert is_number("-") is False and is_number("") is False
         assert is_number("1,234.5") is True and num("1,234.5") == 1234.5
+        assert num("-") == 0.0        # ตัวที่ build_alloc ใช้จริงตอนบวกต้นทุน
 
 
 class Testลูกค้าคือผู้จ่ายเงิน:
@@ -198,11 +206,22 @@ class Testรายการที่ตัดออก:
         assert res.unallocated == pytest.approx(2000.0)
         assert res.allocated + res.unallocated == pytest.approx(10000.0)
 
-    def test_เที่ยวตีเปล่าตัดทั้งเที่ยว(self):  # noqa: N802
+    def test_รถว่างไปสาขาตัดทั้งเที่ยว(self):  # noqa: N802
+        """ยังรับต้นทุนของตัวเองแต่ไม่ปันเข้าลูกค้า — เจ้าของงานยืนยันให้คงไว้ 20 ก.ย. 2569"""
         a = Item(doc="T", bill="b1", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=100, qty=1)
-        res = allocate_trip([a], 3000.0, ROUTES, trip_type="ของเหมาตีเปล่า")
-        assert a.excluded == "ของเหมาตีเปล่า"
+        res = allocate_trip([a], 3000.0, ROUTES, trip_type="รถว่างไปสาขา")
+        assert a.excluded == "รถว่างไปสาขา"
         assert res.allocated == 0.0 and res.unallocated == pytest.approx(3000.0)
+
+    def test_ของเหมาตีเปล่าไม่ใช่หน้าที่ของallocate_tripแล้ว(self):  # noqa: N802
+        """ถูกตัดทิ้งตั้งแต่ตอนอ่านไฟล์ (DROPPED_TRIP_TYPES) จึงไม่มีทางมาถึงตรงนี้
+
+        ★ ถ้าหลุดมาได้ แปลว่าตัวกรองใน build_costrev.py/build_alloc.py หายไปข้างหนึ่ง
+          แล้วตัวเลขลูกค้าสองแท็บจะไม่ตรงกันอีก
+        """
+        assert "ของเหมาตีเปล่า" in DROPPED_TRIP_TYPES
+        assert "ของเหมาตีเปล่า" not in EMPTY_TRIP_TYPES
+        assert "รถว่างไปสาขา" in EMPTY_TRIP_TYPES and "รถว่างไปสาขา" not in DROPPED_TRIP_TYPES
 
 
 class Testอ่านค่าจากเซลล์:

@@ -121,6 +121,14 @@
     "repairKey": "รถ 10 ล้อช่วงยาว"
   },
   {
+    "name": "รถ 10 ล้อพ่วง(แม่)",
+    "litrePerKm": 0.25,
+    "volumeM3": 45,
+    "capacityKg": 12000,
+    "repairKey": "รถ 10 ล้อ",
+    "approxFrom": "รถ 10 ล้อ"
+  },
+  {
     "name": "รถ 6 ล้อเล็ก",
     "litrePerKm": 0.13793,
     "volumeM3": 20,

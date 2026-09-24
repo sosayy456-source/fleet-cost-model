@@ -20,10 +20,10 @@
  *        แล้วมีแถบให้กดอัปเดตสถานะ (useBills ก็ลองส่งบิลที่ค้างให้เองทุกครั้งที่เปิดหน้า)
  */
 import { useEffect, useMemo, useState } from "react";
-import { REF, canonicalVehicleName, distanceFor } from "../../lib/refdata";
+import { ACTIVE_VEHICLE_NAMES, REF, ROSTER_FLEET_TYPES, canonicalVehicleName, costFleetType, distanceFor } from "../../lib/refdata";
 import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { useOverrides } from "../../lib/store/overrides";
-import { useRoster } from "../../lib/store/roster";
+import { filterRoster, kindsOf, normPlate, useRoster } from "../../lib/store/roster";
 import { useBills } from "../../lib/store/bills";
 import { loadCostRev } from "../../lib/data/useCostRev";
 import { COST_PART_LABELS, buildForecast, forecastFor } from "../../lib/forecast/forecast";
@@ -38,7 +38,6 @@ import { stampRole } from "../../lib/record/roles";
 import GrowBox from "../../lib/ui/GrowBox";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import type { RecordsState } from "../../lib/store/useRecords";
-import type { FleetType } from "../../lib/cost/types";
 import type { RoleKey } from "../../types/record";
 
 const baht = (v: number): string => Math.round(v).toLocaleString("th-TH");
@@ -92,6 +91,25 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   /* ---------- รถที่เลือก ---------- */
   const usable = useMemo(() => roster.filter((v) => v.status === "ใช้งาน"), [roster]);
   const truck = usable.find((v) => v.plate === plate) ?? null;
+
+  /* ---------- ตัวกรองเลือกรถ (ทะเบียน 899 คันแล้ว dropdown ยาวเกินหา — เจ้าของงานขอ 24 ก.ย. 2569) ---------- */
+  const [vf, setVf] = useState({ fleetType: "", vehicle: "", q: "" });
+  const ftOpts = useMemo(() => ROSTER_FLEET_TYPES.filter((ft) =>
+    usable.some((v) => kindsOf(v).some((k) => k.fleetType === ft))), [usable]);
+  /** ชนิดรถที่มีรถจริงตามประเภทที่เลือก — เรียงตามหน้าตั้งค่า */
+  const vkOpts = useMemo(() => ACTIVE_VEHICLE_NAMES.filter((n) =>
+    filterRoster(usable, { fleetType: vf.fleetType, vehicle: n }).length > 0), [usable, vf.fleetType]);
+  const choices = useMemo(() => filterRoster(usable, vf), [usable, vf]);
+  // คันที่เลือกไว้แล้วแต่หลุดตัวกรอง ต้องยังอยู่ใน dropdown ไม่งั้นช่องเลือกโชว์ว่างทั้งที่ยังเลือกคันนั้นอยู่
+  const shownChoices = truck && !choices.includes(truck) ? [truck, ...choices] : choices;
+  const vFiltered = !!(vf.fleetType || vf.vehicle || vf.q.trim());
+  // พิมพ์ทะเบียนตรงเต็มคัน = เลือกให้เลย (แบบเดียวกับหน้าคนขับ) · พิมพ์บางส่วนแค่กรองรายการ
+  useEffect(() => {
+    const key = normPlate(vf.q);
+    if (!key) return;
+    const exact = choices.find((v) => normPlate(v.plate) === key);
+    if (exact && exact.plate !== plate) setPlate(exact.plate);
+  }, [vf.q, choices, plate]);
   const kind = truck ? canonicalVehicleName(truck.vehicle) : "";
   const spec = vehicleSpec(REF.vehicles.find((v) => v.name === kind), ovr.vehicleSpecs);
   const capKg = spec?.capacityKg ?? 0;
@@ -154,7 +172,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         unitPrice: b.unitPrice, pricingType: b.pricingType,
       })),
       plate: truck.plate,
-      fleetType: (truck.fleetType || "") as FleetType | "",
+      // รถร่วมนอกพิเศษคิดต้นทุนแบบรถร่วม (costFleetType) — ใบรายการเก็บฝั่งของตารางต้นทุน
+      fleetType: costFleetType(truck.fleetType),
       vehicle: kind,
       releaseDate,
       // ความจุกับน้ำหนักบรรทุกจริงมาจากบิลที่เลือก ไม่ต้องกรอกเอง (สเปกข้อ "แก้ น้ำหนัก/ปริมาณบรรทุกจริง")
@@ -311,11 +330,41 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <span className="hint">เลือกได้เฉพาะทะเบียนที่สถานะ "ใช้งาน" ({usable.length} คัน)</span>
         </div>
 
+        {/* ค้นหารถ — กรองรายการในช่อง "ทะเบียนรถ" ด้านล่าง ไม่ได้เปลี่ยนรถที่เลือกไว้ */}
+        <div className="dispatch-vf">
+          <div className="bill-grid">
+            <div className="f"><label>ประเภทรถ</label>
+              <select value={vf.fleetType} onChange={(e) => {
+                const fleetType = e.target.value;
+                // ชนิดรถเดิมไม่มีในประเภทใหม่ = ล้างทิ้ง ไม่งั้นรายการว่างโดยไม่รู้สาเหตุ
+                const keep = !vf.vehicle || filterRoster(usable, { fleetType, vehicle: vf.vehicle }).length > 0;
+                setVf({ ...vf, fleetType, vehicle: keep ? vf.vehicle : "" });
+              }}>
+                <option value="">ทุกประเภทรถ</option>
+                {ftOpts.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
+              </select></div>
+            <div className="f"><label>ชนิดรถ</label>
+              <select value={vf.vehicle} onChange={(e) => setVf({ ...vf, vehicle: e.target.value })}>
+                <option value="">ทุกชนิดรถ</option>
+                {vkOpts.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select></div>
+            <div className="f"><label>ค้นหาทะเบียน</label>
+              <input type="search" value={vf.q} placeholder="พิมพ์เลขท้ายก็ได้ เช่น 0820"
+                onChange={(e) => setVf({ ...vf, q: e.target.value })} /></div>
+          </div>
+          <div className="dispatch-vf-foot">
+            {vFiltered
+              ? <>พบ <b>{choices.length}</b> คันจาก {usable.length} คัน
+                  <button type="button" className="dh-clear" onClick={() => setVf({ fleetType: "", vehicle: "", q: "" })}>↺ ล้างตัวกรอง</button></>
+              : <>เลือกประเภท/ชนิดรถ หรือพิมพ์ทะเบียน เพื่อให้รายการในช่องทะเบียนรถสั้นลง</>}
+          </div>
+        </div>
+
         <div className="bill-grid">
           <div className="f"><label>ทะเบียนรถ</label>
             <select value={plate} onChange={(e) => setPlate(e.target.value)}>
-              <option value="">เลือกทะเบียน</option>
-              {usable.map((v) => (
+              <option value="">{choices.length ? `เลือกทะเบียน (${choices.length} คัน)` : "ไม่พบรถตามตัวกรอง"}</option>
+              {shownChoices.map((v) => (
                 <option key={v.plate} value={v.plate}>{v.plate} · {v.vehicle} ({v.fleetType})</option>
               ))}
             </select></div>

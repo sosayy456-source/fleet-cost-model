@@ -1,9 +1,11 @@
 /**
  * แท็บ "กำไรรายเส้นทาง" ของเมนู Demo — ลำดับการแสดงผลตามที่เจ้าของงานสั่ง (21 ก.ย. 2569)
  *
- *   1. การ์ดเด่น 3 ใบ  รายได้รวม · ต้นทุนรวม · กำไร (ชุดเดียวกับ Executive Dashboard)
- *   2. การ์ดย่อย 8 ใบ  จำนวนบิล · จำนวนเที่ยว · จำนวนลูกค้า · %Margin
- *                      กำไรเฉลี่ย/บิล · กำไรเฉลี่ย/เที่ยว · กำไรเฉลี่ย/ลูกค้า · %เที่ยวที่ขาดทุน
+ *   1. การ์ดเด่น 3 ใบ  **กำไร (ใบใหญ่สุด)** · รายได้รวม · ต้นทุนรวม — เจ้าของงานสั่งสลับ 24 ก.ย. 2569
+ *                      ใบแรกกว้างกว่าเพราะกฎ 1.35fr ของ .dz-heroes ใน index.css
+ *   2. การ์ดย่อย 8 ใบ  **%Margin** · จำนวนบิล · จำนวนเที่ยว · จำนวนลูกค้า
+ *                      **%เที่ยวที่ขาดทุน** · กำไรเฉลี่ย/บิล · กำไรเฉลี่ย/เที่ยว · กำไรเฉลี่ย/ลูกค้า
+ *                      (สองการ์ด % อยู่หัวแถว · กด %เที่ยวที่ขาดทุน = ป็อบอัพรายการเที่ยวที่ขาดทุนทั้งหมด)
  *   2b. การ์ดกำไรส่วนเกิน/ตัน-กม. 4 ใบ (23 ก.ย. 2569) — ชุด loadfactor/ ไม่ตามตัวกรองของแท็บนี้
  *      กดแล้วไป Executive Dashboard › แท็บ "กำไรส่วนเกิน/ตัน-กม." (dash-costrev/tonkm/)
  *   3. กราฟ รายได้/ต้นทุน/กำไร รายเดือน — **ตามตัวกรองปีด้วย** (ต่างจากแท็บกำไรรายเที่ยวของ
@@ -11,6 +13,8 @@
  *   4. ตารางกำไรระดับเที่ยววิ่ง (ซ้าย) + รายละเอียดเส้นทางที่เลือก (ขวา) พร้อมปุ่ม i เปิดรายการทุกเที่ยว
  *   5. การ์ดอัตรากำไรตามกลุ่มบริการ 3 ใบ — กดแล้วไป Executive Dashboard (กราฟของจริงจะทำทีหลัง)
  *
+ * ★ ชุดเที่ยว = จับคู่ได้ + เที่ยววิ่งเปล่า (inProfitScope ใน lib/data/useCostRev.ts — ผู้เรียกกรองมาให้)
+ *   เที่ยวเปล่านับเข้า ต้นทุน · กำไร · จำนวนเที่ยว · %เที่ยวที่ขาดทุน แต่มีบิล 0 ลูกค้าว่าง กลุ่มบริการ "ไม่ระบุ"
  * ★ จำนวนบิล/ลูกค้ามาจากฟิลด์ bn/cus ที่ ETL เติมให้เฉพาะเที่ยวที่จับคู่บิลได้
  *   ลูกค้า = ผู้จ่ายเงิน (สด/เชื่อต้นทาง → ผู้ส่ง · ปลายทาง → ผู้รับ) นับแบบไม่ซ้ำทั้งชุดที่กรองอยู่
  *   ไม่ใช่ผลบวกของแต่ละเที่ยว — ลูกค้าคนเดียวส่งของหลายเที่ยวต้องนับครั้งเดียว
@@ -72,6 +76,8 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
   const set = (k: keyof Filter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [picked, setPicked] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
+  /** ป็อบอัพเที่ยวที่ขาดทุนทั้งหมด (กดการ์ด %เที่ยวที่ขาดทุน) */
+  const [showLoss, setShowLoss] = useState(false);
   /** การ์ดกลุ่มบริการที่กางแผงอยู่ — กดซ้ำที่การ์ดเดิม = ปิด */
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
@@ -90,7 +96,7 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
     for (const t of rows) for (const c of t.cus) custs.add(c);
     const loss = rows.filter((t) => t.profit < 0).length;
     return {
-      rev, cost, profit, bills, custs: custs.size, n: rows.length,
+      rev, cost, profit, bills, custs: custs.size, n: rows.length, loss,
       margin: rev ? profit / rev * 100 : 0,
       perBill: bills ? profit / bills : 0,
       perTrip: rows.length ? profit / rows.length : 0,
@@ -98,6 +104,9 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
       lossPct: rows.length ? loss / rows.length * 100 : 0,
     };
   }, [rows]);
+
+  /** เที่ยวที่ขาดทุน — นิยามเดียวกับตัวเศษของ %เที่ยวที่ขาดทุน (กำไร < 0) */
+  const lossTrips = useMemo(() => rows.filter((t) => t.profit < 0), [rows]);
 
   /* ---------- 3. กราฟรายเดือน (ตามตัวกรองทั้งหมด รวมปี) ---------- */
   const monthly = useMemo(() => groupBy(rows, (t) => t.mo)
@@ -182,26 +191,28 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
       <Pane deps={[rows]}>
         {/* 1 */}
         <div className="dz-heroes">
-          <Hero kind="rev" l="รายได้รวม" v={fmt(kpi.rev)} unit="บาท" s="รายได้ – ต้นทุน = กำไร" />
+          <Hero kind={kpi.profit < 0 ? "loss" : "profit"} l="กำไร" v={signed(kpi.profit)} unit="บาท" s="รายได้ – ต้นทุน = กำไร" />
+          <Hero kind="rev" l="รายได้รวม" v={fmt(kpi.rev)} unit="บาท" />
           <Hero kind="cost" l="ต้นทุนรวม" v={fmt(kpi.cost)} unit="บาท" />
-          <Hero kind={kpi.profit < 0 ? "loss" : "profit"} l="กำไร" v={signed(kpi.profit)} unit="บาท" />
         </div>
 
         {/* 2 — สองแถว แถวละ 4 ใบ */}
         <div className="dz-cards four">
+          <Meter dot={D.emerald} bar={kpi.margin < 0 ? D.rose : D.emerald} tone={kpi.margin < 0 ? "bad" : "good"}
+            l="%Margin" v={pct(kpi.margin)} s="กำไร ÷ รายได้" fill={Math.abs(kpi.margin)} />
           <KC dot={D.indigo} l="จำนวนบิล" v={fmt(kpi.bills)} s="บิล · ทุกบิลของใบรายการที่จับคู่ได้" />
           <KC dot={D.violet} l="จำนวนเที่ยว" v={fmt(kpi.n)} s="เที่ยว" />
           <KC dot={D.teal} l="จำนวนลูกค้า" v={fmt(kpi.custs)} s="ราย · ผู้จ่ายเงินไม่ซ้ำ" />
-          <Meter dot={D.emerald} bar={kpi.margin < 0 ? D.rose : D.emerald} tone={kpi.margin < 0 ? "bad" : "good"}
-            l="%Margin" v={pct(kpi.margin)} s="กำไร ÷ รายได้" fill={Math.abs(kpi.margin)} />
+          <Meter dot={D.rose} bar={D.rose} tone={kpi.lossPct > 0 ? "bad" : "good"}
+            l="%เที่ยวที่ขาดทุน" v={pct(kpi.lossPct)}
+            s={kpi.loss ? `${fmt(kpi.loss)} เที่ยวขาดทุน ÷ เที่ยวทั้งหมด · กดดูรายการ` : "เที่ยวขาดทุน ÷ เที่ยวทั้งหมด"}
+            fill={kpi.lossPct} onClick={kpi.loss ? () => setShowLoss(true) : undefined} />
           <KC dot={D.indigo} tone={kpi.perBill < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/บิล"
             v={signed(Math.round(kpi.perBill))} s="บาท ต่อบิล" />
           <KC dot={D.violet} tone={kpi.perTrip < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/เที่ยว"
             v={signed(Math.round(kpi.perTrip))} s="บาท ต่อเที่ยว" />
           <KC dot={D.teal} tone={kpi.perCust < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/ลูกค้า"
             v={signed(Math.round(kpi.perCust))} s="บาท ต่อลูกค้า" />
-          <Meter dot={D.rose} bar={D.rose} tone={kpi.lossPct > 0 ? "bad" : "good"}
-            l="%เที่ยวที่ขาดทุน" v={pct(kpi.lossPct)} s="เที่ยวขาดทุน ÷ เที่ยวทั้งหมด" fill={kpi.lossPct} />
         </div>
 
         {/* 2b — กำไรส่วนเกิน/ตัน-กม. (ข้อมูลคนละชุด ไม่ตามตัวกรอง) */}
@@ -322,6 +333,11 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
 
       {showList && detail && (
         <TripsModal rt={detail.rt} trips={detailTrips} onClose={() => setShowList(false)} />
+      )}
+      {showLoss && (
+        <TripsModal rt="เที่ยวที่ขาดทุน" trips={lossTrips} onClose={() => setShowLoss(false)} showRoute
+          note="ทุกเที่ยวที่กำไรติดลบ ตามตัวกรองที่เลือกอยู่ · เรียงขาดทุนมากสุดก่อน"
+          initialSort={{ key: "profit", dir: 1 }} />
       )}
     </>
   );

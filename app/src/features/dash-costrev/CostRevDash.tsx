@@ -1,7 +1,8 @@
 /**
  * แดชบอร์ดต้นทุน+รายได้รายเที่ยว จากไฟล์ realalldata — สองเมนู หน้าตาเดียวกัน ต่างกันที่ข้อมูล
  *
- *   Executive Dashboard  (mode "exec")  เฉพาะเที่ยวที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง (m = true)
+ *   Executive Dashboard  (mode "exec")  ชุด inProfitScope() = จับคู่กับข้อมูลรายได้ได้ (m) + เที่ยววิ่งเปล่า
+ *                                        (เจ้าของงานเคาะ 24 ก.ย. 2569 — ชุดเดียวกับเมนู Demo ทุกแท็บ)
  *   Dashboard รวม         (mode "all")   ทุกเที่ยวในไฟล์
  *
  * ห้าแท็บจากไฟล์ต้นทุน: กำไรรายเที่ยว (สเปกส่วนที่ 2) · กองรถ (ส่วนที่ 1) · ต้นทุน (เอกสารจัดประเภทต้นทุน)
@@ -17,19 +18,20 @@
  * ★ แท็บ "ต้นทุนที่จมกับที่ว่าง" (22 ก.ย. 2569) อ่านชุด loadfactor/ ของตัวเอง ไม่ใช้ trips เลย — อยู่ใน STANDALONE
  *   จึงวาดก่อนการตรวจ error/ว่างของ costrev เข้าได้แม้ไฟล์ต้นทุนหาย
  * ★ แท็บ "กำไรส่วนเกิน/ตัน-กม." (23 ก.ย. 2569) ใช้ชุด loadfactor/ เดียวกัน — STANDALONE เหมือนกัน
- *   การ์ดสรุปในเมนู Demo กดแล้วเปิดแท็บนี้ตรง ๆ ผ่าน openExecTab() → takeExecTab() ตอนเปิดหน้า
- * ★ แท็บ "เที่ยววิ่งเปล่า" ใช้ **ทุกแถวในไฟล์ต้นทุน** แม้ในโหมด exec (ALL_TRIPS) — เจ้าของข้อมูลชี้ขาด 22 ก.ย. 2569:
- *   เที่ยวเปล่าดูจากไฟล์ต้นทุนไฟล์เดียวได้ เพราะมีต้นทุนแต่ไม่มีรายได้ จึงไม่มีบิลให้จับคู่ตั้งแต่ต้น
- *   (ชุดตัวอย่างใหม่: เที่ยวเปล่า 369 ใบ จับคู่ได้ 0 ใบ ถ้ากรอง m แท็บจะว่างทั้งที่ข้อมูลมีอยู่)
+ *   การ์ดสรุปในเมนู Demo กดแล้วเปิดแท็บนี้ตรง ๆ ผ่าน openExecTab() (lib/ui/dashJump.ts)
+ * ★ ทุกแท็บของโหมด exec ใช้ชุดเดียวกัน (24 ก.ย. 2569) — เดิมแท็บ "เที่ยววิ่งเปล่า" เป็นข้อยกเว้นที่ใช้ทุกแถวในไฟล์
+ *   (ALL_TRIPS) ส่วนแท็บอื่นใช้ m อย่างเดียว เที่ยวเปล่าจึงหลุดจากกำไร และ % เที่ยวเปล่าหารด้วยต้นทุนของเที่ยว
+ *   ที่หน้าอื่นไม่นับ · ตอนนี้ทุกแท็บได้ m + เที่ยวเปล่า แท็บที่ไม่ควรนับเที่ยวเปล่าตัดออกเอง (Damage · ตารางสรุป)
  *
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { clearExecTab, peekExecTab } from "../../lib/ui/dashJump";
 import { useDashInk } from "../../lib/chart/dashfx";
 import DashShell, { Meta } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
-import { useCostRev } from "../../lib/data/useCostRev";
+import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
 import { fmt } from "./common";
 import DebtorBoard from "../dash-revenue/board/DebtorBoard";
 import RevenueBoard from "../dash-revenue/board/RevenueBoard";
@@ -40,7 +42,7 @@ import DamageTab from "./DamageTab";
 import EmptyTab from "./EmptyTab";
 import LoadFactorTab from "./lf/LoadFactorTab";
 import TonKmTab from "./tonkm/TonKmTab";
-import { takeExecTab } from "../../lib/ui/execTab";
+import Detail3Tab from "./detail3/Detail3Tab";
 import type { RecordsState } from "../../lib/store/useRecords";
 import TruckLoader from "../../lib/ui/TruckLoader";
 
@@ -48,7 +50,7 @@ export type CostRevMode = "exec" | "all";
 
 const TABS = [
   { id: "profit", label: "กำไรรายเที่ยว" },
-  { id: "fleet", label: "กองรถ" },
+  { id: "fleet", label: "การใช้ประโยชน์ของกองรถ" },
   { id: "cost", label: "ต้นทุน" },
   { id: "damage", label: "Damage Rate" },
   { id: "empty", label: "เที่ยววิ่งเปล่า" },
@@ -58,24 +60,24 @@ const TABS = [
   { id: "debt", label: "Dashboard ลูกหนี้", execOnly: true },
   { id: "lf", label: "ต้นทุนที่จมกับที่ว่าง", execOnly: true },
   { id: "tonkm", label: "กำไรส่วนเกิน/ตัน-กม.", execOnly: true },
+  // สเปก ข้อ3.pdf (23 ก.ย. 2569) — ใช้ trips ชุดเดียวกับแท็บอื่น (ตัน-กม. คิดได้เฉพาะเที่ยวที่มีน้ำหนัก wt จากบิล)
+  { id: "detail3", label: "รายละเอียด ข้อ 3", execOnly: true },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
 const STANDALONE: ReadonlySet<TabId> = new Set<TabId>(["lf", "tonkm"]);
-/** แท็บที่ใช้ทุกแถวในไฟล์ต้นทุน ไม่กรองด้วย m แม้อยู่ในโหมด exec (ดูเหตุผลข้างบน) */
-const ALL_TRIPS: ReadonlySet<TabId> = new Set<TabId>(["empty"]);
 
 export default function CostRevDash({ mode, state }: { mode: CostRevMode; state: RecordsState }) {
   const { data, error, loading, reload } = useCostRev();
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/Dashboard real data/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("costrev");
   useAutoReloadOnEtl(etl, reload);
-  // หน้าอื่นฝากแท็บที่จะเปิดไว้ (openExecTab) — รับเฉพาะชื่อที่มีจริงในเมนูนี้
+  // แท็บที่หน้าอื่นสั่งให้เปิด (lib/ui/dashJump.ts) — รับเฉพาะโหมด exec และชื่อแท็บที่มีจริง
   const [tab, setTab] = useState<TabId>(() => {
-    const want = takeExecTab();
-    const ok = TABS.find((t) => t.id === want && (!("execOnly" in t && t.execOnly) || mode === "exec"));
-    return ok ? ok.id : "profit";
+    const want = mode === "exec" ? peekExecTab() : null;
+    return TABS.some((t) => t.id === want) ? (want as TabId) : "profit";
   });
+  useEffect(() => { clearExecTab(); }, []);
   const barRef = useRef<HTMLDivElement>(null);
   const ready = !!data && !error;
   useDashInk(barRef, `${tab}:${ready}`);
@@ -87,11 +89,9 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
 
   const trips = useMemo(() => {
     if (!data) return [];
-    return mode === "exec" ? data.trips.filter((t) => t.m) : data.trips;
+    return mode === "exec" ? data.trips.filter(inProfitScope) : data.trips;
   }, [data, mode]);
-
-  /** ชุดที่แท็บปัจจุบันใช้ — ปกติตามโหมด ยกเว้นแท็บใน ALL_TRIPS ที่ใช้ทุกแถวเสมอ */
-  const shown = useMemo(() => (ALL_TRIPS.has(tab) ? data?.trips ?? [] : trips), [data, trips, tab]);
+  const emptyN = useMemo(() => trips.filter((t) => t.empty).length, [trips]);
 
   const refreshTitle = "ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่";
   const m = data?.manifest;
@@ -99,7 +99,7 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
   // บรรทัดที่มาของข้อมูลใต้หัวเรื่อง — ข้อความตามดีไซน์ 1A
   const meta = m && (mode === "exec"
     ? <Meta parts={[
-        <><b>{fmt(m.matched)}</b> เที่ยวที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
+        <><b>{fmt(trips.length)}</b> เที่ยว = จับคู่กับข้อมูลรายได้ได้ <b>{fmt(trips.length - emptyN)}</b> + เที่ยววิ่งเปล่า <b>{fmt(emptyN)}</b> จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
         `ข้อมูลรายได้ ${m.revenueFiles} ไฟล์`,
         <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
       ]} />
@@ -136,11 +136,11 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
           </div>
         ) : !m ? (
           <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>
-        ) : shown.length === 0 ? (
+        ) : trips.length === 0 ? (
           <div className="card">
             <h2>ยังไม่มีข้อมูล</h2>
             <p className="muted">
-              {mode === "exec" && !ALL_TRIPS.has(tab)
+              {mode === "exec"
                 ? "ไม่มีเที่ยวไหนที่เลขที่ใบรายการตรงกับข้อมูลรายได้จริง — ตรวจว่าวางไฟล์รายได้ใน etl/data/revenue/ แล้วรัน ETL ใหม่"
                 : "ไฟล์ต้นทุนไม่มีแถวข้อมูล"}
             </p>
@@ -148,12 +148,13 @@ export default function CostRevDash({ mode, state }: { mode: CostRevMode; state:
         ) : (
           <>
             {tab === "fleet" && <FleetTab trips={trips} />}
-            {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} />}
+            {tab === "profit" && <ProfitTab trips={trips} fileRows={m.rows} svc={data?.svc ?? null} />}
             {tab === "cost" && <CostTab trips={trips} />}
             {/* ความเสียหายมาจากบิลในไฟล์รายได้ จึงมีตัวเลขเฉพาะโหมด exec — โหมด all ขึ้นข้อจำกัดแทน */}
-            {tab === "empty" && <EmptyTab trips={shown} mode={mode} />}
+            {tab === "empty" && <EmptyTab trips={trips} />}
             {tab === "damage" && <DamageTab trips={trips} mode={mode} matchedTotal={m.matched} isSample={m.isSample} />}
             {tab === "rev" && mode === "exec" && <RevenueBoard trips={trips} manifest={m} />}
+            {tab === "detail3" && mode === "exec" && <Detail3Tab trips={trips} />}
             {tab === "debt" && mode === "exec" && <DebtorBoard state={state} manifest={m} />}
           </>
         )}

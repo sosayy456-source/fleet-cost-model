@@ -1,5 +1,5 @@
 /**
- * ป็อบอัพรายการทุกเที่ยวของเส้นทางหนึ่ง — ใช้ร่วมกันในเมนู Demo
+ * ป็อบอัพรายการทุกเที่ยวของเส้นทางหนึ่ง — ใช้ร่วมกันในเมนู Demo และแท็บการใช้ประโยชน์ของกองรถ (Executive Dashboard)
  *   · ปุ่ม i ของแผงรายละเอียดเส้นทาง (RouteProfitTab)
  *   · กดแถวในตารางรายเส้นทางของแผงกลุ่มบริการ (ServicePanel)
  * ขอบเขตของเที่ยวให้ผู้เรียกกรองมาให้แล้ว (ตัวกรองใหญ่ของแท็บ + กลุ่มบริการถ้ามี)
@@ -16,7 +16,13 @@ import { SortTable, fmt, marginTone, pct, signed, useSort } from "../dash-costre
 import type { Col } from "../dash-costrev/common";
 import type { Trip } from "../../lib/data/useCostRev";
 
-export default function TripsModal({ rt, trips, onClose, note }: { rt: string; trips: Trip[]; onClose: () => void; note?: string }) {
+export default function TripsModal({ rt, trips, onClose, note, showRoute, initialSort }: {
+  rt: string; trips: Trip[]; onClose: () => void; note?: string;
+  /** เที่ยวมาจากหลายเส้นทาง (ป็อบอัพเที่ยวขาดทุน) — ใส่คอลัมน์เส้นทางต่อจากวันที่ */
+  showRoute?: boolean;
+  /** การเรียงตั้งต้น — ค่าเริ่มต้น กำไรมากไปน้อย */
+  initialSort?: { key: string; dir: 1 | -1 };
+}) {
   useEffect(() => {
     const on = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", on);
@@ -25,6 +31,7 @@ export default function TripsModal({ rt, trips, onClose, note }: { rt: string; t
 
   const cols = useMemo<Col<Trip>[]>(() => [
     { key: "d", label: "วันที่", get: (t) => t.d, render: (t) => thDateSafe(t.d) },
+    ...(showRoute ? [{ key: "rt", label: "เส้นทาง", get: (t: Trip) => t.rt || "–" }] : []),
     { key: "id", label: "เลขที่ใบรายการ", get: (t) => t.id },
     { key: "br", label: "สาขา", get: (t) => t.br || "–" },
     { key: "pl", label: "ทะเบียนรถ", get: (t) => t.pl || "–" },
@@ -41,8 +48,8 @@ export default function TripsModal({ rt, trips, onClose, note }: { rt: string; t
         const m = t.rev ? t.profit / t.rev * 100 : null;
         return <span style={{ fontWeight: 700, color: marginTone(m) }}>{m == null ? "–" : pct(m)}</span>;
       } },
-  ], []);
-  const { sorted, sort, toggle } = useSort(trips, cols, { key: "profit", dir: -1 });
+  ], [showRoute]);
+  const { sorted, sort, toggle } = useSort(trips, cols, initialSort ?? { key: "profit", dir: -1 });
 
   // #view-dash ไม่มี transform จึงยังได้ position:fixed เต็มจอ และยังอยู่ในขอบเขตโทเคนสีของแดชบอร์ด
   const host = document.getElementById("view-dash") ?? document.body;
