@@ -4,6 +4,7 @@
  * รับบิลที่ฝ่ายบริการลูกค้ากรอกไว้ (สถานะ "รอจัดรถ") มารวมเข้ารถคันเดียวกัน
  *   1. ตารางบิลรอจัดรถ + ตัวกรอง วันที่รับสินค้า · สาขา · ต้นทาง · ปลายทาง · กลุ่มบริการ
  *   2. ติ๊กเลือกบิล → ระบบรวม น้ำหนัก/ปริมาตร/รายได้/จำนวนลูกค้า ให้เอง
+ *      ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน ปลายทางเดียวกันหรืออยู่ระหว่างทาง (lib/route/enRoute.ts)
  *      ข้างตารางบิลมีกล่อง "สถานะการบรรทุก" (LoadTruck.tsx) รูปรถเติมของตามบิลที่ติ๊ก + หลอด Load Factor
  *   3. เลือกรถ ประเภทรถ → ชนิดรถ → ทะเบียน (ทะเบียนที่สถานะ "ใช้งาน" เท่านั้น · ชุดช่องเดียวกับหางพ่วง)
  *      → น้ำหนัก/ปริมาณบรรทุกจริงมาจากบิลที่เลือก
@@ -31,6 +32,7 @@ import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { useOverrides } from "../../lib/store/overrides";
 import { kindsOf, useRoster } from "../../lib/store/roster";
 import { splitLoad } from "../../lib/dispatch/loadSplit";
+import { onRouteOf, stopsFor, useEnRoute } from "../../lib/route/enRoute";
 import LoadTruck from "./LoadTruck";
 import type { FleetKind, FleetVehicle } from "../../lib/store/roster";
 import { useBills } from "../../lib/store/bills";
@@ -145,10 +147,23 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   /** บิลรอจัดรถ แยกออกเป็นที่จัดได้จริง กับที่อยู่ในใบรายการแล้ว (จัดรถค้างครึ่งทาง — ดูหัวไฟล์ข้อ 3) */
   const { free: waiting, stuck } = useMemo(() => splitStuckBills(
     bills.bills.filter((b) => b.status === "รอจัดรถ"), state.records), [bills.bills, state.records]);
+  /* ---------- ล็อกเส้นทางตามบิลแรก (เจ้าของงานสั่ง 24 ก.ย. 2569) ----------
+     ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน ที่ปลายทางเดียวกันหรืออยู่ระหว่างทาง (lib/route/enRoute.ts)
+     บิลแรก = บิลที่ติ๊กก่อนสุดที่ยังติ๊กอยู่ (Set เก็บตามลำดับที่ใส่) · เอาติ๊กออกหมด = กลับมาเห็นทุกบิล */
+  const [enRoute] = useEnRoute();
+  const anchor = useMemo(() => {
+    for (const id of picked) {
+      const b = waiting.find((x) => x.id === id);
+      if (b) return b;
+    }
+    return null;
+  }, [picked, waiting]);
   const rows = useMemo(() => waiting.filter((b) =>
     (!f.date || b.date === f.date) && (!f.branch || b.branch === f.branch)
     && (!f.origin || b.origin === f.origin) && (!f.dest || b.dest === f.dest)
-    && (!f.group || b.serviceGroup === f.group)), [waiting, f]);
+    && (!f.group || b.serviceGroup === f.group)
+    && (!anchor || onRouteOf(anchor, b, enRoute))), [waiting, f, anchor, enRoute]);
+  const anchorStops = anchor ? stopsFor(anchor.origin, anchor.dest, enRoute) : [];
 
   const chosen = useMemo(() => waiting.filter((b) => picked.has(b.id)), [waiting, picked]);
   const sum = useMemo(() => ({
@@ -366,19 +381,28 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <button type="button" className="dh-clear" onClick={() => setF(F0)}>↺ ล้างตัวกรอง</button>
         </div>
 
+        {anchor && (
+          <div className="dispatch-lock">
+            แสดงเฉพาะบิลที่ไปทางเดียวกับ <b>{anchor.origin} → {anchor.dest}</b>
+            {anchorStops.length ? <> · ปลายทางระหว่างทาง: {anchorStops.join(" · ")}</> : <> · ไม่มีจุดระหว่างทาง</>}
+            <span> — เอาติ๊กออกทุกบิลเพื่อดูบิลทั้งหมด</span>
+          </div>
+        )}
+
         {bills.loading ? <p className="muted">กำลังโหลดบิล… <TruckLoader label={null} /></p>
           : rows.length === 0 ? <p className="muted">ไม่มีบิลที่รอจัดรถตามตัวกรองที่เลือก</p>
           : (
             <GrowBox rows={rows} render={(shown) => (
               <table className="tbl dispatch-tbl">
                 <thead><tr>
-                  <th><input type="checkbox" checked={allShown} title="เลือกทั้งหมดที่เห็น"
+                  {/* เลือกทั้งหมดได้หลังติ๊กบิลแรกแล้วเท่านั้น — ก่อนนั้นจะได้บิลทุกเส้นทางปนกัน */}
+                  <th>{anchor && <input type="checkbox" checked={allShown} title="เลือกทุกบิลที่ไปทางเดียวกัน"
                     onChange={() => setPicked((s) => {
                       const next = new Set(s);
                       if (allShown) rows.forEach((b) => next.delete(b.id));
                       else rows.forEach((b) => next.add(b.id));
                       return next;
-                    })} /></th>
+                    })} />}</th>
                   <th>วันที่บิล</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>ต้นทาง</th><th>ปลายทาง</th>
                   <th>กลุ่มบริการ</th><th className="n">จำนวน (ชิ้น)</th><th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th>
                   <th className="n">ราคารวม</th>

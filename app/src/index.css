@@ -1678,6 +1678,13 @@ body:has(#view-dash.active){background:#EDE7DF}
    stretch = สองกล่องสูงเท่ากันเสมอ (เจ้าของงานสั่ง 24 ก.ย. 2569) */
 .dispatch-top{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:16px;align-items:stretch;margin-bottom:16px}
 .dispatch-top>.card{min-width:0;margin-bottom:0}
+/* แถบบอกว่าตารางบิลล็อกตามเส้นทางของบิลแรกอยู่ */
+.dispatch-lock{margin:0 0 12px;padding:9px 13px;border-radius:10px;background:var(--accent-tint);
+  border:1px solid var(--accent-line);font-size:13.5px;color:var(--ink-muted);line-height:1.6}
+.dispatch-lock b{color:var(--accent)}
+.dispatch-lock span{color:var(--ink-soft)}
+/* หน้าตั้งค่า · จุดระหว่างทาง — ช่องติ๊กเรียงเป็นกริด */
+.enroute-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 16px;margin-top:12px}
 @media(max-width:1100px){.dispatch-top{grid-template-columns:minmax(0,1fr)}}
 /* รูปรถเติมของ (LoadTruck.tsx) — แบบจาก "Truck Load Factor (standalone).html" แต่สีเป็นโทเคนของโมเดล */
 .lt-stage{background:var(--bg);border-radius:16px;padding:28px 12px 14px;overflow:hidden}
