@@ -31,6 +31,13 @@ import type { OldDebtor, RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
 import TruckLoader from "../../lib/ui/TruckLoader";
 
+/**
+ * ★ Manager Dashboard เหลือแค่มุมมอง "หน้างาน" (เจ้าของงานสั่ง 24 ก.ย. 2569) — แถบแท็บกับปุ่ม หลัก/หน้างาน ซ่อนไว้
+ *   โค้ดของทุกแท็บยังอยู่ครบ อยากเปิดกลับให้เปลี่ยนค่านี้เป็น true ค่าเดียว
+ *   (แท็บ "สถานะกองรถ" ยังใช้อยู่ที่เมนู "สถานะกองรถ" ของฝ่ายจัดรถผ่าน FleetStatusPage)
+ */
+const SHOW_TABS = false;
+
 const TABS = [
   { id: "main", label: "หลัก" },
   { id: "trip", label: "กำไรรายเที่ยว" },
@@ -115,7 +122,7 @@ export default function FleetDash({ state, role, sample = false }: {
     ]} />
   );
 
-  const tabs = !showLoading && !nothing && (
+  const tabs = SHOW_TABS && !showLoading && !nothing && (
     <div className="dash-tabs" ref={barRef}>
       <span className="dink" />
       {TABS.map((t) => (
@@ -144,6 +151,8 @@ export default function FleetDash({ state, role, sample = false }: {
             หรือเชื่อม Google Sheet เพื่อดึงใบที่มีอยู่แล้วเข้ามา
           </p>
         </div>
+      ) : !SHOW_TABS ? (
+        <MainPane state={state} opsOnly />
       ) : (
         <>
           {tab === "main" && <MainPane state={state} />}
@@ -162,10 +171,11 @@ export default function FleetDash({ state, role, sample = false }: {
 /* ============================ แท็บ: หลัก ============================ */
 const MAIN_F0 = { src: "", year: "", branch: "", fleet: "", veh: "", plate: "", rectype: "", origin: "", dest: "" };
 
-function MainPane({ state }: { state: RecordsState }) {
+/** opsOnly = แสดงแค่มุมมอง "หน้างาน" ไม่มีปุ่มสลับ (Manager Dashboard ตอน SHOW_TABS = false) */
+function MainPane({ state, opsOnly = false }: { state: RecordsState; opsOnly?: boolean }) {
   /** สลับเนื้อหาในแท็บ "หลัก" เอง แทนที่จะแยกเป็นแท็บใหม่ — ปุ่มอยู่กลางแถวตัวกรอง
    * ต่อจากช่อง "ทะเบียนรถ" ตามดีไซน์ที่ขอมา */
-  const [view, setView] = useState<"main" | "ops">("main");
+  const [view, setView] = useState<"main" | "ops">(opsOnly ? "ops" : "main");
   const [f, setF] = useState(MAIN_F0);
   const set = (k: keyof typeof f) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const base = useSourced(state, f.src);
@@ -262,7 +272,7 @@ function MainPane({ state }: { state: RecordsState }) {
 
   return (
     <>
-      <FilterBar>
+      {!opsOnly && <FilterBar>
         {view === "main" && <>
           <SrcFF value={f.src} onChange={set("src")} />
           <YearFF rows={base} value={f.year} onChange={set("year")} />
@@ -278,7 +288,7 @@ function MainPane({ state }: { state: RecordsState }) {
           <ListFF label="จุดลง (ปลายทาง)" all="ทุกปลายทาง" value={f.dest} onChange={set("dest")} opts={duniq(base.map((r) => r.dest))} />
           <ResetBtn onClick={() => setF(MAIN_F0)} />
         </>}
-      </FilterBar>
+      </FilterBar>}
 
       {view === "ops" ? <OpsPane state={state} /> : (
         <Pane deps={[recs, f]}>

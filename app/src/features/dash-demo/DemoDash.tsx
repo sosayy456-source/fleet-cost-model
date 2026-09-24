@@ -2,7 +2,8 @@
  * เมนู "Demo" — หน้าทดลอง เห็นเฉพาะผู้ดูแลระบบ (ROLE_VIEWS.admin)
  *
  * ★ หน้ายาวหน้าเดียว (เจ้าของงานสั่ง 24 ก.ย. 2569) — เดิมเป็น 4 แท็บ ตอนนี้วาดครบทั้ง 4 ส่วนเรียงลงมา
- *   ปุ่มแท็บในหัวยังอยู่ (ยังไม่ต้องลบ) แต่กดแล้ว **เลื่อนไปหาส่วนนั้น** ไม่ใช่สลับหน้า · ปุ่มที่ไฮไลต์ตามส่วนที่เลื่อนถึง
+ *   ปุ่มแท็บ**ย้ายไปเป็นป็อบอัพของปุ่ม Demo ในแถบเมนูซ้ายแล้ว** (เจ้าของงานสั่ง 24 ก.ย. 2569 · lib/ui/demoNav.ts)
+ *   กดแล้ว **เลื่อนไปหาส่วนนั้น** ไม่ใช่สลับหน้า · รายการในป็อบอัพไฮไลต์ตามส่วนที่เลื่อนถึง · หัวหน้าไม่มีแถบแท็บแล้ว
  * ★ ตัวกรองชุดเดียวคุมทั้งหน้า (filter.tsx) — แต่ละส่วนกรองเท่าที่ข้อมูลของตัวเองมี แล้วบอกไว้ด้วย FilterScope
  *   ยกเว้นลูกหนี้ DSO (กำไรลูกค้า ส่วนที่ 2) ที่มี "ข้อมูล ณ วันที่" ของตัวเองเหมือนเดิม
  * ★ หัวหน้าเป็นของไฟล์ต้นทุน (costrev/) เสมอ ช่วงข้อมูล + ข้อจำกัดของไฟล์ลูกหนี้อยู่ที่หัวส่วน DSO
@@ -15,9 +16,8 @@
  * ส่วน "กำไรลูกค้า" **ไม่ใช้ trips เลย** — อ่านชุด alloc/ กับ debtors/ ของตัวเอง
  * จึงวาดเสมอแม้ไฟล์ต้นทุนจะหาย/ยังโหลดไม่เสร็จ (สามส่วนแรกขึ้นข้อความแทน)
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useDashInk } from "../../lib/chart/dashfx";
 import DashShell, { Meta } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
@@ -31,6 +31,7 @@ import CustomerProfitTab from "./CustomerProfitTab";
 import { DEMO_F0, passDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
+import { clearDemoNav, registerDemoNav, setDemoActive } from "../../lib/ui/demoNav";
 
 const PARTS = [
   { id: "route", label: "กำไรรายเส้นทาง" },
@@ -49,9 +50,6 @@ export default function DemoDash() {
   const [f, setF] = useState<DemoFilter>(DEMO_F0);
   const set = (k: keyof DemoFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [active, setActive] = useState<PartId>("route");
-  const barRef = useRef<HTMLDivElement>(null);
-  const ready = !!data && !error;
-  useDashInk(barRef, `${active}:${ready}`);
 
   const all = useMemo(() => (data ? data.trips.filter(inProfitScope) : []), [data]);
   const emptyN = useMemo(() => all.filter((t) => t.empty).length, [all]);
@@ -63,11 +61,17 @@ export default function DemoDash() {
   const partRefs = useRef<Partial<Record<PartId, HTMLElement | null>>>({});
   /** ช่วงที่กำลังเลื่อนเพราะกดปุ่ม — ไม่ให้ไฮไลต์วิ่งผ่านทุกส่วนระหว่างทาง */
   const lockUntil = useRef(0);
-  const go = (id: PartId) => {
+  const go = useCallback((id: PartId) => {
     setActive(id);
     lockUntil.current = Date.now() + 1000;
     partRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+  }, []);
+  // ป็อบอัพของปุ่ม Demo ในแถบเมนูซ้าย — ลงทะเบียนตอนเปิดหน้า ล้างตอนออก
+  useEffect(() => {
+    registerDemoNav(PARTS, (id) => go(id as PartId));
+    return clearDemoNav;
+  }, [go]);
+  useEffect(() => { setDemoActive(active); }, [active]);
   useEffect(() => {
     let raf = 0;
     const spy = () => {
@@ -93,16 +97,6 @@ export default function DemoDash() {
       `ข้อมูลรายได้ ${m.revenueFiles} ไฟล์`,
       <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
     ]} />
-  );
-
-  const tabs = (
-    <div className="dash-tabs" ref={barRef}>
-      <span className="dink" />
-      {PARTS.map((p) => (
-        <button key={p.id} type="button" className={"dtab" + (active === p.id ? " active" : "")}
-          onClick={() => go(p.id)}>{p.label}</button>
-      ))}
-    </div>
   );
 
   /** สามส่วนแรกใช้ trips — ไฟล์ต้นทุนพัง/ยังโหลด/ว่าง ขึ้นข้อความแทนเนื้อหา แต่ส่วนกำไรลูกค้ายังวาดได้ */
@@ -135,7 +129,7 @@ export default function DemoDash() {
   return (
     <>
       <EtlBanner status={etl} />
-      <DashShell sample={m?.isSample} meta={meta || undefined} tabs={tabs}
+      <DashShell sample={m?.isSample} meta={meta || undefined}
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
         <FilterBar>
           <YearFF trips={all} value={f.year} onChange={set("year")} />

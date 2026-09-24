@@ -1726,6 +1726,12 @@ body:has(#view-dash.active){background:#EDE7DF}
 .dispatch-trailer{margin-top:14px}
 .dispatch-trailer-h{display:flex;align-items:center;gap:10px;min-height:28px;margin-bottom:8px;font-size:14.5px;font-weight:700}
 .dispatch-trailer-h .dh-clear{margin-left:auto}
+/* หน้า "บันทึกข้อมูลรวม" ของผู้ดูแลระบบ — หัวคั่นของแต่ละฝ่าย (features/entry/EntryAll.tsx) */
+.ea-part{scroll-margin-top:16px}
+.ea-part + .ea-part{margin-top:34px}
+.ea-part-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding-bottom:10px;
+  border-bottom:2px solid var(--accent-line);font-size:20px;font-weight:800;color:var(--accent)}
+.ea-part-h span{font-size:13.5px;font-weight:400;color:var(--ink-soft)}
 .bill-grid label{font-size:12.5px;color:var(--ink-soft)}
 .bill-grid input,.bill-grid select{font-family:inherit;font-size:14.5px;padding:8px 10px;
   border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--ink);width:100%}
@@ -2172,3 +2178,18 @@ body:has(#view-dash.active){background:#EDE7DF}
 /* ---- การ์ดแรกของแท็บเที่ยววิ่งเปล่า: หัวข้อ + 3 บรรทัดเปรียบเทียบ YTD (EmptyTab.tsx YtdLines · 24 ก.ย. 2569) ---- */
 #view-dash .em-ytd{display:flex;flex-direction:column;gap:2px;line-height:1.45}
 #view-dash .em-ytd b{color:#fff;font-weight:700}
+
+/* ป็อบอัพส่วนของหน้า Demo — เด้งใต้ปุ่ม Demo ในแถบเมนูซ้าย (ที่ไม่พอขึ้นเหนือปุ่ม · .up) · lib/ui/demoNav.ts · 24 ก.ย. 2569
+   position:fixed พิกัดจากปุ่ม — ลอยทับเมนูอื่น ไม่ดันรายการข้างล่างลง */
+.navpop{position:fixed;z-index:60;display:flex;flex-direction:column;gap:2px;padding:6px;background:#fff;
+  border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 32px rgba(27,27,31,.14);
+  animation:navPopIn .16s var(--ease) both}
+.navpop.up{transform:translateY(-100%);animation-name:navPopUp}
+.navpopitem{display:block;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;
+  font-family:inherit;font-size:14.5px;color:var(--ink-muted);padding:10px 14px;border-radius:10px;
+  transition:background-color .15s var(--ease),color .15s var(--ease)}
+.navpopitem:hover,.navpopitem:focus-visible{background:var(--accent-tint);color:var(--accent);outline:none}
+.navpopitem.active{color:var(--accent);font-weight:700}
+@keyframes navPopIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes navPopUp{from{opacity:0;transform:translateY(calc(-100% + 4px))}to{opacity:1;transform:translateY(-100%)}}
+@media (prefers-reduced-motion: reduce){.navpop{animation:none}}

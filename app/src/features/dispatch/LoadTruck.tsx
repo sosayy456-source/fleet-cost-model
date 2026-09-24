@@ -8,6 +8,8 @@
  */
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import type { Load, LoadStats } from "../../lib/dispatch/load";
+import type { Cap } from "../../lib/dispatch/loadSplit";
 
 interface Props {
   /** ข้อความหัวกล่องด้านขวา เช่น ทะเบียน · ชนิดรถ (ประเภท) */
@@ -174,5 +176,59 @@ export default function LoadTruck({ hint, lf, head, tail, basis, over, children 
 
       <div className={"dispatch-load" + (over ? " over" : "")}>{children}</div>
     </div>
+  );
+}
+
+const kg = (v: number): string => Math.round(v).toLocaleString("th-TH");
+const m3 = (v: number): string => v.toLocaleString("th-TH", { maximumFractionDigits: 3 });
+
+/**
+ * กล่องสถานะการบรรทุกพร้อมข้อความสรุป/คำเตือน — ใช้ร่วมหน้า "จัดรถ" กับส่วน Fleet Coordinator ของ "บันทึกข้อมูลรวม"
+ * (ย้ายข้อความมาจาก DispatchPage.tsx ให้สองหน้าเหมือนกันทุกตัวอักษร) · stats = null คือยังไม่ได้เลือกรถ
+ */
+export function LoadTruckPanel({ stats, load, headCap, tailCap, truckPlate, trailerPlate, kind, fleetType, trailerKind,
+  hasLoad, noTruckText, noLoadText, overText }: {
+  stats: LoadStats | null; load: Load; headCap: Cap; tailCap: Cap | null;
+  truckPlate: string; trailerPlate: string; kind: string; fleetType: string; trailerKind: string;
+  /** มีของให้คิดแล้วหรือยัง (หน้าจัดรถ = ติ๊กบิลแล้ว) */
+  hasLoad: boolean;
+  noTruckText: string; noLoadText: string; overText: string;
+}) {
+  const over = !!stats && (stats.overWeight || stats.overVolume);
+  return (
+    <LoadTruck
+      hint={stats ? `${truckPlate} · ${kind} (${fleetType})${tailCap ? ` + หาง ${trailerPlate}` : ""}` : "ยังไม่ได้เลือกรถ"}
+      lf={stats ? stats.loadFactor : 0} head={stats?.head ?? 0} tail={stats?.tail ?? null}
+      basis={stats && hasLoad ? `คิดจากฝั่ง${stats.binding}` : ""}
+      over={over}>
+      {!stats ? (
+        <div className="lf">ยังไม่ได้เลือกรถ <small>— {noTruckText}</small></div>
+      ) : (
+        <>
+          <div className="lf">Load Factor <b>{stats.loadFactor.toFixed(1)}%</b>
+            <small> {over ? "เกินความจุรถ"
+              : !hasLoad ? noLoadText
+              : stats.loadFactor >= 95 ? "เต็มคันพอดี"
+              : `ยังว่างอยู่ ${(100 - stats.loadFactor).toFixed(1)}%`}{tailCap ? " · ความจุหัว + หางพ่วง" : ""}</small></div>
+          <div className="cap">
+            น้ำหนัก {kg(load.weight)} / {kg(stats.capKg)} กก. ({(stats.useWeight * 100).toFixed(1)}%) ·
+            ปริมาตร {m3(load.volume)} / {m3(stats.capM3)} ลบ.ม. ({(stats.useVolume * 100).toFixed(1)}%)
+          </div>
+          {tailCap && (
+            <div className="cap">
+              หัว {truckPlate} {kg(headCap.kg)} กก. / {m3(headCap.m3)} ลบ.ม. +
+              หาง {trailerPlate} {kg(tailCap.kg)} กก. / {m3(tailCap.m3)} ลบ.ม.
+            </div>
+          )}
+          {over && <div className="bill-bad">⚠ {overText}</div>}
+          {headCap.kg === 0 && headCap.m3 === 0 && (
+            <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของ "{kind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
+          )}
+          {tailCap && tailCap.kg === 0 && tailCap.m3 === 0 && (
+            <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของหาง "{trailerKind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
+          )}
+        </>
+      )}
+    </LoadTruck>
   );
 }

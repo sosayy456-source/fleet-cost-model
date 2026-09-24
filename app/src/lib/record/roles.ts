@@ -73,9 +73,10 @@ export const ROLE_VIEWS: Record<RoleKey, string[]> = {
   // คนขับเห็นหน้าเดียว — เปิดแอปมาก็เจองานของตัวเองเลย
   driver: ["driver"],
   // main ให้ผู้จัดการเห็นแค่ dash กับ records — สองหน้าท้ายเป็นของที่เวอร์ชันนี้เพิ่มเข้ามา
-  manager: ["dash-fleet", "records", "route-profit", "exec-dash", "all-dash", "driver"],
-  admin: ["dash-fleet", "bills", "dispatch", "entry", "records", "drafts", "debtors", "custcode", "settings",
-          "route-profit", "exec-dash", "all-dash", "demo", "driver"],
+  manager: ["dash-fleet", "records", "route-profit", "exec-dash", "driver"],
+  // บันทึกบิล/จัดรถ/เที่ยวรถของฉัน/บันทึกข้อมูล ยุบเป็น "บันทึกข้อมูลรวม" หน้าเดียว (เจ้าของงานสั่ง 24 ก.ย. 2569)
+  admin: ["dash-fleet", "entry-all", "records", "drafts", "debtors", "custcode", "settings",
+          "route-profit", "exec-dash", "demo"],
 };
 
 export const isEntryRole = (r: RoleKey): boolean => ROLE_ORDER.includes(r);

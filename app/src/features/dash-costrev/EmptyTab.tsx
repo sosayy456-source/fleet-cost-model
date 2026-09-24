@@ -37,7 +37,6 @@ import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, mo
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
-import type { CostRevMode } from "./CostRevDash";
 import { emptyYtd, prevYY, ytdLabel, ytdMonths } from "../../lib/empty/ytd";
 import type { EmptyYtd } from "../../lib/empty/ytd";
 
@@ -86,7 +85,7 @@ function byRoute(rows: Trip[]): RouteAgg[] {
 /** ขอบเขตของป็อบอัพ — ทุกเที่ยวในขอบเขต (ใช้คิดต้นทุนรวม/%) รายการในตารางเป็นเฉพาะเที่ยวเปล่า */
 interface Detail { title: string; scope: Trip[] }
 
-export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode }) {
+export default function EmptyTab({ trips }: { trips: Trip[] }) {
   const [f, setF] = useState<BaseFilter>(BASE_F0);
   const set = (k: keyof BaseFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const rows = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
