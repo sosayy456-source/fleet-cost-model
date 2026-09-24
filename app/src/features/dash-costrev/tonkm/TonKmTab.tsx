@@ -18,7 +18,8 @@ import { useMemo, useState } from "react";
 import FilterBar, { ClearFiltersBtn } from "../../../lib/ui/FilterBar";
 import EtlBanner from "../../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../../lib/data/etlStatus";
-import { useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { lfShellSource, useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { useShellSource } from "../../../lib/ui/dashContext";
 import type { LfManifest, LfTrip } from "../../../lib/data/useLoadFactor";
 import { BASE_W, STATUS_LABEL, hasTonKm, latestPeriod, overview, yearRows } from "../../../lib/tonkm/calc";
 import type { TkPeriod, TkStatus, YearRow } from "../../../lib/tonkm/calc";
@@ -35,6 +36,8 @@ export default function TonKmTab() {
   const { data, error, reload } = useLoadFactor();
   const etl = useEtlStatus("loadfactor");
   useAutoReloadOnEtl(etl, reload);
+  // หัวแดชบอร์ดบอกชุด loadfactor/ ไม่ใช่ไฟล์ต้นทุน (lfShellSource)
+  useShellSource(lfShellSource(data?.manifest));
   return (
     <>
       <EtlBanner status={etl} />

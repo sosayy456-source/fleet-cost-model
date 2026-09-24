@@ -42,10 +42,15 @@ const linkProps = (go: () => void, label: string) => ({
   onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } },
 });
 
-export default function Item3Tab({ trips }: { trips: Trip[] }) {
+/**
+ * ★ ตามตัวกรองของหน้า Demo (24 ก.ย. 2569 — หน้ายาว ตัวกรองชุดเดียว)
+ *   trips     = กรองครบทุกตัว → ส่วนที่ 2 (ค่าเสื่อม) และ 3 (ภาพรวมกองรถ)
+ *   costTrips = กรองทุกตัว **ยกเว้นปี** → ส่วนที่ 1 ต้องมีปีก่อนหน้าไว้เทียบ · year = ปีที่เลือก ("" = ปีล่าสุด)
+ */
+export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; costTrips: Trip[]; year: string }) {
   const top = useRef<HTMLElement>(null);
   const rows = useMemo(() => vehicleRows(trips), [trips]);
-  const cost = useMemo(() => kindYearCost(rows), [rows]);
+  const cost = useMemo(() => kindYearCost(vehicleRows(costTrips), year ? Number(year) : undefined), [costTrips, year]);
   const dep = useMemo(() => depreciation(rows), [rows]);
   const depKinds = useMemo(() => depByKind(dep.list), [dep.list]);
   const slices = useMemo(() => fleetSlices(trips), [trips]);
@@ -54,9 +59,9 @@ export default function Item3Tab({ trips }: { trips: Trip[] }) {
   const typeTotal = types.reduce((s, t) => s + t.n, 0);
   // ช่วงเดือนของปีล่าสุด — ปีล่าสุดมักยังไม่ครบ ต้องบอกผู้ใช้ว่าเทียบช่วงไหน
   const span = useMemo(() => {
-    const ms = trips.filter((t) => t.y === cost.year).map((t) => Number(t.mo.slice(5, 7))).filter((m) => m >= 1 && m <= 12);
+    const ms = costTrips.filter((t) => t.y === cost.year).map((t) => Number(t.mo.slice(5, 7))).filter((m) => m >= 1 && m <= 12);
     return ms.length ? `${MONTHS[Math.min(...ms) - 1]}–${MONTHS[Math.max(...ms) - 1]}` : "";
-  }, [trips, cost.year]);
+  }, [costTrips, cost.year]);
   // แท่ง diverging: ฝั่งลบกว้าง 18% ของช่อง สเกลตามค่าลบสุด · ฝั่งบวกใช้ที่เหลือ สเกลตามค่าบวกสุด
   const maxPos = Math.max(0, ...depKinds.map((k) => k.vsAvg)), maxNeg = Math.max(0, ...depKinds.map((k) => -k.vsAvg));
   const donut = useMemo(() => {

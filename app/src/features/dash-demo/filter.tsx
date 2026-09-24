@@ -1,0 +1,44 @@
+/**
+ * ตัวกรองชุดเดียวของเมนู Demo หน้ายาว (เจ้าของงานสั่ง 24 ก.ย. 2569 — รวม 4 แท็บเป็นหน้าเดียว ตัวกรองชุดเดียวคุมทั้งหน้า)
+ *
+ * แต่ละส่วนกรองเท่าที่ข้อมูลของตัวเองมี แล้วบอกไว้ด้วย <FilterScope> เมื่อมีตัวกรองที่ส่วนนั้นใช้ไม่ได้
+ *   ส่วนที่อ่าน trips (กำไรรายเส้นทาง · ข้อ 2 กล่อง 3–4 · ข้อ 3)  → ครบทุกตัว
+ *   ไฟล์ Load Factor (ข้อ 2 กล่อง 1–2 · การ์ดตัน-กม.)            → ปี · เดือน · ประเภทรถ · ชนิดรถ
+ *   กำไรลูกค้า ส่วนที่ 1 (ชุด alloc/)                              → ปี · เดือน (ตามวันที่บิล)
+ *   ลูกหนี้ DSO                                                     → ไม่ใช้เลย มี "ข้อมูล ณ วันที่" ของตัวเอง
+ */
+import { passBase, BASE_F0 } from "../dash-costrev/common";
+import type { BaseFilter } from "../dash-costrev/common";
+import type { Trip } from "../../lib/data/useCostRev";
+
+export interface DemoFilter extends BaseFilter { sg: string }
+export type DemoKey = keyof DemoFilter;
+export const DEMO_F0: DemoFilter = { ...BASE_F0, sg: "" };
+
+const LABEL: Record<DemoKey, string> = {
+  year: "ปี", month: "เดือน", o: "ต้นทาง", de: "ปลายทาง", ft: "ประเภทรถ", vk: "ชนิดรถ", sg: "กลุ่มบริการ",
+};
+const ORDER: DemoKey[] = ["year", "month", "o", "de", "ft", "vk", "sg"];
+
+/** เที่ยวผ่านตัวกรองของหน้า — กลุ่มบริการว่าง = "ไม่ระบุ" (กติกาเดิมของแท็บกำไรรายเส้นทาง) */
+export const passDemo = (t: Trip, f: DemoFilter, opts?: Parameters<typeof passBase>[2]): boolean =>
+  passBase(t, f, opts) && (!f.sg || (t.sg || "ไม่ระบุ") === f.sg);
+
+/**
+ * บรรทัดเล็กบอกว่าส่วนนี้กรองตามอะไรได้บ้าง — ขึ้นเฉพาะตอนเลือกตัวกรองที่ส่วนนี้ใช้ไม่ได้ (ไม่มีอะไรข้ามก็ไม่รก)
+ * why = เหตุผลสั้น ๆ ว่าทำไมกรองไม่ได้ เช่น "ไฟล์ Load Factor ไม่มีต้นทาง/ปลายทางแยก"
+ */
+export function FilterScope({ f, uses, why, who = "ส่วนนี้" }: {
+  f: DemoFilter; uses: DemoKey[]; why: string;
+  /** ประธานของประโยค — ส่วนย่อยที่กรองได้ไม่ครบ เช่น "กล่องที่ 1–2" */
+  who?: string;
+}) {
+  const skipped = ORDER.filter((k) => f[k] && !uses.includes(k));
+  if (!skipped.length) return null;
+  return (
+    <p className="dm-scope">
+      {who}กรองตาม {uses.length ? ORDER.filter((k) => uses.includes(k)).map((k) => LABEL[k]).join(" · ") : "–"} เท่านั้น ·
+      ไม่ได้กรองตาม {skipped.map((k) => LABEL[k]).join(" · ")} ({why})
+    </p>
+  );
+}

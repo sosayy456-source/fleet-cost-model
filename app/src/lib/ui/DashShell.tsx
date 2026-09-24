@@ -10,7 +10,8 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import RefreshBtn from "./RefreshBtn";
-import { FilterSlotContext, useDashPage } from "./dashContext";
+import { FilterSlotContext, ShellSampleContext, ShellSourceContext, useDashPage } from "./dashContext";
+import type { ShellSource } from "./dashContext";
 
 export interface DashShellProps {
   /** ชุดข้อมูลตัวอย่าง → ชิป "ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท" · ข้อมูลจริง = ไม่แสดง */
@@ -33,19 +34,25 @@ export default function DashShell({
   const page = useDashPage();
   // callback ref → state เพื่อให้ FilterBar ในเนื้อหา re-render แล้ว portal ได้หลังกล่องถูกสร้าง
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  // แท็บที่อ่านชุดข้อมูลของตัวเองทับป้าย/บรรทัดที่มาได้ (useShellSource ใน dashContext.ts)
+  const [src, setSrc] = useState<ShellSource | null>(null);
+  const isSample = src ? src.sample : sample;
+  const metaNode = src ? <Meta parts={src.parts} /> : meta;
 
   return (
     <FilterSlotContext.Provider value={slot}>
+    <ShellSourceContext.Provider value={setSrc}>
+    <ShellSampleContext.Provider value={isSample}>
       <header className="dh">
         <div className="dh-top">
           <div className="dh-titles">
             <div className="dh-titleline">
               <h1>{title ?? page?.title}</h1>
-              {sample && (
+              {isSample && (
                 <span className="dh-sample"><i aria-hidden="true" />ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท</span>
               )}
             </div>
-            {meta && <p className="dh-meta">{meta}</p>}
+            {metaNode && <p className="dh-meta">{metaNode}</p>}
           </div>
           <div className="dh-actions">
             <RefreshBtn className="dh-refresh" onClick={onRefresh} loading={loading} title={refreshTitle} />
@@ -63,6 +70,8 @@ export default function DashShell({
         </div>
       </header>
       {children}
+    </ShellSampleContext.Provider>
+    </ShellSourceContext.Provider>
     </FilterSlotContext.Provider>
   );
 }

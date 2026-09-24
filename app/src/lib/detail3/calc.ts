@@ -103,9 +103,11 @@ export function kindSides(rows: VRow[]) {
  *   บาท/เที่ยว · บาท/กม. · บาท/ตัน-กม. = SUM÷SUM ของรายคัน (รวมบริษัท + ร่วม · วิธีเดียวกับ kindSides)
  *   % เปลี่ยนแปลง = (บาท/ตัน-กม. ปีนี้ − ปีก่อน) ÷ ปีก่อน × 100 — ปีก่อนไม่มีชนิดนั้นหรือหารไม่ได้ = null
  * ★ ปีล่าสุดมักยังไม่ครบปี (ชุดตัวอย่างถึง พ.ค.) หน้าจอต้องบอกช่วงเดือน
+ * pick = ปีที่ตัวกรองเลือก (Demo หน้ายาว 24 ก.ย. 2569) — ไม่ส่ง = ปีล่าสุด · rows ต้องมีปีก่อนหน้าติดมาด้วย
+ *   ผู้เรียกจึงห้ามกรองปีออกก่อนส่งเข้ามา
  */
-export function kindYearCost(rows: VRow[]) {
-  const year = rows.reduce((m, r) => (r.y > m ? r.y : m), 0) || null;
+export function kindYearCost(rows: VRow[], pick?: number) {
+  const year = pick ?? (rows.reduce((m, r) => (r.y > m ? r.y : m), 0) || null);
   const prev = year ? year - 1 : null;
   const prevBy = new Map([...bucket(rows.filter((r) => r.y === prev), (r) => r.vk)].map(([vk, l]) => [vk, sideStat(l)!]));
   const list = [...bucket(rows.filter((r) => r.y === year), (r) => r.vk)].map(([vk, l]) => {

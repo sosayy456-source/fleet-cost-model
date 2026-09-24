@@ -9,7 +9,9 @@
  *     % จึงต่ำกว่าเมื่อเทียบกับหน้าอื่น (ชุดตัวอย่างรวมทุกปี 2.58% → 6.44%) · เที่ยวเปล่ายังอยู่ครบทุกเที่ยว
  *   ทุก % = ต้นทุนเที่ยวเปล่า ÷ ต้นทุนของ "ทุกเที่ยว" (รวมเที่ยวเปล่า) ในขอบเขตเดียวกัน
  *
- *   KPI  การ์ด 2 ใบขนาดเท่ากัน: % ต้นทุนเที่ยวเปล่าของปีล่าสุด (เทียบปีก่อน + เส้นแนวโน้มรายปีในการ์ด)
+ *   KPI  การ์ด 2 ใบขนาดเท่ากัน: % ต้นทุนเที่ยวเปล่าของปีล่าสุด (เส้นแนวโน้มรายปีในการ์ด · ส่วนเปรียบเทียบข้างล่าง
+ *        = "มูลค่ารถเที่ยวเปล่า (YTD ม.ค.–พ.ค. 69)" 3 บรรทัด: เฉลี่ย/เดือน · % ของต้นทุนวิ่งรวม · YoY ช่วงเดือนเดียวกัน
+ *        ของปีก่อน — เจ้าของงานสั่ง 24 ก.ย. 2569 แทน "เทียบปีก่อน ± จุด" เดิม · lib/empty/ytd.ts)
  *        · มูลค่าต้นทุนเที่ยวเปล่า (จำนวนเที่ยวเปล่าอยู่ใต้ตัวเลขในการ์ดเดียวกัน)
  *   [1]  รายเดือน: แท่งเทา = ต้นทุนรวม · เส้น = % ต้นทุนเที่ยวเปล่า (แกนขวา) · ค่าเริ่มต้น "ทุกเส้นทาง"
  *        เลือกได้ทีละเส้นทาง · กดเดือน = ป็อบอัพรายการเที่ยววิ่งเปล่าของเดือนนั้น
@@ -36,6 +38,8 @@ import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 import type { CostRevMode } from "./CostRevDash";
+import { emptyYtd, prevYY, ytdLabel, ytdMonths } from "../../lib/empty/ytd";
+import type { EmptyYtd } from "../../lib/empty/ytd";
 
 const TOP_N = 10;
 
@@ -44,6 +48,26 @@ const pctOf = (a: number, b: number): number => (b ? a / b * 100 : 0);
 const pctTick = (v: number): string => `${v < 10 ? Number(v.toFixed(1)) : Math.round(v)}%`;
 const beYear = (y: number | string): number => Number(y) + 543;
 const sumCost = (xs: Trip[]): number => xs.reduce((s, t) => s + t.cost, 0);
+
+/** เฉลี่ยต่อเดือน — หลักล้านเขียนเป็น "4.83 ล้านบาท" ตามตัวอย่างของเจ้าของงาน ต่ำกว่านั้นเขียนเต็ม */
+const perMonth = (v: number): string =>
+  v >= 1e6 ? `${(v / 1e6).toFixed(2)} ล้านบาท/เดือน` : `${fmt(Math.round(v))} บาท/เดือน`;
+
+/** หัวข้อ + 3 บรรทัดใต้การ์ดแรก — เฉลี่ย/เดือน · % ของต้นทุนวิ่งรวม · YoY ช่วงเดือนเดียวกัน */
+function YtdLines({ r, pickedMonth }: { r: EmptyYtd; pickedMonth: boolean }) {
+  const py = prevYY(r.year);
+  const yoy = r.yoy != null
+    ? `${r.yoy > 0 ? "+" : r.yoy < 0 ? "−" : "±"}${Math.abs(r.yoy).toFixed(1)}%`
+    : r.prevEmpty == null ? `ไม่มีข้อมูลปี ${py} ช่วงเดียวกัน` : `ปี ${py} ช่วงเดียวกันไม่มีเที่ยวเปล่า`;
+  return (
+    <span className="em-ytd">
+      <b>มูลค่ารถเที่ยวเปล่า ({ytdLabel(r.year, r.months, pickedMonth)})</b>
+      <span>{perMonth(r.avgPerMonth)}</span>
+      <span>{r.share == null ? "–" : pct(r.share)} ของต้นทุนวิ่งรวม</span>
+      <span>เทียบ YoY ({py}): {yoy}</span>
+    </span>
+  );
+}
 
 interface RouteAgg { route: string; n: number; emptyN: number; emptyCost: number; cost: number; share: number }
 
@@ -89,10 +113,16 @@ export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode 
   const focusY = f.year ? Number(f.year) : yearShare[yearShare.length - 1]?.y;
   const focusIdx = yearShare.findIndex((x) => x.y === focusY);
   const focus = yearShare[focusIdx];
-  const prev = focusIdx > 0 ? yearShare[focusIdx - 1] : undefined;
-  // "เต็มปีไหม" เป็นเรื่องของข้อมูล ไม่ใช่ตัวกรอง — ดูเดือนสุดท้ายของปีนั้นจากทั้งชุด
-  const lastMo = focusY == null ? "" : trips.filter((t) => t.y === focusY).reduce((m, t) => (t.mo > m ? t.mo : m), "");
-  const partial = !!lastMo && Number(lastMo.slice(5)) < 12 ? lastMo : null;
+  /**
+   * ส่วนเปรียบเทียบใต้การ์ดแรก (เจ้าของงานสั่ง 24 ก.ย. 2569 — แทนบรรทัด "เทียบปีก่อน ± จุด" เดิม)
+   * มูลค่าเที่ยวเปล่าช่วง YTD ของปีที่การ์ดโชว์ เทียบปีก่อนหน้า **ช่วงเดือนเดียวกัน** · สูตรอยู่ใน lib/empty/ytd.ts
+   * ป้าย "YTD ม.ค.–พ.ค." บอกเองว่าปีนั้นยังไม่เต็มปี (แทนข้อความ "ปีนี้ยังไม่เต็มปี" เดิม)
+   */
+  const ytd = useMemo(() => {
+    if (focusY == null) return null;
+    const months = ytdMonths(trips, focusY, f.month);
+    return emptyYtd(trips.filter((t) => passBase(t, f, { ignoreYear: true })), focusY, months);
+  }, [trips, f, focusY]);
   const scope = f.year ? `ปี พ.ศ. ${beYear(f.year)}` : `รวม ${yearShare.length} ปี`;
 
   /* ---------- [1] รายเดือน ---------- */
@@ -149,8 +179,6 @@ export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode 
   ], []);
   const { sorted, sort, toggle } = useSort(emptyRoutes, cols, { key: "emptyCost", dir: -1 });
 
-  const delta = focus && prev ? focus.share - prev.share : null;
-
   return (
     <>
       <FilterBar>
@@ -169,12 +197,7 @@ export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode 
             l={focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${beYear(focusY)}` : "% ต้นทุนเที่ยวเปล่า"}
             v={focus ? pct(focus.share) : "–"}
             trend={yearShare.length >= 2 ? yearShare.map((x) => x.share) : undefined}
-            s={<>
-              {delta != null && prev
-                ? `เทียบปี ${beYear(prev.y)} ${delta > 0 ? "+" : delta < 0 ? "−" : "±"}${Math.abs(delta).toFixed(1)} จุด`
-                : "ไม่มีปีก่อนหน้าให้เทียบ"}
-              {partial && ` · ปีนี้ยังไม่เต็มปี (ข้อมูลถึง ${monthLabel(partial)})`}
-            </>} />
+            s={ytd && <YtdLines r={ytd} pickedMonth={!!f.month} />} />
           <Hero kind="cost" l={`มูลค่าต้นทุนเที่ยวเปล่า · ${scope}`} v={fmt(sumCost(empties))} unit="บาท"
             s={<><b>{fmt(empties.length)}</b> เที่ยววิ่งเปล่า · จาก {fmt(rows.length)} เที่ยว</>} />
         </div>

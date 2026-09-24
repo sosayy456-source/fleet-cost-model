@@ -124,6 +124,20 @@ export function latestPeriod(trips: LfTrip[]): TkPeriod | null {
   return mo ? { year: Number(mo.slice(0, 4)), month: mo.slice(5) } : null;
 }
 
+/**
+ * ช่วงที่การ์ดควรแสดงตามตัวกรอง ปี/เดือน ของหน้า (Demo หน้ายาว — เจ้าของงานเลือก 24 ก.ย. 2569 ให้ตามตัวกรอง)
+ *   ปี + เดือน → เดือนนั้น · ปีอย่างเดียว → ทั้งปี · เดือนอย่างเดียว → เดือนนั้นของปีล่าสุดที่มีข้อมูล
+ *   ไม่เลือกเลย → เดือนล่าสุดของไฟล์ (latestPeriod เหมือนเดิม) · ปี/เดือนที่ไม่มีข้อมูล = null
+ */
+export function periodFor(trips: LfTrip[], year: string, month: string): TkPeriod | null {
+  if (!year && !month) return latestPeriod(trips);
+  if (year) return trips.some((t) => t.y === Number(year) && (!month || t.mo.slice(5) === month))
+    ? { year: Number(year), month } : null;
+  let y = 0;
+  for (const t of trips) if (t.mo.slice(5) === month && t.y > y) y = t.y;
+  return y ? { year: y, month } : null;
+}
+
 /** ช่วงก่อนหน้าไว้เทียบ — เลือกเดือน = เดือนก่อน (ข้ามปีได้) · ทั้งปี = ปีก่อน */
 export function prevPeriod(p: TkPeriod): TkPeriod {
   if (!p.month) return { year: p.year - 1, month: "" };

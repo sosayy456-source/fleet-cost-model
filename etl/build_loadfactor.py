@@ -117,6 +117,10 @@ def read_file(path: Path) -> tuple[list[dict], dict[str, int]]:
         if lf <= 0 or cost <= 0:
             drop("LF หรือต้นทุนรวมเป็น 0"); continue
         y, m = int(num(g(r, "y"))), int(num(g(r, "m")))
+        # ไฟล์ตัวอย่าง/ไฟล์จริงเป็นปี ค.ศ. (แอปบวก 543 ตอนแสดงเอง) — กันไว้เผื่อไฟล์ไหนกรอก พ.ศ.
+        # ไม่งั้นได้ปี 2567 ปนกับ 2024 แล้วฐานของแท็บตัน-กม. (ปี Y−1, Y−2) หาไม่เจอ · กติกาเดียวกับ parse_date ใน build_costrev
+        if y > 2400:
+            y -= 543
         if not (1 <= m <= 12) or y < 2000:
             drop("ปี/เดือนอ่านไม่ออก"); continue
         out.append({
