@@ -240,7 +240,8 @@ function autoEtl(): Plugin {
     });
     child.on("close", (code) => {
       if (code === 0) {
-        log(`✓ ${spec.doneMsg}` + (job === "cr" ? " — " + tail.trim().split("\n").slice(-6).join(" | ") : ""));
+        // ท้าย log ของ cr/lf มีตัวตรวจรูปแบบไฟล์ (บรรทัด [!]) — โชว์ให้เห็นใน terminal ของ dev server
+        log(`✓ ${spec.doneMsg}` + (job === "cr" || job === "lf" ? " — " + tail.trim().split("\n").slice(-6).join(" | ") : ""));
         setStatus(job, "done", spec.doneMsg);
       } else if (outOfMemory(code, tail)) {
         log(`✗ ${spec.script} หน่วยความจำไม่พอ (exit ${code}) — ปิดโปรแกรมอื่นแล้วลองใหม่\n${tail.trim()}`);

@@ -12,6 +12,7 @@
  *   KPI  การ์ด 2 ใบขนาดเท่ากัน: % ต้นทุนเที่ยวเปล่าของปีล่าสุด (เส้นแนวโน้มรายปีในการ์ด · ส่วนเปรียบเทียบข้างล่าง
  *        = "มูลค่ารถเที่ยวเปล่า (YTD ม.ค.–พ.ค. 69)" 3 บรรทัด: เฉลี่ย/เดือน · % ของต้นทุนวิ่งรวม · YoY ช่วงเดือนเดียวกัน
  *        ของปีก่อน — เจ้าของงานสั่ง 24 ก.ย. 2569 แทน "เทียบปีก่อน ± จุด" เดิม · lib/empty/ytd.ts)
+ *        ★ การ์ดสองใบอยู่ใน EmptyHeroes.tsx ใช้ร่วมกับ Demo › ข้อ 2 กล่องที่ 3–4 — แก้ที่นั่นที่เดียว
  *        · มูลค่าต้นทุนเที่ยวเปล่า (จำนวนเที่ยวเปล่าอยู่ใต้ตัวเลขในการ์ดเดียวกัน)
  *   [1]  รายเดือน: แท่งเทา = ต้นทุนรวม · เส้น = % ต้นทุนเที่ยวเปล่า (แกนขวา) · ค่าเริ่มต้น "ทุกเส้นทาง"
  *        เลือกได้ทีละเส้นทาง · กดเดือน = ป็อบอัพรายการเที่ยววิ่งเปล่าของเดือนนั้น
@@ -31,43 +32,21 @@ import { DBar } from "../../lib/chart/dcharts";
 import { BAR_RADIUS, anim, axisProps, gridProps, legendProps } from "../../lib/chart/primitives";
 import { D, DFONT, fmtShort, useChartTheme } from "../../lib/chart/theme";
 import { thDateSafe } from "../../lib/record/date";
-import { Hero, Note, Pane } from "../dash-fleet/parts";
+import { Note, Pane } from "../dash-fleet/parts";
 import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, monthLabel, passBase, pct,
          useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 import type { CostRevMode } from "./CostRevDash";
-import { emptyYtd, prevYY, ytdLabel, ytdMonths } from "../../lib/empty/ytd";
-import type { EmptyYtd } from "../../lib/empty/ytd";
+import EmptyHeroes from "./EmptyHeroes";
 
 const TOP_N = 10;
 
 const pctOf = (a: number, b: number): number => (b ? a / b * 100 : 0);
 /** ป้ายแกน % — ภาพรวมบริษัทอยู่ราว 2–3% ปัดเป็นจำนวนเต็มแล้วทุกขีดจะซ้ำกัน */
 const pctTick = (v: number): string => `${v < 10 ? Number(v.toFixed(1)) : Math.round(v)}%`;
-const beYear = (y: number | string): number => Number(y) + 543;
 const sumCost = (xs: Trip[]): number => xs.reduce((s, t) => s + t.cost, 0);
-
-/** เฉลี่ยต่อเดือน — หลักล้านเขียนเป็น "4.83 ล้านบาท" ตามตัวอย่างของเจ้าของงาน ต่ำกว่านั้นเขียนเต็ม */
-const perMonth = (v: number): string =>
-  v >= 1e6 ? `${(v / 1e6).toFixed(2)} ล้านบาท/เดือน` : `${fmt(Math.round(v))} บาท/เดือน`;
-
-/** หัวข้อ + 3 บรรทัดใต้การ์ดแรก — เฉลี่ย/เดือน · % ของต้นทุนวิ่งรวม · YoY ช่วงเดือนเดียวกัน */
-function YtdLines({ r, pickedMonth }: { r: EmptyYtd; pickedMonth: boolean }) {
-  const py = prevYY(r.year);
-  const yoy = r.yoy != null
-    ? `${r.yoy > 0 ? "+" : r.yoy < 0 ? "−" : "±"}${Math.abs(r.yoy).toFixed(1)}%`
-    : r.prevEmpty == null ? `ไม่มีข้อมูลปี ${py} ช่วงเดียวกัน` : `ปี ${py} ช่วงเดียวกันไม่มีเที่ยวเปล่า`;
-  return (
-    <span className="em-ytd">
-      <b>มูลค่ารถเที่ยวเปล่า ({ytdLabel(r.year, r.months, pickedMonth)})</b>
-      <span>{perMonth(r.avgPerMonth)}</span>
-      <span>{r.share == null ? "–" : pct(r.share)} ของต้นทุนวิ่งรวม</span>
-      <span>เทียบ YoY ({py}): {yoy}</span>
-    </span>
-  );
-}
 
 interface RouteAgg { route: string; n: number; emptyN: number; emptyCost: number; cost: number; share: number }
 
@@ -92,38 +71,8 @@ export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode 
   const rows = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
   const [detail, setDetail] = useState<Detail | null>(null);
 
-  /* ---------- KPI ---------- */
-  const empties = useMemo(() => rows.filter((t) => t.empty), [rows]);
-  /**
-   * % รายปี ใช้ทุกตัวกรองยกเว้นปี — การ์ดต้องเทียบกับปีก่อนและวาดเส้นแนวโน้มได้แม้กรองปีอยู่
-   * ปีที่การ์ดโชว์ = ปีที่กรอง ถ้าไม่กรองคือปีล่าสุดที่มีข้อมูล
-   */
-  const yearShare = useMemo(() => {
-    const m = new Map<number, { cost: number; empty: number }>();
-    for (const t of trips) {
-      if (!passBase(t, f, { ignoreYear: true })) continue;
-      const a = m.get(t.y) ?? { cost: 0, empty: 0 };
-      a.cost += t.cost;
-      if (t.empty) a.empty += t.cost;
-      m.set(t.y, a);
-    }
-    return [...m.entries()].sort((a, b) => a[0] - b[0])
-      .map(([y, a]) => ({ y, share: Math.round(pctOf(a.empty, a.cost) * 100) / 100 }));
-  }, [trips, f]);
-  const focusY = f.year ? Number(f.year) : yearShare[yearShare.length - 1]?.y;
-  const focusIdx = yearShare.findIndex((x) => x.y === focusY);
-  const focus = yearShare[focusIdx];
-  /**
-   * ส่วนเปรียบเทียบใต้การ์ดแรก (เจ้าของงานสั่ง 24 ก.ย. 2569 — แทนบรรทัด "เทียบปีก่อน ± จุด" เดิม)
-   * มูลค่าเที่ยวเปล่าช่วง YTD ของปีที่การ์ดโชว์ เทียบปีก่อนหน้า **ช่วงเดือนเดียวกัน** · สูตรอยู่ใน lib/empty/ytd.ts
-   * ป้าย "YTD ม.ค.–พ.ค." บอกเองว่าปีนั้นยังไม่เต็มปี (แทนข้อความ "ปีนี้ยังไม่เต็มปี" เดิม)
-   */
-  const ytd = useMemo(() => {
-    if (focusY == null) return null;
-    const months = ytdMonths(trips, focusY, f.month);
-    return emptyYtd(trips.filter((t) => passBase(t, f, { ignoreYear: true })), focusY, months);
-  }, [trips, f, focusY]);
-  const scope = f.year ? `ปี พ.ศ. ${beYear(f.year)}` : `รวม ${yearShare.length} ปี`;
+  /* ---------- KPI — การ์ด 2 ใบอยู่ใน EmptyHeroes.tsx (ใช้ร่วมกับ Demo › ข้อ 2) ---------- */
+  const rowsAnyYear = useMemo(() => trips.filter((t) => passBase(t, f, { ignoreYear: true })), [trips, f]);
 
   /* ---------- [1] รายเดือน ---------- */
   const routes = useMemo(() => byRoute(rows), [rows]);
@@ -193,13 +142,7 @@ export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode 
       <Pane deps={[rows]}>
         {/* KPI — 2 ใบขนาดเท่ากัน · เส้นในการ์ดแรกเป็น % รายปีจริง ไม่ใช่ลายตกแต่ง */}
         <div className="dz-heroes em-heroes">
-          <Hero kind="loss"
-            l={focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${beYear(focusY)}` : "% ต้นทุนเที่ยวเปล่า"}
-            v={focus ? pct(focus.share) : "–"}
-            trend={yearShare.length >= 2 ? yearShare.map((x) => x.share) : undefined}
-            s={ytd && <YtdLines r={ytd} pickedMonth={!!f.month} />} />
-          <Hero kind="cost" l={`มูลค่าต้นทุนเที่ยวเปล่า · ${scope}`} v={fmt(sumCost(empties))} unit="บาท"
-            s={<><b>{fmt(empties.length)}</b> เที่ยววิ่งเปล่า · จาก {fmt(rows.length)} เที่ยว</>} />
+          <EmptyHeroes all={trips} rows={rows} rowsAnyYear={rowsAnyYear} year={f.year} month={f.month} />
         </div>
 
         {/* [1] รายเดือน */}

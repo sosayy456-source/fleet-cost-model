@@ -60,6 +60,22 @@ export function emptyYtd(rows: YtdTrip[], year: number, months: number[]): Empty
   };
 }
 
+/**
+ * % ต้นทุนเที่ยวเปล่ารายปี (ตัวเลขใหญ่ + เส้นแนวโน้มของการ์ดแรก) — ปัด 2 ตำแหน่ง
+ * rows = ผ่านตัวกรองทุกตัว **ยกเว้นปี** การ์ดจะเทียบปีก่อนและวาดเส้นได้แม้กรองปีอยู่
+ */
+export function yearShares(rows: YtdTrip[]): { y: number; share: number }[] {
+  const m = new Map<number, { cost: number; empty: number }>();
+  for (const t of rows) {
+    const a = m.get(t.y) ?? { cost: 0, empty: 0 };
+    a.cost += t.cost;
+    if (t.empty) a.empty += t.cost;
+    m.set(t.y, a);
+  }
+  return [...m.entries()].sort((a, b) => a[0] - b[0])
+    .map(([y, a]) => ({ y, share: a.cost ? Math.round(a.empty / a.cost * 10000) / 100 : 0 }));
+}
+
 const yy = (y: number): string => String((y + 543) % 100).padStart(2, "0");
 
 /** ป้ายช่วง — "YTD ม.ค.–พ.ค. 69" · ครบ 12 เดือน "ทั้งปี 68" · เลือกเดือน "มี.ค. 69" */
