@@ -1509,6 +1509,8 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .dz-heroes.cp-heroes,
 #view-dash .dz-heroes.cp-heroes:has(> :nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
 #view-dash .dz-heroes.cp-heroes > .dz-kc.hero:first-child .v{font-size:40px;letter-spacing:-.02em;line-height:1.15}
+/* บรรทัดยอดเงินใต้ชิป (Hero foot) — อยู่เหนือเส้นตกแต่ง */
+#view-dash .dz-kc.hero .ft{margin-top:8px;font:700 17px/1.4 var(--font-num);color:#fff;position:relative;z-index:1}
 @media(max-width:900px){#view-dash .dz-heroes.cp-heroes,#view-dash .dz-heroes.cp-heroes:has(> :nth-child(3):last-child){grid-template-columns:1fr}}
 /* ตัวเลขใหญ่ + ตัวเล็ก (81%) ข้างกัน — .vs อยู่นอก .v เพราะ useCountUp เขียน textContent ทับทั้ง .v */
 #view-dash .dz-kc.hero .vrow{display:flex;align-items:baseline;gap:10px;position:relative;z-index:1}
