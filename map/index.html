@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แผนที่ประเทศไทย — เครือข่ายเส้นทางขนส่ง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="sheet" id="sheet">
+  <svg id="map" viewBox="0 0 1000 1400" role="img" aria-label="แผนที่ประเทศไทยพร้อมเครือข่ายเส้นทางขนส่งและ 5 เส้นทางทำกำไรสูงสุด"></svg>
+
+  <div class="card panel">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" type="button" data-tab="net">เครือข่ายขนส่ง</button>
+      <button class="tab" role="tab" type="button" data-tab="top" aria-selected="true">5 เส้นทางกำไรสูงสุด</button>
+    </div>
+
+    <section data-pane="net" hidden>
+      <h1>เครือข่ายจุดขึ้นลง</h1>
+      <div class="sub">ตัวเลขบนปุ่ม = จำนวนเส้นทางเข้า+ออก · * พิกัดโดยประมาณ<br>แนวเส้นทางโดยประมาณตามทางหลวงหลัก</div>
+      <div class="grp-t"><span class="dotn"></span>สาขาภาคเหนือ</div>
+      <div class="chips" id="chipsNorth"></div>
+      <div class="grp-t"><span class="dotb"></span>จุดลง กรุงเทพฯ และปริมณฑล</div>
+      <div class="chips" id="chipsBkk"></div>
+      <div class="detail" id="netDetail"></div>
+    </section>
+
+    <section data-pane="top">
+      <h1>5 เส้นทางที่ทำกำไรสูงสุด</h1>
+      <div class="sub">กำไรรวม (บาท) · คลิกเพื่อดูเส้นทางบนแผนที่</div>
+      <div class="list" id="list"></div>
+      <div class="foot">
+        <span id="hint">คลิกเส้นทางเพื่อดูบนแผนที่</span>
+        <button class="ghost" id="allBtn" type="button">แสดงทั้งหมด</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="card zoombar">
+    <button class="zb" id="zIn" type="button" aria-label="ซูมเข้า">+</button>
+    <button class="zb" id="zOut" type="button" aria-label="ซูมออก">−</button>
+    <button class="zb" id="zReset" type="button" aria-label="แสดงทั้งประเทศ">⟲</button>
+    <hr>
+    <button class="zb t" id="zNorth" type="button">ภาคเหนือ</button>
+    <button class="zb t" id="zBkk" type="button">กทม.</button>
+    <hr>
+    <button class="zb" id="zPlay" type="button" aria-label="หยุดรถ">⏸</button>
+  </div>
+  <div class="zoomhint">ลากเพื่อเลื่อน · Ctrl + ล้อเมาส์เพื่อซูม</div>
+
+  <div class="card legend" data-pane="net" hidden>
+    <div class="lg"><span class="sw" style="background:#1a73e8"></span>ขาออกจากจุดที่เลือก</div>
+    <div class="lg"><span class="sw" style="background:#e37400"></span>ขาเข้าสู่จุดที่เลือก</div>
+    <div class="lg"><span class="sw p"></span>ขอบเขตจังหวัด</div>
+  </div>
+  <div class="card legend" data-pane="top">
+    <div class="lg"><span class="sw" id="lgSw"></span>เส้นทางที่เลือก</div>
+    <div class="lg"><span class="lgdot"><span class="dotn"></span></span>สาขาภาคเหนือ</div>
+    <div class="lg"><span class="lgdot"><span class="dotb"></span></span>จุดลง กรุงเทพฯ และปริมณฑล</div>
+    <div class="lg"><span class="sw p"></span>ขอบเขตจังหวัด</div>
+    <div class="lg"><span class="sw n"></span>เขตแดนประเทศ</div>
+  </div>
+
+  <div class="scale"><div id="scaleBar" class="bar2" style="width:120px"></div><span id="scaleTxt">200 กม.</span></div>
+  <div class="attr">ข้อมูลขอบเขต: OpenGISData-Thailand · Natural Earth</div>
+</div>
+
+<script type="module" src="/src/map.js"></script>
+</body>
+</html>

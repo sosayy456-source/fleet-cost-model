@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>รายงานเที่ยวเปล่า — สาขาภาคเหนือ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<main class="page">
+  <header class="head">
+    <p class="eyebrow">รายงานเที่ยวเปล่า · สาขาภาคเหนือ</p>
+    <h1>เที่ยวเปล่าเกิดที่เส้นทางไหน และเสียต้นทุนเท่าไร</h1>
+    <p class="note">ตัวอย่างการรวมกราฟกับแผนที่ · ตัวเลขเป็นค่าประมาณที่อ่านจากกราฟเดิม ให้แทนที่ด้วยข้อมูลจริงใน <code>src/dashboard.js</code></p>
+  </header>
+
+  <section class="kpis" aria-label="สรุปตัวเลขสำคัญ">
+    <div class="kpi">
+      <span class="k-l">% ต้นทุนเที่ยวเปล่า ปี 2569</span>
+      <span class="k-v" id="kPct"></span>
+      <span class="k-s" id="kPctSub"></span>
+    </div>
+    <div class="kpi">
+      <span class="k-l">เที่ยวเปล่า (Top 10 เส้นทาง)</span>
+      <span class="k-v" id="kTrips"></span>
+      <span class="k-s">เที่ยว</span>
+    </div>
+    <div class="kpi">
+      <span class="k-l">ต้นทุนเที่ยวเปล่า (Top 10 เส้นทาง)</span>
+      <span class="k-v" id="kCost"></span>
+      <span class="k-s">ล้านบาท</span>
+    </div>
+    <button class="kpi hot" id="kTop" type="button">
+      <span class="k-l">เส้นทางที่ควรแก้ก่อน</span>
+      <span class="k-v" id="kTopShare"></span>
+      <span class="k-s" id="kTopSub"></span>
+    </button>
+  </section>
+
+  <div class="grid">
+    <section class="card map-card">
+      <div class="card-h">
+        <div>
+          <h2>แผนที่เส้นทาง</h2>
+          <p class="status" id="mapStatus">ภาคเหนือทั้งหมด · คลิกเส้นทางในตารางเพื่อดูบนแผนที่</p>
+        </div>
+        <button class="ghost" id="mapReset" type="button">ดูทั้งภาค</button>
+      </div>
+      <iframe id="routeMap" src="index.html#embed&tab=net&view=north" title="แผนที่เส้นทางขนส่งภาคเหนือ"></iframe>
+    </section>
+
+    <section class="card">
+      <div class="card-h">
+        <h2>% ต้นทุนเที่ยวเปล่า ÷ ต้นทุนวิ่งรถทั้งหมด</h2>
+      </div>
+      <svg id="trend" viewBox="0 0 560 210" role="img" aria-label="กราฟแนวโน้มสัดส่วนต้นทุนเที่ยวเปล่ารายปี"></svg>
+      <p class="foot">ปี 2569 มีข้อมูลถึง มิ.ย. 69 (เส้นประ) เทียบกับปีเต็มด้วยความระวัง</p>
+    </section>
+
+    <section class="card">
+      <div class="card-h">
+        <h2>Top เส้นทางเที่ยวเปล่า</h2>
+        <div class="seg" role="group" aria-label="เรียงตาม">
+          <button type="button" data-sort="cost" aria-pressed="true">ต้นทุน</button>
+          <button type="button" data-sort="trips" aria-pressed="false">จำนวนเที่ยว</button>
+        </div>
+      </div>
+      <div class="filter" id="filter" hidden>
+        กรองตามจุดบนแผนที่: <b id="filterName"></b>
+        <button class="ghost sm" id="filterClear" type="button">ล้าง</button>
+      </div>
+      <div class="thead" aria-hidden="true">
+        <span></span><span>เส้นทาง</span>
+        <span><i class="sw cost"></i>ต้นทุน (บาท) <i class="sw trips"></i>เที่ยว</span>
+        <span class="r">บาท/เที่ยว</span>
+      </div>
+      <div class="routes" id="routes"></div>
+    </section>
+  </div>
+</main>
+<script type="module" src="/src/dashboard.js"></script>
+</body>
+</html>

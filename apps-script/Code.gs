@@ -51,15 +51,14 @@ var BILL_HEADERS = [
   'ประเภทการชำระเงิน','เกณฑ์คิดราคา','ราคา/หน่วย','ราคารวม','เวลาที่บันทึก','เวลาที่แก้ล่าสุด'];
 
 // ── ข้อมูลเก่า ──────────────────────────────────────────────
-// ทุกแท็บที่ "ชื่อขึ้นต้นด้วย" คำนี้ จะถูกอ่านเข้ามาแสดงในโมเดลเป็นข้อมูลเก่า (อ่านอย่างเดียว)
-// เพิ่มแท็บใหม่ได้เรื่อย ๆ เช่น "ข้อมูลเก่า 2567", "ข้อมูลเก่า เชียงราย" — ไม่ต้องแก้โค้ด
+// ★ เลิกอ่านแท็บ "ข้อมูลเก่า*" / "ข้อมูลเก่าลูกหนี้*" จากชีตแล้ว (24 ก.ย. 2569)
+//   ข้อมูลเก่าทั้งหมดมาจากไฟล์ที่วางในโฟลเดอร์ etl/data/ ของโมเดล (ETL → costrev/old_records.json,
+//   old_debtors.json) ชีตเหลือแค่ข้อมูลใหม่ แท็บเดิมในชีตจะมีอยู่ต่อก็ได้ สคริปต์ไม่แตะ
 // คอลัมน์ซ่อนที่เก็บ JSON เต็มของใบรายการ — ให้หน้าเว็บโหลดใบกลับมาแก้ต่อได้
 // ★ ห้ามลบหรือแก้ด้วยมือ (แก้ผ่านหน้าเว็บเท่านั้น)
 var DATA_COL_NAME = '_DATA';
 
-var OLD_SHEET_PREFIX = 'ข้อมูลเก่า';        // แท็บเที่ยววิ่งเก่า
-var OLD_DEBT_PREFIX  = 'ข้อมูลเก่าลูกหนี้';  // แท็บลูกหนี้เก่า (ขึ้นต้นเหมือนกัน — ต้องเช็คตัวนี้ก่อนเสมอ)
-var MERGED_SHEET_NAME = 'รวมทั้งหมด';     // แท็บสำหรับ Dashboard (เก่า + ใหม่)
+var MERGED_SHEET_NAME = 'รวมทั้งหมด';     // แท็บสำหรับ Dashboard (ข้อมูลใหม่ในชีต)
 
 // ชื่อหัวคอลัมน์ที่สะกดต่างกัน → ชื่อมาตรฐานที่โค้ดใช้
 // อ่านข้อมูลด้วย "ชื่อหัวคอลัมน์" ไม่ใช่ตำแหน่ง ข้อมูลเก่าชุดหน้าที่เรียงคอลัมน์ต่างไปจึงยังอ่านได้
@@ -212,13 +211,14 @@ function doPost(e) {
     }
   }
 
-  // โหลดข้อมูลเก่ามาแสดงในโมเดล (เที่ยววิ่ง + ลูกหนี้) — อ่านอย่างเดียว ไม่ต้องรอล็อก
+  // แถว "ข้อมูลใหม่" ที่พิมพ์ตรงในชีตเอง — อ่านอย่างเดียว ไม่ต้องรอล็อก
+  // ★ ชื่อ action ยังเป็น loadOld เพื่อให้หน้าเว็บรุ่นเดิมใช้ได้ แต่ไม่อ่านแท็บ "ข้อมูลเก่า*" แล้ว
+  //   (ข้อมูลเก่ามาจากไฟล์ในโฟลเดอร์ของโมเดล) debtors จึงว่างเสมอ
   if (body.loadOld) {
     try {
-      var oldRecs = readOldRecords_();
-      var oldDebt = readOldDebtors_();
-      return json({ ok: true, version: VERSION, records: oldRecs, debtors: oldDebt,
-        count: oldRecs.length, debtCount: oldDebt.length });
+      var oldRecs = readManualNewRecords_();
+      return json({ ok: true, version: VERSION, records: oldRecs, debtors: [],
+        count: oldRecs.length, debtCount: 0 });
     } catch (err) {
       return json({ ok: false, version: VERSION, error: String(err) });
     }
@@ -345,7 +345,7 @@ function writeBills_(bills, owners) {
   return bills.length;
 }
 
-/* ═══════════════ อ่านข้อมูลเก่า + สร้างแท็บรวม ═══════════════ */
+/* ═══════════════ อ่านแถวที่พิมพ์ในชีต + สร้างแท็บรวม ═══════════════ */
 
 function pad2_(n) { return (n < 10 ? '0' : '') + n; }
 
@@ -495,30 +495,6 @@ function rowToRecord_(row, idx, source, sheetName, rowNo, dispRow) {
   };
 }
 
-/** อ่านแท็บเที่ยววิ่งเก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่า" แต่ไม่ใช่แท็บลูกหนี้เก่า
- *  รวมแถว "ข้อมูลใหม่" ที่พิมพ์ตรงในชีตเอง (ไม่ผ่านฟอร์มแอป) เข้ามาด้วย — อ่านวิธีเดียวกัน */
-function readOldRecords_() {
-  var ss = getSpreadsheet_();
-  var sheets = ss.getSheets();
-  var out = [];
-  for (var s = 0; s < sheets.length; s++) {
-    var sh = sheets[s], name = sh.getName();
-    if (name.indexOf(OLD_SHEET_PREFIX) !== 0) continue;
-    if (name.indexOf(OLD_DEBT_PREFIX) === 0) continue;      // แท็บลูกหนี้เก่า — อ่านที่อื่น
-    var last = sh.getLastRow(), lastCol = sh.getLastColumn();
-    if (last < 2 || lastCol < 1) continue;
-    var rng = sh.getRange(1, 1, last, lastCol);
-    var vals = rng.getValues(), disp = rng.getDisplayValues();
-    var idx = headerIndex_(vals[0]);
-    for (var r = 1; r < vals.length; r++) {
-      if (vals[r].join('').toString().trim() === '') continue;
-      var rec = rowToRecord_(vals[r], idx, 'เก่า', name, r + 1, disp[r]);
-      if (rec) out.push(rec);
-    }
-  }
-  return out.concat(readManualNewRecords_());
-}
-
 /**
  * อ่านแถวในแท็บ "ข้อมูลใหม่" ที่ไม่มีคอลัมน์ _DATA — คือพิมพ์ตรงในชีตเอง ไม่ได้ผ่านฟอร์มแอป
  * จึงไม่มีสถานะ 3 ฝ่ายให้เช็คว่า "ครบ" ด้วย เลยอ่านด้วยชื่อหัวคอลัมน์แบบเดียวกับข้อมูลเก่า
@@ -599,70 +575,6 @@ function readTripRecord_(id, docNo) {
   return null;
 }
 
-/** อ่านแท็บลูกหนี้เก่า — ทุกแท็บที่ขึ้นต้นด้วย "ข้อมูลเก่าลูกหนี้" */
-function readOldDebtors_() {
-  var ss = getSpreadsheet_();
-  var sheets = ss.getSheets();
-  var out = [];
-  for (var s = 0; s < sheets.length; s++) {
-    var sh = sheets[s], name = sh.getName();
-    if (name.indexOf(OLD_DEBT_PREFIX) !== 0) continue;
-    var last = sh.getLastRow(), lastCol = sh.getLastColumn();
-    if (last < 2 || lastCol < 1) continue;
-    var rng = sh.getRange(1, 1, last, lastCol);
-    var vals = rng.getValues(), disp = rng.getDisplayValues();
-    var idx = headerIndex_(vals[0]);
-
-    for (var r = 1; r < vals.length; r++) {
-      var row = vals[r], drow = disp[r];
-      if (row.join('').toString().trim() === '') continue;
-
-      var g = (function (rr) {
-        return function (k) { var i = idx[k]; return (i === undefined) ? '' : rr[i]; };
-      })(row);
-      var gd = (function (dd) {
-        return function (k) { var i = idx[k]; return (i === undefined) ? '' : dd[i]; };
-      })(drow);
-      var n = (function (gg) {
-        return function (k) {
-          var v = gg(k);
-          if (typeof v === 'number') return v;
-          var f = parseFloat(String(v || '').replace(/[^0-9.\-]/g, '').trim());
-          return isNaN(f) ? 0 : f;
-        };
-      })(g);
-
-      var billNo = String(g('เลขที่บิล') || '').trim();
-      var docNo  = String(g('เลขที่ใบรายการ') || '').trim();
-      if (!billNo && !docNo) continue;                       // แถวว่างจริง ๆ
-
-      var status = String(g('สถานะการชำระเงิน') || '').trim() || 'ยังไม่ได้ชำระ';
-      out.push({
-        id: 'OLDB:' + name + ':' + (r + 1),
-        source: 'เก่า',
-        sheetName: name,
-        date: pickDate_(g('วันที่'), gd('วันที่')),
-        docNo: docNo,
-        billNo: billNo,
-        goodsType: String(g('ประเภทสินค้า') || ''),
-        origin: String(g('ต้นทาง') || ''),
-        dest: String(g('ปลายทาง') || ''),
-        sender: String(g('ผู้ส่ง') || ''),
-        receiver: String(g('ผู้รับ') || ''),
-        payType: String(g('ประเภทการชำระเงิน') || ''),
-        status: status,
-        paid: (status === 'ชำระแล้ว'),
-        qty: n('จำนวน'),
-        total: n('ราคารวม'),
-        agingDays: n('จำนวนวันค้างชำระ'),
-        payDate: pickDate_(g('วันที่ชำระ'), gd('วันที่ชำระ')),
-        daysToPay: n('จำนวนวันชำระ')
-      });
-    }
-  }
-  return out;
-}
-
 /** อ่านแท็บ "ข้อมูลใหม่" ด้วยวิธีเดียวกัน — ใช้ตอนสร้างแท็บรวม */
 function readNewRecords_() {
   var ss = getSpreadsheet_();
@@ -701,7 +613,7 @@ function recToMergedRow_(r) {
     r.payStatus || '', r.id ];
 }
 
-/** สร้าง/อัปเดตแท็บ "รวมทั้งหมด" — ข้อมูลใหม่ + ข้อมูลเก่า เรียงตามวันที่ */
+/** สร้าง/อัปเดตแท็บ "รวมทั้งหมด" — ข้อมูลใหม่ในชีต เรียงตามวันที่ (ข้อมูลเก่าอยู่ในไฟล์ของโมเดล ไม่ขึ้นชีตแล้ว) */
 function rebuildMerged_() {
   var ss = getSpreadsheet_();
   var sh = ss.getSheetByName(MERGED_SHEET_NAME) || ss.insertSheet(MERGED_SHEET_NAME);
@@ -711,7 +623,7 @@ function rebuildMerged_() {
   sh.getRange(1, 1, 1, W).setValues([MERGED_HEADERS]).setFontWeight('bold');
   if (sh.getFrozenRows() < 1) sh.setFrozenRows(1);
 
-  var all = readNewRecords_().concat(readOldRecords_());
+  var all = readNewRecords_();
   all.sort(function (a, b) { return (a.date < b.date) ? -1 : (a.date > b.date) ? 1 : 0; });
 
   var rows = [];
@@ -767,9 +679,7 @@ function ตรวจสอบวันที่() {
   var lines = [];
   for (var s = 0; s < sheets.length; s++) {
     var sh = sheets[s], name = sh.getName();
-    var isTrip = (name.indexOf(OLD_SHEET_PREFIX) === 0 && name.indexOf(OLD_DEBT_PREFIX) !== 0) || name === SHEET_NAME;
-    var isDebt = name.indexOf(OLD_DEBT_PREFIX) === 0;
-    if (!isTrip && !isDebt) continue;
+    if (name !== SHEET_NAME) continue;
 
     var last = Math.min(sh.getLastRow(), 9), lastCol = sh.getLastColumn();
     if (last < 2 || lastCol < 1) continue;

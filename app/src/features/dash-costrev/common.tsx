@@ -154,16 +154,18 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
   return { sorted, sort, toggle, isDefault };
 }
 
-export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps }: {
+export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps, maxHeight }: {
   rows: T[]; cols: Col<T>[]; sort: { key: string; dir: 1 | -1 };
   onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;
   /** คลาสเพิ่มให้ตัวตาราง — ใช้ตกแต่งเฉพาะหน้า */
   className?: string;
   /** props ของแต่ละแถว — ใช้ทำแถวที่กดได้ทั้งแถว (หน้า Demo) */
   rowProps?: (r: T, i: number) => React.HTMLAttributes<HTMLTableRowElement>;
+  /** ความสูงสูงสุดของกล่องเลื่อน — ไม่ส่ง = ค่าตั้งต้นของ GrowBox (60vh) */
+  maxHeight?: number | string;
 }) {
   return (
-    <GrowBox rows={rows} render={(shown) => (
+    <GrowBox rows={rows} maxHeight={maxHeight} render={(shown) => (
       <table className={"dz-tbl" + (className ? ` ${className}` : "")}>
         <thead><tr>
           {cols.map((c) => (

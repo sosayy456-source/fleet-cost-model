@@ -1,0 +1,19 @@
+{
+  "name": "thailand-map",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --open /dashboard.html",
+    "build": "vite build",
+    "build:map": "node -e \"process.env.MAP_ONLY=1;import('vite').then(v=>v.build())\"",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "topojson-client": "^3.1.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0"
+  }
+}

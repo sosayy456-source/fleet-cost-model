@@ -110,7 +110,7 @@ export default function FleetDash({ state, role, sample = false }: {
   const meta = (
     <Meta parts={[
       <><b>{fmt(newCount)}</b> ใบใหม่</>,
-      <><b>{fmt(oldCount)}</b> แถวข้อมูลเก่าจากชีต</>,
+      <><b>{fmt(oldCount)}</b> แถวข้อมูลเก่าจากไฟล์</>,
       state.connected ? "เชื่อม Google Sheet แล้ว" : "ยังไม่ได้เชื่อม Google Sheet — อ่านจากในเครื่องอย่างเดียว",
     ]} />
   );
@@ -1421,7 +1421,7 @@ export function FleetStatusPage({ state, role, sample = false }: {
   const meta = (
     <Meta parts={[
       <><b>{fmt(state.records.length)}</b> ใบใหม่</>,
-      <><b>{fmt(state.oldRecords.length)}</b> แถวข้อมูลเก่าจากชีต</>,
+      <><b>{fmt(state.oldRecords.length)}</b> แถวข้อมูลเก่าจากไฟล์</>,
       state.connected ? "เชื่อม Google Sheet แล้ว" : "ยังไม่ได้เชื่อม Google Sheet — อ่านจากในเครื่องอย่างเดียว",
     ]} />
   );

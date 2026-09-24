@@ -10,7 +10,9 @@
  *      กดแล้วไป Executive Dashboard › แท็บ "กำไรส่วนเกิน/ตัน-กม." (dash-costrev/tonkm/)
  *   3. กราฟ รายได้/ต้นทุน/กำไร รายเดือน — **ตามตัวกรองปีด้วย** (ต่างจากแท็บกำไรรายเที่ยวของ
  *      Executive Dashboard ที่จงใจโชว์ทุกปีเสมอ)
- *   4. ตารางกำไรระดับเที่ยววิ่ง (ซ้าย) + รายละเอียดเส้นทางที่เลือก (ขวา) พร้อมปุ่ม i เปิดรายการทุกเที่ยว
+ *   4. ดีไซน์ใหม่ 24 ก.ย. 2569 (ภาพที่เจ้าของงานส่ง): แผนที่เส้นทาง (ซ้าย · RouteMap.tsx ฝังแอปแผนที่ map/ ผ่าน
+ *      iframe) · จัดอันดับกำไรต่อเที่ยว (ขวาบน) · รายละเอียดต้นทุนของเส้นทางที่เลือก (ขวาล่าง) พร้อมปุ่ม i ·
+ *      แผนที่เปิดมาเปล่า กดแถวในตาราง = เส้นนั้นโผล่พร้อมรถหนึ่งคัน (ไม่ใช่ "5 เส้นทางกำไรสูงสุด" แล้ว)
  *   5. การ์ดอัตรากำไรตามกลุ่มบริการ 3 ใบ — กดแล้วไป Executive Dashboard (กราฟของจริงจะทำทีหลัง)
  *
  * ★ ชุดเที่ยว = จับคู่ได้ + เที่ยววิ่งเปล่า (inProfitScope ใน lib/data/useCostRev.ts — ผู้เรียกกรองมาให้)
@@ -19,18 +21,19 @@
  *   ลูกค้า = ผู้จ่ายเงิน (สด/เชื่อต้นทาง → ผู้ส่ง · ปลายทาง → ผู้รับ) นับแบบไม่ซ้ำทั้งชุดที่กรองอยู่
  *   ไม่ใช่ผลบวกของแต่ละเที่ยว — ลูกค้าคนเดียวส่งของหลายเที่ยวต้องนับครั้งเดียว
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { Hero, KC, Note, Pane } from "../dash-fleet/parts";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import {
-  BASE_F0, ListFF, Meter, SortTable, YearFF, duniq, fmt, groupBy, isFiltered, marginTone, monthLabel,
+  BASE_F0, ListFF, Meter, SortTable, YearFF, duniq, fmt, groupBy, isFiltered, monthLabel,
   passBase, pct, signed, useSort,
 } from "../dash-costrev/common";
 import type { BaseFilter, Col } from "../dash-costrev/common";
 import ServicePanel from "./ServicePanel";
 import TripsModal from "./TripsModal";
+import RouteMap, { type MapRoute } from "./RouteMap";
 import TonKmDemoRow from "../dash-costrev/tonkm/TonKmDemoRow";
 import { fixedOf, otherOf, semiOf, variableOf } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
@@ -44,32 +47,50 @@ const SERVICE_GROUPS = ["สินค้าทั่วไป", "สินค้
  *   ต้นทุนปกติ    = ผันแปร (น้ำมัน+เบี้ยเลี้ยง+ค่าธรรมเนียม) + กึ่งผันแปร (ค่าซ่อม) + คงที่ (ค่าเสื่อม) + ค่าเช่า + อื่น ๆ
  */
 interface CostPart { label: string; color: string; of: (t: Trip) => number; subs?: CostPart[] }
+/**
+ * สีตามดีไซน์ที่เจ้าของงานส่ง 24 ก.ย. 2569 (แผนที่ + จัดอันดับ + รายละเอียดต้นทุน) — กำไรเขียว · ผันแปรดำ ·
+ * กึ่งผันแปรส้มทอง · คงที่เทา · ก้อนย่อยของผันแปรเป็นสี่เหลี่ยมโปร่ง (.rp-cl li.sub) จึงไม่ต้องมีสีของตัวเอง
+ */
+const RP = { profit: "#0f7a55", loss: "#c8384e", variable: "#1f2124", semi: "#c98b3b", fixed: "#bfc3c9",
+  rent: "#6f8fae", other: "#9aa0a6", waste: "#d9707f" };
 const COST_TREE: { group: string; parts: CostPart[] }[] = [
   { group: "ต้นทุนปกติ", parts: [
-    { label: "ผันแปร", color: D.indigo, of: variableOf, subs: [
+    { label: "ผันแปร", color: RP.variable, of: variableOf, subs: [
       // ★ ไฟล์มีคอลัมน์ย่อยของสามก้อนนี้เท่านั้น (น้ำมัน 5 · เบี้ยเลี้ยง 3 · ค่าธรรมเนียม 7)
       //   เจ้าของงานเลือกให้แสดงแค่สองชั้น จึงหยุดที่ระดับนี้ ไม่ลงรายก้อนย่อย (21 ก.ย. 2569)
-      { label: "น้ำมัน", color: D.indigo, of: (t) => t.fuel },
-      { label: "เบี้ยเลี้ยง", color: D.violet, of: (t) => t.allow },
-      { label: "ค่าธรรมเนียม", color: D.teal, of: (t) => t.fee },
+      { label: "น้ำมัน", color: RP.variable, of: (t) => t.fuel },
+      { label: "เบี้ยเลี้ยง", color: RP.variable, of: (t) => t.allow },
+      { label: "ค่าธรรมเนียม", color: RP.variable, of: (t) => t.fee },
     ] },
     // ค่าซ่อมรวม / ค่าเสื่อม / ค่าเช่ารวม เป็นคอลัมน์เดียวในไฟล์ต้นฉบับ ไม่มีรายละเอียดย่อยให้แยก
-    { label: "กึ่งผันแปร (ค่าซ่อม)", color: D.amber, of: semiOf },
-    { label: "คงที่ (ค่าเสื่อม)", color: D.slateDeep, of: fixedOf },
-    { label: "ค่าเช่า", color: D.cyan, of: (t) => t.rent },
-    { label: "อื่น ๆ", color: D.slate, of: otherOf },
+    { label: "กึ่งผันแปร (ค่าซ่อม)", color: RP.semi, of: semiOf },
+    { label: "คงที่ (ค่าเสื่อม)", color: RP.fixed, of: fixedOf },
+    { label: "ค่าเช่า", color: RP.rent, of: (t) => t.rent },
+    { label: "อื่น ๆ", color: RP.other, of: otherOf },
   ] },
   // สูญเปล่าในไฟล์ต้นฉบับมี 3 คอลัมน์ (น้ำมันนอกเส้นทาง · Fleet Card · รถวิ่งอ้อม) แต่ ETL รวมเป็นก้อนเดียว
   // เจ้าของงานเลือกให้ใช้ก้อนเดียวต่อ ไม่ต้องแก้ ETL
   { group: "ต้นทุนสูญเปล่า", parts: [
-    { label: "สูญเปล่า", color: D.rose, of: (t) => t.waste },
+    { label: "สูญเปล่า", color: RP.waste, of: (t) => t.waste },
   ] },
 ];
+
+
+/** ความกว้างคอลัมน์แผนที่ (%) — ค่าตั้งต้น/ขอบล่าง/ขอบบนตามดีไซน์ · คีย์ localStorage */
+const MAP_PCT_KEY = "rpMapPct";
+/** โหมดแผนที่ขาว/ดำ (เจ้าของงานขอ 24 ก.ย. 2569 · ค่าเริ่ม = ดำ) — จำรายเครื่องใน localStorage */
+const MAP_THEME_KEY = "rpMapTheme";
+const MAP_PCT_DEFAULT = 38, MAP_PCT_MIN = 20, MAP_PCT_MAX = 65;
 
 interface Filter extends BaseFilter { sg: string }
 const F0: Filter = { ...BASE_F0, sg: "" };
 
-interface RouteRow { rt: string; n: number; rev: number; cost: number; profit: number; perTrip: number; margin: number | null }
+interface RouteRow {
+  rt: string; o: string; de: string; n: number; rev: number; cost: number; profit: number; perTrip: number;
+  margin: number | null;
+  /** อันดับตามกำไรต่อเที่ยว (มากไปน้อย) — คอลัมน์ # ของตารางจัดอันดับ คงที่ไม่ขยับตามการกดเรียงคอลัมน์อื่น */
+  rank: number;
+}
 
 export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
   const [f, setF] = useState<Filter>(F0);
@@ -114,34 +135,114 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
     .map((a) => ({ mo: monthLabel(a.key), รายได้: Math.round(a.rev), ต้นทุน: Math.round(a.cost), กำไร: Math.round(a.profit) })),
     [rows]);
 
-  /* ---------- 4. ตารางรายเส้นทาง + แผงรายละเอียด ---------- */
-  const byRoute = useMemo<RouteRow[]>(() => groupBy(rows, (t) => t.rt).map((a) => ({
-    rt: a.key, n: a.n, rev: a.rev, cost: a.cost, profit: a.profit,
-    perTrip: a.profit / a.n,
-    // รายได้ 0 แล้วขาดทุน = เสียต้นทุนไปทั้งก้อนโดยไม่ได้อะไรกลับ → −100% (เจ้าของงานเลือก 21 ก.ย. 2569)
-    // หารด้วยศูนย์ตรง ๆ ไม่ได้ · รายได้ 0 และไม่ขาดทุน (ต้นทุน 0 ด้วย) ยังเป็น null = "–"
-    margin: a.rev ? a.profit / a.rev * 100 : a.profit < 0 ? -100 : null,
-  })), [rows]);
+  /* ---------- 4. แผนที่ 5 เส้นทางกำไรสูงสุด + จัดอันดับกำไรต่อเที่ยว + รายละเอียดต้นทุน ---------- */
+  const byRoute = useMemo<RouteRow[]>(() => {
+    // ต้นทาง/ปลายทางของเส้นทาง (rt = "ต้นทาง-ปลายทาง" จาก ETL) — เอาจากเที่ยวแรกของกลุ่ม แผนที่ใช้ชื่อจุดสองตัวนี้
+    const ends = new Map<string, { o: string; de: string }>();
+    for (const t of rows) if (!ends.has(t.rt)) ends.set(t.rt, { o: t.o, de: t.de });
+    const list = groupBy(rows, (t) => t.rt).map((a) => ({
+      rt: a.key, ...(ends.get(a.key) ?? { o: "", de: "" }), n: a.n, rev: a.rev, cost: a.cost, profit: a.profit,
+      perTrip: a.profit / a.n,
+      // รายได้ 0 แล้วขาดทุน = เสียต้นทุนไปทั้งก้อนโดยไม่ได้อะไรกลับ → −100% (เจ้าของงานเลือก 21 ก.ย. 2569)
+      // หารด้วยศูนย์ตรง ๆ ไม่ได้ · รายได้ 0 และไม่ขาดทุน (ต้นทุน 0 ด้วย) ยังเป็น null = "–"
+      margin: a.rev ? a.profit / a.rev * 100 : a.profit < 0 ? -100 : null,
+      rank: 0,
+    }));
+    [...list].sort((a, b) => b.perTrip - a.perTrip).forEach((r, i) => { r.rank = i + 1; });
+    return list;
+  }, [rows]);
 
   /** ฐานของความยาวแท่ง — ค่าสัมบูรณ์มากสุดในชุดที่กรองอยู่ */
   const barMax = useMemo(() => Math.max(1, ...byRoute.map((r) => Math.abs(r.perTrip))), [byRoute]);
 
   const cols = useMemo<Col<RouteRow>[]>(() => [
+    { key: "rank", label: "#", get: (r) => r.rank,
+      render: (r) => <span className="rp-rank">{String(r.rank).padStart(2, "0")}</span> },
     { key: "rt", label: "เส้นทาง", get: (r) => r.rt,
-      render: (r) => <div className="dm-rt"><b>{r.rt}</b><small>{fmt(r.n)} เที่ยว</small></div> },
-    { key: "bar", label: "กำไรต่อเที่ยว (บาท)", get: (r) => r.perTrip,
+      render: (r) => <div className="rp-rt"><b>{r.rt}</b><small>{fmt(r.n)} เที่ยว</small></div> },
+    { key: "perTrip", label: "กำไร/เที่ยว (บาท)", get: (r) => r.perTrip, num: true,
       render: (r) => (
-        <span className="dm-bar" aria-hidden="true">
-          <i style={{ width: `${Math.abs(r.perTrip) / barMax * 100}%`,
-                      background: r.perTrip < 0 ? "var(--d-rose)" : "var(--d-emerald)" }} />
-        </span>
+        <div className="rp-val">
+          <b style={r.perTrip < 0 ? { color: RP.loss } : undefined}>{signed(Math.round(r.perTrip))}</b>
+          <span className="rp-track" aria-hidden="true">
+            <i style={{ width: `${Math.abs(r.perTrip) / barMax * 100}%`, background: r.perTrip < 0 ? RP.loss : RP.profit }} />
+          </span>
+        </div>
       ) },
-    { key: "perTrip", label: "กำไรต่อเที่ยว", get: (r) => r.perTrip, num: true,
-      render: (r) => <span style={{ fontWeight: 700, color: r.perTrip < 0 ? "var(--red)" : "var(--green)" }}>{signed(Math.round(r.perTrip))}</span> },
     { key: "margin", label: "อัตรากำไร", get: (r) => r.margin, num: true,
-      render: (r) => <span style={{ fontWeight: 700, color: marginTone(r.margin) }}>{r.margin == null ? "–" : pct(r.margin)}</span> },
-  ], [picked, barMax]);
+      render: (r) => <span className="rp-margin" style={{ color: r.margin != null && r.margin < 0 ? RP.loss : RP.profit }}>
+        {r.margin == null ? "–" : pct(r.margin)}</span> },
+  ], [barMax]);
   const { sorted, sort, toggle } = useSort(byRoute, cols, { key: "perTrip", dir: -1 });
+
+  /**
+   * เส้นบนแผนที่ = เฉพาะเส้นทางที่ผู้ใช้กดในตารางด้านขวา (เจ้าของงานกำหนด 24 ก.ย. 2569) — เปิดมายังไม่กด = แผนที่เปล่า
+   * แม้การ์ดรายละเอียดจะแสดงแถวแรกของตารางไว้ก่อนก็ตาม · memo ด้วยต้นทาง/ปลายทาง ไม่งั้นเปลี่ยนตัวกรองแล้วแผนที่วาดเส้นเดิมซ้ำ
+   */
+  const pickedRow = useMemo(() => byRoute.find((r) => r.rt === picked) ?? null, [byRoute, picked]);
+  const mapRoutes = useMemo<MapRoute[]>(() => (pickedRow && pickedRow.o && pickedRow.de
+    ? [{ key: pickedRow.rt, from: pickedRow.o, to: pickedRow.de, profit: Math.round(pickedRow.profit),
+        color: pickedRow.profit < 0 ? RP.loss : RP.profit }]
+    : []), [pickedRow?.rt, pickedRow?.o, pickedRow?.de, pickedRow ? pickedRow.profit < 0 : null]);
+  /** เส้นที่แผนที่วาดไม่ได้ (ชื่อจุดไม่มีพิกัดใน map/src/network.js หรือต้นทาง = ปลายทาง) */
+  const [missing, setMissing] = useState<string[]>([]);
+
+  /**
+   * ความกว้างคอลัมน์แผนที่ (% ของการ์ด) — ลากเส้นแบ่งปรับได้ 20–65% ตามดีไซน์ Route Profit Dashboard
+   * ที่เจ้าของงานส่ง 24 ก.ย. 2569 · จำไว้ใน localStorage (ความสะดวกรายเครื่อง ไม่ต้องแชร์)
+   * ★ ลากผ่าน iframe แผนที่แล้ว pointermove จะหายเข้า iframe — ใช้ setPointerCapture ที่ตัวจับ
+   *   และปิด pointer-events ของ iframe ระหว่างลาก (.rp-wrap.dragging)
+   */
+  const [mapPct, setMapPct] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem(MAP_PCT_KEY) ?? "");
+      return v >= MAP_PCT_MIN && v <= MAP_PCT_MAX ? v : MAP_PCT_DEFAULT;
+    } catch { return MAP_PCT_DEFAULT; }
+  });
+  const [mapDark, setMapDark] = useState<boolean>(() => {
+    try { return localStorage.getItem(MAP_THEME_KEY) !== "light"; } catch { return true; }
+  });
+  const pickTheme = (dark: boolean) => {
+    setMapDark(dark);
+    try { localStorage.setItem(MAP_THEME_KEY, dark ? "dark" : "light"); } catch { /* private mode — ไม่จำก็ได้ */ }
+  };
+  const [dragging, setDragging] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const saveMapPct = (v: number) => {
+    try { localStorage.setItem(MAP_PCT_KEY, String(Math.round(v * 10) / 10)); } catch { /* private mode — ไม่จำก็ได้ */ }
+  };
+  const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    setDragging(true);
+    let last = mapPct;
+    const move = (ev: PointerEvent) => {
+      const r = wrapRef.current?.getBoundingClientRect();
+      if (!r) return;
+      last = Math.min(MAP_PCT_MAX, Math.max(MAP_PCT_MIN, (ev.clientX - r.left) / r.width * 100));
+      setMapPct(last);
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      el.removeEventListener("pointercancel", up);
+      setDragging(false);
+      saveMapPct(last);
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+  };
+  /** ใช้คีย์บอร์ดปรับได้ด้วย (ลูกศรซ้าย/ขวา ทีละ 2%) */
+  const keyDrag = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const d = e.key === "ArrowLeft" ? -2 : e.key === "ArrowRight" ? 2 : 0;
+    if (!d) return;
+    e.preventDefault();
+    const v = Math.min(MAP_PCT_MAX, Math.max(MAP_PCT_MIN, mapPct + d));
+    setMapPct(v);
+    saveMapPct(v);
+  };
 
   // เส้นทางที่เลือกไว้หลุดจากตัวกรอง → กลับไปใช้แถวแรกของตาราง
   const detail = useMemo(
@@ -230,87 +331,72 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
           </div>
         </div>
 
-        {/* 4 */}
-        <div className="dz-row dz-2" style={{ marginTop: 14 }}>
-          <div className="dz-cc">
-            <h4>กำไรระดับเที่ยววิ่ง · รายเส้นทาง</h4>
-            <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}
-              empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" className="dm-tbl"
-              rowProps={(r) => ({
-                className: r.rt === picked ? "on" : undefined,
-                onClick: () => setPicked(r.rt),
-                title: "กดเพื่อดูรายละเอียดเส้นทางนี้",
-              })} />
-          </div>
-          <div className="dz-cc">
-            {detail ? (
-              <>
-                <div className="dm-dh">
-                  <div>
-                    <h4 style={{ margin: 0 }}>{detail.rt}</h4>
-                    <p>{fmt(detail.n)} เที่ยว · กำไรรวม {signed(detail.profit)} บาท</p>
-                  </div>
-                  <button type="button" className="dm-i" onClick={() => setShowList(true)}
-                    title="ดูรายการทุกเที่ยวของเส้นทางนี้" aria-label="ดูรายการทุกเที่ยวของเส้นทางนี้">i</button>
+        {/* 4 — ดีไซน์ที่เจ้าของงานส่ง 24 ก.ย. 2569: แผนที่ (ซ้าย) · จัดอันดับ + รายละเอียดต้นทุน (ขวา) */}
+        {/* การ์ดเดียวสองคอลัมน์: แผนที่ (ลากเส้นแบ่งปรับความกว้างได้) | จัดอันดับ + รายละเอียด */}
+        <div ref={wrapRef} className={"rp-wrap" + (dragging ? " dragging" : "")}
+          style={{ gridTemplateColumns: `${mapPct}% minmax(0,1fr)` }}>
+          <section className="rp-mapcol" aria-label="แผนที่เส้นทาง">
+            <div className={"rp-mapbox" + (mapDark ? "" : " light")}>
+              <RouteMap routes={mapRoutes} onMissing={setMissing} dark={mapDark} />
+              <div className="rp-theme" role="group" aria-label="โหมดแผนที่">
+                <button type="button" aria-pressed={!mapDark} onClick={() => pickTheme(false)} title="โหมดขาว">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" />
+                    <path d="M12 2.5v2.3M12 19.2v2.3M2.5 12h2.3M19.2 12h2.3M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" /></svg>
+                  ขาว
+                </button>
+                <button type="button" aria-pressed={mapDark} onClick={() => pickTheme(true)} title="โหมดดำ">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.2 8.2 0 0 1 9.5 4a8.2 8.2 0 1 0 10.5 10.5Z" /></svg>
+                  ดำ
+                </button>
+              </div>
+              <div className="rp-chip">
+                <i aria-hidden="true" className={pickedRow && pickedRow.profit < 0 ? "loss" : undefined} />
+                <span>{pickedRow ? pickedRow.rt : "กดเส้นทางในตารางเพื่อดูบนแผนที่"}</span>
+              </div>
+              {pickedRow && (missing.includes(pickedRow.rt) || !pickedRow.o || !pickedRow.de) && (
+                <p className="rp-map-hint">แสดงบนแผนที่ไม่ได้ — ไม่มีพิกัดของต้นทาง/ปลายทาง หรือเป็นจุดเดียวกัน</p>
+              )}
+            </div>
+            <div className="rp-resize" role="separator" aria-orientation="vertical" tabIndex={0}
+              aria-valuenow={Math.round(mapPct)} aria-valuemin={MAP_PCT_MIN} aria-valuemax={MAP_PCT_MAX}
+              aria-label="ปรับความกว้างแผนที่" title="ลากเพื่อปรับขนาด"
+              onPointerDown={startDrag} onKeyDown={keyDrag}><span /></div>
+          </section>
+
+          <div className="rp-main">
+            <section className="rp-sec">
+              <header className="rp-sh">
+                <span className="rp-ico green" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7" /></svg>
+                </span>
+                <div className="rp-sht">
+                  <h3>จัดอันดับกำไรต่อเที่ยว</h3>
+                  <p>คลิกเส้นทางเพื่อดูรายละเอียดต้นทุน · กดซ้ำเพื่อเอาเส้นทางออกจากแผนที่</p>
                 </div>
-                <div className="dm-avg">
-                  <div><span>รายได้/เที่ยว</span><b>{fmt(Math.round(detail.rev / detail.n))}</b></div>
-                  <div><span>ต้นทุน/เที่ยว</span><b>{fmt(Math.round(detail.cost / detail.n))}</b></div>
-                  <div><span>กำไร/เที่ยว</span>
-                    <b style={{ color: detail.perTrip < 0 ? "var(--red)" : "var(--green)" }}>
-                      {signed(Math.round(detail.perTrip))}</b></div>
-                </div>
-                <div className="dm-parts">
-                  <div className="bar" role="img" aria-label="สัดส่วนต้นทุนตามการจัดประเภท">
-                    {costTree.flatMap((g) => g.parts).map((p) => (
-                      <i key={p.label} style={{ width: `${Math.max(0, p.v) / detail.cost * 100}%`, background: p.color }}
-                        title={`${p.label} ${fmt(p.v)} บาท`} />
-                    ))}
-                  </div>
-                  {costTree.map((g) => (
-                    <div key={g.group} className="dm-cg">
-                      <div className="dm-cgh">
-                        <span>{g.group}</span>
-                        <b>{pct(g.sum / detail.cost * 100, 1)}</b>
-                        <small>{fmt(Math.round(g.sum / detail.n))} ฿/เที่ยว</small>
-                      </div>
-                      <ul>
-                        {g.parts.map((p) => (
-                          <li key={p.label}>
-                            <span className="row">
-                              <i style={{ background: p.color }} />
-                              <span>{p.label}</span>
-                              <b>{pct(p.v / detail.cost * 100, 1)}</b>
-                              <small>{fmt(Math.round(p.v / detail.n))} ฿/เที่ยว</small>
-                            </span>
-                            {p.subs.length > 0 && (
-                              <ul className="sub">
-                                {p.subs.map((c) => (
-                                  <li key={c.label}>
-                                    <span className="row">
-                                      <i style={{ background: c.color }} />
-                                      <span>{c.label}</span>
-                                      <b>{pct(c.v / detail.cost * 100, 1)}</b>
-                                      <small>{fmt(Math.round(c.v / detail.n))} ฿/เที่ยว</small>
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : <p className="dz-note">เลือกเส้นทางจากตารางด้านซ้าย</p>}
+                <span className="rp-pill">บาท/เที่ยว</span>
+              </header>
+              <div className="rp-tblwrap">
+                <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}
+                  empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" className="rp-tbl" maxHeight={300}
+                  rowProps={(r) => ({
+                    className: r.rt === detail?.rt ? "on" : undefined,
+                    // กดแถวเดิมซ้ำ = ยกเลิก แผนที่กลับเป็นแผนที่เปล่า (เจ้าของงานขอ 24 ก.ย. 2569)
+                    onClick: () => setPicked((p) => (p === r.rt ? null : r.rt)),
+                    title: r.rt === picked ? "กดอีกครั้งเพื่อเอาเส้นทางออกจากแผนที่" : "กดเพื่อดูรายละเอียดต้นทุนและเส้นทางบนแผนที่",
+                  })} />
+              </div>
+            </section>
+
+            <section className="rp-sec">
+              {detail ? <RouteDetail r={detail} tree={costTree} onList={() => setShowList(true)} />
+                : <p className="rp-foot rp-pad">เลือกเส้นทางจากรายการด้านบน</p>}
+            </section>
           </div>
         </div>
         <Note>
-          กดชื่อเส้นทางในตารางเพื่อดูรายละเอียดฝั่งขวา · ปุ่ม <b>i</b> เปิดรายการทุกเที่ยวของเส้นทางนั้นตามตัวกรองด้านบน ·
-          ต้นทุนฝั่งขวาแยกตามการจัดประเภทต้นทุน: <b>ต้นทุนปกติ</b> (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ)
-          และ <b>ต้นทุนสูญเปล่า</b> — ชุดเดียวกับแท็บ "ต้นทุน" ใน Executive Dashboard
+          ปุ่ม <b>i</b> เปิดรายการทุกเที่ยวของเส้นทางนั้นตามตัวกรองด้านบน · ต้นทุนแยกตามการจัดประเภท: <b>ต้นทุนปกติ</b>
+          (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ) และ <b>ต้นทุนสูญเปล่า</b> — ชุดเดียวกับแท็บ "ต้นทุน" ใน Executive Dashboard ·
+          % ของกำไรเทียบรายได้ · % ของต้นทุนแต่ละกลุ่มเทียบต้นทุนรวม · แนวเส้นบนแผนที่ตามทางหลวงหลักโดยประมาณ ไม่ใช่เส้นทาง GPS จริง
         </Note>
 
         {/* 5 */}
@@ -339,6 +425,74 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
           note="ทุกเที่ยวที่กำไรติดลบ ตามตัวกรองที่เลือกอยู่ · เรียงขาดทุนมากสุดก่อน"
           initialSort={{ key: "profit", dir: 1 }} />
       )}
+    </>
+  );
+}
+
+type CostVal = Omit<CostPart, "subs"> & { v: number };
+type CostTree = { group: string; parts: (CostVal & { subs: CostVal[] })[]; sum: number }[];
+
+/**
+ * การ์ดรายละเอียดของเส้นทางที่เลือก (ขวาล่าง) — ตัวเลขต่อเที่ยวสามช่อง · แถบรายได้แบ่งเป็นกำไร + ต้นทุนแต่ละกลุ่ม ·
+ * รายการกำไร/ต้นทุนรวม/กลุ่มต้นทุน (% ของกำไรเทียบรายได้ · % ของต้นทุนเทียบต้นทุนรวม) ตามภาพดีไซน์ 24 ก.ย. 2569
+ * ★ ขาดทุน: แถบยาวเท่าต้นทุน (รายได้ไม่พอคลุม) ไม่มีท่อนกำไร · "อื่น ๆ" ติดลบได้ แถบวาดเฉพาะค่าบวก
+ */
+function RouteDetail({ r, tree, onList }: { r: RouteRow; tree: CostTree; onList: () => void }) {
+  const per = (v: number) => fmt(Math.round(v / r.n));
+  const ofCost = (v: number) => (r.cost ? pct(v / r.cost * 100, 1) : "–");
+  const base = Math.max(r.rev, r.cost) || 1;
+  const parts = tree.flatMap((g) => g.parts);
+  const loss = r.profit < 0;
+  return (
+    <>
+      <header className="rp-sh">
+        <span className="rp-ico violet" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 4v8l6 4" /></svg>
+        </span>
+        <div className="rp-sht">
+          <h3>{r.rt}</h3>
+          <p>{fmt(r.n)} เที่ยว · อัตรากำไร {r.margin == null ? "–" : pct(r.margin, 1)} · หน่วย บาท/เที่ยว</p>
+        </div>
+        <button type="button" className="rp-i" onClick={onList}
+          title="ดูรายการทุกเที่ยวของเส้นทางนี้" aria-label="ดูรายการทุกเที่ยวของเส้นทางนี้">i</button>
+      </header>
+      <div className="rp-dbody">
+        <div className="rp-dleft">
+          <div className="rp-stats">
+            <div><span>รายได้/เที่ยว</span><b>{per(r.rev)}</b></div>
+            <div><span>ต้นทุน/เที่ยว</span><b>{per(r.cost)}</b></div>
+            <div className={loss ? "hi loss" : "hi"}><span>กำไร/เที่ยว</span><b>{signed(Math.round(r.perTrip))}</b></div>
+          </div>
+          <div className="rp-stack" role="img" aria-label="รายได้ต่อเที่ยวแบ่งเป็นกำไรและต้นทุนแต่ละกลุ่ม">
+            {!loss && r.profit > 0 && (
+              <i style={{ width: `${r.profit / base * 100}%`, background: RP.profit }} title={`กำไร ${per(r.profit)} บาท/เที่ยว`} />
+            )}
+            {parts.filter((p) => p.v > 0).map((p) => (
+              <i key={p.label} style={{ width: `${p.v / base * 100}%`, background: p.color }}
+                title={`${p.label} ${per(p.v)} บาท/เที่ยว`} />
+            ))}
+          </div>
+          {loss && <p className="rp-foot">ขาดทุน — ต้นทุนสูงกว่ารายได้ แถบจึงแสดงเฉพาะต้นทุน</p>}
+        </div>
+        <ul className="rp-cl">
+          <li className={loss ? "head loss" : "head"}>
+            <i style={{ background: loss ? RP.loss : RP.profit }} /><span>{loss ? "ขาดทุน" : "กำไร"}</span>
+            <b>{r.margin == null ? "–" : pct(r.margin, 1)}</b><small>{signed(Math.round(r.perTrip))}</small>
+          </li>
+          <li className="total"><i /><span>ต้นทุนรวม</span><b>100%</b><small>{per(r.cost)}</small></li>
+          {parts.map((p) => [
+            <li key={p.label}>
+              <i style={{ background: p.color }} /><span>{p.label}</span>
+              <b>{ofCost(p.v)}</b><small>{per(p.v)}</small>
+            </li>,
+            ...p.subs.map((c) => (
+              <li key={`${p.label}/${c.label}`} className="sub">
+                <i /><span>{c.label}</span><b>{ofCost(c.v)}</b><small>{per(c.v)}</small>
+              </li>
+            )),
+          ])}
+        </ul>
+      </div>
     </>
   );
 }

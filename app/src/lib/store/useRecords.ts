@@ -3,13 +3,17 @@
  *
  *   เครื่อง (IndexedDB) : ใบที่กรอกเองและยังไม่ได้ sync
  *   ชีต loadTrips       : ใบ "ใหม่" ที่ฝ่ายอื่นกรอกไว้ผ่านฟอร์มแอป (มีคอลัมน์ _DATA)
- *   ชีต loadOld         : อ่านอย่างเดียว — ข้อมูลเก่าจากแท็บ "ข้อมูลเก่า*" รวมทั้งแถวในแท็บ
- *                         "ข้อมูลใหม่" ที่พิมพ์ตรงในชีตเอง (ไม่ผ่านฟอร์ม จึงไม่มี _DATA)
+ *   ชีต loadOld         : อ่านอย่างเดียว — แถวในแท็บ "ข้อมูลใหม่" ที่พิมพ์ตรงในชีตเอง
+ *                         (ไม่ผ่านฟอร์ม จึงไม่มี _DATA)
+ *   ไฟล์ costrev/old_*  : ข้อมูลเก่า — จากไฟล์ที่วางในโฟลเดอร์ etl/data/ (ETL build_costrev.py)
+ *
+ * ★ เลิกอ่านแท็บ "ข้อมูลเก่า*" / "ข้อมูลเก่าลูกหนี้*" ในชีตแล้ว (24 ก.ย. 2569) ข้อมูลเก่ามีทางเดียวคือไฟล์
+ *   แถว source "เก่า" ที่ Apps Script รุ่นก่อน (ยังไม่ Deploy ใหม่) ส่งมา ถูกกรองทิ้งที่ onlyManual()
  *
  * ใบเดียวกันอาจอยู่ทั้งในเครื่องและบนชีต — ถือว่าของบนชีตใหม่กว่าเสมอ
  * ยกเว้นใบที่ยังไม่ได้ sync (synced=false) ซึ่งของในเครื่องใหม่กว่า
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getUrl, loadOld, loadTrips } from "../sheet/client";
 import { loadCostRevOld } from "../data/useCostRev";
 import { getAll, migrateFromLocalStorage, remove } from "./records";
@@ -17,22 +21,27 @@ import type { TripRecord } from "../../types/record";
 
 const OLD_CACHE_KEY = "oldRecordsCache";
 
-/**
- * แคช oldRecords/oldDebtors ไว้ในเครื่อง — loadOld() ไล่อ่านทุกแท็บ "ข้อมูลเก่า*" ผ่าน Apps Script
- * ซึ่งช้า (cold start + สแกนหลายแท็บ) ต่างจากหน้าอื่นที่ใช้ไฟล์ JSON จาก ETL
- * เก็บผลลัพธ์ล่าสุดไว้โชว์ค้างก่อนตั้งแต่ render แรก แทนที่จะรอโหลดสดทุกครั้งที่เปิดแอป/กดรีเฟรช
- */
-function readOldCache(): { records: Record<string, unknown>[]; debtors: OldDebtor[] } {
-  try {
-    const v = JSON.parse(localStorage.getItem(OLD_CACHE_KEY) ?? "null");
-    if (v && Array.isArray(v.records) && Array.isArray(v.debtors)) return v;
-  } catch { /* โควตาเต็ม/private mode — ไม่มีแคชก็แค่โหลดสดตามปกติ */ }
-  return { records: [], debtors: [] };
+/** ทิ้งแถวจากแท็บ "ข้อมูลเก่า*" ของชีต — เหลือเฉพาะแถว "ข้อมูลใหม่" ที่พิมพ์ตรงในชีต */
+function onlyManual(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  return rows.filter((r) => r.source !== "เก่า");
 }
 
-function writeOldCache(records: Record<string, unknown>[], debtors: OldDebtor[]): void {
+/**
+ * แคชแถวที่พิมพ์ตรงในชีตไว้ในเครื่อง — loadOld() ผ่าน Apps Script ช้า (cold start)
+ * เก็บผลลัพธ์ล่าสุดไว้โชว์ค้างก่อนตั้งแต่ render แรก แทนที่จะรอโหลดสดทุกครั้งที่เปิดแอป/กดรีเฟรช
+ * (แคชรุ่นก่อนมีแถวจากแท็บข้อมูลเก่าปนอยู่ — กรองออกตอนอ่าน แล้วรอบถัดไปก็เขียนทับด้วยของที่กรองแล้ว)
+ */
+function readOldCache(): Record<string, unknown>[] {
   try {
-    localStorage.setItem(OLD_CACHE_KEY, JSON.stringify({ records, debtors }));
+    const v = JSON.parse(localStorage.getItem(OLD_CACHE_KEY) ?? "null");
+    if (v && Array.isArray(v.records)) return onlyManual(v.records);
+  } catch { /* โควตาเต็ม/private mode — ไม่มีแคชก็แค่โหลดสดตามปกติ */ }
+  return [];
+}
+
+function writeOldCache(records: Record<string, unknown>[]): void {
+  try {
+    localStorage.setItem(OLD_CACHE_KEY, JSON.stringify({ records, debtors: [] }));
   } catch { /* โควตาเต็ม — ข้ามการแคชรอบนี้ ไม่กระทบการทำงาน */ }
 }
 
@@ -59,14 +68,16 @@ export interface OldDebtor {
 export interface RecordsState {
   /** ใบใหม่ทั้งหมด (เครื่อง + ชีต รวมกันแล้ว) */
   records: TripRecord[];
-  /** แถวอ่านตรงจากชีต (ข้อมูลเก่า + ข้อมูลใหม่ที่พิมพ์ตรงในชีตเอง) — ไม่มี bills, แยกด้วย r.source */
+  /**
+   * แถวอ่านอย่างเดียว ไม่มี bills แยกด้วย r.source — ข้อมูลเก่าจากไฟล์ (`fileOld.records`, source "เก่า")
+   * + แถว "ข้อมูลใหม่" ที่พิมพ์ตรงในชีตเอง (source "ใหม่")
+   */
   oldRecords: Record<string, unknown>[];
+  /** บิลค้างชำระของข้อมูลเก่า = `fileOld.debtors` (ติดป้าย source "เก่า") */
   oldDebtors: OldDebtor[];
   /**
    * "ข้อมูลเก่า" จากไฟล์ต้นทุน+รายได้ (etl/build_costrev.py) — เที่ยวที่เลขที่ใบรายการตรงกับ
-   * ข้อมูลรายได้จริง และบิลของเที่ยวเหล่านั้นจากไฟล์รายได้
-   * หน้ารายการทั้งหมดกับหน้าลูกหนี้ใช้ชุดนี้แทนแท็บ "ข้อมูลเก่า*" ในชีต
-   * ★ แดชบอร์ดเดิม (dash-fleet) ยังใช้ oldRecords/oldDebtors จากชีตตามเดิม ไม่แตะ
+   * ข้อมูลรายได้จริง และบิลของเที่ยวเหล่านั้นจากไฟล์รายได้ · แหล่งเดียวของข้อมูลเก่าทั้งระบบ
    */
   fileOld: { records: TripRecord[]; debtors: OldDebtor[] };
   loading: boolean;
@@ -77,12 +88,12 @@ export interface RecordsState {
   connected: boolean;
   /**
    * โหลดใหม่ทุกแหล่ง — ปุ่ม "↻ รีเฟรช" · `loading` ปลดทันทีที่ loadTrips (เร็ว) เสร็จ
-   * ส่วนแท็บข้อมูลเก่า (ช้า) วิ่งเบื้องหลังเงียบ ๆ แล้วอัปเดต oldRecords/oldDebtors ทีหลัง
+   * ส่วนแถวที่พิมพ์ในชีต (ช้า) วิ่งเบื้องหลังเงียบ ๆ แล้วอัปเดต oldRecords ทีหลัง
    * ไม่บล็อก loading — ระหว่างรอจะยังเห็นค่าที่แคชไว้ล่าสุดค้างอยู่ (ดู readOldCache/writeOldCache)
    */
   reload: () => void;
   /**
-   * โหลดเฉพาะใบใหม่ (เครื่อง + loadTrips) ไม่อ่านแท็บข้อมูลเก่า — เรียกอัตโนมัติตอนเลือก/เปลี่ยนหน้าที่
+   * โหลดเฉพาะใบใหม่ (เครื่อง + loadTrips) ไม่อ่านแถวที่พิมพ์ในชีต — เรียกอัตโนมัติตอนเลือก/เปลี่ยนหน้าที่
    * เปลี่ยนเมนู บันทึกเสร็จ และกลับมาที่แท็บเบราว์เซอร์ ใบที่ฝ่ายก่อนหน้าเพิ่งบันทึกจึงขึ้นเองโดยไม่ต้องกดรีเฟรช
    */
   refresh: () => void;
@@ -131,8 +142,7 @@ async function purgeDeleted(local: TripRecord[], sheet: TripRecord[]): Promise<v
 
 export function useRecords(): RecordsState {
   const [records, setRecords] = useState<TripRecord[]>([]);
-  const [oldRecords, setOldRecords] = useState<Record<string, unknown>[]>(() => readOldCache().records);
-  const [oldDebtors, setOldDebtors] = useState<OldDebtor[]>(() => readOldCache().debtors);
+  const [manualRows, setManualRows] = useState<Record<string, unknown>[]>(readOldCache);
   const [fileOld, setFileOld] = useState<RecordsState["fileOld"]>({ records: [], debtors: [] });
   const [loading, setLoading] = useState(true);
   const [sheetError, setSheetError] = useState<string | null>(null);
@@ -207,8 +217,12 @@ export function useRecords(): RecordsState {
       setRecords(local);
 
       // ข้อมูลเก่าจากไฟล์ — ไม่ต้องมีชีตก็โหลดได้ (คืนค่าว่างถ้ายังไม่รัน ETL)
+      // บิลจาก ETL ไม่มี source ติดมา — เติมให้ ที่ใช้แยกเก่า/ใหม่ใน dash-fleet กับ debtRows จะได้ถูก
       loadCostRevOld().then((fo) => {
-        if (alive) setFileOld({ records: fo.records as TripRecord[], debtors: fo.debtors as OldDebtor[] });
+        if (alive) setFileOld({
+          records: fo.records as TripRecord[],
+          debtors: (fo.debtors as OldDebtor[]).map((d) => ({ ...d, source: "เก่า" })),
+        });
       });
 
       if (!getUrl()) {
@@ -226,20 +240,26 @@ export function useRecords(): RecordsState {
         .catch((err) => { if (alive) setSheetError((err as Error).message); })
         .finally(() => { if (alive) setLoading(false); });
 
-      // ข้อมูลเก่า (loadOld) ช้า — ไล่อ่านทุกแท็บ "ข้อมูลเก่า*" ผ่าน Apps Script
-      // แยกเป็นงานเบื้องหลัง ไม่บล็อกหน้าจอ ระหว่างรอใช้ค่าที่แคชไว้ (จาก state เริ่มต้น) ไปพลาง
+      // แถวที่พิมพ์ตรงในชีต (loadOld) ช้า — แยกเป็นงานเบื้องหลัง ไม่บล็อกหน้าจอ
+      // ระหว่างรอใช้ค่าที่แคชไว้ (จาก state เริ่มต้น) ไปพลาง · ส่วน debtors ที่ส่งมาไม่ใช้แล้ว
       loadOld()
         .then((old) => {
           if (!alive) return;
-          setOldRecords(old.records);
-          setOldDebtors(old.debtors as OldDebtor[]);
-          writeOldCache(old.records, old.debtors as OldDebtor[]);
+          const rows = onlyManual(old.records);
+          setManualRows(rows);
+          writeOldCache(rows);
         })
         .catch(() => { /* ใช้ค่าที่แคชไว้ต่อไปเงียบ ๆ — ไม่ทับ sheetError ของ loadTrips */ });
     })();
 
     return () => { alive = false; };
   }, [tick]);
+
+  const oldRecords = useMemo(
+    () => [...manualRows, ...(fileOld.records as unknown as Record<string, unknown>[])],
+    [manualRows, fileOld.records],
+  );
+  const oldDebtors = fileOld.debtors;
 
   return {
     records, oldRecords, oldDebtors, fileOld, loading, sheetError, migrated,

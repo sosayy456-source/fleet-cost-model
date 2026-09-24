@@ -1993,7 +1993,7 @@ body:has(#view-dash.active){background:#EDE7DF}
 .d3-anchor{scroll-margin-top:90px}
 .i3-page{--i3-ink:#1F1B2E;--i3-muted:#7B7690;--i3-muted2:#6A6580;--i3-subtle:#9A95AE;--i3-border:#ECEAF2;--i3-row:#F2F0F6;
   --i3-gloss:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,.1) 45%,rgba(0,0,0,.22) 100%);
-  max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:16px;color:var(--i3-ink);padding-bottom:40px}
+  width:100%;display:flex;flex-direction:column;gap:16px;color:var(--i3-ink);padding-bottom:40px}
 .i3-sec{background:#fff;border-radius:24px;padding:32px;display:flex;flex-direction:column;gap:20px;scroll-margin-top:90px;
   box-shadow:0 1px 2px rgba(31,27,46,.05),0 20px 40px -30px rgba(31,27,46,.25);animation:dFadeUp .5s var(--d-ease) both}
 .i3-sec-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
@@ -2094,4 +2094,130 @@ body:has(#view-dash.active){background:#EDE7DF}
   .i3-sec{padding:20px 14px;border-radius:20px}
   #view-dash .i3-h{font-size:20px;padding:10px 16px}
   .i3-panel{padding:14px}
+}
+
+/* ---------- Demo › กำไรรายเส้นทาง ส่วนที่ 4 — ดีไซน์ "Route Profit Dashboard" (เจ้าของงานส่ง 24 ก.ย. 2569) ----------
+   การ์ดเดียวสองคอลัมน์: แผนที่ (ซ้าย · เส้นแบ่งลากปรับได้ 20–65% ค่าตั้งต้น 38%) | จัดอันดับกำไรต่อเที่ยว + รายละเอียดต้นทุน
+   ตัวแผนที่เป็น iframe ของ public/map/ (features/dash-demo/RouteMap.tsx) กล่องแผนที่ยืดสูงเท่าคอลัมน์ขวา
+   สีเป็นค่าตายตัวของดีไซน์ (เขียว #0F8F76 · ม่วง #5B2EE0 · พื้นครีม #F7F4F1) ฟอนต์ยังเป็น LINE Seed ของทั้งโมเดล (ดีไซน์ใช้ Prompt) */
+.rp-wrap{display:grid;align-items:stretch;margin-top:14px;background:var(--d-card);border-radius:22px;overflow:hidden;
+  border:1px solid rgba(120,90,60,.08);box-shadow:0 10px 30px -12px rgba(92,62,40,.18),0 2px 6px rgba(92,62,40,.06)}
+.rp-wrap.dragging{cursor:col-resize;user-select:none}
+.rp-wrap.dragging iframe{pointer-events:none}
+
+/* คอลัมน์แผนที่ */
+.rp-mapcol{position:relative;min-width:0;display:flex;flex-direction:column;border-right:1px solid #F1ECE8}
+.rp-mapbox{position:relative;flex:1;margin:12px;min-height:560px;border-radius:16px;overflow:hidden;border:1px solid #1b302b;
+  background:#0f1e1b}
+.rp-map{position:absolute;inset:0;overflow:hidden}
+.rp-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.rp-map-wait{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;color:#a9c2ba}
+/* โหมดขาวของแผนที่ (ปุ่ม .rp-theme) — พื้นการ์ดสว่างแบบเดิม · แผนที่ข้างในเปลี่ยนเองผ่าน map:theme */
+.rp-mapbox.light{border-color:#E4E9EE;background:radial-gradient(120% 80% at 30% 20%,#F7F9FB 0%,#EAF0F4 100%)}
+.rp-mapbox.light .rp-map-wait{color:#9AA3AD}
+.rp-theme{position:absolute;top:12px;right:12px;z-index:1;display:flex;gap:2px;padding:3px;border-radius:999px;
+  background:rgba(255,255,255,.92);border:1px solid #E6E2DE;box-shadow:0 4px 10px -6px rgba(0,0,0,.15)}
+.rp-theme button{display:flex;align-items:center;gap:5px;height:26px;padding:0 10px;border:0;border-radius:999px;
+  background:transparent;font:inherit;font-size:12px;font-weight:700;color:#7A7280;cursor:pointer}
+.rp-theme button:hover{color:#1C1B22}
+.rp-theme button[aria-pressed="true"]{background:#0f1e1b;color:#fff}
+.rp-mapbox.light .rp-theme button[aria-pressed="true"]{background:#0F8F76}
+.rp-theme svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.rp-theme button:focus-visible{outline:2px solid #0F8F76;outline-offset:1px}
+.rp-chip{position:absolute;top:12px;left:12px;max-width:calc(100% - 160px);display:flex;align-items:center;gap:8px;
+  padding:6px 12px 6px 10px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid #E6E2DE;
+  box-shadow:0 4px 10px -6px rgba(0,0,0,.15);font-size:12px;font-weight:700;color:#1C1B22;pointer-events:none}
+.rp-chip i{flex:none;width:8px;height:8px;border-radius:50%;background:#0F8F76;box-shadow:0 0 0 3px rgba(15,143,118,.18)}
+.rp-chip i.loss{background:#c8384e;box-shadow:0 0 0 3px rgba(200,56,78,.18)}
+.rp-chip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-map-hint{position:absolute;left:12px;right:12px;bottom:28px;margin:0;padding:8px 12px;border-radius:10px;
+  background:rgba(255,255,255,.92);box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:12px;color:#7A7280;
+  text-align:center;pointer-events:none}
+.rp-resize{position:absolute;top:0;right:-6px;bottom:0;width:12px;z-index:2;cursor:col-resize;display:flex;
+  align-items:center;justify-content:center;touch-action:none;outline:none}
+.rp-resize span{width:4px;height:44px;border-radius:999px;background:#CFC6BF;transition:background-color .15s}
+.rp-resize:hover,.rp-resize:focus-visible{background:rgba(15,143,118,.08)}
+.rp-resize:hover span,.rp-resize:focus-visible span,.rp-wrap.dragging .rp-resize span{background:#0F8F76}
+
+/* คอลัมน์ขวา — สองส่วนต่อกัน คั่นเส้น */
+.rp-main{min-width:0;display:flex;flex-direction:column}
+.rp-sec + .rp-sec{border-top:1px solid #F1ECE8}
+.rp-sh{display:flex;align-items:center;gap:12px;padding:20px 24px 16px;border-bottom:1px solid #F1ECE8}
+.rp-ico{width:40px;height:40px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.rp-ico svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round}
+.rp-ico.green{background:linear-gradient(135deg,#0F8F76,#17A99A);box-shadow:0 6px 14px -6px rgba(15,143,118,.7)}
+.rp-ico.violet{background:linear-gradient(135deg,#5B2EE0,#9B4DF0);box-shadow:0 6px 14px -6px rgba(91,46,224,.7)}
+.rp-sht{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+#view-dash .rp-sht h3{margin:0;font-size:19px;font-weight:700;color:#1C1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rp-sht p{margin:0;font-size:12.5px;color:#7A7280}
+.rp-pill{flex:none;font-size:11px;font-weight:700;color:#0F8F76;background:#E3F4EF;border-radius:999px;padding:4px 10px}
+.rp-i{flex:none;width:30px;height:30px;border-radius:50%;border:1.5px solid #5B2EE0;background:#fff;color:#5B2EE0;
+  font-style:italic;font-weight:700;font-size:14px;cursor:pointer;line-height:1}
+.rp-i:hover{background:#5B2EE0;color:#fff}
+.rp-foot{margin:10px 0 0;font-size:12px;color:#7A7280}
+.rp-pad{padding:20px 24px}
+
+/* ตารางจัดอันดับ — ตัวเรียงยังเป็น SortTable/useSort ของทั้งระบบ แต่งให้เป็นแถวการ์ดตามดีไซน์ */
+.rp-tblwrap{padding:8px 12px 12px}
+.rp-tbl{width:100%;border-collapse:separate;border-spacing:0 4px}
+.rp-tbl th{font-size:12px;font-weight:700;color:#8A8290;padding:10px 12px;background:var(--d-card)}
+.rp-tbl td{padding:12px;border:0;vertical-align:middle}
+.rp-tbl tbody tr{cursor:pointer;transition:background-color .15s}
+.rp-tbl tbody td:first-child{border-radius:14px 0 0 14px}
+.rp-tbl tbody td:last-child{border-radius:0 14px 14px 0}
+.rp-tbl tbody tr:hover td{background:#FAF7F4}
+.rp-tbl tbody tr.on td{background:#E3F4EF;box-shadow:inset 0 1px 0 #BFE6DA,inset 0 -1px 0 #BFE6DA}
+.rp-tbl tbody tr.on td:first-child{box-shadow:inset 1px 1px 0 #BFE6DA,inset 0 -1px 0 #BFE6DA}
+.rp-tbl tbody tr.on td:last-child{box-shadow:inset -1px 1px 0 #BFE6DA,inset 0 -1px 0 #BFE6DA}
+.rp-tbl th:first-child,.rp-tbl td:first-child{width:1%;white-space:nowrap}
+.rp-tbl th:nth-child(3),.rp-tbl td:nth-child(3){width:34%}
+.rp-tbl th:nth-child(4),.rp-tbl td:nth-child(4){width:1%;white-space:nowrap;padding-left:18px}
+.rp-rank{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;background:#F4F0EC;color:#6E6875}
+.rp-tbl tbody tr.on .rp-rank{background:linear-gradient(135deg,#0F8F76,#17A99A);color:#fff}
+.rp-rt{min-width:0}
+.rp-rt b{display:block;font-size:15px;font-weight:700;color:#1C1B22;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-rt small{font-size:12px;color:#8A8290}
+.rp-val{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.rp-val b{font-size:16px;font-weight:800;color:#1C1B22}
+.rp-track{display:block;width:100%;height:6px;border-radius:999px;background:#EEF1EF;overflow:hidden}
+.rp-track i{display:block;height:100%;border-radius:999px}
+.rp-margin{font-size:16px;font-weight:700}
+
+/* การ์ดรายละเอียด */
+.rp-dbody{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;padding:20px 24px 24px}
+.rp-dleft{display:flex;flex-direction:column;gap:18px}
+.rp-stats{display:flex;flex-direction:column;gap:8px;flex:1}
+.rp-stats div{flex:1;display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;
+  padding:12px 16px;border-radius:14px;background:#F7F4F1}
+.rp-stats span{font-size:12px;color:#7A7280;white-space:nowrap}
+.rp-stats b{font-size:18px;font-weight:800;color:#1C1B22}
+.rp-stats div.hi{background:linear-gradient(135deg,#0F8F76,#17A99A)}
+.rp-stats div.hi.loss{background:linear-gradient(135deg,#C8384E,#E0607A)}
+.rp-stats div.hi span{color:#E3F7F2}
+.rp-stats div.hi b{color:#fff}
+.rp-stack{display:flex;gap:2px;height:12px;border-radius:999px;overflow:hidden;background:#EEE}
+.rp-stack i{display:block;height:100%}
+/* จองที่ให้ครบ 11 แถว (กำไร · ต้นทุนรวม · ผันแปร + ย่อย 3 · กึ่งผันแปร · คงที่ · ค่าเช่า · อื่น ๆ · สูญเปล่า)
+   ไม่งั้นความสูงการ์ดเปลี่ยนตามจำนวนแถวของเส้นทางที่เลือก → กล่องแผนที่ที่ยืดตามก็สูง/เตี้ยลงทุกครั้ง
+   แล้วแผนที่จัดกรอบใหม่ (เจ้าของงานแจ้ง 24 ก.ย. 2569) · ค่านี้วัดจากหน้าจริงหลังเปลี่ยนดีไซน์ */
+.rp-cl{list-style:none;margin:0;padding:0;font-size:13px;display:flex;flex-direction:column;gap:2px;min-height:408px}
+.rp-cl li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;color:#1C1B22;font-weight:700}
+.rp-cl li i{flex:none;width:10px;height:10px;border-radius:3px}
+.rp-cl li span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-cl li b{width:60px;text-align:right;font-weight:inherit}
+.rp-cl li small{width:64px;text-align:right;font-size:13px;color:#6E6875}
+.rp-cl li.head{background:#E3F4EF}
+.rp-cl li.head.loss{background:#FBE7EA}
+.rp-cl li.total{border-top:1px solid #F1ECE8;margin-top:6px;border-radius:0}
+.rp-cl li.total i{visibility:hidden}
+.rp-cl li.sub{padding:5px 10px 5px 26px;font-weight:400;color:#6E6875}
+.rp-cl li.sub i{width:7px;height:7px;border-radius:2px;border:1.5px solid #9A94A0;background:transparent}
+
+@media(max-width:860px){
+  .rp-wrap{grid-template-columns:1fr!important}
+  .rp-mapcol{border-right:0;border-bottom:1px solid #F1ECE8}
+  .rp-mapbox{flex:none;min-height:0;aspect-ratio:1000/1400;width:calc(100% - 24px);max-width:420px;margin:12px auto}
+  .rp-resize{display:none}
+  .rp-sh,.rp-dbody{padding-left:16px;padding-right:16px}
 }

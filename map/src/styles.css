@@ -1,0 +1,127 @@
+:root{
+  --water:#aadaff; --land:#f7f6f2; --neighbor:#e2e5e7;
+  --province:#d9dce0; --border:#9aa0a6; --ink:#202124; --ink-2:#5f6368;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:#e9eaec;font-family:"Noto Sans Thai",system-ui,sans-serif;color:var(--ink)}
+body{display:flex;justify-content:center;padding:32px 16px}
+
+.sheet{width:1000px;max-width:100%;background:var(--water);position:relative;
+  box-shadow:0 1px 2px rgba(60,64,67,.3),0 8px 24px rgba(60,64,67,.15);overflow:hidden}
+svg{display:block;width:100%;height:auto}
+
+.card{position:absolute;background:#fff;border-radius:10px;
+  box-shadow:0 1px 2px rgba(60,64,67,.3),0 2px 8px rgba(60,64,67,.15)}
+
+/* route panel */
+.panel{top:20px;right:20px;width:322px;padding:16px 16px 12px}
+.panel h1{margin:0;font-size:16px;font-weight:600;letter-spacing:-.1px}
+.panel .sub{font-size:12px;color:var(--ink-2);margin:2px 0 12px}
+.list{display:flex;flex-direction:column;gap:2px}
+.row{display:grid;grid-template-columns:14px 1fr auto;align-items:center;gap:10px;
+  padding:8px 9px;border-radius:8px;cursor:pointer;border:0;background:transparent;
+  font-family:inherit;text-align:left;width:100%;transition:background .12s}
+.row:hover{background:#f1f3f4}
+.row[aria-pressed="true"]{background:#e8f0fe}
+.chip{width:14px;height:14px;border-radius:4px}
+.nm{font-size:13px;font-weight:500;line-height:1.35}
+.bar{height:4px;border-radius:2px;margin-top:5px;opacity:.9}
+.val{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.row[aria-pressed="true"] .val{color:var(--ink)}
+.foot{display:flex;justify-content:space-between;align-items:center;
+  margin-top:10px;padding-top:10px;border-top:1px solid #e8eaed;font-size:11.5px;color:var(--ink-2)}
+.ghost{border:1px solid #dadce0;background:#fff;border-radius:16px;padding:4px 12px;
+  font:inherit;font-size:11.5px;color:var(--ink-2);cursor:pointer}
+.ghost:hover{background:#f1f3f4}
+
+/* legend + scale */
+.legend{bottom:20px;left:20px;padding:12px 14px;font-size:12px;color:var(--ink-2);
+  display:flex;flex-direction:column;gap:8px}
+.lg{display:flex;align-items:center;gap:9px}
+.sw{width:22px;height:4px;border-radius:2px;background:#1a73e8}
+.sw.p{height:0;border-top:1.2px solid #a9aeb4}
+.sw.n{height:0;border-top:1.6px solid var(--border)}
+.scale{position:absolute;right:20px;bottom:28px;font-size:11px;color:var(--ink-2);text-align:center}
+.scale .bar2{height:6px;border:1.5px solid var(--ink-2);border-top:0;margin-bottom:3px}
+.attr{position:absolute;right:10px;bottom:6px;white-space:nowrap;font-size:9.5px;color:#7b8288}
+
+@media print{body{padding:0;background:#fff}.sheet{box-shadow:none}}
+
+/* ---------- tabs + network panel ---------- */
+[hidden]{display:none!important}
+.panel{max-height:calc(100% - 40px);overflow:auto}
+.tabs{display:flex;gap:2px;padding:3px;margin-bottom:14px;background:#f1f3f4;border-radius:10px}
+.tab{flex:1;border:0;background:transparent;border-radius:8px;padding:6px 8px;
+  font:inherit;font-size:12.5px;font-weight:500;color:var(--ink-2);cursor:pointer}
+.tab[aria-selected="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(60,64,67,.25)}
+.grp-t{display:flex;align-items:center;gap:7px;margin:12px 0 6px;font-size:11.5px;font-weight:600;color:var(--ink-2)}
+.dotn,.dotb{width:9px;height:9px;border-radius:50%;flex:none}
+.dotn{background:#fff;border:1.8px solid #5f6368}
+.dotb{background:#5f6368}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.stopbtn{border:1px solid #dadce0;background:#fff;border-radius:14px;padding:2px 9px;
+  font:inherit;font-size:12px;line-height:1.6;color:var(--ink);cursor:pointer}
+.stopbtn small{margin-left:4px;font-size:10.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.stopbtn:hover{background:#f1f3f4}
+.stopbtn[aria-pressed="true"]{background:#e8f0fe;border-color:#1a73e8;color:#174ea6}
+.detail{margin-top:14px;padding-top:10px;border-top:1px solid #e8eaed;font-size:12px;line-height:1.65;color:var(--ink-2)}
+.detail b{color:var(--ink)}
+.det-h{font-size:13.5px;margin-bottom:2px}
+.warn{font-size:11px;color:#b06000;background:#fef7e0;border-radius:4px;padding:0 5px}
+.dir{display:flex;gap:8px;align-items:baseline;margin-top:5px}
+.dir .sw{flex:none;transform:translateY(-3px)}
+
+/* ---------- zoom ---------- */
+#map{cursor:grab}
+#map:active{cursor:grabbing}
+#map path{vector-effect:non-scaling-stroke}
+.zoombar{top:40%;left:20px;display:flex;flex-direction:column;gap:2px;padding:4px}
+.zoombar hr{width:100%;margin:2px 0;border:0;border-top:1px solid #e8eaed}
+.zb{min-width:36px;height:32px;padding:0 8px;border:0;border-radius:6px;background:transparent;
+  font:inherit;font-size:17px;color:var(--ink-2);cursor:pointer}
+.zb.t{font-size:11.5px}
+.zb:hover{background:#f1f3f4}
+.zoomhint{position:absolute;top:calc(40% + 248px);left:20px;font-size:10.5px;color:#4a6f8f;max-width:120px}
+@media print{.zoombar,.zoomhint,.tabs{display:none}}
+.lgdot{width:22px;display:flex;justify-content:center}
+
+/* ---------- เส้นทางแบบมีมิติ + รถวิ่ง (src/motion.js) ---------- */
+.tube .t-shadow{opacity:.3}
+.tube .t-hi{opacity:.5}
+.tube .t-flow{opacity:.85;stroke-dasharray:.1 13;animation:flow 1.1s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-13.1}}
+#map.paused .t-flow{animation-play-state:paused}
+@media (prefers-reduced-motion: reduce){.tube .t-flow{animation:none}}
+
+/* ---------- โหมดฝังใน iframe (#embed) เช่น ใน dashboard.html ---------- */
+body.embed{padding:0;background:var(--water)}
+body.embed .sheet{box-shadow:none;width:100%;height:100vh}
+/* โหมดฝัง: แผนที่เต็มกล่อง iframe ทุกสัดส่วน — map.js ตั้ง preserveAspectRatio="xMidYMid slice" (ตัดขอบที่เกิน ไม่เว้นแถบว่าง) */
+body.embed #map{width:100%;height:100%}
+body.embed .panel,body.embed .legend,body.embed .zoomhint{display:none!important}
+body.embed .zoombar{top:12px;left:12px}
+
+/* #embed&bare — กล่องเล็ก (การ์ดแผนที่ในหน้า Demo ของโมเดล) ไม่มีที่ให้ปุ่มซูมกับสเกลบาร์ ·
+   ซูมยังทำได้ด้วย Ctrl + ล้อเมาส์ · ข้อความแหล่งข้อมูลยังแสดงตามเงื่อนไขของข้อมูลขอบเขต */
+body.bare .zoombar,body.bare .scale{display:none!important}
+body.bare .attr{font-size:9px}
+
+/* #thai — เฉพาะประเทศไทย (การ์ดแผนที่ในหน้า Demo ของโมเดล · เจ้าของงานขอ 24 ก.ย. 2569)
+   ซ่อนทะเล/ประเทศเพื่อนบ้าน/ป้ายชื่อ พื้นหลังโปร่งให้เห็นพื้นการ์ดของหน้าที่ฝัง
+   #3d (ใช้คู่กับ #thai) — ผนังกับเงาวาดใน map.js (.thai3d) + เอียงทั้งแผนที่ด้วย perspective
+   (คลิก/ซูมยังตรงตำแหน่ง เบราว์เซอร์แปลงพิกัดเมาส์ตาม transform ให้) · หน้า Demo ปิดไว้ — เจ้าของงานให้กลับเป็น 2 มิติ */
+.thai3d{display:none}
+body.thai.map3d .thai3d{display:inline}
+body.thai .water,body.thai .neighbors,body.thai .ctx{display:none}
+html:has(body.thai),body.thai,body.thai .sheet{background:transparent}
+body.thai.map3d #map{transform:perspective(1500px) rotateX(24deg) scale(1.06);transform-origin:50% 58%}
+
+/* #dark (ใช้คู่กับ #thai) — พื้นเข้มมีตาราง + ประเทศไทยโทนเขียวเข้ม ตามดีไซน์ "Route 1c" ที่เจ้าของงานส่ง 24 ก.ย. 2569
+   เส้นทาง/รถ/จุดขึ้นลงของโหมดนี้วาดใน map.js + motion.js (neonTube · drawTruckNeon) */
+body.dark{--land:#14302a;--province:#1f3f37;--border:#2f5a4f;--ink:#e8fffb;--ink-2:#a9c2ba}
+html:has(body.dark),body.dark{background:#0f1e1b}
+body.dark .sheet{background-color:#0f1e1b;
+  background-image:linear-gradient(#1b302b 1px,transparent 1px),linear-gradient(90deg,#1b302b 1px,transparent 1px);
+  background-size:20px 20px}
+body.dark .pin text{fill:#a9c2ba;stroke:#0f1e1b}
+body.dark .attr{color:#4c6b62}
