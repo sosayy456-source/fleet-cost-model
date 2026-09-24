@@ -19,7 +19,9 @@ describe("สุ่มสินค้าที่สมเหตุสมผล"
   it("แช่เย็นได้กล่องโฟม/ถัง · ทั่วไปไม่ได้", () => {
     const cold = new Set(COLD.map((k) => k.name));
     expect(cold.has(randomCargo({ cold: true }).kind)).toBe(true);
-    expect(GENERAL.some((k) => k.name === randomCargo({ cold: false }).kind)).toBe(true);
+    // สุ่มครั้งเดียวแล้วค่อยเทียบ — เดิมสุ่มใหม่ใน .some() ทุกรอบ ล้มเองราว 1 ใน 3 ครั้ง
+    const general = randomCargo({ cold: false }).kind;
+    expect(GENERAL.some((k) => k.name === general)).toBe(true);
   });
   it("ไกลขึ้น ค่าขนส่งต่อ กก. สูงขึ้น", () => {
     const mid = () => 0.5;

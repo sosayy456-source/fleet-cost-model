@@ -11,10 +11,13 @@ const rows: YtdTrip[] = [
 ];
 
 describe("มูลค่าเที่ยววิ่งเปล่า YTD เทียบปีก่อนช่วงเดียวกัน", () => {
-  it("ช่วงเดือน = ม.ค. ถึงเดือนสุดท้ายที่ปีนั้นมีข้อมูล · เลือกเดือน = เดือนเดียว", () => {
-    expect(ytdMonths(rows, 2026, "")).toEqual([1, 2, 3, 4, 5]);
-    expect(ytdMonths(rows, 2025, "")).toHaveLength(12);
-    expect(ytdMonths(rows, 2026, "03")).toEqual([3]);
+  it("ทั้งปี = ม.ค. ถึงเดือนสุดท้ายที่ปีนั้นมีข้อมูล · เลือกช่วง = ช่วงนั้น", () => {
+    expect(ytdMonths(rows, 2026)).toEqual([1, 2, 3, 4, 5]);
+    expect(ytdMonths(rows, 2025)).toHaveLength(12);
+    expect(ytdMonths(rows, 2026, "03", "03")).toEqual([3]);
+    // ช่วงที่เลือกเลยเดือนสุดท้ายที่มีข้อมูล — ตัดท้ายที่เดือนนั้น (ไม่หารด้วยเดือนที่ยังไม่มีข้อมูล)
+    expect(ytdMonths(rows, 2026, "03", "12")).toEqual([3, 4, 5]);
+    expect(ytdMonths(rows, 2025, "02", "04")).toEqual([2, 3, 4]);
   });
 
   it("เฉลี่ย/เดือน หารด้วยจำนวนเดือนในช่วง · % ของต้นทุนรวม · YoY เทียบช่วงเดียวกันของปีก่อนเท่านั้น", () => {
@@ -38,6 +41,7 @@ describe("มูลค่าเที่ยววิ่งเปล่า YTD �
     expect(ytdLabel(2026, [1, 2, 3, 4, 5], false)).toBe("YTD ม.ค.–พ.ค. 69");
     expect(ytdLabel(2025, Array.from({ length: 12 }, (_, i) => i + 1), false)).toBe("ทั้งปี 68");
     expect(ytdLabel(2026, [3], true)).toBe("มี.ค. 69");
+    expect(ytdLabel(2026, [3, 4, 5], true)).toBe("มี.ค.–พ.ค. 69");
     expect(ytdLabel(2026, [1], false)).toBe("YTD ม.ค. 69");
     expect(prevYY(2026)).toBe("68");
   });

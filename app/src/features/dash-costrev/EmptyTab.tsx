@@ -19,8 +19,9 @@
  *   [2]  Top 10 เส้นทาง กรอบเดียว ปุ่มสลับ จำนวนเที่ยว ↔ ต้นทุน · กดแท่ง = ป็อบอัพรายการของเส้นทางนั้น
  *   [3]  ตารางทุกเส้นทางที่มีเที่ยวเปล่า (ไม่มีเกณฑ์ขั้นต่ำแล้ว — เกณฑ์ ≥ 20 เที่ยวเคยใช้คู่กับกราฟจุดที่ตัดออก)
  *        + คอลัมน์ % เที่ยวเปล่า (นับเที่ยว) · คะแนน · ระดับ 🟢🟡🔴 จากเกณฑ์ percentile (lib/empty/routeScore.ts · 24 ก.ย. 2569)
- *        เกณฑ์ P25/P75 คิดจาก **ทุกเส้นทาง** ในช่วงเวลา + ประเภทรถที่กรอง ไม่ตามต้นทาง/ปลายทาง · กราฟ [1] มีเส้น % นับเที่ยว
- *        ของเส้นทางที่เลือก + เส้นประ P25 ค่าเดียว · คอลัมน์ "% เที่ยวเปล่า" เดิมคือ % ต้นทุน (คงชื่อเดิมไว้)
+ *        เกณฑ์ P25/P75 คิดจาก **ทุกเส้นทาง** ในช่วงเวลา + ประเภทรถที่กรอง ไม่ตามต้นทาง/ปลายทาง
+ *        · คอลัมน์ "% เที่ยวเปล่า" เดิมคือ % ต้นทุน (คงชื่อเดิมไว้)
+ *        ★ กราฟ [1] เคยมีเส้น % นับเที่ยว + เส้นประ P25 — เจ้าของงานสั่งเอาออกทั้งคู่ 24 ก.ย. 2569 (กราฟกลับเป็นแบบเดิม)
  *   ตัดออก 23 ก.ย. 2569: กราฟ % รายปี · แท่ง 100% เปล่า vs มีรายได้ · กราฟจุดรายเส้นทาง
  *
  * ★ ในชุดตัวอย่าง เส้นทางที่มีเที่ยวเปล่า 28 จาก 29 เส้นทางเป็นเที่ยวเปล่าล้วน (เส้นทางตีรถกลับโดยเฉพาะ)
@@ -29,14 +30,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Bar, CartesianGrid, ComposedChart, Legend, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { DBar } from "../../lib/chart/dcharts";
 import { BAR_RADIUS, anim, axisProps, gridProps, legendProps } from "../../lib/chart/primitives";
 import { D, DFONT, fmtShort, useChartTheme } from "../../lib/chart/theme";
 import { thDateSafe } from "../../lib/record/date";
 import { Note, Pane } from "../dash-fleet/parts";
-import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, monthLabel, passBase, pct,
+import { BASE_F0, isFiltered, ListFF, PeriodFF, SortTable, duniq, fmt, monthLabel, passBase, pct,
          useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
@@ -114,7 +115,6 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
         key: mo, mo: monthLabel(mo),
         cost: a ? Math.round(a.cost) : null,
         share: a && a.cost ? Math.round(pctOf(a.empty, a.cost) * 100) / 100 : null,
-        tripShare: a && a.n ? Math.round(pctOf(a.emptyN, a.n) * 100) / 100 : null,
         empty: a ? Math.round(a.empty) : 0,
         n: a?.n ?? 0, emptyN: a?.emptyN ?? 0,
       };
@@ -157,8 +157,7 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
   return (
     <>
       <FilterBar>
-        <YearFF trips={trips} value={f.year} onChange={set("year")} />
-        <MonthFF value={f.month} onChange={set("month")} />
+        <PeriodFF trips={trips} value={f} onChange={setF} />
         <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(trips.map((t) => t.o))} />
         <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={duniq(trips.map((t) => t.de))} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(trips.map((t) => t.ft))} />
@@ -168,7 +167,7 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
       <Pane deps={[rows]}>
         {/* KPI — 2 ใบขนาดเท่ากัน · เส้นในการ์ดแรกเป็น % รายปีจริง ไม่ใช่ลายตกแต่ง */}
         <div className="dz-heroes em-heroes">
-          <EmptyHeroes all={trips} rows={rows} rowsAnyYear={rowsAnyYear} year={f.year} month={f.month} />
+          <EmptyHeroes all={trips} rows={rows} rowsAnyYear={rowsAnyYear} period={f} />
         </div>
 
         {/* [1] รายเดือน */}
@@ -176,14 +175,13 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
           <div className="cp-th">
             <div>
               <h4 style={{ margin: 0 }}>% ต้นทุนเที่ยวเปล่า ÷ ต้นทุนวิ่งรถทั้งหมด · รายเดือน</h4>
-              <p>แท่ง = ต้นทุนรวม · เส้นแดง = % ต้นทุนเที่ยวเปล่า · เส้นส้ม = % เที่ยวเปล่า (นับเที่ยว) ของเส้นทางที่เลือก ·
-                เส้นประ = P25 ของทุกเส้นทาง (เป้า) · กดเดือนเพื่อดูรายการเที่ยววิ่งเปล่า</p>
+              <p>แท่ง = ต้นทุนรวม · เส้น = % ต้นทุนเที่ยวเปล่า · กดเดือนเพื่อดูรายการเที่ยววิ่งเปล่า</p>
             </div>
             <ListFF label="เส้นทาง" all="ทุกเส้นทาง" value={curRoute} onChange={setRoute}
               opts={emptyRoutes.map((r) => r.route)} />
           </div>
           <div className="dz-box tall">
-            {monthly.length ? <MonthChart data={monthly} onPick={openMonth} p25={emptyTh?.p25 ?? null} /> : <NoData />}
+            {monthly.length ? <MonthChart data={monthly} onPick={openMonth} /> : <NoData />}
           </div>
         </div>
 
@@ -264,8 +262,6 @@ function GradeBadge({ g, th }: { g: EmptyGrade; th: EmptyThresholds }) {
 
 interface MonthRow {
   key: string; mo: string; cost: number | null; share: number | null;
-  /** % เที่ยวเปล่า (นับเที่ยว) ของเดือนนั้น — เทียบกับเส้นประ P25 */
-  tripShare: number | null;
   empty: number; n: number; emptyN: number;
 }
 
@@ -273,7 +269,7 @@ interface MonthRow {
  * แท่งเทา = ต้นทุนรวม (แกนซ้าย บาท) · เส้น = % ต้นทุนเที่ยวเปล่า (แกนขวา)
  * กดที่ไหนก็ได้ในคอลัมน์ของเดือน (แท่งหรือจุด) = เปิดป็อบอัพของเดือนนั้น
  */
-function MonthChart({ data, onPick, p25 }: { data: MonthRow[]; onPick: (mo: string) => void; p25: number | null }) {
+function MonthChart({ data, onPick }: { data: MonthRow[]; onPick: (mo: string) => void }) {
   const t = useChartTheme();
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -292,13 +288,6 @@ function MonthChart({ data, onPick, p25 }: { data: MonthRow[]; onPick: (mo: stri
         <Bar yAxisId="c" dataKey="cost" name="ต้นทุนรวม (บาท)" fill={D.slate} fillOpacity={0.55} radius={BAR_RADIUS} {...anim} />
         <Line yAxisId="p" type="monotone" dataKey="share" name="% ต้นทุนเที่ยวเปล่า" stroke={D.rose} strokeWidth={2.4}
           dot={{ r: 3, fill: D.rose, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls {...anim} />
-        {/* เส้น % เที่ยวเปล่า (นับเที่ยว) ของเส้นทางที่เลือกใน dropdown + เส้นประ P25 ค่าเดียวของทุกเส้นทาง (24 ก.ย. 2569) */}
-        <Line yAxisId="p" type="monotone" dataKey="tripShare" name="% เที่ยวเปล่า (นับเที่ยว)" stroke={D.amber} strokeWidth={2.2}
-          dot={{ r: 3, fill: D.amber, strokeWidth: 0 }} activeDot={{ r: 6 }} connectNulls {...anim} />
-        {p25 != null && (
-          <ReferenceLine yAxisId="p" y={p25} stroke={D.amber} strokeDasharray="5 4" strokeWidth={1.4} ifOverflow="extendDomain"
-            label={{ value: `P25 ${pctTick(p25)}`, position: "insideBottomLeft", offset: 6, fill: D.amber, fontSize: 12, fontFamily: DFONT }} />
-        )}
       </ComposedChart>
     </ResponsiveContainer>
   );
@@ -316,7 +305,6 @@ function MonthTip({ active, payload }: { active?: boolean; payload?: { payload: 
         <div>ต้นทุนเที่ยวเปล่า <b>{fmt(p.empty)}</b> บาท ({fmt(p.emptyN)} เที่ยว)</div>
         <div>ต้นทุนรวม <b>{fmt(p.cost)}</b> บาท ({fmt(p.n)} เที่ยว)</div>
         <div>% ต้นทุนเที่ยวเปล่า <b>{p.share == null ? "–" : pct(p.share, 2)}</b></div>
-        <div>% เที่ยวเปล่า (นับเที่ยว) <b>{p.tripShare == null ? "–" : pct(p.tripShare, 2)}</b></div>
         <div style={{ opacity: .7, fontSize: 12.5, marginTop: 2 }}>กดเพื่อดูรายการเที่ยววิ่งเปล่า</div>
       </>}
     </div>

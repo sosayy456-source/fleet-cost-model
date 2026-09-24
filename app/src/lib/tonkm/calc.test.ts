@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LfTrip } from "../data/useLoadFactor";
-import { aggregate, baselineOf, detailOf, judge, latestPeriod, overview, prevPeriod, yearRows } from "./calc";
+import { aggregate, baselineOf, detailOf, judge, latestPeriod, overview, periodFor, prevPeriod, yearRows } from "./calc";
 
 /** เที่ยวจำลอง — ใส่เฉพาะฟิลด์ที่สูตรใช้ */
 const trip = (y: number, m: number, vk: string, rev: number, vc: number, wt: number, km: number): LfTrip => ({
@@ -49,10 +49,17 @@ describe("กำไรส่วนเกิน/ตัน-กม.", () => {
     expect(j.pctOfTarget).toBeNull();
   });
 
-  it("ช่วงก่อนหน้า: เดือนก่อน (ข้ามปีได้) · ทั้งปี = ปีก่อน", () => {
-    expect(prevPeriod({ year: 2026, month: "01" })).toEqual({ year: 2025, month: "12" });
-    expect(prevPeriod({ year: 2026, month: "05" })).toEqual({ year: 2026, month: "04" });
-    expect(prevPeriod({ year: 2026, month: "" })).toEqual({ year: 2025, month: "" });
+  it("ช่วงก่อนหน้า = ช่วงเดือนเดียวกันของปีก่อน · ทั้งปี = ปีก่อน", () => {
+    expect(prevPeriod({ year: 2026, from: "01", to: "01" })).toEqual({ year: 2025, from: "01", to: "01" });
+    expect(prevPeriod({ year: 2026, from: "03", to: "05" })).toEqual({ year: 2025, from: "03", to: "05" });
+    expect(prevPeriod({ year: 2026, from: "01", to: "12" })).toEqual({ year: 2025, from: "01", to: "12" });
+  });
+
+  it("ช่วงของการ์ดตามตัวกรอง: ไม่เลือกปี = เดือนล่าสุด · ช่วงที่ไม่มีข้อมูล = null", () => {
+    const trips = [trip(2025, 4, "A", 300, 100, 1, 100), trip(2026, 2, "A", 400, 100, 1, 100)];
+    expect(periodFor(trips, "")).toEqual({ year: 2026, from: "02", to: "02" });
+    expect(periodFor(trips, "2025", "03", "05")).toEqual({ year: 2025, from: "03", to: "05" });
+    expect(periodFor(trips, "2025", "06", "12")).toBeNull();
   });
 
   it("การ์ด: ฐานจากปี Y−2/Y−1 ทั้งปี ไม่ใช้ปีที่วัด", () => {
@@ -64,7 +71,7 @@ describe("กำไรส่วนเกิน/ตัน-กม.", () => {
       trip(2026, 3, "B", 150, 100, 1, 100),   // 0.5 · ไม่มีฐาน
     ];
     const p = latestPeriod(trips)!;
-    expect(p).toEqual({ year: 2026, month: "03" });
+    expect(p).toEqual({ year: 2026, from: "03", to: "03" });
     const ov = overview(trips, p, 5);
     const a = ov.rows.find((r) => r.vk === "A")!;
     expect(a.base).toBeCloseTo(2.6, 9);          // ไม่ปนปี 2026
@@ -75,12 +82,24 @@ describe("กำไรส่วนเกิน/ตัน-กม.", () => {
     expect(ov.worst!.vk).toBe("B");
     expect(ov.below).toBe(0);
     expect(ov.all.rate).toBeCloseTo(850 / 300, 9);
-    expect(ov.change).toBeCloseTo((850 / 300 - 3) / 3 * 100, 9);
+    // เทียบช่วงเดียวกันของปีก่อน (มี.ค. 2025) ซึ่งไม่มีเที่ยว — ไม่ใช่เดือนก่อน (ก.พ. 2026) แบบเดิม
+    expect(ov.prev).toEqual({ year: 2025, from: "03", to: "03" });
+    expect(ov.change).toBeNull();
+  });
+
+  it("% เปลี่ยน = เทียบช่วงเดือนเดียวกันของปีก่อน", () => {
+    const trips = [
+      trip(2025, 3, "A", 400, 100, 1, 100),   // 3.0 ← ช่วงเดียวกันปีก่อน
+      trip(2026, 2, "A", 900, 100, 1, 100),   // 8.0 เดือนก่อน — ไม่ใช้
+      trip(2026, 3, "A", 900, 100, 2, 100),   // 4.0
+    ];
+    const ov = overview(trips, { year: 2026, from: "03", to: "03" }, 5);
+    expect(ov.change).toBeCloseTo((4 - 3) / 3 * 100, 9);
   });
 
   it("ชนิดรถมาจากข้อมูล — ชนิดใหม่ขึ้นเอง · ชนิดที่ไม่มีเที่ยวในช่วงนี้ไม่แสดง", () => {
     const trips = [trip(2025, 7, "เก่า", 400, 100, 1, 100), trip(2026, 3, "ใหม่", 400, 100, 1, 100)];
-    expect(overview(trips, { year: 2026, month: "03" }, 5).rows.map((r) => r.vk)).toEqual(["ใหม่"]);
+    expect(overview(trips, { year: 2026, from: "03", to: "03" }, 5).rows.map((r) => r.vk)).toEqual(["ใหม่"]);
   });
 
   it("ตารางรายปี: ปีแรกไม่มีฐาน · ปีที่สองฐาน 1ปี · ปีที่สาม 2ปี", () => {

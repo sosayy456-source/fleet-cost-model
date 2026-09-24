@@ -24,6 +24,7 @@
 import { useMemo } from "react";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import { summarize } from "../../lib/loadfactor/calc";
+import { inPeriod } from "../../lib/filter/period";
 import { Hero, Note } from "../dash-fleet/parts";
 import EmptyHeroes from "../dash-costrev/EmptyHeroes";
 import { fmt, pct } from "../dash-costrev/common";
@@ -51,10 +52,9 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f }: {
   /* ---- ฝั่ง Load Factor (การ์ด 1-2) — กรองเท่าที่ไฟล์ LF มีให้ ---- */
   const sum = useMemo(() => {
     if (!lf) return null;
-    const ts = lf.trips.filter((t) => (!f.year || String(t.y) === f.year) && (!f.month || t.mo.slice(5) === f.month)
-      && (!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk));
+    const ts = lf.trips.filter((t) => inPeriod(t, f) && (!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk));
     return ts.length ? summarize(ts) : null;
-  }, [lf, f.year, f.month, f.ft, f.vk]);
+  }, [lf, f]);
 
   const lfNote = lfError
     ? "โหลดชุด Load Factor ไม่ได้ — สร้างด้วย python etl/build_loadfactor.py --dataset sample"
@@ -82,7 +82,7 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f }: {
             : lfNote} />
 
         {/* การ์ด 3-4 = สองใบเดียวกับแท็บเที่ยววิ่งเปล่าของ Executive Dashboard กดแล้วเปิดแท็บนั้น */}
-        <EmptyHeroes all={all} rows={trips} rowsAnyYear={tripsAnyYear} year={f.year} month={f.month} onOpen={toEmpty} />
+        <EmptyHeroes all={all} rows={trips} rowsAnyYear={tripsAnyYear} period={f} onOpen={toEmpty} />
       </div>
 
       <Note>

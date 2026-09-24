@@ -23,7 +23,7 @@ import EtlBanner from "../../lib/ui/EtlBanner";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
-import { ListFF, MonthFF, YearFF, duniq, fmt, isFiltered } from "../dash-costrev/common";
+import { ListFF, PeriodFF, duniq, fmt, isFiltered } from "../dash-costrev/common";
 import RouteProfitTab from "./RouteProfitTab";
 import Item2Tab from "./Item2Tab";
 import Item3Tab from "./Item3Tab";
@@ -132,8 +132,7 @@ export default function DemoDash() {
       <DashShell sample={m?.isSample} meta={meta || undefined}
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
         <FilterBar>
-          <YearFF trips={all} value={f.year} onChange={set("year")} />
-          <MonthFF value={f.month} onChange={set("month")} />
+          <PeriodFF trips={all} value={f} onChange={setF} />
           <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(all.map((t) => t.o))} />
           <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={duniq(all.map((t) => t.de))} />
           <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(all.map((t) => t.ft))} />

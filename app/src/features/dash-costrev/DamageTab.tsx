@@ -28,7 +28,7 @@ import { DPie } from "../../lib/chart/dcharts";
 import { anim, axisProps, gridProps, legendProps, tooltipProps } from "../../lib/chart/primitives";
 import { D, useChartTheme } from "../../lib/chart/theme";
 import { FF, Hero, KC, Note, Pane, TableHead } from "../dash-fleet/parts";
-import { ListFF, SortTable, YearFF, duniq, fmt, isFiltered, monthLabel, monthName, pct, routeArrow, useSort } from "./common";
+import { ListFF, PeriodFF, SortTable, duniq, fmt, isFiltered, monthLabel, pct, routeArrow, useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import {
   CASES, LEVELS, MIN_TRIPS_ALERT, PERIOD_ALL, aggregateDamage, caseOf, damageCase, damageLevel, damageThresholds, inPeriod,
@@ -241,15 +241,7 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
   return (
     <>
       <FilterBar>
-        <YearFF trips={base} value={f.year}
-          onChange={(y) => setF((p) => (y ? { ...p, year: y } : { ...p, ...PERIOD_ALL }))} />
-        <FF label="ตั้งแต่เดือน" value={f.from} disabled={!f.year}
-          onChange={(v) => setF((p) => ({ ...p, from: v, to: p.to < v ? v : p.to }))}>
-          {MONTHS.map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
-        </FF>
-        <FF label="ถึงเดือน" value={f.to} disabled={!f.year} onChange={(v) => setF((p) => ({ ...p, to: v }))}>
-          {MONTHS.filter((m) => m >= f.from).map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
-        </FF>
+        <PeriodFF trips={base} value={f} onChange={setF} />
         <ListFF label="เส้นทาง" all="ทุกเส้นทาง" value={f.rt} onChange={setDim("rt")} opts={duniq(base.map(rtKey))} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={setDim("ft")} opts={duniq(base.map((t) => t.ft))} />
         <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={setDim("vk")} opts={duniq(base.map((t) => t.vk))} />

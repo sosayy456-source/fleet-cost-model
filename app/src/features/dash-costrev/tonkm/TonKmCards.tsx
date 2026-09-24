@@ -1,7 +1,7 @@
 /**
  * การ์ด 4 ใบของกำไรส่วนเกิน/ตัน-กม. — ใช้สองที่ (เจ้าของงานเคาะ 23 ก.ย. 2569)
  *   · เมนู Demo › กำไรรายเส้นทาง ต่อจากแถว "กำไรเฉลี่ย/บิล" — ช่วงเวลาตรึงที่เดือนล่าสุด กดแล้วไปแท็บรายละเอียด
- *   · Executive Dashboard › แท็บ "กำไรส่วนเกิน/ตัน-กม." — ตามตัวกรองปี/เดือนของแท็บ
+ *   · Executive Dashboard › แท็บ "กำไรส่วนเกิน/ตัน-กม." — ตามตัวกรองปี + ช่วงเดือนของแท็บ
  *
  *   1. อัตราเฉลี่ยรวมของช่วง + % เปลี่ยนเทียบช่วงก่อน
  *   2. ชนิดรถอัตราสูงสุด · 3. ต่ำสุด — พร้อมเป้าหมายและป้ายสถานะ
@@ -11,13 +11,14 @@
  */
 import type { CSSProperties, ReactNode } from "react";
 import { D } from "../../../lib/chart/theme";
-import { STATUS_LABEL, isJudged } from "../../../lib/tonkm/calc";
+import { STATUS_LABEL, isJudged, isWholeYear } from "../../../lib/tonkm/calc";
 import type { BaseYears, TkOverview, TkPeriod, TkStatus, VkRow } from "../../../lib/tonkm/calc";
 import { fmt, monthName } from "../common";
 
 export const rateStr = (r: number | null): string => (r == null ? "–" : fmt(r, 2));
+/** "ทั้งปี 2569" · "มี.ค. 2569" · "มี.ค.–พ.ค. 2569" */
 export const periodStr = (p: TkPeriod): string =>
-  (p.month ? `${monthName(p.month)} ` : "ทั้งปี ") + (p.year + 543);
+  (isWholeYear(p) ? "ทั้งปี " : p.from === p.to ? `${monthName(p.from)} ` : `${monthName(p.from)}–${monthName(p.to)} `) + (p.year + 543);
 
 export function StatusTag({ s }: { s: TkStatus }) {
   return <span className={`tk-tag ${s}`}>{STATUS_LABEL[s]}</span>;
@@ -75,7 +76,7 @@ export default function TonKmCards({ ov, x, onClick }: { ov: TkOverview; x: numb
         <div className="s">
           {ov.change == null ? `ไม่มีข้อมูล${periodStr(ov.prev)}ให้เทียบ` : (
             <span className={up ? "tk-up" : "tk-down"}>
-              {up ? "▲" : "▼"} {fmt(Math.abs(ov.change), 1)}% เทียบ{ov.period.month ? "เดือน " : ""}{periodStr(ov.prev)}
+              {up ? "▲" : "▼"} {fmt(Math.abs(ov.change), 1)}% เทียบ {periodStr(ov.prev)}
             </span>
           )}
         </div>

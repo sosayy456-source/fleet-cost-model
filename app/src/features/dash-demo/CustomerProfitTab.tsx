@@ -31,12 +31,14 @@ import { D } from "../../lib/chart/theme";
 import { ShortId } from "../../lib/custmap/ShortId";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
-import { useAlloc } from "../../lib/data/useAlloc";
+import { allocTopKey, useAlloc } from "../../lib/data/useAlloc";
+import { inPeriod, periodLabel as periodText } from "../../lib/filter/period";
+import type { Period } from "../../lib/filter/period";
 import type { AllocBill, AllocCustomer, AllocData } from "../../lib/data/useAlloc";
 import { useDebtors } from "../../lib/data/useDebtors";
 import SourceTag from "../../lib/ui/SourceTag";
 import { Hero, Note, Pane } from "../dash-fleet/parts";
-import { SortTable, fmt, marginTone, monthName, pct, signed, useSort } from "../dash-costrev/common";
+import { SortTable, fmt, marginTone, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import CustBillsModal from "./CustBillsModal";
 import { needsReview, reviewReasonText } from "../../lib/alloc/review";
@@ -120,7 +122,7 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
 /* ================================================================ ส่วนที่ 1 */
 function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   // ใช้แค่ปี/เดือนของตัวกรองหน้า — แยกออกมาเป็น object เล็ก ตัวกรองอื่นเปลี่ยนแล้วจะได้ไม่คำนวณซ้ำ
-  const f = useMemo(() => ({ year: page.year, month: page.month }), [page.year, page.month]);
+  const f = useMemo<Period>(() => ({ year: page.year, from: page.from, to: page.to }), [page.year, page.from, page.to]);
   const [pick, setPick] = useState<Sel | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [openCi, setOpenCi] = useState<number | null>(null);
@@ -132,8 +134,7 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   const rows = useMemo<CustRow[]>(() => {
     const acc = new Map<number, CustRow>();
     for (const r of cm) {
-      if (f.year && r.mo.slice(0, 4) !== f.year) continue;
-      if (f.month && r.mo.slice(5) !== f.month) continue;
+      if (!inPeriod({ y: Number(r.mo.slice(0, 4)), mo: r.mo }, f)) continue;
       let a = acc.get(r.ci);
       if (!a) {
         const c = data.customers[r.ci];
@@ -171,7 +172,9 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   }, [rows]);
 
   /* ---------- Top 10 ของช่วงเวลาที่กรอง (ETL คัดไว้) ---------- */
-  const top = data.top?.[`${f.year}|${f.month}`];
+  const top = data.top?.[allocTopKey(f)];
+  /** top.json รุ่นก่อนมีช่วงเดือน (สร้างก่อน 24 ก.ย. 2569) ไม่มีคีย์ของช่วงนี้ — บอกให้รัน ETL ใหม่ แทนตารางว่างเฉย ๆ */
+  const topMissing = !!data.top && !top && rows.length > 0;
   const gainSet = useMemo(() => new Set(top?.gain ?? []), [top]);
   const lossSet = useMemo(() => new Set(top?.loss ?? []), [top]);
 
@@ -211,13 +214,13 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   const openBills = useMemo<AllocBill[]>(() => {
     if (openCi == null || !data.bills) return [];
     return data.bills.filter((b) => b.ci === openCi
-      && (!f.year || b.date.slice(0, 4) === f.year) && (!f.month || b.date.slice(5, 7) === f.month));
+      && inPeriod({ y: Number(b.date.slice(0, 4)), mo: b.date.slice(0, 7) }, f));
   }, [data.bills, openCi, f]);
 
   const pickLabel = !pick ? null
     : pick.kind === "all" ? "ลูกค้าทั้งหมด" : pick.kind === "gain" ? "ลูกค้าที่ทำกำไร"
     : pick.kind === "loss" ? "ลูกค้าที่ขาดทุน" : `ช่วง %Margin ${BUCKETS[pick.i]?.label ?? ""}`;
-  const periodLabel = (f.year ? `พ.ศ. ${+f.year + 543}` : "ทุกปี") + (f.month ? ` · ${monthName(f.month)}` : "");
+  const periodLabel = periodText(f);
 
   return (
     <>
@@ -265,7 +268,9 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
             </div>
           </div>
           <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggleSort} rowKey={(r) => String(r.ci)}
-            empty={showAll ? "ไม่มีลูกค้าในกลุ่มนี้" : "ไม่มีลูกค้า Top 10 ในกลุ่มนี้ — สลับเป็น \"แสดงทุกราย\""}
+            empty={showAll ? "ไม่มีลูกค้าในกลุ่มนี้"
+              : topMissing ? "ไฟล์ top.json ยังไม่มี Top 10 ของช่วงเดือนนี้ — รัน python etl/build_alloc.py ใหม่ หรือสลับเป็น \"แสดงทุกราย\""
+              : "ไม่มีลูกค้า Top 10 ในกลุ่มนี้ — สลับเป็น \"แสดงทุกราย\""}
             className="dm-tbl cp-tbl"
             rowProps={(r) => {
               const can = gainSet.has(r.ci) || lossSet.has(r.ci);

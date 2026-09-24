@@ -2,7 +2,7 @@
  * แถวการ์ดกำไรส่วนเกิน/ตัน-กม. ในเมนู Demo › กำไรรายเส้นทาง (ต่อจากแถว "กำไรเฉลี่ย/บิล" — เจ้าของงานสั่ง 23 ก.ย. 2569)
  *
  * ★ ตามตัวกรองของหน้า Demo (24 ก.ย. 2569 — รวมเป็นหน้ายาว ตัวกรองชุดเดียวคุมทั้งหน้า · เดิมตรึงเดือนล่าสุดเสมอ)
- *   ปี/เดือน → ช่วงที่แสดง (periodFor ใน lib/tonkm/calc.ts · ไม่เลือก = เดือนล่าสุดเหมือนเดิม)
+ *   ปี + ช่วงเดือน → ช่วงที่แสดง (periodFor ใน lib/tonkm/calc.ts · ไม่เลือกปี = เดือนล่าสุดเหมือนเดิม)
  *   ประเภทรถ/ชนิดรถ → กรองเที่ยวในไฟล์ Load Factor ก่อนคิด (ฐานปีก่อนหน้าจึงเป็นของชุดที่กรองเดียวกัน)
  *   ต้นทาง/ปลายทาง/กลุ่มบริการ → ไฟล์ LF ไม่มีให้กรอง ขึ้นบรรทัดบอก (FilterScope)
  *   เดิมมีหัวบรรทัด "ข้อมูลล่าสุด … · ไม่ขึ้นกับตัวกรองด้านบน" + ปุ่ม "ดูรายละเอียด →" — เจ้าของงานให้เอาออก 23 ก.ย. 2569
@@ -24,7 +24,7 @@ export default function TonKmDemoRow({ f }: { f: DemoFilter }) {
   const trips = useMemo(
     () => (data ? data.trips.filter((t) => (!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk)) : []),
     [data, f.ft, f.vk]);
-  const p = useMemo(() => periodFor(trips, f.year, f.month), [trips, f.year, f.month]);
+  const p = useMemo(() => periodFor(trips, f.year, f.from, f.to), [trips, f.year, f.from, f.to]);
   const ov = useMemo(() => (p && hasTonKm(trips) ? overview(trips, p, x) : null), [trips, p, x]);
 
   if (error || (data && !hasTonKm(data.trips))) {

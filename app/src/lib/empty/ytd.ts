@@ -6,7 +6,8 @@
  *   3. YoY = (ต้นทุนเที่ยวเปล่าช่วงนี้ปี Y − ช่วงเดียวกันปี Y−1) ÷ ช่วงเดียวกันปี Y−1 × 100
  *      จำนวนเดือนเท่ากันสองฝั่ง จึงเท่ากับเทียบค่าเฉลี่ยต่อเดือน ("ม.ค.–พ.ค. 69 สูงกว่า ม.ค.–พ.ค. 68 อยู่ 14.2%")
  *
- * ช่วงเดือน (ytdMonths): เลือกเดือน = เดือนนั้นเดือนเดียว · ไม่เลือก = ม.ค. ถึงเดือนสุดท้ายที่ปีนั้นมีข้อมูล
+ * ช่วงเดือน (ytdMonths): ช่วงที่เลือกในตัวกรอง ตั้งแต่–ถึง (เจ้าของงานเลือก 24 ก.ย. 2569 ตอนเปลี่ยนตัวกรองเป็นช่วงเดือน)
+ *   ตัดท้ายที่เดือนสุดท้ายที่ปีนั้นมีข้อมูล · ไม่เลือก (ทั้งปี) = ม.ค. ถึงเดือนสุดท้ายที่มีข้อมูล เหมือนเดิม
  *   ("เต็มปีไหม" ดูจากข้อมูลทั้งชุด ไม่ใช่ตัวกรอง — กติกาเดียวกับป้าย "ปีนี้ยังไม่เต็มปี" เดิม)
  */
 import { TH_MONTHS } from "../record/date";
@@ -30,11 +31,11 @@ export interface EmptyYtd {
 }
 
 /** ช่วงเดือนของการ์ด — allTrips = ทุกเที่ยวในชุด (ไม่ผ่านตัวกรอง) ใช้หาเดือนสุดท้ายที่ปีนั้นมีข้อมูล */
-export function ytdMonths(allTrips: YtdTrip[], year: number, month: string): number[] {
-  if (month) return [Number(month)];
+export function ytdMonths(allTrips: YtdTrip[], year: number, from = "01", to = "12"): number[] {
   let last = 0;
   for (const t of allTrips) if (t.y === year) last = Math.max(last, Number(t.mo.slice(5, 7)));
-  return Array.from({ length: last }, (_, i) => i + 1);
+  const a = Number(from), b = Math.min(Number(to), last);
+  return b >= a ? Array.from({ length: b - a + 1 }, (_, i) => a + i) : [];
 }
 
 /** rows = เที่ยวที่ผ่านตัวกรองทุกตัว **ยกเว้นปี** (ต้องมีปีก่อนติดมาด้วย) */
@@ -78,11 +79,11 @@ export function yearShares(rows: YtdTrip[]): { y: number; share: number }[] {
 
 const yy = (y: number): string => String((y + 543) % 100).padStart(2, "0");
 
-/** ป้ายช่วง — "YTD ม.ค.–พ.ค. 69" · ครบ 12 เดือน "ทั้งปี 68" · เลือกเดือน "มี.ค. 69" */
-export function ytdLabel(year: number, months: number[], pickedMonth: boolean): string {
+/** ป้ายช่วง — "YTD ม.ค.–พ.ค. 69" · ครบ 12 เดือน "ทั้งปี 68" · เลือกช่วงเอง "มี.ค. 69" / "มี.ค.–พ.ค. 69" */
+export function ytdLabel(year: number, months: number[], picked: boolean): string {
   if (!months.length) return `ปี ${yy(year)}`;
   const a = TH_MONTHS[months[0]! - 1], b = TH_MONTHS[months[months.length - 1]! - 1];
-  if (pickedMonth) return `${a} ${yy(year)}`;
+  if (picked) return `${a === b ? a : `${a}–${b}`} ${yy(year)}`;
   if (months.length === 12) return `ทั้งปี ${yy(year)}`;
   return `YTD ${a === b ? a : `${a}–${b}`} ${yy(year)}`;
 }

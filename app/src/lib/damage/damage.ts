@@ -144,16 +144,6 @@ export function damageLevel(a: Pick<DamageAgg, "rate" | "incidence" | "clrAmt">,
 
 /* ---------------- ตัวกรองช่วงเวลา ---------------- */
 
-/** ปี ค.ศ. (ว่าง = ทุกปี) + ช่วงเดือน "01".."12" ใช้ได้เฉพาะเมื่อเลือกปี */
-export interface DamagePeriod { year: string; from: string; to: string }
-export const PERIOD_ALL: DamagePeriod = { year: "", from: "01", to: "12" };
-
-export function inPeriod(t: { y: number; mo: string }, p: DamagePeriod): boolean {
-  if (!p.year) return true;
-  if (String(t.y) !== p.year) return false;
-  const m = t.mo.slice(5);
-  return m >= p.from && m <= p.to;
-}
-
-/** เลือกช่วงเดือนแคบกว่าทั้งปีอยู่ไหม */
-export const isPartialYear = (p: DamagePeriod): boolean => !!p.year && (p.from !== "01" || p.to !== "12");
+/** ปี ค.ศ. (ว่าง = ทุกปี) + ช่วงเดือน "01".."12" ใช้ได้เฉพาะเมื่อเลือกปี — ย้ายไปใช้ร่วมที่ lib/filter/period.ts แล้ว */
+export type { Period as DamagePeriod } from "../filter/period";
+export { PERIOD_ALL, inPeriod, isPartialYear } from "../filter/period";
