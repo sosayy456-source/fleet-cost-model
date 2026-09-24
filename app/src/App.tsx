@@ -193,7 +193,8 @@ export default function App() {
 
   return (
     <>
-      <aside className="sidebar">
+      {/* แถบซ้ายแบบ IG — ปกติเหลือแค่ไอคอน · ชี้เมาส์/โฟกัสคีย์บอร์ด = กางทับเนื้อหา · ป็อบอัพ Demo เปิดอยู่ = กางค้าง (pinned) */}
+      <aside className={"sidebar" + (pop ? " pinned" : "")}>
         <nav className="nav">
           {pages.map((p) => (
             <button
@@ -208,7 +209,7 @@ export default function App() {
               aria-expanded={p.id === "demo" ? pop?.kind === "demo" : undefined}
             >
               {p.icon}
-              {p.label}
+              <span className="navlabel">{p.label}</span>
               {p.badge === "drafts" && draftCount > 0 && (
                 <span className="nav-count">{draftCount}</span>
               )}

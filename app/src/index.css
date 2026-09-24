@@ -32,7 +32,8 @@
     --rs-muted:#6B6169; --rs-subtle:#8A8189; --rs-accent:#7A1F3D;
     --rs-line:rgba(23,19,26,.10);
     --shadow:0 1px 2px rgba(27,27,31,.03);
-    --sidew:252px;
+    --sidew:252px;      /* ความกว้างตอนกาง (ชี้เมาส์) */
+    --sidew-mini:76px;  /* ความกว้างตอนหุบ — เหลือแค่ไอคอน */
     --ease:cubic-bezier(.23,1,.32,1);
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -53,6 +54,23 @@
   .navitem.active{background:#fff;color:var(--accent);font-weight:700}
   .navitem svg{width:18px;height:18px;flex:none;opacity:.9}
   .navitem .plus{color:currentColor}
+  .navlabel{white-space:nowrap}
+
+  /* แถบซ้ายแบบ IG (เฉพาะจอกว้าง) — หุบเหลือไอคอน · :hover / โฟกัสคีย์บอร์ด / .pinned = กางทับเนื้อหา
+     ใช้ :has(:focus-visible) แทน :focus-within เพราะคลิกเมนูแล้วปุ่มยังค้างโฟกัส แถบจะไม่ยอมหุบ */
+  @media(min-width:721px){
+    .sidebar{width:var(--sidew-mini);padding:28px 12px;overflow-x:hidden;
+      transition:width .24s var(--ease),box-shadow .24s var(--ease)}
+    .sidebar:hover,.sidebar:has(:focus-visible),.sidebar.pinned{width:var(--sidew);
+      box-shadow:8px 0 32px rgba(27,27,31,.10)}
+    .navitem{position:relative;padding:13px 17px}
+    .navlabel{opacity:0;transition:opacity .12s var(--ease)}
+    .sidebar:hover .navlabel,.sidebar:has(:focus-visible) .navlabel,.sidebar.pinned .navlabel{
+      opacity:1;transition-delay:.06s}
+    /* ตัวเลขแจ้งเตือนตอนหุบ — ย่อเป็นป้ายเล็กมุมขวาบนของไอคอน */
+    .sidebar:not(:hover):not(:has(:focus-visible)):not(.pinned) .nav-count{
+      position:absolute;top:5px;left:30px;padding:0 5px;font-size:10px;line-height:16px;margin:0}
+  }
 
   /* จอมือถือแนวตั้ง — ยุบแถบเมนูซ้ายเป็นแถบเลื่อนแนวนอนด้านบน คืนพื้นที่ให้ฟอร์ม */
   @media(max-width:720px){
@@ -63,7 +81,7 @@
     .navitem{width:auto;flex:none;white-space:nowrap;padding:9px 13px;font-size:13.5px;gap:8px}
   }
 
-  .app{margin-left:var(--sidew);padding:28px 30px 60px;max-width:1400px}
+  .app{margin-left:var(--sidew-mini);padding:28px 30px 60px;max-width:1400px}
   /* ต้องอยู่หลังกฎ .app ด้านบน ไม่งั้นจะโดน margin-left:var(--sidew) ทับ (specificity เท่ากัน ใครมาทีหลังชนะ) */
   @media(max-width:720px){
     .app{margin-left:0;padding:18px 16px 40px}
