@@ -62,8 +62,11 @@ export function autoFuelInfo(input: CostInput, ref: RefData, ovr?: RefOverrides)
   return { rate, distance, price, effDate, litres, cost: litres * price };
 }
 
-/** รวมตารางค่าซ่อมฐานกับที่ผู้ใช้แก้เอง (เทียบเท่า repairTables() :1254) */
-function repairTables(ref: RefData, ovr?: RefOverrides) {
+/**
+ * รวมตารางค่าซ่อมฐานกับที่ผู้ใช้แก้เอง (เทียบเท่า repairTables() :1254)
+ * export ให้ lib/repair/export.ts ใช้ส่งออก "ตารางที่ใช้อยู่จริง" — กติกาการทับมีที่นี่ที่เดียว
+ */
+export function repairTables(ref: RefData, ovr?: RefOverrides) {
   const t = structuredClone(ref.repair);
   const o = ovr?.repair;
   if (!o) return t;

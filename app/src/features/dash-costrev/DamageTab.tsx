@@ -31,10 +31,10 @@ import { FF, Hero, KC, Note, Pane, TableHead } from "../dash-fleet/parts";
 import { ListFF, SortTable, YearFF, duniq, fmt, isFiltered, monthLabel, monthName, pct, routeArrow, useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import {
-  LEVELS, MIN_TRIPS_ALERT, PERIOD_ALL, aggregateDamage, damageLevel, damageThresholds, inPeriod,
+  CASES, LEVELS, MIN_TRIPS_ALERT, PERIOD_ALL, aggregateDamage, caseOf, damageCase, damageLevel, damageThresholds, inPeriod,
   isPartialYear, levelOf, totalDamage,
 } from "../../lib/damage/damage";
-import type { DamageAgg, DamageLevel, DamagePeriod, DamageThresholds } from "../../lib/damage/damage";
+import type { DamageAgg, DamageCase, DamageLevel, DamagePeriod, DamageThresholds } from "../../lib/damage/damage";
 import type { Col } from "./common";
 import type { CostRevMode } from "./CostRevDash";
 import type { Trip } from "../../lib/data/useCostRev";
@@ -77,6 +77,8 @@ const T0: TableFilter = { rt: "", ft: "", vk: "", level: "dmg" };
 interface GroupRow extends DamageAgg {
   route: string; ft: string; vk: string;
   level: DamageLevel | null;
+  /** กรณีตามเกณฑ์ (5 กรณี) — ระดับปานกลางมีสองกรณีที่แนวทางต่างกัน ใช้บอกแนวทางบนป้าย */
+  kase: DamageCase | null;
 }
 
 const rankOf = (l: DamageLevel | null): number => (l ? levelOf(l).rank : -1);
@@ -194,7 +196,8 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
     const g = aggregateDamage(timed.filter((t) => passDims(t, eff)), (t) => `${rtKey(t)}\u0000${t.ft}\u0000${t.vk}`);
     return g.map((a) => {
       const [route = "", ft = "", vk = ""] = a.key.split("\u0000");
-      return { ...a, route, ft, vk, level: damageLevel(a, th) };
+      const kase = damageCase(a, th);
+      return { ...a, route, ft, vk, kase, level: kase ? caseOf(kase).level : null };
     })
       // เรียงตั้งต้น: ระดับสูงก่อน แล้วตาม Damage Rate — useSort เรียงแบบ stable จึงคงลำดับรองนี้ไว้
       .sort((a, b) => rankOf(b.level) - rankOf(a.level) || (b.rate ?? 0) - (a.rate ?? 0));
@@ -222,7 +225,7 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
     { key: "incidence", label: "Damage Incidence Rate (%)", get: (r) => r.incidence, num: true,
       render: (r) => pct(r.incidence, 2) },
     { key: "level", label: "ระดับความเสียหาย", get: (r) => rankOf(r.level),
-      render: (r) => <LevelBadge level={r.level} /> },
+      render: (r) => <LevelBadge level={r.level} kase={r.kase} /> },
   ], []);
   const { sorted, sort, toggle } = useSort(shown, cols, { key: "level", dir: -1 });
 
@@ -373,7 +376,7 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
           <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} className="dmg-tbl"
             rowKey={(r) => r.key} empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" />
           <AlertList title="Damage Alert · ต้องเร่งตรวจสอบ"
-            empty={`ไม่มีกลุ่มที่อยู่ในระดับสูง (นับเฉพาะกลุ่มที่มีอย่างน้อย ${MIN_TRIPS_ALERT} เที่ยว)`}
+            empty={`ไม่มีกลุ่มที่อยู่ในระดับความเสี่ยงสูง (นับเฉพาะกลุ่มที่มีอย่างน้อย ${MIN_TRIPS_ALERT} เที่ยว)`}
             items={tableAlerts.map((r) => ({
               key: r.key, head: `${r.route} · ${orNone(r.ft)} · ${orNone(r.vk)}`,
               sub: `Damage Rate ${r.rate == null ? "–" : pct(r.rate, 3)} | Incidence Rate ${pct(r.incidence, 2)} · ${fmt(r.dmgTrips)} จาก ${fmt(r.n)} เที่ยว`,
@@ -401,9 +404,10 @@ export default function DamageTab({ trips, mode, matchedTotal, isSample }: {
 
 /* ---------------- ชิ้นส่วนของแท็บ ---------------- */
 
-function LevelBadge({ level }: { level: DamageLevel | null }) {
+function LevelBadge({ level, kase }: { level: DamageLevel | null; kase?: DamageCase | null }) {
   if (!level) return <span className="dmg-lv none">–</span>;
-  return <span className={`dmg-lv ${level}`}>{levelOf(level).label}</span>;
+  // วางเมาส์ = แนวทางการดำเนินการของกรณีนั้น (ระดับปานกลางสองกรณีแนวทางไม่เหมือนกัน)
+  return <span className={`dmg-lv ${level}`} title={kase ? caseOf(kase).action : undefined}>{levelOf(level).label}</span>;
 }
 
 function EmptyChart({ text }: { text: string }) {
@@ -436,7 +440,7 @@ function AlertList({ title, items, empty }: {
   );
 }
 
-/** ตารางแนวทาง (สเปกหน้า 6) พร้อมเงื่อนไขและค่า P75 ของช่วงที่เลือก ให้ผู้ใช้เห็นว่าแต่ละระดับตัดสินจากอะไร */
+/** ตารางเกณฑ์การประเมิน 5 กรณี (ไฟล์ "dashboard คชจ (1).pdf" หน้า 1) พร้อมค่า P75 ของช่วงที่เลือก ให้ผู้ใช้เห็นว่าแต่ละระดับตัดสินจากอะไร */
 function GuideTable({ th }: { th: DamageThresholds }) {
   return (
     <>
@@ -446,13 +450,13 @@ function GuideTable({ th }: { th: DamageThresholds }) {
         {" "}· Damage Incidence Rate <b>{th.p75Incidence == null ? "–" : pct(th.p75Incidence, 2)}</b>
       </div>
       <table className="dz-tbl">
-        <thead><tr><th>ระดับความเสียหาย</th><th>เงื่อนไข</th><th>แนวทางการดำเนินการ</th></tr></thead>
+        <thead><tr><th>เงื่อนไข</th><th>ระดับความเสียหาย</th><th>แนวทางการดำเนินการ</th></tr></thead>
         <tbody>
-          {LEVELS.map((l) => (
-            <tr key={l.key}>
-              <td><span className={`dmg-lv ${l.key}`}>{l.label}</span></td>
-              <td style={{ whiteSpace: "nowrap" }}>{l.when}</td>
-              <td>{l.action}</td>
+          {CASES.map((c) => (
+            <tr key={c.key}>
+              <td style={{ whiteSpace: "nowrap" }}>{c.when}</td>
+              <td><span className={`dmg-lv ${c.level}`}>{levelOf(c.level).label}</span></td>
+              <td>{c.action}</td>
             </tr>
           ))}
         </tbody>

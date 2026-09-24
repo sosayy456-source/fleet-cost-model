@@ -89,38 +89,57 @@ export function damageThresholds(trips: DamageTrip[]): DamageThresholds {
 
 /* ---------------- ระดับความเสียหาย ---------------- */
 
-/** เดิมสเปกเรียก "คำแนะนำ" — เจ้าของงานเปลี่ยนเป็น "ระดับความเสียหาย" 23 ก.ย. 2569 */
+/**
+ * เดิมสเปกเรียก "คำแนะนำ" — เจ้าของงานเปลี่ยนเป็น "ระดับความเสียหาย" 23 ก.ย. 2569
+ * ★ เกณฑ์ชุดใหม่ (ไฟล์ "dashboard คชจ (1).pdf" หน้า 1 · เจ้าของงานสั่ง 24 ก.ย. 2569) แทน logic หน้า 7 เดิม:
+ *   ระดับบนป้ายเหลือ 4 ระดับ แต่เงื่อนไขมี 5 กรณี — "ระดับปานกลาง" มีสองกรณีที่แนวทางต่างกัน (ดู CASES)
+ *   ต่างจากเดิม: เกิดไม่บ่อยแต่มูลค่าเกิน P75 เดิมเป็น "ระดับต่ำ" ตอนนี้เป็น "ระดับปานกลาง" · "ระดับสูง" → "ความเสี่ยงสูง"
+ */
 export type DamageLevel = "none" | "low" | "medium" | "high";
 
-export const LEVELS: { key: DamageLevel; label: string; rank: number; when: string; action: string }[] = [
-  { key: "high", label: "ระดับสูง", rank: 3,
-    when: "Damage Rate > P75 และ Incidence Rate > P75",
-    action: "เร่งตรวจสอบและแก้ไข หา Root Cause โดยเร็ว และกำหนดมาตรการแก้ไขและป้องกันการเกิดซ้ำ" },
-  { key: "medium", label: "ระดับปานกลาง", rank: 2,
-    when: "Damage Rate > 0 · Incidence Rate > P75 · Damage Rate ≤ P75",
-    action: "ปรับปรุงกระบวนการ ตรวจสอบ Loading, Handling, Route หรือการปฏิบัติงาน เพื่อหาสาเหตุของการเกิดซ้ำ" },
-  { key: "low", label: "ระดับต่ำ", rank: 1,
-    when: "Damage Rate > 0 · Incidence Rate ≤ P75",
-    action: "ตรวจสอบบิลเคลียร์/เหตุการณ์เป็นรายกรณี และแก้ไขตามกระบวนการปกติ" },
-  { key: "none", label: "ไม่มีความเสียหาย", rank: 0,
-    when: "Damage Rate = 0",
-    action: "ติดตาม KPI อย่างต่อเนื่องเพื่อรักษาระดับผลการดำเนินงาน" },
+export const LEVELS: { key: DamageLevel; label: string; rank: number }[] = [
+  { key: "high", label: "ความเสี่ยงสูง", rank: 3 },
+  { key: "medium", label: "ระดับปานกลาง", rank: 2 },
+  { key: "low", label: "ระดับต่ำ", rank: 1 },
+  { key: "none", label: "ไม่มีความเสียหาย", rank: 0 },
 ];
 export const levelOf = (k: DamageLevel) => LEVELS.find((l) => l.key === k)!;
 
+/** 5 กรณีของเกณฑ์การประเมิน ตามตารางในไฟล์ทุกแถว (เงื่อนไข · ระดับ · แนวทางการดำเนินการ) */
+export type DamageCase = "none" | "low" | "freq" | "value" | "high";
+
+export const CASES: { key: DamageCase; level: DamageLevel; when: string; action: string }[] = [
+  { key: "none", level: "none", when: "Damage Rate = 0",
+    action: "ติดตามผลการดำเนินงานอย่างต่อเนื่อง" },
+  { key: "low", level: "low", when: "Damage Incidence Rate ≤ P75 + Damage Rate ≤ P75",
+    action: "ตรวจสอบและแก้ไขตามกระบวนการปกติ" },
+  { key: "freq", level: "medium", when: "Damage Incidence Rate > P75 + Damage Rate ≤ P75",
+    action: "ปรับปรุงกระบวนการเพื่อลดการเกิดซ้ำ" },
+  { key: "value", level: "medium", when: "Damage Incidence Rate ≤ P75 + Damage Rate > P75",
+    action: "ควบคุมและลดผลกระทบจากความเสียหายมูลค่าสูง" },
+  { key: "high", level: "high", when: "Damage Incidence Rate > P75 + Damage Rate > P75",
+    action: "เร่งตรวจสอบสาเหตุหลัก (Root Cause) และกำหนดมาตรการป้องกันการเกิดซ้ำ" },
+];
+export const caseOf = (k: DamageCase) => CASES.find((c) => c.key === k)!;
+
 /**
- * จัดระดับตาม logic หน้า 7 ของสเปก — ลำดับเงื่อนไขครอบทุกกรณีแล้ว:
- *   DR = 0 → none · DIR ≤ P75 → low · DR ≤ P75 → medium · ที่เหลือ (ทั้งคู่เกิน) → high
+ * จัดกรณีตามเกณฑ์ชุดใหม่ — สองเกณฑ์เทียบแยกกัน ครบ 4 ช่องของ (Incidence เกิน/ไม่เกิน) × (Rate เกิน/ไม่เกิน)
+ * "เท่ากับ P75" ยังไม่ถือว่าเกิน (≤) ตามตารางในไฟล์
  * คืน null ถ้ายังไม่มีเกณฑ์ (ช่วงเวลาที่เลือกไม่มีข้อมูลเลย) — แยกระดับไม่ได้ ยกเว้นไม่มีความเสียหาย
  */
-export function damageLevel(a: Pick<DamageAgg, "rate" | "incidence" | "clrAmt">, th: DamageThresholds): DamageLevel | null {
+export function damageCase(a: Pick<DamageAgg, "rate" | "incidence" | "clrAmt">, th: DamageThresholds): DamageCase | null {
   if (!(a.clrAmt > 0)) return "none";
   if (th.p75Rate == null || th.p75Incidence == null) return null;
-  // มีความเสียหายแต่ไม่มีรายได้ (rate = null) = เสียหายเท่าไรก็เกินทุกเกณฑ์
-  const dr = a.rate ?? Infinity;
-  if (a.incidence <= th.p75Incidence) return "low";
-  if (dr <= th.p75Rate) return "medium";
-  return "high";
+  // มีความเสียหายแต่ไม่มีรายได้ (rate = null) = เสียหายเท่าไรก็เกินเกณฑ์มูลค่า
+  const overRate = (a.rate ?? Infinity) > th.p75Rate;
+  const overInc = a.incidence > th.p75Incidence;
+  return overInc ? (overRate ? "high" : "freq") : (overRate ? "value" : "low");
+}
+
+/** ระดับบนป้าย (4 ระดับ) ของกรณีนั้น */
+export function damageLevel(a: Pick<DamageAgg, "rate" | "incidence" | "clrAmt">, th: DamageThresholds): DamageLevel | null {
+  const c = damageCase(a, th);
+  return c ? caseOf(c).level : null;
 }
 
 /* ---------------- ตัวกรองช่วงเวลา ---------------- */
