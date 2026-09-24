@@ -30,10 +30,14 @@ describe("ตัวหารค่าซ่อมจากไฟล์ต้น�
     expect(monthsOfMaint([{ year: 2568, month: 1 }, { year: 2568, month: null }]).has(2568)).toBe(false);
   });
 
-  it("รถร่วมนอกพิเศษรวมเข้าฝั่งรถร่วม", () => {
+  it("รถร่วมนอกพิเศษไม่นับในตัวหาร — รายงานค่าซ่อมไม่มีรถกลุ่มนี้ (เจ้าของงานเคาะ 24 ก.ย. 2569)", () => {
     const r = opsFromTrips([trip({ ft: "รถร่วม" }), trip({ ft: "รถร่วมนอกพิเศษ", pl: "ชม.2" })]);
     expect(r.rows).toHaveLength(1);
-    expect(r.rows[0]).toMatchObject({ fleet: "รถร่วม", km: 1400, days: 2 });
+    expect(r.rows[0]).toMatchObject({ fleet: "รถร่วม", km: 700, days: 1 });
+    expect(r.excludedSpecial).toBe(1);
+    // ใบหลายคัน: ตัดเฉพาะคันที่เป็นนอกพิเศษ คันอื่นในใบยังนับ
+    const mixed = trip({ vs: [{ pl: "หัว", vk: "รถ 10 ล้อ", ft: "รถร่วมนอกพิเศษ", c: 1 }, { pl: "หาง", vk: "หางพ่วงคอก", ft: "รถบริษัท", c: 1 }] });
+    expect(opsFromTrips([mixed]).rows.map((x) => x.vehicle)).toEqual(["หางพ่วงคอก"]);
   });
 
   it("ใบที่มีหลายคันนับทุกคัน — หางเทรลเลอร์ข้ามเมื่อยุบเข้าหัวลาก ไม่งั้นระยะทางหัวลากเบิ้ล", () => {

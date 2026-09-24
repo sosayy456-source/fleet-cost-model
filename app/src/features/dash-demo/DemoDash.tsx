@@ -144,7 +144,7 @@ export default function DemoDash() {
         </FilterBar>
 
         {part("route", tripsState ?? <RouteProfitTab trips={all} f={f} />)}
-        {part("item2", tripsState ?? <Item2Tab allTrips={trips} f={f} />)}
+        {part("item2", tripsState ?? <Item2Tab all={all} trips={trips} tripsAnyYear={tripsAnyYear} f={f} />)}
         {part("item3", tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={f.year} />)}
         {part("cust", <CustomerProfitTab f={f} />)}
       </DashShell>

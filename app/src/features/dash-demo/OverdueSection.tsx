@@ -3,8 +3,9 @@
  * (ไฟล์ "ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx" · etl/build_debtors.py) สเปกข้อ 5–7 ของ "ปรับปรุงโมเดล.pdf"
  * แก้ตามสเปกรุ่นแก้ 23 ก.ย. 2569 ("ใช้ข้อมูลทั้งที่รับชำระแล้ว และยังไม่ได้รับชำระ")
  *
- *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา ค่าเริ่มต้น = วันที่อ้างอิงในชีตสรุปวิเคราะห์ (manifest.refDate)
- *      ไฟล์รุ่นเก่าไม่มี → ใช้ asOf (วันที่ล่าสุดในไฟล์) · **ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1**
+ *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา **ค่าเริ่มต้น = 31/05/2026 (DEFAULT_AS_OF · เจ้าของงานสั่ง 24 ก.ย. 2569)**
+ *      ถ้าไฟล์เริ่มหลังวันนั้น (ข้อมูลชุดอื่น) ถอยไปใช้วันที่อ้างอิงในชีตสรุปวิเคราะห์ (manifest.refDate) → asOf (วันล่าสุดในไฟล์)
+ *      **ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1**
  *   6. การ์ดใหญ่ไล่สี 5 ใบ (แบบเดียวกับการ์ดของส่วนที่ 1 — เจ้าของงานสั่ง 23 ก.ย. 2569)
  *      รายการทั้งหมด · ชำระแล้ว · ยังไม่ชำระ · ยังไม่ถึงกำหนด · DSO
  *      **DSO แบบมาตรฐาน** (เจ้าของงานเลือก 23 ก.ย. 2569) = ยอดลูกหนี้ค้าง ณ วันที่เลือก ÷ ยอดวางบิล × จำนวนวัน
@@ -94,6 +95,9 @@ interface HistRow {
   unpaidN: number; paidN: number; custN: number; share: number;
 }
 
+/** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 24 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
+const DEFAULT_AS_OF = "2026-05-31";
+
 export default function OverdueSection({ state }: { state: DebtorState }) {
   const { data, error } = state;
   if (error || !data) {
@@ -110,8 +114,12 @@ export default function OverdueSection({ state }: { state: DebtorState }) {
       </div>
     );
   }
-  return <OverdueBody rows={data.rows} refDate={data.manifest.refDate ?? data.manifest.asOf}
-    range={data.manifest.dateRange} isSample={data.manifest.isSample} />;
+  const range = data.manifest.dateRange;
+  // ค่าเริ่มต้นตามที่เจ้าของงานสั่ง — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
+  const fallback = data.manifest.refDate ?? data.manifest.asOf;
+  const start = range.min && range.min <= DEFAULT_AS_OF ? DEFAULT_AS_OF : fallback;
+  return <OverdueBody rows={data.rows} refDate={start}
+    range={range} isSample={data.manifest.isSample} />;
 }
 
 /**

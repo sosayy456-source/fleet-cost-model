@@ -25,6 +25,9 @@ import { readTable } from "../../lib/repair/parse";
 import { ANY_FLEET, computeRates, parseMaintenance } from "../../lib/repair/rates";
 import { monthsOfMaint, opsFromTrips } from "../../lib/repair/fromTrips";
 import { useCostRev } from "../../lib/data/useCostRev";
+import { buildRepairExport, repairExportName } from "../../lib/repair/export";
+import { downloadJson } from "../../lib/ui/download";
+import { todayISO } from "../../lib/record/date";
 
 const Chev = () => (
   <svg className="chev" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -161,6 +164,21 @@ export default function RepairImport() {
     setMaintFile(null); setPreview(false); setMsg(null);
   };
 
+  /**
+   * ส่งออกตารางค่าซ่อมที่ใช้อยู่ลงโฟลเดอร์ Downloads (เจ้าของงานสั่ง 24 ก.ย. 2569) — อัตราที่นำเข้าอยู่แค่ในเบราว์เซอร์นี้
+   * ไฟล์นี้ให้ผู้พัฒนารวมลง lib/refdata/repair.json เป็นค่าตั้งต้นของทุกเครื่อง · สูตรอยู่ใน lib/repair/export.ts
+   */
+  const exportRates = () => {
+    const isSample = costrev.data?.manifest.isSample ?? null;
+    const date = todayISO();
+    downloadJson(repairExportName(date), buildRepairExport(REF, ovr, { exportedAt: date, costDataIsSample: isSample }));
+    setMsg({
+      text: `ส่งออก ${repairExportName(date)} ลงโฟลเดอร์ Downloads แล้ว`
+        + (isSample ? " · ⚠ ไฟล์ต้นทุนตอนนี้เป็นข้อมูลตัวอย่าง อัตราที่คำนวณจากชุดนี้อย่านำไปเป็นค่าตั้งต้น" : ""),
+      tone: isSample ? "var(--red)" : "var(--green)",
+    });
+  };
+
   const allWarnings = [
     // ★ ไฟล์ต้นทุนตัวอย่างเป็นเที่ยวสุ่มบางส่วน ไม่ใช่ทุกเที่ยวของกองรถ — หารค่าซ่อมจริงทั้งกองด้วยวัน/ระยะทางของเที่ยวสุ่ม
     //   อัตราจะสูงเกินจริงหลายสิบเท่า (เจอ 24 ก.ย. 2569: 10 ล้อตู้เย็น 14,478 บาท/วัน เทียบตารางเดิม ~500)
@@ -170,6 +188,8 @@ export default function RepairImport() {
       : []),
     ...(maint?.warnings ?? []),
     ...(ops?.noKm ? [`ไฟล์ต้นทุนมี ${ops.noKm.toLocaleString("th-TH")} เที่ยวที่เส้นทางไม่อยู่ในตารางระยะทาง — นับวันวิ่งแต่ไม่ได้บวกระยะทาง`] : []),
+    // แจ้งให้รู้ ไม่ใช่ข้อผิดพลาด — รายงานค่าซ่อมไม่มีรถกลุ่มนี้ จึงไม่นับวัน/ระยะทางของมัน (lib/repair/fromTrips.ts)
+    ...(ops?.excludedSpecial ? [`ไม่นับรถร่วมนอกพิเศษ ${ops.excludedSpecial.toLocaleString("th-TH")} คัน-เที่ยวในตัวหาร — รายงานค่าซ่อมไม่มีค่าซ่อมของรถกลุ่มนี้`] : []),
     // ช่วงของตัวหารต้องครอบคลุมช่วงของค่าซ่อม — ไม่งั้นอัตราสูงเกินจริง
     ...[...new Set(maint?.rows.map((r) => r.year) ?? [])].sort().flatMap((y) => {
       const want = months?.get(y);
@@ -209,6 +229,10 @@ export default function RepairImport() {
             คำนวณอัตรา
           </button>
           <button className="btn-ghost" type="button" onClick={clearAll}>ล้างทั้งหมด</button>
+          <button className="btn-ghost" type="button" onClick={exportRates}
+            title="ดาวน์โหลดตารางค่าซ่อมที่ใช้อยู่ (ค่าฐาน + ที่นำเข้า) เป็นไฟล์ .json ลงโฟลเดอร์ Downloads">
+            ส่งออกอัตราที่ใช้อยู่ (.json)
+          </button>
           {!ready && (
             <span className="locknote" style={costrev.error ? { color: "var(--red)" } : undefined}>
               {costrev.error ? `โหลดไฟล์ต้นทุน (ระยะทาง/วันวิ่ง) ไม่ได้ — ${costrev.error}`

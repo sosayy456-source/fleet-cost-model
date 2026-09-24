@@ -1,8 +1,8 @@
 /**
- * สูตรแท็บ Damage Rate — P75 ต้องตรงกับ PERCENTILE.INC ของ Excel และการจัดระดับต้องตรง logic หน้า 7 ของสเปก
+ * สูตรแท็บ Damage Rate — P75 ต้องตรงกับ PERCENTILE.INC ของ Excel และการจัดระดับต้องตรงเกณฑ์ 5 กรณี (dashboard คชจ (1).pdf หน้า 1)
  */
 import { describe, expect, it } from "vitest";
-import { aggregateDamage, damageLevel, damageThresholds, inPeriod, percentileInc, totalDamage } from "./damage";
+import { CASES, aggregateDamage, caseOf, damageCase, damageLevel, damageThresholds, inPeriod, levelOf, percentileInc, totalDamage } from "./damage";
 import type { DamageThresholds } from "./damage";
 
 describe("percentileInc = PERCENTILE.INC ของ Excel", () => {
@@ -49,27 +49,41 @@ describe("รวมยอด", () => {
   });
 });
 
-describe("damageLevel — logic หน้า 7", () => {
+describe("เกณฑ์การประเมิน 5 กรณี (dashboard คชจ (1).pdf หน้า 1)", () => {
   const th: DamageThresholds = { p75Rate: 1, p75Incidence: 5, months: 12 };
   const lv = (rate: number | null, incidence: number, clrAmt = 100) => damageLevel({ rate, incidence, clrAmt }, th);
+  const cs = (rate: number | null, incidence: number, clrAmt = 100) => damageCase({ rate, incidence, clrAmt }, th);
 
   it("ไม่มีความเสียหาย = ไม่มีมูลค่าบิลเคลียร์", () => {
+    expect(cs(0, 0, 0)).toBe("none");
     expect(lv(0, 0, 0)).toBe("none");
   });
-  it("เกิดไม่บ่อย = ระดับต่ำ ไม่ว่ามูลค่าจะสูงแค่ไหน", () => {
-    expect(lv(0.1, 2)).toBe("low");
-    expect(lv(9, 2)).toBe("low");
-    expect(lv(9, 5)).toBe("low");            // เท่ากับ P75 ยังไม่ถือว่าเกิน
+  it("ไม่เกินทั้งคู่ = ระดับต่ำ · เท่ากับ P75 ยังไม่ถือว่าเกิน", () => {
+    expect(cs(0.1, 2)).toBe("low");
+    expect(cs(1, 5)).toBe("low");
+    expect(lv(1, 5)).toBe("low");
   });
-  it("เกิดบ่อยแต่มูลค่าไม่เกิน = ปานกลาง", () => {
-    expect(lv(0.5, 8)).toBe("medium");
-    expect(lv(1, 8)).toBe("medium");         // เท่ากับ P75 ยังไม่ถือว่าเกิน
+  it("เกิดบ่อยแต่มูลค่าไม่เกิน = ปานกลาง (ปรับปรุงกระบวนการ)", () => {
+    expect(cs(0.5, 8)).toBe("freq");
+    expect(lv(1, 8)).toBe("medium");
+    expect(caseOf("freq").action).toContain("ลดการเกิดซ้ำ");
   });
-  it("เกินทั้งคู่ = ระดับสูง", () => {
-    expect(lv(1.2, 8)).toBe("high");
+  it("เกิดไม่บ่อยแต่มูลค่าเกิน = ปานกลาง (ควบคุมมูลค่าสูง) — เดิมเป็นระดับต่ำ", () => {
+    expect(cs(9, 2)).toBe("value");
+    expect(cs(9, 5)).toBe("value");
+    expect(lv(9, 2)).toBe("medium");
+    expect(caseOf("value").action).toContain("มูลค่าสูง");
+  });
+  it("เกินทั้งคู่ = ความเสี่ยงสูง", () => {
+    expect(cs(1.2, 8)).toBe("high");
+    expect(levelOf(lv(1.2, 8)!).label).toBe("ความเสี่ยงสูง");
   });
   it("มีความเสียหายแต่ไม่มีรายได้ = เกินเกณฑ์มูลค่าแน่นอน", () => {
-    expect(lv(null, 8)).toBe("high");
+    expect(cs(null, 8)).toBe("high");
+    expect(cs(null, 2)).toBe("value");
+  });
+  it("ตารางเกณฑ์มี 5 แถวตามไฟล์ ปานกลางสองแถว", () => {
+    expect(CASES.map((c) => c.level)).toEqual(["none", "low", "medium", "medium", "high"]);
   });
   it("ยังไม่มีเกณฑ์ = แยกระดับไม่ได้ (ยกเว้นไม่มีความเสียหาย)", () => {
     const none: DamageThresholds = { p75Rate: null, p75Incidence: null, months: 0 };

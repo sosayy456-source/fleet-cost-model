@@ -13,19 +13,27 @@
  *   ถ้านับหางด้วย ระยะทาง/วันของหัวลากจะเบิ้ลสองเท่า อัตราต่ำไปครึ่งหนึ่ง
  * ★ **ตัวหารต้องเป็นช่วงเดียวกับค่าซ่อม** (opts.months) — รายงานค่าซ่อมเดือนมกราคมของแต่ละปี ถ้าหารด้วยวัน/ระยะทาง
  *   ทั้งปี อัตราจะต่ำไป ~12 เท่า (เจอจริง 24 ก.ย. 2569: 10 ล้อตู้แห้ง 39.9 แทน ~1,700) · ปีที่รายงานไม่บอกเดือนใช้ทั้งปี
- * ★ รถร่วมนอกพิเศษ = ฝั่งรถร่วม (กติกาเดียวกับทั้งระบบ) — ตารางค่าซ่อมมีแค่แท็บรถบริษัท/รถร่วม
+ * ★ **รถร่วมนอกพิเศษไม่นับในตัวหาร** (เจ้าของงานเคาะ 24 ก.ย. 2569) — รายงานค่าซ่อมตามงวดจริงไม่มีค่าซ่อมของรถกลุ่มนี้
+ *   (ทะเบียนในไฟล์ต้นทุนเจอในรายงาน: รถบริษัท 99% · รถร่วม 92% · รถร่วมนอกพิเศษ 1 จาก 211 คัน) ถ้านับวัน/ระยะทางของมัน
+ *   ตัวหารจะเกินค่าซ่อมที่มีอยู่จริง อัตราฝั่งรถร่วม (และตามระยะทางของชนิดที่มีรถนอกพิเศษวิ่ง) จะต่ำเกินจริง
+ *   · รถ 10 ล้อพ่วง(แม่)/(ลูก) เป็นรถร่วมนอกพิเศษทั้งหมด จึงหลุดไปด้วยโดยไม่ต้องแปลงชื่อ
+ *   · **ใบที่บันทึกใหม่ของรถร่วมนอกพิเศษยังคิดค่าซ่อมด้วยอัตรารถร่วมเหมือนเดิม** (costFleetType) — ตัดเฉพาะตอนคำนวณอัตรา
  */
 import type { Trip } from "../data/useCostRev";
 import type { OpRow } from "./rates";
 import { isTrailerTail } from "./rates";
 
 const fleetOf = (ft: string): string => (ft.startsWith("รถร่วม") ? "รถร่วม" : ft);
+/** ประเภทรถที่รายงานค่าซ่อมไม่ครอบคลุม — ไม่นับในตัวหาร */
+const SPECIAL_JOINT = "รถร่วมนอกพิเศษ";
 
 export interface OpsFromTrips {
   rows: OpRow[];
   trips: number;
   /** เที่ยวที่ไม่มีระยะทาง (เส้นทางไม่อยู่ในตาราง) — วันยังนับ แต่ระยะทางไม่ได้บวก */
   noKm: number;
+  /** คัน-เที่ยวของรถร่วมนอกพิเศษที่ไม่นับในตัวหาร (รายงานค่าซ่อมไม่มีรถกลุ่มนี้) — ไว้บอกผู้ใช้ */
+  excludedSpecial: number;
   /** ปี พ.ศ. ที่มีเที่ยว */
   years: number[];
   /** ปี พ.ศ. → จำนวนเดือนที่มีเที่ยว — ปีที่ไม่ครบ 12 เดือนเทียบกับรายงานค่าซ่อมทั้งปีแล้วอัตราจะสูงเกินจริง */
@@ -50,6 +58,7 @@ export function monthsOfMaint(rows: { year: number; month?: number | null }[]): 
 export function opsFromTrips(trips: Trip[], opts: { mergeTrailer?: boolean; months?: MonthsByYear } = {}): OpsFromTrips {
   const acc = new Map<string, { row: OpRow; days: Set<string> }>();
   let noKm = 0;
+  let excludedSpecial = 0;
   const years = new Set<number>();
   const monthsOf = new Map<number, Set<string>>();
   for (const t of trips) {
@@ -63,6 +72,7 @@ export function opsFromTrips(trips: Trip[], opts: { mergeTrailer?: boolean; mont
     const cars = t.vs?.length ? t.vs : [{ pl: t.pl, vk: t.vk, ft: t.ft }];
     for (const c of cars) {
       if (!c.vk || (opts.mergeTrailer && isTrailerTail(c.vk))) continue;
+      if (c.ft === SPECIAL_JOINT) { excludedSpecial++; continue; }   // รายงานค่าซ่อมไม่มีรถกลุ่มนี้ (ดูหัวไฟล์)
       const fleet = fleetOf(c.ft);
       const k = `${year}|${fleet}|${c.vk}`;
       let a = acc.get(k);
@@ -78,5 +88,5 @@ export function opsFromTrips(trips: Trip[], opts: { mergeTrailer?: boolean; mont
   const rows = [...acc.values()].map(({ row, days }) => ({ ...row, days: days.size }));
   const months: Record<number, number> = {};
   for (const [y, s] of monthsOf) months[y] = s.size;
-  return { rows, trips: trips.length, noKm, years: [...years].sort((a, b) => a - b), months };
+  return { rows, trips: trips.length, noKm, excludedSpecial, years: [...years].sort((a, b) => a - b), months };
 }
