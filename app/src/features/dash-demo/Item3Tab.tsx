@@ -141,12 +141,10 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
           <div className="i3-panel-head"><b>สัดส่วนการใช้รถแต่ละประเภท</b><span>รวม {fmt(typeTotal)} เที่ยว ในช่วงเวลาที่เลือก</span></div>
           <div className="i3-donut">
             <svg viewBox="0 0 180 180" role="img" aria-label={types.map((t) => `${t.key} ${pct(t.share, 0)}`).join(" · ")}>
-              <defs>{donut.map((s, i) => <linearGradient key={s.key} id={`i3dg-${i}`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor={ftOf(s.key)[1]} /><stop offset="1" stopColor={ftOf(s.key)[0]} />
-              </linearGradient>)}</defs>
               <circle cx="90" cy="90" r="70" fill="none" stroke="#F2F0F6" strokeWidth="22" />
-              <g transform="rotate(-90 90 90)">{donut.map((s, i) =>
-                <circle key={s.key} cx="90" cy="90" r="70" fill="none" stroke={`url(#i3dg-${i})`} strokeWidth="22"
+              {/* สีทึบตามป้ายด้านล่าง ไม่ไล่เฉด (เจ้าของงานสั่ง 24 ก.ย. 2569) */}
+              <g transform="rotate(-90 90 90)">{donut.map((s) =>
+                <circle key={s.key} cx="90" cy="90" r="70" fill="none" stroke={ftOf(s.key)[0]} strokeWidth="22"
                   strokeDasharray={`${Math.max(0, s.len - 2)} ${CIRC}`} strokeDashoffset={s.offset}>
                   <title>{`${s.key}: ${fmt(s.n)} เที่ยว`}</title></circle>)}</g>
             </svg>

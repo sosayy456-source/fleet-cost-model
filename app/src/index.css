@@ -2310,17 +2310,18 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .em-ytd{display:flex;flex-direction:column;gap:2px;line-height:1.45}
 #view-dash .em-ytd b{color:#fff;font-weight:700}
 
-/* ป็อบอัพส่วนของหน้า Demo — เด้งใต้ปุ่ม Demo ในแถบเมนูซ้าย (ที่ไม่พอขึ้นเหนือปุ่ม · .up) · lib/ui/demoNav.ts · 24 ก.ย. 2569
-   position:fixed พิกัดจากปุ่ม — ลอยทับเมนูอื่น ไม่ดันรายการข้างล่างลง */
-.navpop{position:fixed;z-index:60;display:flex;flex-direction:column;gap:2px;padding:6px;background:#fff;
-  border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 32px rgba(27,27,31,.14);
-  animation:navPopIn .16s var(--ease) both}
-.navpop.up{transform:translateY(-100%);animation-name:navPopUp}
-.navpopitem{display:block;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;
-  font-family:inherit;font-size:14.5px;color:var(--ink-muted);padding:10px 14px;border-radius:10px;
-  transition:background-color .15s var(--ease),color .15s var(--ease)}
-.navpopitem:hover,.navpopitem:focus-visible{background:var(--accent-tint);color:var(--accent);outline:none}
-.navpopitem.active{color:var(--accent);font-weight:700}
-@keyframes navPopIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
-@keyframes navPopUp{from{opacity:0;transform:translateY(calc(-100% + 4px))}to{opacity:1;transform:translateY(-100%)}}
-@media (prefers-reduced-motion: reduce){.navpop{animation:none}}
+/* แท็บย่อยของเมนู Demo (App.tsx .navgroup · lib/ui/demoNav.ts · เจ้าของงานสั่ง 24 ก.ย. 2569)
+   ชี้เมาส์ที่ Demo = กางลงมาใต้ปุ่มเลย ไม่ต้องคลิก · พื้นชมพูเดียวกับแถบเมนู ไม่มีกล่องขาว ·
+   ข้อความเยื้องให้ตรงกับคำว่า "Demo" (ขอบซ้ายปุ่ม 16 + ไอคอน 18 + ช่องว่าง 12 = 46px) */
+.navgroup{display:flex;flex-direction:column}
+.navsub{display:flex;flex-direction:column;overflow:hidden;max-height:0;opacity:0;
+  transition:max-height .22s var(--ease),opacity .15s var(--ease)}
+.navgroup:hover .navsub,.navgroup:has(:focus-visible) .navsub{max-height:220px;opacity:1}
+.navsubitem{display:block;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;
+  font-family:inherit;font-size:14.5px;color:var(--sidebar-text);padding:9px 16px 9px 46px;border-radius:10px;white-space:nowrap;
+  transition:color .15s var(--ease)}
+.navsubitem:hover,.navsubitem:focus-visible{color:var(--accent);outline:none}
+.navsubitem.active{color:var(--accent);font-weight:700}
+@media(min-width:721px){.navsubitem{padding-left:47px}}
+@media(max-width:720px){.navgroup{flex:none}.navsub{display:none}}
+@media (prefers-reduced-motion: reduce){.navsub{transition:none}}

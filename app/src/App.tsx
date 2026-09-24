@@ -37,7 +37,7 @@ import { useActiveDataset } from "./lib/dataset";
 import { loadSessionRole, saveSessionRole } from "./lib/store/sessionRole";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
-import { demoGo, useDemoNav } from "./lib/ui/demoNav";
+import { DEMO_PARTS, demoGo, useDemoNav } from "./lib/ui/demoNav";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
 const I = {
@@ -155,35 +155,6 @@ export default function App() {
 
   // แท็บย่อยของเมนู Demo — hook ต้องอยู่ก่อน return ของหน้าเลือกตำแหน่ง
   const demoNav = useDemoNav();
-  // ป็อบอัพของปุ่ม Demo เด้งใต้ปุ่ม (ที่ไม่พอค่อยขึ้นเหนือปุ่ม) · กด Demo = เปิดหน้า Demo + รายการส่วน · กดซ้ำ = ปิด
-  const [pop, setPop] = useState<{ kind: "demo"; top: number; left: number; width: number; up: boolean } | null>(null);
-  const popBtn = useRef<HTMLButtonElement | null>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const togglePop = (kind: "demo", btn: HTMLButtonElement): void => {
-    if (pop?.kind === kind) { setPop(null); return; }
-    const r = btn.getBoundingClientRect();
-    popBtn.current = btn;
-    const up = r.bottom + 220 > window.innerHeight;   // 4 รายการ ~200px
-    setPop({ kind, top: up ? r.top - 6 : r.bottom + 6, left: r.left, width: Math.max(r.width, 220), up });
-  };
-  useEffect(() => {
-    if (!pop) return;
-    const close = (e: Event): void => {
-      const t = e.target as Node;
-      if (popRef.current?.contains(t) || popBtn.current?.contains(t)) return;
-      setPop(null);
-    };
-    const esc = (e: KeyboardEvent): void => { if (e.key === "Escape") setPop(null); };
-    document.addEventListener("mousedown", close);
-    document.addEventListener("keydown", esc);
-    window.addEventListener("resize", close);
-    return () => {
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", esc);
-      window.removeEventListener("resize", close);
-    };
-  }, [pop]);
-
   if (!role) return <RolePicker onPick={setRole} />;
 
   const cur = pages.find((p) => p.id === page) ?? pages[0];
@@ -193,20 +164,15 @@ export default function App() {
 
   return (
     <>
-      {/* แถบซ้ายแบบ IG — ปกติเหลือแค่ไอคอน · ชี้เมาส์/โฟกัสคีย์บอร์ด = กางทับเนื้อหา · ป็อบอัพ Demo เปิดอยู่ = กางค้าง (pinned) */}
-      <aside className={"sidebar" + (pop ? " pinned" : "")}>
+      {/* แถบซ้ายแบบ IG — ปกติเหลือแค่ไอคอน · ชี้เมาส์/โฟกัสคีย์บอร์ด = กางทับเนื้อหา */}
+      <aside className="sidebar">
         <nav className="nav">
-          {pages.map((p) => (
+          {pages.map((p) => {
+            const btn = (
             <button
               key={p.id} type="button"
               className={"navitem" + (page === p.id ? " active" : "")}
-              onClick={(e) => {
-                if (p.id === "demo") togglePop("demo", e.currentTarget);
-                else setPop(null);
-                goto(p.id);
-              }}
-              aria-haspopup={p.id === "demo" ? "menu" : undefined}
-              aria-expanded={p.id === "demo" ? pop?.kind === "demo" : undefined}
+              onClick={() => goto(p.id)}
             >
               {p.icon}
               <span className="navlabel">{p.label}</span>
@@ -217,19 +183,23 @@ export default function App() {
                 <span className="nav-count">{debtCount}</span>
               )}
             </button>
-          ))}
+            );
+            if (p.id !== "demo") return btn;
+            // Demo: ชี้เมาส์/โฟกัส = แท็บย่อย 4 ส่วนกางใต้ปุ่ม (lib/ui/demoNav.ts) · กด = เปิดหน้า Demo แล้วเลื่อนไปส่วนนั้น
+            return (
+              <div key={p.id} className="navgroup">
+                {btn}
+                <div className="navsub" role="group" aria-label="ส่วนของหน้า Demo">
+                  {DEMO_PARTS.map((x) => (
+                    <button key={x.id} type="button"
+                      className={"navsubitem" + (page === "demo" && demoNav.active === x.id ? " active" : "")}
+                      onClick={() => { if (page !== "demo") goto("demo"); demoGo(x.id); }}>{x.label}</button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
-        {/* ป็อบอัพของปุ่ม Demo — กด = เลื่อนไปหาส่วนนั้นแล้วปิด (lib/ui/demoNav.ts) */}
-        {pop && page === "demo" && demoNav.parts.length > 0 && (
-          <div ref={popRef} role="menu" className={"navpop" + (pop.up ? " up" : "")}
-            style={{ top: pop.top, left: pop.left, width: pop.width }}>
-            {demoNav.parts.map((x) => (
-              <button key={x.id} type="button" role="menuitem"
-                className={"navpopitem" + (demoNav.active === x.id ? " active" : "")}
-                onClick={() => { demoGo(x.id); setPop(null); }}>{x.label}</button>
-            ))}
-          </div>
-        )}
       </aside>
 
       <main className="app">

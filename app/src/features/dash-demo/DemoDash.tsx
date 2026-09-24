@@ -31,14 +31,9 @@ import CustomerProfitTab from "./CustomerProfitTab";
 import { DEMO_F0, passDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
-import { clearDemoNav, registerDemoNav, setDemoActive } from "../../lib/ui/demoNav";
+import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
 
-const PARTS = [
-  { id: "route", label: "กำไรรายเส้นทาง" },
-  { id: "item2", label: "ข้อ 2" },
-  { id: "item3", label: "ข้อ 3" },
-  { id: "cust", label: "กำไรลูกค้า" },
-] as const;
+const PARTS = DEMO_PARTS;
 type PartId = (typeof PARTS)[number]["id"];
 /** เส้นอ้างอิงของการไฮไลต์ตามการเลื่อน — ส่วนที่หัวของมันเลยเส้นนี้ขึ้นไปแล้ว = ส่วนที่กำลังอ่าน (px จากขอบบนจอ) */
 const SPY_LINE = 160;
@@ -72,6 +67,17 @@ export default function DemoDash() {
     return clearDemoNav;
   }, [go]);
   useEffect(() => { setDemoActive(active); }, [active]);
+  // กดแท็บย่อยจากหน้าอื่น → เปิดหน้านี้แล้วเลื่อนไปส่วนนั้นเมื่อข้อมูลมาแล้ว (ส่วนต่าง ๆ ถูกวาดแล้ว)
+  useEffect(() => {
+    if (!data) return;
+    const id = takeDemoPending();
+    if (!id) return;
+    // เลื่อนซ้ำอีกรอบหลังกราฟ/แผนที่วาดเสร็จ — ส่วนบนสูงขึ้นหลังเลื่อนครั้งแรก หัวส่วนจึงไม่ถึงขอบบน
+    // แล้วไฮไลต์เมนูไปติดส่วนก่อนหน้า (วัดจริง: ข้อ 3 ค้างที่ 182px)
+    const raf = requestAnimationFrame(() => go(id as PartId));
+    const t = setTimeout(() => go(id as PartId), 700);
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); };
+  }, [data, go]);
   useEffect(() => {
     let raf = 0;
     const spy = () => {
