@@ -15,6 +15,9 @@
  *
  * ส่วน "กำไรลูกค้า" **ไม่ใช้ trips เลย** — อ่านชุด alloc/ กับ debtors/ ของตัวเอง
  * จึงวาดเสมอแม้ไฟล์ต้นทุนจะหาย/ยังโหลดไม่เสร็จ (สามส่วนแรกขึ้นข้อความแทน)
+ *
+ * ★ Performance Index (เจ้าของงานสั่ง 25 ก.ย. 2569 · PiIndex.tsx · สูตร lib/pi/score.ts) — กล่องยาวท้ายทุกส่วน
+ *   วาดเสมอแม้ส่วนนั้นขึ้นข้อความแทนเนื้อหา (ขึ้น "ไม่มีข้อมูล" เอง) · คะแนนรวม XX/100 เป็นบรรทัดสุดท้ายของหน้า
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -32,6 +35,7 @@ import { DEMO_F0, passDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, registerDemoNav, setDemoActive } from "../../lib/ui/demoNav";
+import { DamageRateBox, PiCost, PiFleet, PiReportProvider, PiRoute, PiService, PiTotal, usePiReports } from "./PiIndex";
 
 const PARTS = [
   { id: "route", label: "กำไรรายเส้นทาง" },
@@ -50,6 +54,7 @@ export default function DemoDash() {
   const [f, setF] = useState<DemoFilter>(DEMO_F0);
   const set = (k: keyof DemoFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [active, setActive] = useState<PartId>("route");
+  const pi = usePiReports();
 
   const all = useMemo(() => (data ? data.trips.filter(inProfitScope) : []), [data]);
   const emptyN = useMemo(() => all.filter((t) => t.empty).length, [all]);
@@ -91,6 +96,10 @@ export default function DemoDash() {
   }, []);
 
   const m = data?.manifest;
+  /** เที่ยวที่กรองแล้วสำหรับกล่อง PI — null = ไฟล์ต้นทุนยังไม่มี/โหลดไม่ได้ (กล่องขึ้น "ไม่มีข้อมูล") */
+  const piTrips = m && !error ? trips : null;
+  /** ชุดอ้างอิงของ P75 ใน Service Quality — ทุกเที่ยวในชุด ไม่ตามตัวกรอง */
+  const piRef = m && !error ? all : null;
   const meta = m && (
     <Meta parts={[
       <><b>{fmt(all.length)}</b> เที่ยว = จับคู่กับข้อมูลรายได้ได้ <b>{fmt(all.length - emptyN)}</b> + เที่ยววิ่งเปล่า <b>{fmt(emptyN)}</b> จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
@@ -143,10 +152,22 @@ export default function DemoDash() {
           <ClearFiltersBtn active={isFiltered(f, DEMO_F0)} onClick={() => setF(DEMO_F0)} />
         </FilterBar>
 
-        {part("route", tripsState ?? <RouteProfitTab trips={all} f={f} />)}
-        {part("item2", tripsState ?? <Item2Tab all={all} trips={trips} tripsAnyYear={tripsAnyYear} f={f} />)}
-        {part("item3", tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={f.year} />)}
-        {part("cust", <CustomerProfitTab f={f} />)}
+        <PiReportProvider value={pi.report}>
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={f} />}<PiRoute /></>)}
+          {part("item2", <>{tripsState ?? <Item2Tab all={all} trips={trips} tripsAnyYear={tripsAnyYear} f={f} />}
+            <PiFleet f={f} /></>)}
+          {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={f.year} />}
+            <PiCost trips={piTrips} /></>)}
+          {part("cust", <>
+            <CustomerProfitTab f={f} />
+            {/* Service Quality (ซ้าย) + การ์ด Damage Rate (ขวา) ขนาดเท่ากัน */}
+            <div className="pi-pair">
+              <PiService trips={piTrips} refTrips={piRef} />
+              <DamageRateBox trips={piTrips} />
+            </div>
+            <PiTotal reports={pi.reports} />
+          </>)}
+        </PiReportProvider>
       </DashShell>
     </>
   );

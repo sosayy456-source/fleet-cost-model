@@ -24,8 +24,15 @@
  *   (ชุด alloc/ ยุบได้แค่ลูกค้า × เดือนตามวันที่บิล ตัวกรองอื่นขึ้นบรรทัดบอกผ่าน FilterScope)
  *   ส่วนที่ 2 (DSO) ไม่ขึ้นกับตัวกรองของหน้า มี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ที่หัวส่วนที่ 2
  *   ป้ายตัวอย่าง/จริงของแต่ละส่วนอยู่ที่ SourceTag — สองชุดเลือก real/sample แยกกัน
+ *
+ * ★ ท้ายส่วน (25 ก.ย. 2569): กล่อง Customer Profitability & Cash Flow Index กล่องยาว (การ์ด Damage Rate ย้ายไปข้าง Service Quality)
+ *   Customer Net Profit ให้สีรายลูกค้าจากชุดเดียวกับส่วนที่ 1 (rollupCustomers) · DSO ให้สีรายบิลจากไฟล์ลูกหนี้
+ *   ณ "ข้อมูล ณ วันที่" เดียวกับส่วนที่ 2 (OverdueSection แจ้งวันที่ออกมาทาง onAsOf) · สูตรคะแนนอยู่ใน lib/pi/score.ts
  */
 import { useMemo, useState } from "react";
+import { ageBills } from "../../lib/debtors/aging";
+import { INDEXES, metricResult } from "../../lib/pi/score";
+import { PiBox } from "./PiIndex";
 import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { ShortId } from "../../lib/custmap/ShortId";
@@ -77,9 +84,46 @@ interface Sel { kind: "all" | "gain" | "loss" | "bucket"; i: number }
 const sel = (kind: Sel["kind"], i = -1): Sel => ({ kind, i });
 const sameSel = (a: Sel | null, b: Sel): boolean => !!a && a.kind === b.kind && a.i === b.i;
 
+/**
+ * ยุบลูกค้า × เดือน → รายลูกค้าตามปี/เดือนที่เลือก — ใช้ทั้งส่วนที่ 1 และคะแนน Customer Net Profit
+ * (ย้ายออกมาจาก ProfitPart 25 ก.ย. 2569 ให้สองที่นับลูกค้าชุดเดียวกัน)
+ */
+export function rollupCustomers(data: AllocData, f: { year: string; month: string }): CustRow[] {
+  const acc = new Map<number, CustRow>();
+  for (const r of data.custMonths ?? []) {
+    if (f.year && r.mo.slice(0, 4) !== f.year) continue;
+    if (f.month && r.mo.slice(5) !== f.month) continue;
+    let a = acc.get(r.ci);
+    if (!a) {
+      const c = data.customers[r.ci];
+      if (!c) continue;                 // ดัชนีเกินตาราง = ไฟล์สองชุดไม่ใช่รุ่นเดียวกัน ข้ามแทนที่จะพัง
+      a = { ...c, ci: r.ci, bills: 0, revenue: 0, cost: 0, profit: 0, lossBills: 0, margin: null, m: 0,
+        flagRev: 0, fNoSize: 0, fBig: 0, fTiny: 0 };
+      acc.set(r.ci, a);
+    }
+    a.bills += r.bills; a.revenue += r.revenue; a.cost += r.cost; a.profit += r.profit; a.lossBills += r.lossBills;
+    a.flagRev += r.flagRev; a.fNoSize += r.fNoSize; a.fBig += r.fBig; a.fTiny += r.fTiny;
+  }
+  for (const a of acc.values()) {
+    a.m = marginOf(a.revenue, a.profit);
+    a.margin = a.revenue ? a.m : null;
+  }
+  return [...acc.values()];
+}
+
 export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
   const alloc = useAlloc();
   const debtors = useDebtors();
+  /** "ข้อมูล ณ วันที่" ที่ส่วน DSO เลือกอยู่ — คะแนน DSO ใช้วันเดียวกัน */
+  const [asOf, setAsOf] = useState<string | null>(null);
+  const custPi = useMemo(() => {
+    const a = alloc.data?.custMonths ? alloc.data : null;
+    const d = debtors.data;
+    return [
+      metricResult("custProfit", a ? rollupCustomers(a, { year: f.year, month: f.month }).map((r) => r.m) : null),
+      metricResult("dso", d && asOf ? ageBills(d.rows, asOf).map((x) => x.over) : null),
+    ];
+  }, [alloc.data, debtors.data, asOf, f.year, f.month]);
   // ETL ของสองชุดนี้แยกกัน (วางไฟล์คนละโฟลเดอร์) — รีเฟรชเฉพาะชุดที่เปลี่ยน
   const etlAlloc = useEtlStatus("alloc");
   const etlDebt = useEtlStatus("debtors");
@@ -112,7 +156,10 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
 
       {/* ส่วนที่ 2 — เว้นบรรทัดจากส่วนแรกตามสเปก */}
       <div style={{ height: 28 }} />
-      <OverdueSection state={debtors} />
+      <OverdueSection state={debtors} onAsOf={setAsOf} />
+
+      {/* Performance Index — กล่องยาว */}
+      <PiBox index={INDEXES.cust} results={custPi} />
     </>
   );
 }
@@ -126,31 +173,8 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   const [openCi, setOpenCi] = useState<number | null>(null);
   const toggle = (p: Sel) => setPick((cur) => (sameSel(cur, p) ? null : p));
 
-  const cm = data.custMonths ?? [];
-
   /* ---------- ยุบลูกค้า × เดือน → รายลูกค้า ตามตัวกรอง ---------- */
-  const rows = useMemo<CustRow[]>(() => {
-    const acc = new Map<number, CustRow>();
-    for (const r of cm) {
-      if (f.year && r.mo.slice(0, 4) !== f.year) continue;
-      if (f.month && r.mo.slice(5) !== f.month) continue;
-      let a = acc.get(r.ci);
-      if (!a) {
-        const c = data.customers[r.ci];
-        if (!c) continue;                 // ดัชนีเกินตาราง = ไฟล์สองชุดไม่ใช่รุ่นเดียวกัน ข้ามแทนที่จะพัง
-        a = { ...c, ci: r.ci, bills: 0, revenue: 0, cost: 0, profit: 0, lossBills: 0, margin: null, m: 0,
-          flagRev: 0, fNoSize: 0, fBig: 0, fTiny: 0 };
-        acc.set(r.ci, a);
-      }
-      a.bills += r.bills; a.revenue += r.revenue; a.cost += r.cost; a.profit += r.profit; a.lossBills += r.lossBills;
-      a.flagRev += r.flagRev; a.fNoSize += r.fNoSize; a.fBig += r.fBig; a.fTiny += r.fTiny;
-    }
-    for (const a of acc.values()) {
-      a.m = marginOf(a.revenue, a.profit);
-      a.margin = a.revenue ? a.m : null;
-    }
-    return [...acc.values()];
-  }, [cm, data.customers, f]);
+  const rows = useMemo<CustRow[]>(() => rollupCustomers(data, f), [data, f]);
 
   /* ---------- การ์ด 3 ใบ ---------- */
   const kpi = useMemo(() => {
