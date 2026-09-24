@@ -2325,3 +2325,51 @@ body:has(#view-dash.active){background:#EDE7DF}
 @media(min-width:721px){.navsubitem{padding-left:47px}}
 @media(max-width:720px){.navgroup{flex:none}.navsub{display:none}}
 @media (prefers-reduced-motion: reduce){.navsub{transition:none}}
+
+/* ---- Performance Index ท้ายแต่ละส่วนของหน้า Demo (features/dash-demo/PiIndex.tsx · 25 ก.ย. 2569) ----
+   กล่องยาวพื้นไล่สีชุดเดียวกับการ์ดเด่น (Hero) หนึ่งสีต่อหมวด (.t-<id>) · หลอดคะแนนหมวด (.pi-meter) · ชิปรายตัวชี้วัด (.pi-sub)
+   .pi-pair = Service Quality + การ์ด Damage Rate ขนาดเท่ากัน · .pi-total = คะแนนรวม XX/100 บรรทัดสุดท้าย พื้นกรมท่า */
+#view-dash .pi-box,#view-dash .pi-total{position:relative;overflow:hidden;margin-top:14px;border-radius:20px;
+  padding:22px 26px 20px;color:#fff;animation:dFadeUp .55s var(--d-ease) both}
+#view-dash .pi-box::after,#view-dash .pi-total::after{content:"";position:absolute;right:-60px;top:-80px;width:240px;height:240px;
+  border-radius:50%;background:rgba(255,255,255,.10);pointer-events:none}
+#view-dash .pi-box.t-route{background:linear-gradient(135deg,#4B2ED4 0%,#7B3BE8 55%,#9A46F0 100%)}
+#view-dash .pi-box.t-fleet{background:linear-gradient(135deg,#0E7490 0%,#0891B2 55%,#0D9488 100%)}
+#view-dash .pi-box.t-cost{background:linear-gradient(135deg,#B45309 0%,#D97706 55%,#EA8A0C 100%)}
+#view-dash .pi-box.t-cust{background:linear-gradient(135deg,#0E8F6F 0%,#0E9A86 60%,#12A39B 100%)}
+#view-dash .pi-box.t-service{background:linear-gradient(135deg,#6D28D9 0%,#9333EA 55%,#C026D3 100%)}
+#view-dash .pi-total{background:linear-gradient(135deg,#1E1B4B 0%,#312E81 60%,#3730A3 100%)}
+#view-dash .pi-head{display:flex;align-items:center;justify-content:space-between;gap:10px;position:relative;z-index:1}
+#view-dash .pi-t{margin:0;font-size:17px;font-weight:700;color:#fff}
+#view-dash .pi-score{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;margin-top:6px;position:relative;z-index:1}
+#view-dash .pi-score b{font-family:var(--d-num);font-size:46px;font-weight:800;line-height:1.1;color:#fff}
+#view-dash .pi-score span{font-family:var(--d-num);font-size:22px;font-weight:700;color:rgba(255,255,255,.75)}
+#view-dash .pi-score em{font-style:normal;font-size:12.5px;margin-left:4px;padding:2px 10px;border-radius:999px;
+  background:rgba(255,255,255,.2);color:#fff}
+#view-dash .pi-meter,#view-dash .pi-bar{display:block;position:relative;z-index:1;border-radius:999px;
+  background:rgba(255,255,255,.25);overflow:hidden}
+#view-dash .pi-meter{height:10px;margin-top:10px}
+#view-dash .pi-bar{height:6px;margin-top:8px}
+#view-dash .pi-meter i,#view-dash .pi-bar i{display:block;height:100%;border-radius:inherit;background:#fff;
+  transition:width .6s var(--d-ease)}
+#view-dash .pi-subs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:16px;
+  position:relative;z-index:1}
+#view-dash .pi-sub{padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.16);cursor:help}
+#view-dash .pi-sub span{display:block;font-size:13px;color:rgba(255,255,255,.85)}
+#view-dash .pi-sub b{display:block;margin-top:2px;font-family:var(--d-num);font-size:20px;font-weight:700;color:#fff}
+#view-dash .pi-sub.na b{font-family:inherit;font-size:15px;color:rgba(255,255,255,.7)}
+#view-dash .pi-sub.na .pi-bar{opacity:.5}
+#view-dash .pi-note{margin:12px 0 0;font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.8);position:relative;z-index:1}
+#view-dash .pi-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;align-items:stretch}
+#view-dash .pi-pair > .pi-box{margin-top:0}
+@media (max-width: 760px){#view-dash .pi-pair{grid-template-columns:1fr}}
+#view-dash .pi-total-l{position:relative;z-index:1;font-size:15px;font-weight:700;color:rgba(255,255,255,.85)}
+#view-dash .pi-total .pi-score b{font-size:54px}
+/* Service Quality: ป้ายสถานะ Damage Performance (ผ่าน/เฝ้าระวัง/ไม่ผ่าน · lib/pi/damage.ts) — พื้นขาวบนกล่องสี */
+#view-dash .pi-st{font-style:normal;flex:none;padding:4px 14px;border-radius:999px;font-size:13px;font-weight:700;
+  background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.12)}
+#view-dash .pi-st.pass{color:#0B7A62}
+#view-dash .pi-st.watch{color:#8A5A07}
+#view-dash .pi-st.fail{color:#B4233A}
+@media (prefers-reduced-motion: reduce){#view-dash .pi-box,#view-dash .pi-total{animation:none}
+  #view-dash .pi-meter i,#view-dash .pi-bar i{transition:none}}

@@ -24,14 +24,13 @@
 import { useMemo } from "react";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import { summarize } from "../../lib/loadfactor/calc";
-import { inPeriod } from "../../lib/filter/period";
 import { Hero, Note } from "../dash-fleet/parts";
 import EmptyHeroes from "../dash-costrev/EmptyHeroes";
 import { fmt, pct } from "../dash-costrev/common";
 import type { Trip } from "../../lib/data/useCostRev";
 import { openExecTab } from "../../lib/ui/dashJump";
 import SourceTag from "../../lib/ui/SourceTag";
-import { FilterScope } from "./filter";
+import { FilterScope, passLfDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 
 const baht = (n: number): string => fmt(Math.round(n));
@@ -52,7 +51,7 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f }: {
   /* ---- ฝั่ง Load Factor (การ์ด 1-2) — กรองเท่าที่ไฟล์ LF มีให้ ---- */
   const sum = useMemo(() => {
     if (!lf) return null;
-    const ts = lf.trips.filter((t) => inPeriod(t, f) && (!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk));
+    const ts = lf.trips.filter((t) => passLfDemo(t, f));
     return ts.length ? summarize(ts) : null;
   }, [lf, f]);
 

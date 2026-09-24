@@ -11,7 +11,8 @@
 import { passBase, BASE_F0 } from "../dash-costrev/common";
 import type { BaseFilter } from "../dash-costrev/common";
 import type { Trip } from "../../lib/data/useCostRev";
-import { isPartialYear } from "../../lib/filter/period";
+import { inPeriod, isPartialYear } from "../../lib/filter/period";
+import type { LfTrip } from "../../lib/data/useLoadFactor";
 
 export interface DemoFilter extends BaseFilter { sg: string }
 /** คีย์ที่ FilterScope พูดถึง — "month" = ช่วงเดือน (from–to) */
@@ -27,6 +28,11 @@ const isSet = (f: DemoFilter, k: DemoKey): boolean => (k === "month" ? isPartial
 /** เที่ยวผ่านตัวกรองของหน้า — กลุ่มบริการว่าง = "ไม่ระบุ" (กติกาเดิมของแท็บกำไรรายเส้นทาง) */
 export const passDemo = (t: Trip, f: DemoFilter, opts?: Parameters<typeof passBase>[2]): boolean =>
   passBase(t, f, opts) && (!f.sg || (t.sg || "ไม่ระบุ") === f.sg);
+
+/** เที่ยวของไฟล์ Load Factor ผ่านตัวกรองของหน้า — ไฟล์ LF มีแค่ ปี · เดือน · ประเภทรถ · ชนิดรถ
+ *  (ใช้ทั้งกล่อง LF ของข้อ 2 และคะแนน Load Factor ของ Performance Index ให้นับชุดเดียวกัน) */
+export const passLfDemo = (t: LfTrip, f: DemoFilter): boolean =>
+  inPeriod(t, f) && (!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk);
 
 /**
  * บรรทัดเล็กบอกว่าส่วนนี้กรองตามอะไรได้บ้าง — ขึ้นเฉพาะตอนเลือกตัวกรองที่ส่วนนี้ใช้ไม่ได้ (ไม่มีอะไรข้ามก็ไม่รก)

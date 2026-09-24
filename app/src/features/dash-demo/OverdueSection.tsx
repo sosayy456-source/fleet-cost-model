@@ -46,6 +46,8 @@ import { SortTable, fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import SourceTag from "../../lib/ui/SourceTag";
+import { ageBills, dayNum } from "../../lib/debtors/aging";
+import type { Aged } from "../../lib/debtors/aging";
 
 /**
  * ช่วงวันที่เกินกำหนด 6 ช่วง (เจ้าของงานสั่ง 23 ก.ย. 2569 — แยก 1–7 วันออกจาก 1–30 เดิม)
@@ -79,15 +81,7 @@ const shortBaht = (n: number): string =>
 const bucketOf = (over: number): number =>
   (over <= 0 ? 0 : over <= 7 ? 1 : over <= 30 ? 2 : over <= 60 ? 3 : over <= 90 ? 4 : 5);
 
-/** จำนวนวันระหว่างสองวันที่ ISO (a − b) — คิดเป็น UTC เพื่อไม่ให้เวลาออมแสง/โซนเวลามาปนตอนหาร 86,400,000 */
-const dayNum = (iso: string): number => {
-  const [y, m, d] = iso.split("-").map(Number);
-  return Date.UTC(y!, m! - 1, d!) / 86_400_000;
-};
-
-type Status = "paid" | "over" | "notdue";
-/** over = วันที่เกินกำหนด — ยังไม่ชำระ: นับถึงวันที่เลือก (ติดลบ = อีกกี่วันถึงกำหนด) · ชำระแล้ว: วันที่จบ − วันครบกำหนด */
-interface Aged { r: DebtorRow; status: Status; over: number }
+// สถานะ/วันที่เกินกำหนดของแต่ละใบ อยู่ใน lib/debtors/aging.ts (ใช้ร่วมกับคะแนน DSO ของ Performance Index)
 
 /** แถวของกราฟ — ยอดเป็นบาท ที่เหลือใช้ใน tooltip */
 interface HistRow {
@@ -98,7 +92,8 @@ interface HistRow {
 /** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 24 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
 const DEFAULT_AS_OF = "2026-05-31";
 
-export default function OverdueSection({ state }: { state: DebtorState }) {
+/** onAsOf = แจ้ง "ข้อมูล ณ วันที่" ที่เลือกอยู่ออกไป — คะแนน DSO ของ Performance Index ใช้วันเดียวกับส่วนนี้ */
+export default function OverdueSection({ state, onAsOf }: { state: DebtorState; onAsOf?: (iso: string) => void }) {
   const { data, error } = state;
   if (error || !data) {
     return (
@@ -119,7 +114,7 @@ export default function OverdueSection({ state }: { state: DebtorState }) {
   const fallback = data.manifest.refDate ?? data.manifest.asOf;
   const start = range.min && range.min <= DEFAULT_AS_OF ? DEFAULT_AS_OF : fallback;
   return <OverdueBody rows={data.rows} refDate={start}
-    range={range} isSample={data.manifest.isSample} />;
+    range={range} isSample={data.manifest.isSample} onAsOf={onAsOf} />;
 }
 
 /**
@@ -135,8 +130,9 @@ function coverageLimit(min: string, max: string): string | null {
   return `ข้อจำกัดด้านข้อมูล: ไฟล์ลูกหนี้${what} ยังไม่ครบทั้งปี — ยอดค้าง ยอดชำระ และ DSO ในส่วนนี้คิดจากช่วงนี้เท่านั้น`;
 }
 
-function OverdueBody({ rows, refDate, range, isSample }: {
+function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
   rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null }; isSample: boolean;
+  onAsOf?: (iso: string) => void;
 }) {
   useDebtorCodes();
   const [asOf, setAsOf] = useState(refDate);
@@ -149,19 +145,10 @@ function OverdueBody({ rows, refDate, range, isSample }: {
   });
   // ETL รันใหม่แล้ววันที่อ้างอิงเปลี่ยน → ตามไปด้วย (ผู้ใช้ยังแก้เองต่อได้)
   useEffect(() => { setAsOf(refDate); }, [refDate]);
+  useEffect(() => { onAsOf?.(asOf); }, [asOf, onAsOf]);
 
   /* ---------- สถานะของทุกใบ ณ วันที่เลือก ---------- */
-  const aged = useMemo<Aged[]>(() => {
-    const d0 = dayNum(asOf);
-    const out: Aged[] = [];
-    for (const r of rows) {
-      if (r.issue > asOf) continue;                       // ยังไม่วางบิล ณ วันนั้น
-      if (r.close && r.close <= asOf) { out.push({ r, status: "paid", over: dayNum(r.close) - dayNum(r.due) }); continue; }
-      const over = d0 - dayNum(r.due);
-      out.push({ r, status: over > 0 ? "over" : "notdue", over });
-    }
-    return out;
-  }, [rows, asOf]);
+  const aged = useMemo<Aged[]>(() => ageBills(rows, asOf), [rows, asOf]);
 
   const kpi = useMemo(() => {
     const sum = (xs: Aged[]) => xs.reduce((s, a) => s + a.r.amount, 0);
