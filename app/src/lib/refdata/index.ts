@@ -83,6 +83,10 @@ export const ACTIVE_VEHICLE_NAMES: readonly string[] = [
   "หางพ่วงตู้แห้ง",
 ];
 
+/** ชนิดรถที่เป็นหาง (ลากเองไม่ได้) — หน้าจัดรถแยกเป็นช่อง "หางพ่วง" ต่างหาก ไม่ให้เลือกเป็นหัว */
+export const isTrailerKind = (name: string): boolean => canonicalVehicleName(name).startsWith("หาง");
+export const TRAILER_VEHICLE_NAMES: readonly string[] = ACTIVE_VEHICLE_NAMES.filter(isTrailerKind);
+
 /** ชนิดรถที่ให้เลือกใน UI — คงข้อมูลชนิดที่เลิกใช้ไว้ใน REF.vehicles สำหรับคำนวณใบเก่า */
 export const ACTIVE_VEHICLES: Vehicle[] = ACTIVE_VEHICLE_NAMES.map((name) => {
   const vehicle = vehicleByName(name);

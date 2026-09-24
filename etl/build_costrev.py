@@ -49,6 +49,10 @@
         คันที่ 2  ทะเบียนรถคันที่2 (L) ชนิด (M) ประเภท (N)          ต้นทุนรถคันที่ 2 (S) = ค่าเช่า (กรณี 3 คัน)
         พ่วง     ทะเบียนพ่วง (O) ชนิด (P) ประเภท (Q)               ต้นทุนรถพ่วง (T) = ค่าเสื่อมหาง + ค่าซ่อมหาง
       หาง/หัวที่มีเลขที่ใบรายการคนละใบ (กรณี 3) แยกเป็นแถวของตัวเองอยู่แล้ว ไม่ต้องทำอะไร
+      ★ ไฟล์แก้ใหม่ 24 ก.ย. 2569 (ExampleCost.xlsx 10,798 แถว · ไฟล์จริงรูปแบบเดียวกัน): คันที่ 1 เป็นหางพ่วง + มีทะเบียนพ่วง
+        → ทะเบียนพ่วงคือหัว · R = ค่าเสื่อม+ค่าซ่อมของหาง (อยู่ในคอลัมน์ "หัว" เพราะผูกกับตำแหน่ง) · T = ส่วนอื่นทั้งหมด
+        (แถวค่าเช่า T = ค่าเช่ารวม) — ต้นทุน = R+S+T และ กำไร = รายได้ − ต้นทุน ยังจริงทุกแถว (10,798/10,798)
+        ตัวเลขระดับใบ (pl/vk/ft) ยังเป็นของคันที่ 1 แม้จะเป็นหาง (เจ้าของงานเลือก 24 ก.ย. 2569) ดู trailer_first ใน build
       เจ้าของงานเคาะ 22 ก.ย. 2569: **นับทุกทะเบียนในใบเป็นคัน** ต้นทุนต่อคันตาม R/S/T และ**แบ่งรายได้ตามสัดส่วน R:S:T**
       (แท็บกองรถ lib/fleetcompare/utilization.ts) → ETL เก็บ `vs` = รายการรถของใบ [{pl, vk, ft, c}] ส่วน pl/vk/ft/cost
       ระดับใบยังเป็นของคันที่ 1 + ต้นทุนทั้งใบเหมือนเดิม แท็บอื่นจึงไม่เปลี่ยน · ไฟล์รุ่นเก่าไม่มี R/S/T → vs มีคันเดียว
@@ -400,6 +404,7 @@ def build(dataset: str) -> None:
 
     trips: list[dict] = []
     skipped_no_doc = skipped_no_date = dropped_type = 0
+    rent_unknown = trailer_first_n = 0   # แถวค่าเช่าที่บอกไม่ได้ว่าคันไหนเช่า · แถวค่าเช่าที่หางเป็นคันที่ 1
     kinds = Counter()
     for cf in cost_files:
         hrow = find_header_row(cf, "เลขที่ใบรายการ")
@@ -441,7 +446,7 @@ def build(dataset: str) -> None:
             ttype = text(g(r, "ประเภทใบรายการ"))
             # ★ ประเภทที่เจ้าของงานสั่งตัดออกจากโมเดลทั้งระบบ (20 ก.ย. 2569) — ทิ้งทั้งแถว
             #   ไม่เข้า trips.json จึงไม่โผล่ในแท็บไหนเลย และ **ไม่นับเป็นเที่ยววิ่งเปล่าด้วย**
-            #   ต้องกรองที่นี่ด้วย ไม่ใช่แค่ใน build_alloc.py เพราะสองตัวอ่านไฟล์คนละรอบ
+            #   กรองที่นี่ที่เดียว — build_alloc.py ไม่ได้กรอง (เจ้าของงานยืนยัน 24 ก.ย. 2569 ว่าไฟล์จริงตัดประเภทนี้ออกมาแล้ว)
             if ttype in DROPPED_TRIP_TYPES:
                 dropped_type += 1
                 continue
@@ -457,12 +462,29 @@ def build(dataset: str) -> None:
             #   คอลัมน์ ต้นทุน แล้วกลุ่ม "อื่น ๆ" ติดลบ (ชุดตัวอย่าง −631,445 จากหัว และ −205,950 จากค่าประกัน)
             #   เจ้าของงานเคาะ 22 ก.ย. 2569: แถวค่าเช่านับเฉพาะของหาง และไม่นับค่าประกันสินค้า
             rent_row = note == "ค่าเช่า" and split_cost
+            # ★ กรณีคันที่ 1 เป็นหางพ่วง + มีทะเบียนพ่วง (ไฟล์ต้นทุนแก้ใหม่ 24 ก.ย. 2569 · เจ้าของงานกำหนด)
+            #   ทะเบียนพ่วง (O) คือ "หัว" ของเที่ยวนั้น — ไฟล์ปัน R = ค่าเสื่อม + ค่าซ่อมของหาง (K) เท่านั้น
+            #   T = ต้นทุนส่วนอื่นทั้งหมด (แถวค่าเช่า = ค่าเช่ารวมของหัวที่เช่ามา)
+            #   คอลัมน์ค่าเสื่อม/ค่าซ่อม "หัว"/"หาง" ในไฟล์ผูกกับ **ตำแหน่ง** K/O ไม่ใช่ชนิดรถ — ค่าของหาง (K) จึงอยู่ใน
+            #   คอลัมน์ "หัว" (R = ค่าเสื่อมหัว + ค่าซ่อมหัว ตรวจแล้ว 308/308 ใบ) · แถวค่าเช่าของกรณีนี้รถเช่าคือ O ไม่ใช่ K
+            #   ถ้ายังนับของ "หาง" แบบแถวค่าเช่าปกติ กลุ่ม "อื่น ๆ" ติดลบ (ชุดตัวอย่าง −186,706 ใน 271 ใบ)
+            #   ★ ตัดสินจาก**ตัวเลข** ไม่ใช่ชื่อชนิดรถ: ในแถวค่าเช่า รถเช่าคือคันที่ต้นทุน = ค่าเช่ารวม
+            #     ชื่อหางในไฟล์มีหลายแบบ ("หางพ่วง…" · "รถ 10 ล้อพ่วง(ลูก)" 227 แถวในชุดตัวอย่าง) ถ้าดูแค่ขึ้นต้นด้วย "หาง"
+            #     จะหลุดเงียบ ๆ · ชุดตัวอย่างสองวิธีได้ตรงกัน 271/271 ใบ
+            rent_amt = num(g(r, COL_RENT))
+            trailer_first = (rent_row and bool(text(g(r, "ทะเบียนพ่วง")))
+                             and abs(num(g(r, "ต้นทุนรถพ่วง")) - rent_amt) < 0.5
+                             and abs(num(g(r, "ต้นทุนรถคันที่ 1")) - rent_amt) >= 0.5)
+            if rent_row and abs(num(g(r, "ต้นทุนรถพ่วง")) - rent_amt) >= 0.5 and abs(num(g(r, "ต้นทุนรถคันที่ 1")) - rent_amt) >= 0.5:
+                rent_unknown += 1      # ไม่รู้ว่าคันไหนเช่า — รายงานท้าย log ให้ตรวจไฟล์
+            rent_side = "หัว" if trailer_first else "หาง"   # คอลัมน์ของรถบริษัทในแถวค่าเช่า
+            trailer_first_n += trailer_first
             fuel = {k: gsum(r, cs) for k, cs in FUEL_COLS.items()}
             allow = {k: gsum(r, cs) for k, cs in ALLOW_COLS.items()}
             fee = {k: (0.0 if rent_row else gsum(r, cs)) for k, cs in FEE_COLS.items()}
             waste = gsum(r, WASTE_COLS)
-            repair = num(g(r, COL_REPAIR_TAIL if rent_row else COL_REPAIR))
-            dep = num(g(r, COL_DEP_TAIL if rent_row else COL_DEP))
+            repair = num(g(r, f"ค่าซ่อม{rent_side}" if rent_row else COL_REPAIR))
+            dep = num(g(r, f"ค่าเสื่อม{rent_side}" if rent_row else COL_DEP))
             # ค่าเช่าอยู่ใน "ต้นทุน" เฉพาะแถวที่ หมายเหตุต้นทุน = ค่าเช่า (ต้นทุน = ค่าเช่ารวม ทั้งก้อน)
             # แถว "ค่าเดินทาง" ต้นทุน = Σ คอลัมน์ค่าแก๊ส…ค่าซ่อมรวม ส่วน ค่าเช่ารวม เป็นแค่บันทึกประกอบ
             if split_cost:
@@ -476,9 +498,13 @@ def build(dataset: str) -> None:
                 # ค่าเสื่อมรายคัน (d) — หัว = ค่าเสื่อมหัว (แถวค่าเช่า = 0 เพราะหัวเป็นรถเช่า) · คันที่ 2 = 0 (รถเช่า)
                 # · พ่วง = ค่าเสื่อมหาง → Σ d = dep ของใบเสมอ (ตรวจแล้ว 3,707/3,707 ใบ 23 ก.ย. 2569)
                 # ไฟล์ไม่มีคอลัมน์ค่าเสื่อมหัว → หัวรับ dep ที่เหลือจากหาง
+                # กรณีคันที่ 1 เป็นหาง (trailer_first): ตำแหน่ง K รับค่าเสื่อม "หัว" (ของหางเอง) · แถวค่าเช่า O เป็นรถเช่า = 0
                 dep_tail = num(g(r, COL_DEP_TAIL))
-                dep_head = 0.0 if rent_row else (num(g(r, COL_DEP_HEAD)) if COL_DEP_HEAD in col else dep - dep_tail)
-                deps = [dep_head, 0.0, dep_tail]
+                dep_head = num(g(r, COL_DEP_HEAD)) if COL_DEP_HEAD in col else dep - dep_tail
+                if rent_row:
+                    deps = [dep_head, 0.0, 0.0] if trailer_first else [0.0, 0.0, dep_tail]
+                else:
+                    deps = [dep_head, 0.0, dep_tail]
                 vs = [{"pl": text(g(r, pc)), "vk": text(g(r, kc)), "ft": text(g(r, fc)), "c": round(num(g(r, cc)), 2),
                        "d": round(d, 2)}
                       for (pc, kc, fc, cc), d in zip(VEHICLE_COLS, deps) if text(g(r, pc))]
@@ -624,6 +650,10 @@ def build(dataset: str) -> None:
     }
     manifest["serviceGroups"] = {"rows": len(svc_rows), "trips": len({r[0] for r in svc_rows}),
                                  "method": "วิธี ค (ภาระงาน × ระยะทาง) — src/svcalloc.py"}
+    # ตัวตรวจรูปแบบไฟล์ต้นทุน — ข้อมูลจริงอาจมีรูปแบบที่ชุดตัวอย่างไม่มี (ดูคำเตือนท้าย log)
+    neg_other = [t for t in trips if t["cost"] - sum(t[k] for k in ("waste", "fuel", "allow", "fee", "repair", "dep", "rent")) < -1]
+    manifest["costChecks"] = {"trailerFirstRent": trailer_first_n, "rentUnknown": rent_unknown,
+                              "negativeOther": len(neg_other)}
     dump("manifest.json", manifest)
     dump("trips.json", trips)
     dump("svc.json", svc_out)
@@ -647,6 +677,13 @@ def build(dataset: str) -> None:
     grp["other"] = tot - sum(grp.values())
     print("  ตรวจผลรวมกลุ่มต้นทุน (ต้องบวกกันได้เท่าต้นทุนทั้งหมด):")
     print("   " + " / ".join(f"{k} {v:,.0f}" for k, v in grp.items()) + f" = {sum(grp.values()):,.0f} vs ต้นทุน {tot:,.0f}")
+    # ★ พิมพ์ท้ายสุดเสมอ — plugin autoEtl โชว์เฉพาะ 6 บรรทัดสุดท้ายของ log ใน terminal ของ dev server
+    print(f"  แถวค่าเช่าที่หางเป็นคันที่ 1 (ทะเบียนพ่วง = หัวที่เช่า) {trailer_first_n:,} ใบ")
+    if rent_unknown:
+        print(f"  [!] แถวค่าเช่าที่ต้นทุนคันที่ 1 และรถพ่วงไม่เท่าค่าเช่ารวมทั้งคู่ {rent_unknown:,} ใบ — รูปแบบใหม่ที่ ETL ไม่รู้จัก ตรวจไฟล์")
+    if neg_other:
+        print(f"  [!] ใบที่กลุ่ม \"อื่น ๆ\" ติดลบ {len(neg_other):,} ใบ ({sum(t['cost'] - sum(t[k] for k in ('waste', 'fuel', 'allow', 'fee', 'repair', 'dep', 'rent')) for t in neg_other):,.0f} บาท)"
+              f" — ต้นทุนรายกลุ่มนับเกินคอลัมน์ ต้นทุน เช่น {neg_other[0]['id']} ({neg_other[0]['t']})")
 
 
 def utf8_stdout() -> None:

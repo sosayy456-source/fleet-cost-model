@@ -9,6 +9,8 @@ import type { CSSProperties, ReactNode } from "react";
 import { fmtN } from "../../lib/chart/theme";
 import { FF } from "../dash-fleet/parts";
 import GrowBox from "../../lib/ui/GrowBox";
+import { MONTHS, inMonths, withFrom, withTo, withYear } from "../../lib/filter/period";
+import type { Period } from "../../lib/filter/period";
 import type { Trip } from "../../lib/data/useCostRev";
 
 export const fmt = (n: number, d = 0): string => fmtN(n, d);
@@ -31,7 +33,7 @@ export const monthName = (m: string): string => TH_MONTHS[Number(m) - 1] ?? m;
 export const marginOf = (t: Trip): number | null => (t.rev ? t.profit / t.rev * 100 : null);
 
 /* ---------------- ตัวกรองมาตรฐานของทั้งสามแท็บ ---------------- */
-export function YearFF({ trips, value, onChange }: { trips: Trip[]; value: string; onChange: (v: string) => void }) {
+export function YearFF({ trips, value, onChange }: { trips: { y: number }[]; value: string; onChange: (v: string) => void }) {
   const years = [...new Set(trips.map((t) => String(t.y)))].sort();
   return (
     <FF label="ปี" value={value} onChange={onChange}>
@@ -50,6 +52,24 @@ export function MonthFF({ value, onChange }: { value: string; onChange: (v: stri
   );
 }
 
+/**
+ * ปี + ช่วงเดือน ตั้งแต่–ถึง — แบบเดียวกับแท็บ Damage Rate (เจ้าของงานสั่ง 24 ก.ย. 2569)
+ * เดือนเลือกได้เมื่อเลือกปีแล้ว · ล้างปี = ช่วงเดือนกลับเป็นทั้งปี · "ถึงเดือน" มีเฉพาะเดือนที่ไม่ก่อนเดือนเริ่ม
+ */
+export function PeriodFF<T extends Period>({ trips, value, onChange }: {
+  trips: { y: number }[]; value: T; onChange: (p: T) => void;
+}) {
+  return <>
+    <YearFF trips={trips} value={value.year} onChange={(y) => onChange(withYear(value, y))} />
+    <FF label="ตั้งแต่เดือน" value={value.from} disabled={!value.year} onChange={(m) => onChange(withFrom(value, m))}>
+      {MONTHS.map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
+    </FF>
+    <FF label="ถึงเดือน" value={value.to} disabled={!value.year} onChange={(m) => onChange(withTo(value, m))}>
+      {MONTHS.filter((m) => m >= value.from).map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
+    </FF>
+  </>;
+}
+
 export function ListFF({ label, all, value, onChange, opts, labelOf }: {
   label: string; all: string; value: string; onChange: (v: string) => void; opts: string[];
   /** ข้อความที่แสดงของแต่ละตัวเลือก — ไม่ส่งก็ใช้ค่าตัวเลือกเอง */
@@ -63,9 +83,13 @@ export function ListFF({ label, all, value, onChange, opts, labelOf }: {
   );
 }
 
-/** เงื่อนไขที่ทุกแท็บใช้ร่วม — เดือนใช้ 2 หลัก "01".."12" · ค่าว่าง = ไม่กรองมิตินั้น */
-export interface BaseFilter { year: string; month: string; o: string; de: string; ft: string; vk: string }
-export const BASE_F0: BaseFilter = { year: "", month: "", o: "", de: "", ft: "", vk: "" };
+/**
+ * เงื่อนไขที่ทุกแท็บใช้ร่วม — เดือนใช้ 2 หลัก "01".."12" · ค่าว่าง = ไม่กรองมิตินั้น
+ * เวลามีสองแบบ: `month` เดือนเดียว (MonthFF — แท็บกำไรรายเที่ยว · ต้นทุน) กับ `from`–`to` ช่วงเดือน (PeriodFF — แท็บอื่น)
+ * แท็บหนึ่งใช้แบบเดียว อีกแบบคงค่าตั้งต้นไว้ (month "" · ช่วง 01–12) จึงไม่กรองซ้อนกัน
+ */
+export interface BaseFilter extends Period { month: string; o: string; de: string; ft: string; vk: string }
+export const BASE_F0: BaseFilter = { year: "", month: "", from: "01", to: "12", o: "", de: "", ft: "", vk: "" };
 
 /** เลือกตัวกรองอะไรไว้ไหม (เทียบกับค่าเริ่มต้นของแท็บนั้น) — ใช้ซ่อนปุ่ม "ล้างตัวกรอง" ตอนไม่มีอะไรให้ล้าง */
 export const isFiltered = <T extends object>(f: T, f0: T): boolean =>
@@ -79,6 +103,8 @@ export const passBase = (
 ): boolean =>
   (opts.ignoreYear || !f.year || String(t.y) === f.year)
   && (opts.ignoreMonth || !f.month || t.mo.slice(5) === f.month)
+  // ignoreYear ยังกรองช่วงเดือน — ชุดที่เทียบหลายปีต้องได้ช่วงเดือนเดียวกันทุกปี
+  && (opts.ignoreMonth || inMonths(t.mo, f))
   && (!f.o || t.o === f.o)
   && (!f.de || t.de === f.de)
   && (opts.ignoreVehicle || ((!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk)));

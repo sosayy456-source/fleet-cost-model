@@ -10,6 +10,7 @@
  * (idle · recoverable · profit) ตอนโหลด — สูตรตามเอกสาร lf_executive_dashboard.html ข้อแก้ 6 จุด
  */
 import { useCallback, useEffect, useState } from "react";
+import { thMonthRange } from "../record/date";
 
 export type LfDataset = "sample" | "real";
 
@@ -80,7 +81,23 @@ export interface LfManifest {
 export interface LfData { manifest: LfManifest; trips: LfTrip[] }
 
 /** สูตรกลางของแท็บ — ETL ใช้ชุดเดียวกันทำค่าตรวจสอบใน manifest.check */
-export const idleOf = (cost: number, lf: number): number => cost * Math.max(0, 1 - lf);
+/**
+ * ป้าย/บรรทัดที่มาของหัวแดชบอร์ดตอนเปิดแท็บที่อ่านชุดนี้ (ต้นทุนที่จม · ตัน-กม.) — ส่งเข้า useShellSource()
+ * หัวของ Executive Dashboard อ่านชุด costrev/ ซึ่งเลือก real/sample แยกจากชุดนี้ (เจ้าของงานสั่ง 24 ก.ย. 2569)
+ */
+export function lfShellSource(m: LfManifest | undefined): { sample: boolean; parts: string[] } | null {
+  if (!m) return null;
+  return {
+    sample: m.isSample,
+    parts: [
+      `${m.rows.toLocaleString("en-US")} เที่ยวจากไฟล์ Load Factor`,
+      m.sourceFiles.join(", "),
+      `${thMonthRange(m.dateRange.min, m.dateRange.max)}`,
+    ],
+  };
+}
+
+export const idleOf =(cost: number, lf: number): number => cost * Math.max(0, 1 - lf);
 export const recovOf = (cost: number, lf: number, tg: number): number => cost * Math.max(0, tg - lf);
 
 const BASE = import.meta.env.BASE_URL;

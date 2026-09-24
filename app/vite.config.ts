@@ -15,11 +15,10 @@ import { fileURLToPath } from "node:url";
  * มีสามงาน:
  *   rev  etl/data/revenue/              -> build_json.py     -> public/data/real/
  *   cr   etl/data/Dashboard real data/  -> build_costrev.py  -> public/data/real/costrev/
- *   al   etl/data/allocated/            -> build_alloc.py    -> public/data/real/alloc/
- *        (ไม่มีไฟล์ในนั้นก็ถอยไปคำนวณเองจาก etl/data/travel/ + etl/data/revenue/)
+ *   al   etl/data/Dashboard real data/ + etl/data/revenue/ -> build_alloc.py -> public/data/real/alloc/
  *
- * งาน al กินได้สามโฟลเดอร์ — ไฟล์ที่ปันเสร็จแล้วจากเครื่องปันส่วนต้นทุน (ทางหลัก)
- * หรือรายงานค่าเดินทาง + ไฟล์บิลเพื่อคำนวณเอง จึงเฝ้าทั้งสามที่และรันใหม่เมื่ออันไหนเปลี่ยนก็ได้
+ * งาน al ปันต้นทุนเที่ยวลงบิลลูกค้า — ใช้ไฟล์ต้นทุนชุดเดียวกับงาน cr (เจ้าของงานเคาะ 24 ก.ย. 2569
+ * เดิมเฝ้า etl/data/travel/ ที่ไม่มีไฟล์ หน้ากำไรลูกค้าจึงค้างเป็นข้อมูลตัวอย่าง) รันใหม่เมื่อไฟล์ต้นทุนหรือไฟล์บิลเปลี่ยน
  *
  * ★ งานเหล่านี้ต้องรันทีละตัว ห้ามพร้อมกัน
  *   ข้อมูลจริงรวมกันเกือบ 700 MB / 5 ล้านแถว งานแรกใช้หน่วยความจำหลาย GB
@@ -41,7 +40,6 @@ function autoEtl(): Plugin {
   const revOut = resolve(here, "public", "data", "real");
   const costDir = resolve(etlDir, "data", "Dashboard real data");
   const costOut = resolve(revOut, "costrev");
-  const travelDir = resolve(etlDir, "data", "travel");
   const allocOut = resolve(revOut, "alloc");
   const debtDir = resolve(etlDir, "data", "debtors");
   const debtOut = resolve(revOut, "debtors");
@@ -168,9 +166,9 @@ function autoEtl(): Plugin {
     al: {
       // ปันส่วนจากไฟล์ดิบเสมอ — รายงานค่าเดินทาง + ไฟล์บิลใน etl/data/revenue/
       // (เดิมมี etl/data/allocated/ มาก่อน เจ้าของข้อมูลสั่งตัดทิ้ง 17 ก.ย. 2569 เพราะข้อมูลซ้ำ)
-      script: "build_alloc.py", dir: travelDir, out: allocOut,
-      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/travel/ — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
-      emptyMsg: "ไม่มีไฟล์ให้ปันส่วนแล้ว — หน้ากำไรลูกค้า (ปันส่วนต้นทุน) ไม่มีข้อมูล",
+      script: "build_alloc.py", dir: costDir, out: allocOut,
+      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/Dashboard real data/ — กำไรลูกค้า (ปันส่วนต้นทุน) กลับไปใช้ข้อมูลตัวอย่าง",
+      emptyMsg: "ไม่มีไฟล์ต้นทุนจริงแล้ว — กำไรลูกค้า (ปันส่วนต้นทุน) กลับไปใช้ข้อมูลตัวอย่าง",
       clearFailLog: "✗ ลบ public/data/real/alloc/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
       clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/alloc/manifest.json เองแล้วกดรีเฟรช",
       startLog: () => "▶ กำลังทำข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน (python build_alloc.py --dataset real) …",
@@ -242,7 +240,8 @@ function autoEtl(): Plugin {
     });
     child.on("close", (code) => {
       if (code === 0) {
-        log(`✓ ${spec.doneMsg}` + (job === "cr" ? " — " + tail.trim().split("\n").slice(-6).join(" | ") : ""));
+        // ท้าย log ของ cr/lf มีตัวตรวจรูปแบบไฟล์ (บรรทัด [!]) — โชว์ให้เห็นใน terminal ของ dev server
+        log(`✓ ${spec.doneMsg}` + (job === "cr" || job === "lf" ? " — " + tail.trim().split("\n").slice(-6).join(" | ") : ""));
         setStatus(job, "done", spec.doneMsg);
       } else if (outOfMemory(code, tail)) {
         log(`✗ ${spec.script} หน่วยความจำไม่พอ (exit ${code}) — ปิดโปรแกรมอื่นแล้วลองใหม่\n${tail.trim()}`);
@@ -316,7 +315,7 @@ function autoEtl(): Plugin {
        * จึงไม่มีทางเริ่ม ETL จนกว่าจะคัดลอกเสร็จจริง (ดีกว่าเดิมที่ยิงตอนเห็นไฟล์โผล่)
        * statSync บนไฟล์ที่ล็อกอยู่โยน error ได้ → ถือว่า "ยังเปลี่ยนอยู่" แล้วรอรอบหน้า
        */
-      const WATCH: Record<Job, string> = { rev: revDir, cr: costDir, al: travelDir, db: debtDir, lf: lfDir };
+      const WATCH: Record<Job, string> = { rev: revDir, cr: costDir, al: costDir, db: debtDir, lf: lfDir };
       const signature = (dir: string): string | null => {
         if (!existsSync(dir)) return "";
         try {
@@ -327,7 +326,7 @@ function autoEtl(): Plugin {
       };
       const last: Record<Job, string | null> = {
         rev: signature(revDir), cr: signature(costDir),
-        al: signature(travelDir), db: signature(debtDir), lf: signature(lfDir),
+        al: signature(costDir), db: signature(debtDir), lf: signature(lfDir),
       };
       const tick = () => {
         for (const job of ["rev", "cr", "al", "db", "lf"] as Job[]) {
@@ -340,7 +339,7 @@ function autoEtl(): Plugin {
             // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย
             if (hasXlsx(costDir)) { request("cr", 2500); setStatus("cr", "running", COPYING.cr); }
             // ไฟล์บิลคือฝั่งรายได้ของการปันส่วนต้นทุน → ปันใหม่ด้วย
-            if (hasXlsx(travelDir)) { request("al", 3000); setStatus("al", "running", COPYING.al); }
+            if (hasXlsx(costDir)) { request("al", 3000); setStatus("al", "running", COPYING.al); }
           }
           // ไฟล์ลูกหนี้ไม่เกี่ยวกับสามงานข้างบนเลย (คนละเลขเอกสาร) จึงไม่สั่งงานอื่นตาม
         }
@@ -355,7 +354,7 @@ function autoEtl(): Plugin {
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
       const pendingRev = hasXlsx(revDir) && !existsSync(resolve(revOut, "manifest.json"));
       const pendingCr = hasXlsx(costDir) && !existsSync(resolve(costOut, "manifest.json"));
-      const pendingAl = hasXlsx(travelDir) && hasXlsx(revDir)
+      const pendingAl = hasXlsx(costDir) && hasXlsx(revDir)
         && !existsSync(resolve(allocOut, "manifest.json"));
       const pendingDb = hasXlsx(debtDir) && !existsSync(resolve(debtOut, "manifest.json"));
       const pendingLf = hasXlsx(lfDir) && !existsSync(resolve(lfOut, "manifest.json"));

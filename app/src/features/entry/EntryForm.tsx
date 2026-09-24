@@ -7,6 +7,10 @@
  * และผู้ดูแลระบบที่เห็นทุกโซนตลอด
  *
  * ตารางราคาน้ำมัน / ค่าซ่อม / ทะเบียนรถ ย้ายไปหน้า "การตั้งค่า" แล้ว
+ *
+ * ★ ใบใหม่สร้างที่ "บันทึกบิล" + "จัดรถ" เท่านั้น (เจ้าของงานเคาะ 24 ก.ย. 2569 — เดิมสร้างได้สองทาง)
+ *   โซนฝ่ายบริการลูกค้า/ฝ่ายจัดรถเปิดได้เฉพาะตอนแก้ใบที่มีอยู่แล้ว (เปิดจากรายการ) ไว้แก้ข้อมูลผิด
+ *   ฟอร์มว่างเหลือแค่โซนค่าใช้จ่าย — ไม่มีช่องเลขที่ใบรายการ จึงบันทึกเป็นใบใหม่ไม่ได้อยู่แล้ว
  */
 import { useEffect, useMemo, useState } from "react";
 import { computeCost } from "../../lib/cost/computeCost";
@@ -154,21 +158,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
   }, [hasHash, tableReady]);
 
   useEffect(() => {
-    // ทำซ้ำใบ — หน้ารายการส่งใบที่คัดลอกแล้วมาทั้งก้อน ไม่ได้ส่งแค่ id
-    // เพราะใบที่อยู่บนชีตอย่างเดียว (ยังไม่เคยเปิดในเครื่องนี้) getById หาไม่เจอ
-    const dup = sessionStorage.getItem("duplicateRecord");
-    if (dup) {
-      sessionStorage.removeItem("duplicateRecord");
-      try {
-        const r = JSON.parse(dup) as TripRecord;
-        setRec(ensureFuelBills(withCanonicalVehicle(r)));
-        setEditing(null); // เป็นใบใหม่ ไม่ใช่การแก้ใบเดิม
-        setEditZones(new Set());
-        setMsg({ text: "ทำซ้ำใบรายการแล้ว — ใส่เลขที่ใบใหม่และตรวจวันที่ก่อนบันทึก", tone: "info" });
-        return;
-      } catch { /* ข้อมูลเสีย — เริ่มใบเปล่าตามปกติ */ }
-    }
-
+    // เปิดใบจากหน้ารายการทั้งหมด/ใบที่ยังไม่ครบ (ปุ่ม "ทำซ้ำใบ" เอาออกแล้ว 24 ก.ย. 2569)
     const id = sessionStorage.getItem("editRecordId");
     if (!id) return;
     sessionStorage.removeItem("editRecordId");
@@ -268,13 +258,13 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
     );
   };
 
-  /** โซนที่ปุ่มสุ่มเติมให้ — ชุดเดียวกับที่ saveRecord() จะเขียนและประทับตอนบันทึก */
-  const randomZones: RoleKey[] = role === "admin" ? ROLE_ORDER : ROLE_ORDER.filter((k) => k === role || editZones.has(k));
-
-  /** โซนนี้เปิดให้กรอกไหม — ผู้ดูแลระบบเปิดทุกโซน */
-  const zoneOpen = (k: RoleKey) => role === "admin" || k === role || editZones.has(k);
+  /** โซนนี้เปิดให้กรอกไหม — ผู้ดูแลระบบเปิดทุกโซน · โซนลูกค้า/รถเปิดเฉพาะตอนแก้ใบที่มีอยู่ (ใบใหม่สร้างที่หน้าจัดรถ) */
+  const zoneOpen = (k: RoleKey) => (k === "cs" || k === "dispatch") && !editing ? false
+    : role === "admin" || k === role || editZones.has(k);
   /** โซนนี้แสดงไหม — main ซ่อนโซนที่กรอกไม่ได้ทิ้งไปเลย */
   const zoneShow = (k: RoleKey) => zoneOpen(k);
+  /** โซนที่ปุ่มสุ่มเติมให้ — ชุดเดียวกับที่ saveRecord() จะเขียนและประทับตอนบันทึก */
+  const randomZones: RoleKey[] = ROLE_ORDER.filter((k) => zoneOpen(k));
 
   const toggleZone = (k: RoleKey) => {
     if (!canEditOthers(role) || k === role) return;
@@ -339,9 +329,11 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
      */
     if (!rec.docNo.trim()) {
       setMsg({
-        text: role === "cs" || role === "admin"
-          ? "ยังไม่ได้กรอกเลขที่ใบรายการ — กรอกก่อนจึงจะบันทึกได้"
-          : "ใบนี้ยังไม่มีเลขที่ใบรายการ — ต้องให้ฝ่ายบริการลูกค้าเปิดใบก่อน แล้วค่อยเปิดใบนั้นมากรอกต่อ",
+        text: !editing
+          ? "ยังไม่ได้เปิดใบ — ใบใหม่สร้างที่หน้าจัดรถ ส่วนหน้านี้เปิดใบจากรายการ \"ใบที่ยังรอ…กรอก\" ด้านบนแล้วกรอกต่อ"
+          : zoneOpen("cs")
+            ? "ยังไม่ได้กรอกเลขที่ใบรายการ — กรอกก่อนจึงจะบันทึกได้"
+            : "ใบนี้ยังไม่มีเลขที่ใบรายการ — ต้องให้ฝ่ายบริการลูกค้าเปิดใบก่อน แล้วค่อยเปิดใบนั้นมากรอกต่อ",
         tone: "err",
       });
       return;
@@ -354,7 +346,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
 
       // ออกรหัสให้ลูกค้าที่ไม่มีในไฟล์แปลงรหัส — v5:2549 ทำเฉพาะตอนโซนของฝ่ายบริการลูกค้าเปิด
       // เพราะช่องผู้ส่ง/ผู้รับเป็นของฝ่ายนั้น ฝ่ายอื่นกดบันทึกไม่ควรไปกินเลขรหัส
-      if (role === "cs" || role === "admin" || editZones.has("cs")) {
+      if (zoneOpen("cs")) {
         try {
           // รู้จำนวนระเบียนก่อนเสมอ ไม่งั้นเลขที่ออกจะทับของในไฟล์
           // ★ ต้องรู้ทั้ง "ไฟล์มีถึงเลขไหน" และ "ETL ออกเลขให้ลูกหนี้ถึงไหน"
@@ -371,7 +363,8 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
 
       const res = await saveRecord(ready, {
         role, offline, overrides: ovr,
-        alsoRoles: role === "admin" ? ROLE_ORDER : [...editZones],
+        // ประทับเฉพาะโซนที่เปิดอยู่จริง — ฟอร์มว่างของผู้ดูแลระบบไม่มีโซนลูกค้า/รถ ห้ามประทับว่ากรอกแล้ว
+        alsoRoles: role === "admin" ? ROLE_ORDER.filter((k) => zoneOpen(k)) : [...editZones],
       });
       setRec(res.record);
       setEditing(null);

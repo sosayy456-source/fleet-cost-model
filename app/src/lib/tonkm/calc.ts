@@ -111,24 +111,40 @@ export const isJudged = (s: TkStatus): boolean => s !== "nobase" && s !== "nodat
 export interface TkPeriod {
   /** ปี ค.ศ. */
   year: number;
-  /** "01"–"12" · "" = ทั้งปี */
-  month: string;
+  /** ช่วงเดือน "01"–"12" (from ≤ to) · 01–12 = ทั้งปี — เปลี่ยนจากเดือนเดียวเป็นช่วงเดือน 24 ก.ย. 2569 */
+  from: string; to: string;
 }
 
-const inPeriod = (t: LfTrip, p: TkPeriod): boolean => t.y === p.year && (!p.month || t.mo.slice(5) === p.month);
+const inPeriod = (t: LfTrip, p: TkPeriod): boolean => {
+  const m = t.mo.slice(5);
+  return t.y === p.year && m >= p.from && m <= p.to;
+};
+export const isWholeYear = (p: TkPeriod): boolean => p.from === "01" && p.to === "12";
 
 /** เดือนล่าสุดที่มีข้อมูล — การ์ดใน Demo ใช้ช่วงนี้เสมอ */
 export function latestPeriod(trips: LfTrip[]): TkPeriod | null {
   let mo = "";
   for (const t of trips) if (t.mo > mo) mo = t.mo;
-  return mo ? { year: Number(mo.slice(0, 4)), month: mo.slice(5) } : null;
+  return mo ? { year: Number(mo.slice(0, 4)), from: mo.slice(5), to: mo.slice(5) } : null;
 }
 
-/** ช่วงก่อนหน้าไว้เทียบ — เลือกเดือน = เดือนก่อน (ข้ามปีได้) · ทั้งปี = ปีก่อน */
+/**
+ * ช่วงที่การ์ดควรแสดงตามตัวกรอง ปี + ช่วงเดือน ของหน้า (Demo หน้ายาว — เจ้าของงานเลือก 24 ก.ย. 2569 ให้ตามตัวกรอง)
+ *   เลือกปี → ช่วงเดือนนั้นของปีนั้น (ทั้งปีถ้าไม่ได้แคบลง) · ไม่เลือกปี → เดือนล่าสุดของไฟล์ (latestPeriod เหมือนเดิม)
+ *   ช่วงที่ไม่มีข้อมูล = null · เลือกเดือนโดยไม่เลือกปีไม่ได้แล้ว (ตัวกรองแบบ Damage Rate)
+ */
+export function periodFor(trips: LfTrip[], year: string, from = "01", to = "12"): TkPeriod | null {
+  if (!year) return latestPeriod(trips);
+  const p = { year: Number(year), from, to };
+  return trips.some((t) => inPeriod(t, p)) ? p : null;
+}
+
+/**
+ * ช่วงก่อนหน้าไว้เทียบ = **ช่วงเดือนเดียวกันของปีก่อน** (เจ้าของงานเลือก 24 ก.ย. 2569 ตอนเปลี่ยนเป็นช่วงเดือน —
+ * เดิมเลือกเดือนเดียวเทียบเดือนก่อน) · ทั้งปี = ปีก่อนทั้งปีเหมือนเดิม
+ */
 export function prevPeriod(p: TkPeriod): TkPeriod {
-  if (!p.month) return { year: p.year - 1, month: "" };
-  const m = Number(p.month);
-  return m === 1 ? { year: p.year - 1, month: "12" } : { year: p.year, month: String(m - 1).padStart(2, "0") };
+  return { ...p, year: p.year - 1 };
 }
 
 /* ---------------- รายชนิดรถของช่วงที่เลือก ---------------- */

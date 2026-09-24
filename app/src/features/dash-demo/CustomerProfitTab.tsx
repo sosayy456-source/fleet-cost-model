@@ -19,28 +19,34 @@
  *
  * ★ อัตรากำไรใช้ marginOf() ข้างล่าง ซึ่งต้องตรงกับ margin_of() ใน etl/build_alloc.py — ETL ใช้ตัดสินเสมอ
  *   ตอนคัด Top 10 และช่วง %Margin ของกราฟต้องนับเหมือน ETL ห้ามแก้ข้างเดียว
+ *
+ * ★ Demo รวมเป็นหน้ายาวหน้าเดียว (24 ก.ย. 2569) — ส่วนนี้ไม่มีตัวกรองของตัวเองแล้ว ใช้ ปี/เดือน จากตัวกรองของหน้า
+ *   (ชุด alloc/ ยุบได้แค่ลูกค้า × เดือนตามวันที่บิล ตัวกรองอื่นขึ้นบรรทัดบอกผ่าน FilterScope)
+ *   ส่วนที่ 2 (DSO) ไม่ขึ้นกับตัวกรองของหน้า มี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ที่หัวส่วนที่ 2
+ *   ป้ายตัวอย่าง/จริงของแต่ละส่วนอยู่ที่ SourceTag — สองชุดเลือก real/sample แยกกัน
  */
 import { useMemo, useState } from "react";
 import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { ShortId } from "../../lib/custmap/ShortId";
-import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
-import { useAlloc } from "../../lib/data/useAlloc";
+import { allocTopKey, useAlloc } from "../../lib/data/useAlloc";
+import { inPeriod, periodLabel as periodText } from "../../lib/filter/period";
+import type { Period } from "../../lib/filter/period";
 import type { AllocBill, AllocCustomer, AllocData } from "../../lib/data/useAlloc";
 import { useDebtors } from "../../lib/data/useDebtors";
-import { FF, Hero, Note, Pane } from "../dash-fleet/parts";
-import { MonthFF, SortTable, fmt, isFiltered, marginTone, monthName, pct, signed, useSort } from "../dash-costrev/common";
+import SourceTag from "../../lib/ui/SourceTag";
+import { Hero, Note, Pane } from "../dash-fleet/parts";
+import { SortTable, fmt, marginTone, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import CustBillsModal from "./CustBillsModal";
 import { needsReview, reviewReasonText } from "../../lib/alloc/review";
 import type { ReviewCounts } from "../../lib/alloc/review";
 import OverdueSection from "./OverdueSection";
+import { FilterScope } from "./filter";
+import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
-
-interface Filter { year: string; month: string }
-const F0: Filter = { year: "", month: "" };
 
 /** ลูกค้าหนึ่งรายหลังยุบตามตัวกรอง — ci ชี้กลับไป customers[] ของชุด alloc */
 export interface CustRow extends AllocCustomer, ReviewCounts {
@@ -73,7 +79,7 @@ interface Sel { kind: "all" | "gain" | "loss" | "bucket"; i: number }
 const sel = (kind: Sel["kind"], i = -1): Sel => ({ kind, i });
 const sameSel = (a: Sel | null, b: Sel): boolean => !!a && a.kind === b.kind && a.i === b.i;
 
-export default function CustomerProfitTab() {
+export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
   const alloc = useAlloc();
   const debtors = useDebtors();
   // ETL ของสองชุดนี้แยกกัน (วางไฟล์คนละโฟลเดอร์) — รีเฟรชเฉพาะชุดที่เปลี่ยน
@@ -103,7 +109,7 @@ export default function CustomerProfitTab() {
           </p>
         </div>
       ) : (
-        <ProfitPart data={alloc.data} />
+        <ProfitPart data={alloc.data} f={f} />
       )}
 
       {/* ส่วนที่ 2 — เว้นบรรทัดจากส่วนแรกตามสเปก */}
@@ -114,23 +120,21 @@ export default function CustomerProfitTab() {
 }
 
 /* ================================================================ ส่วนที่ 1 */
-function ProfitPart({ data }: { data: AllocData }) {
-  const [f, setF] = useState<Filter>(F0);
-  const set = (k: keyof Filter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
+  // ใช้แค่ปี/เดือนของตัวกรองหน้า — แยกออกมาเป็น object เล็ก ตัวกรองอื่นเปลี่ยนแล้วจะได้ไม่คำนวณซ้ำ
+  const f = useMemo<Period>(() => ({ year: page.year, from: page.from, to: page.to }), [page.year, page.from, page.to]);
   const [pick, setPick] = useState<Sel | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [openCi, setOpenCi] = useState<number | null>(null);
   const toggle = (p: Sel) => setPick((cur) => (sameSel(cur, p) ? null : p));
 
   const cm = data.custMonths ?? [];
-  const years = useMemo(() => [...new Set(cm.map((r) => r.mo.slice(0, 4)))].sort(), [cm]);
 
   /* ---------- ยุบลูกค้า × เดือน → รายลูกค้า ตามตัวกรอง ---------- */
   const rows = useMemo<CustRow[]>(() => {
     const acc = new Map<number, CustRow>();
     for (const r of cm) {
-      if (f.year && r.mo.slice(0, 4) !== f.year) continue;
-      if (f.month && r.mo.slice(5) !== f.month) continue;
+      if (!inPeriod({ y: Number(r.mo.slice(0, 4)), mo: r.mo }, f)) continue;
       let a = acc.get(r.ci);
       if (!a) {
         const c = data.customers[r.ci];
@@ -153,7 +157,11 @@ function ProfitPart({ data }: { data: AllocData }) {
   const kpi = useMemo(() => {
     const gain = rows.filter((r) => r.profit >= 0).length;
     const n = rows.length;
-    return { n, gain, loss: n - gain, gainPct: n ? gain / n * 100 : 0, lossPct: n ? (n - gain) / n * 100 : 0 };
+    // ยอดเงินใต้การ์ด = กำไรสุทธิของกลุ่มนั้น (เจ้าของงานเลือก 24 ก.ย. 2569) · กำไร 0 นับฝั่งทำกำไรเหมือนจำนวนคน
+    let gainAmt = 0, lossAmt = 0;
+    for (const r of rows) if (r.profit >= 0) gainAmt += r.profit; else lossAmt += r.profit;
+    return { n, gain, loss: n - gain, gainPct: n ? gain / n * 100 : 0, lossPct: n ? (n - gain) / n * 100 : 0,
+      gainAmt, lossAmt, netAmt: gainAmt + lossAmt };
   }, [rows]);
 
   /* ---------- กราฟช่วง %Margin ---------- */
@@ -164,7 +172,9 @@ function ProfitPart({ data }: { data: AllocData }) {
   }, [rows]);
 
   /* ---------- Top 10 ของช่วงเวลาที่กรอง (ETL คัดไว้) ---------- */
-  const top = data.top?.[`${f.year}|${f.month}`];
+  const top = data.top?.[allocTopKey(f)];
+  /** top.json รุ่นก่อนมีช่วงเดือน (สร้างก่อน 24 ก.ย. 2569) ไม่มีคีย์ของช่วงนี้ — บอกให้รัน ETL ใหม่ แทนตารางว่างเฉย ๆ */
+  const topMissing = !!data.top && !top && rows.length > 0;
   const gainSet = useMemo(() => new Set(top?.gain ?? []), [top]);
   const lossSet = useMemo(() => new Set(top?.loss ?? []), [top]);
 
@@ -204,35 +214,29 @@ function ProfitPart({ data }: { data: AllocData }) {
   const openBills = useMemo<AllocBill[]>(() => {
     if (openCi == null || !data.bills) return [];
     return data.bills.filter((b) => b.ci === openCi
-      && (!f.year || b.date.slice(0, 4) === f.year) && (!f.month || b.date.slice(5, 7) === f.month));
+      && inPeriod({ y: Number(b.date.slice(0, 4)), mo: b.date.slice(0, 7) }, f));
   }, [data.bills, openCi, f]);
 
   const pickLabel = !pick ? null
     : pick.kind === "all" ? "ลูกค้าทั้งหมด" : pick.kind === "gain" ? "ลูกค้าที่ทำกำไร"
     : pick.kind === "loss" ? "ลูกค้าที่ขาดทุน" : `ช่วง %Margin ${BUCKETS[pick.i]?.label ?? ""}`;
-  const periodLabel = (f.year ? `พ.ศ. ${+f.year + 543}` : "ทุกปี") + (f.month ? ` · ${monthName(f.month)}` : "");
+  const periodLabel = periodText(f);
 
   return (
     <>
-      <FilterBar>
-        <FF label="ปี" value={f.year} onChange={set("year")}>
-          <option value="">ทุกปี</option>
-          {years.map((y) => <option key={y} value={y}>พ.ศ. {+y + 543}</option>)}
-        </FF>
-        <MonthFF value={f.month} onChange={set("month")} />
-        <ClearFiltersBtn active={isFiltered(f, F0)} onClick={() => setF(F0)} />
-      </FilterBar>
-
       <Pane deps={[rows]}>
+        <SourceTag block sample={data.manifest.isSample} what="ส่วนกำไรลูกค้า (ไฟล์ต้นทุน + บิลรายได้)" />
+        <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
           <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"
+            foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
             onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
           <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} vSub={`(${pct(kpi.gainPct, 0)})`}
-            s="คน · รายได้ ≥ ต้นทุน"
+            s="คน · รายได้ ≥ ต้นทุน" foot={`กำไรรวม ${signed(kpi.gainAmt)} บาท`}
             onClick={() => toggle(sel("gain"))} active={sameSel(pick, sel("gain"))} />
           <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} vSub={`(${pct(kpi.lossPct, 0)})`}
-            s="คน · รายได้ < ต้นทุน"
+            s="คน · รายได้ < ต้นทุน" foot={`ขาดทุนรวม ${fmt(-kpi.lossAmt)} บาท`}
             onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
         </div>
 
@@ -264,7 +268,9 @@ function ProfitPart({ data }: { data: AllocData }) {
             </div>
           </div>
           <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggleSort} rowKey={(r) => String(r.ci)}
-            empty={showAll ? "ไม่มีลูกค้าในกลุ่มนี้" : "ไม่มีลูกค้า Top 10 ในกลุ่มนี้ — สลับเป็น \"แสดงทุกราย\""}
+            empty={showAll ? "ไม่มีลูกค้าในกลุ่มนี้"
+              : topMissing ? "ไฟล์ top.json ยังไม่มี Top 10 ของช่วงเดือนนี้ — รัน python etl/build_alloc.py ใหม่ หรือสลับเป็น \"แสดงทุกราย\""
+              : "ไม่มีลูกค้า Top 10 ในกลุ่มนี้ — สลับเป็น \"แสดงทุกราย\""}
             className="dm-tbl cp-tbl"
             rowProps={(r) => {
               const can = gainSet.has(r.ci) || lossSet.has(r.ci);

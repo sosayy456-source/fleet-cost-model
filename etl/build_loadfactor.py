@@ -58,6 +58,8 @@ from build_costrev import iter_sheet, num, text as txt, utf8_stdout, xlsx_files
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
+#: ตารางระยะทางของโมเดล — ใช้เติมระยะทางให้แถวที่ไฟล์ LF ไม่มี (ดู route_km)
+ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
 SAMPLE_DIR = HERE / "sample_data" / "LoadFactor"
 REAL_DIR = HERE / "data" / "Loadfactor"
 
@@ -79,8 +81,32 @@ def norm(v) -> str:
     return " ".join(txt(v).split())
 
 
-def read_file(path: Path) -> tuple[list[dict], dict[str, int]]:
-    """คืน (เที่ยวที่นับ, จำนวนที่ตัดทิ้งแยกเหตุผล) — คืน ([], {}) ถ้าไฟล์ไม่ใช่ไฟล์ Load Factor"""
+def route_km(route: str, routes: dict[str, dict[str, float]]) -> float | None:
+    """
+    ระยะทางของ "เส้นทางมาตรฐาน" (เช่น "เชียงใหม่-ปากคลองตลาด") จากตารางระยะทางของโมเดล — ไม่เจอ = None
+
+    ลองแบ่งที่ขีดทุกตำแหน่ง เผื่อชื่อสถานที่มีขีดเอง · ค้นได้ทั้งสองทิศ (ตารางเก็บทิศเดียว กติกาเดียวกับ
+    distance() ใน build_costrev.py)
+    """
+    route = " ".join(route.split())
+    for i, ch in enumerate(route):
+        if ch != "-":
+            continue
+        o, d = route[:i].strip(), route[i + 1:].strip()
+        v = routes.get(o, {}).get(d)
+        if v is None:
+            v = routes.get(d, {}).get(o)
+        if v is not None:
+            return float(v)
+    return None
+
+
+def read_file(path: Path, routes: dict[str, dict[str, float]] | None = None,
+              fill: dict[str, object] | None = None) -> tuple[list[dict], dict[str, int]]:
+    """คืน (เที่ยวที่นับ, จำนวนที่ตัดทิ้งแยกเหตุผล) — คืน ([], {}) ถ้าไฟล์ไม่ใช่ไฟล์ Load Factor
+
+    routes = ตารางระยะทางของโมเดล · fill = ตัวนับการเติมระยะทาง (filled / missing / missingRoutes) — ดู build()
+    """
     hdr, body = iter_sheet(path, 0)
     col = {norm(h): i for i, h in enumerate(hdr)}
     # ชื่อคอลัมน์ข้อจำกัดหลักยาวและมีวงเล็บ — รับแบบสั้นด้วยเผื่อไฟล์จริงตัดวงเล็บทิ้ง
@@ -117,8 +143,25 @@ def read_file(path: Path) -> tuple[list[dict], dict[str, int]]:
         if lf <= 0 or cost <= 0:
             drop("LF หรือต้นทุนรวมเป็น 0"); continue
         y, m = int(num(g(r, "y"))), int(num(g(r, "m")))
+        # ไฟล์ตัวอย่าง/ไฟล์จริงเป็นปี ค.ศ. (แอปบวก 543 ตอนแสดงเอง) — กันไว้เผื่อไฟล์ไหนกรอก พ.ศ.
+        # ไม่งั้นได้ปี 2567 ปนกับ 2024 แล้วฐานของแท็บตัน-กม. (ปี Y−1, Y−2) หาไม่เจอ · กติกาเดียวกับ parse_date ใน build_costrev
+        if y > 2400:
+            y -= 543
         if not (1 <= m <= 12) or y < 2000:
             drop("ปี/เดือนอ่านไม่ออก"); continue
+        # ★ เติมระยะทางจากตารางของโมเดลเฉพาะแถวที่ไฟล์ไม่มี (ว่าง/0) — ไม่ต้องแก้ไฟล์ LF (เจ้าของงานสั่ง 24 ก.ย. 2569)
+        #   แถวที่มีระยะทางใช้ค่าในไฟล์ต่อ · ไฟล์ที่ไม่มีคอลัมน์ระยะทางเลย (รุ่นเก่า) ไม่เติม ยังเป็น null เหมือนเดิม
+        #   ต้นทุนรวม/VC/LF ในไฟล์ไม่ได้คิดจากระยะทาง (ตรวจแล้ว) จึงเติมแค่ระยะทางได้โดยไม่ต้องคิดอย่างอื่นใหม่
+        km = opt(r, "km", 1)
+        rt = txt(g(r, "rt"))
+        if km is not None and km <= 0 and routes is not None and fill is not None:
+            hit = route_km(rt, routes)
+            if hit is not None:
+                km = round(hit, 1)
+                fill["filled"] += 1          # type: ignore[operator]
+            else:
+                fill["missing"] += 1         # type: ignore[operator]
+                fill["missingRoutes"][rt or "(ไม่ระบุ)"] = fill["missingRoutes"].get(rt or "(ไม่ระบุ)", 0) + 1  # type: ignore[index,union-attr]
         out.append({
             "id": doc, "y": y, "mo": f"{y:04d}-{m:02d}",
             "ft": txt(g(r, "ft")), "pl": txt(g(r, "pl")),
@@ -127,7 +170,7 @@ def read_file(path: Path) -> tuple[list[dict], dict[str, int]]:
             "bind": txt(g(r, "bind")),
             "cost": round(cost, 2), "rev": round(num(g(r, "rev")), 2),
             # ตัน-กม. — ไม่มีคอลัมน์ = null (ไม่ใช่ 0) แอปจะได้แยกออกว่า "ไฟล์รุ่นเก่า" กับ "เที่ยวที่ไม่มีน้ำหนัก"
-            "km": opt(r, "km", 1), "wt": opt(r, "wt", 4), "vc": opt(r, "vc", 2),
+            "km": km, "wt": opt(r, "wt", 4), "vc": opt(r, "vc", 2),
         })
     return out, dropped
 
@@ -138,11 +181,13 @@ def build(dataset: str) -> None:
     if not files:
         sys.exit(f"ไม่พบไฟล์ Load Factor ใน {folder}")
 
+    routes = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))
+    fill: dict[str, object] = {"filled": 0, "missing": 0, "missingRoutes": {}}
     trips: list[dict] = []
     dropped: dict[str, int] = {}
     used: list[str] = []
     for f in files:
-        got, dr = read_file(f)
+        got, dr = read_file(f, routes, fill)
         if not got and not dr:
             continue
         used.append(f.name)
@@ -189,6 +234,9 @@ def build(dataset: str) -> None:
         "months": months,
         "dateRange": {"min": months[0], "max": months[-1]},
         "vehicleKinds": len({t["vk"] for t in trips}),
+        # เติมระยะทางจาก routes.json ให้แถวที่ไฟล์ไม่มี — missingRoutes = เส้นทางที่ยังหาระยะทางไม่เจอ (ให้เพิ่มลงตาราง)
+        "distanceFill": {"filled": fill["filled"], "missing": fill["missing"],
+                         "missingRoutes": dict(sorted(fill["missingRoutes"].items(), key=lambda kv: -kv[1]))},  # type: ignore[union-attr]
         "routes": len({t["rt"] for t in trips}),
         "check": {
             "cost": round(cost, 2),
@@ -226,6 +274,12 @@ def build(dataset: str) -> None:
         print(f"  กำไรส่วนเกิน/ตัน-กม. {k['rate']:.4f} บาท · {k['trips']:,} เที่ยว (ไม่มีน้ำหนัก/ระยะทาง {k['noWeight']:,})")
     else:
         print("  [!] ไฟล์ไม่มีคอลัมน์ ระยะทาง/น้ำหนักจริง/VC ครบ — แท็บกำไรส่วนเกิน/ตัน-กม. จะไม่มีข้อมูล")
+    # ★ พิมพ์ท้ายสุด — plugin autoEtl โชว์เฉพาะท้าย log
+    df = manifest["distanceFill"]
+    print(f"  เติมระยะทางจาก routes.json {df['filled']:,} แถว (ไฟล์ไม่มีระยะทาง)")
+    if df["missing"]:
+        top = " · ".join(f"{k} ({v})" for k, v in list(df["missingRoutes"].items())[:5])
+        print(f"  [!] ยังไม่มีระยะทาง {df['missing']:,} แถว {len(df['missingRoutes'])} เส้นทาง — เพิ่มลง routes.json: {top}")
 
 
 def main() -> None:

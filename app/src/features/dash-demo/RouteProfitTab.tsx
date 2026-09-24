@@ -6,8 +6,8 @@
  *   2. การ์ดย่อย 8 ใบ  **%Margin** · จำนวนบิล · จำนวนเที่ยว · จำนวนลูกค้า
  *                      **%เที่ยวที่ขาดทุน** · กำไรเฉลี่ย/บิล · กำไรเฉลี่ย/เที่ยว · กำไรเฉลี่ย/ลูกค้า
  *                      (สองการ์ด % อยู่หัวแถว · กด %เที่ยวที่ขาดทุน = ป็อบอัพรายการเที่ยวที่ขาดทุนทั้งหมด)
- *   2b. การ์ดกำไรส่วนเกิน/ตัน-กม. 4 ใบ (23 ก.ย. 2569) — ชุด loadfactor/ ไม่ตามตัวกรองของแท็บนี้
- *      กดแล้วไป Executive Dashboard › แท็บ "กำไรส่วนเกิน/ตัน-กม." (dash-costrev/tonkm/)
+ *   2b. การ์ดกำไรส่วนเกิน/ตัน-กม. 4 ใบ (23 ก.ย. 2569) — ชุด loadfactor/ ตามตัวกรอง ปี/เดือน/ประเภทรถ/ชนิดรถ ของหน้า
+ *      (24 ก.ย. 2569 · เดิมตรึงเดือนล่าสุด) กดแล้วไป Executive Dashboard › แท็บ "กำไรส่วนเกิน/ตัน-กม." (dash-costrev/tonkm/)
  *   3. กราฟ รายได้/ต้นทุน/กำไร รายเดือน — **ตามตัวกรองปีด้วย** (ต่างจากแท็บกำไรรายเที่ยวของ
  *      Executive Dashboard ที่จงใจโชว์ทุกปีเสมอ)
  *   4. ดีไซน์ใหม่ 24 ก.ย. 2569 (ภาพที่เจ้าของงานส่ง): แผนที่เส้นทาง (ซ้าย · RouteMap.tsx ฝังแอปแผนที่ map/ ผ่าน
@@ -20,17 +20,18 @@
  * ★ จำนวนบิล/ลูกค้ามาจากฟิลด์ bn/cus ที่ ETL เติมให้เฉพาะเที่ยวที่จับคู่บิลได้
  *   ลูกค้า = ผู้จ่ายเงิน (สด/เชื่อต้นทาง → ผู้ส่ง · ปลายทาง → ผู้รับ) นับแบบไม่ซ้ำทั้งชุดที่กรองอยู่
  *   ไม่ใช่ผลบวกของแต่ละเที่ยว — ลูกค้าคนเดียวส่งของหลายเที่ยวต้องนับครั้งเดียว
+ * ★ ตัวกรองเป็นของหน้า (DemoDash · filter.tsx) ไม่ใช่ของส่วนนี้แล้ว — Demo รวมเป็นหน้ายาวหน้าเดียว 24 ก.ย. 2569
  */
 import { useMemo, useRef, useState } from "react";
 import { DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { Hero, KC, Note, Pane } from "../dash-fleet/parts";
-import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import {
-  BASE_F0, ListFF, Meter, SortTable, YearFF, duniq, fmt, groupBy, isFiltered, monthLabel,
-  passBase, pct, signed, useSort,
+  Meter, SortTable, fmt, groupBy, monthLabel, passBase, pct, signed, useSort,
 } from "../dash-costrev/common";
-import type { BaseFilter, Col } from "../dash-costrev/common";
+import type { Col } from "../dash-costrev/common";
+import { passDemo } from "./filter";
+import type { DemoFilter } from "./filter";
 import ServicePanel from "./ServicePanel";
 import TripsModal from "./TripsModal";
 import RouteMap, { type MapRoute } from "./RouteMap";
@@ -84,9 +85,6 @@ const MAP_PCT_KEY = "rpMapPct";
 const MAP_THEME_KEY = "rpMapTheme";
 const MAP_PCT_DEFAULT = 38, MAP_PCT_MIN = 20, MAP_PCT_MAX = 65;
 
-interface Filter extends BaseFilter { sg: string }
-const F0: Filter = { ...BASE_F0, sg: "" };
-
 interface RouteRow {
   rt: string; o: string; de: string; n: number; rev: number; cost: number; profit: number; perTrip: number;
   margin: number | null;
@@ -94,9 +92,7 @@ interface RouteRow {
   rank: number;
 }
 
-export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
-  const [f, setF] = useState<Filter>(F0);
-  const set = (k: keyof Filter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
+export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFilter }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
   /** ป็อบอัพเที่ยวที่ขาดทุนทั้งหมด (กดการ์ด %เที่ยวที่ขาดทุน) */
@@ -104,9 +100,7 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
   /** การ์ดกลุ่มบริการที่กางแผงอยู่ — กดซ้ำที่การ์ดเดิม = ปิด */
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
-  const rows = useMemo(
-    () => trips.filter((t) => passBase(t, f) && (!f.sg || (t.sg || "ไม่ระบุ") === f.sg)),
-    [trips, f]);
+  const rows = useMemo(() => trips.filter((t) => passDemo(t, f)), [trips, f]);
 
   /* ---------- 1–2. ยอดรวมและการ์ดย่อย ---------- */
   const kpi = useMemo(() => {
@@ -280,17 +274,6 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
 
   return (
     <>
-      <FilterBar>
-        <YearFF trips={trips} value={f.year} onChange={set("year")} />
-        <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(trips.map((t) => t.o))} />
-        <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={duniq(trips.map((t) => t.de))} />
-        <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(trips.map((t) => t.ft))} />
-        <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")} opts={duniq(trips.map((t) => t.vk))} />
-        <ListFF label="กลุ่มบริการ" all="ทุกกลุ่มบริการ" value={f.sg} onChange={set("sg")}
-          opts={duniq(trips.map((t) => t.sg || "ไม่ระบุ"))} />
-        <ClearFiltersBtn active={isFiltered(f, F0)} onClick={() => setF(F0)} />
-      </FilterBar>
-
       <Pane deps={[rows]}>
         {/* 1 */}
         <div className="dz-heroes">
@@ -319,7 +302,7 @@ export default function RouteProfitTab({ trips }: { trips: Trip[] }) {
         </div>
 
         {/* 2b — กำไรส่วนเกิน/ตัน-กม. (ข้อมูลคนละชุด ไม่ตามตัวกรอง) */}
-        <TonKmDemoRow />
+        <TonKmDemoRow f={f} />
 
         {/* 3 */}
         <div className="dz-cc" style={{ marginTop: 14 }}>

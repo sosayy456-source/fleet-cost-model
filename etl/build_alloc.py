@@ -1,8 +1,13 @@
 """สร้างข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน → app/public/data/<ds>/alloc/
 
 คำนวณเองจากไฟล์ดิบเสมอ — ไม่มีทางรับไฟล์ที่ปันเสร็จแล้วอีกแล้ว
-      รายงานค่าเดินทาง etl/data/travel/ + ไฟล์บิล etl/data/revenue/ + routes.json
+      ไฟล์ต้นทุน etl/data/Dashboard real data/ + ไฟล์บิล etl/data/revenue/ + routes.json
       ใช้สูตรใน src/alloc.py (วิธี ค) ซึ่งตรวจแล้วตรงกับเอกสารข้อ 11 ทุกตัว
+
+★ ไฟล์ต้นทุนชุดเดียวกับ build_costrev.py (Executive Dashboard / Demo) — เจ้าของงานเคาะ 24 ก.ย. 2569
+  เดิมอ่าน etl/data/travel/ ซึ่งไม่มีไฟล์ ชุดจริงจึงไม่เคยถูกสร้างและแอปถอยไปใช้ข้อมูลตัวอย่างเงียบ ๆ
+  (ชุดตัวอย่างใช้ ExampleCost.xlsx ไฟล์เดียวกันทั้งสองตัวมาตั้งแต่ต้น) · load_trips อ่านแค่ เลขที่ใบรายการ/ต้นทุน/
+  ประเภทใบรายการ และหาแถวหัวเอง ไฟล์รุ่นใหม่ที่หัวตารางอยู่แถว 2 จึงอ่านได้โดยไม่ต้องแก้อะไร
 
     python etl/build_alloc.py --dataset real
     python etl/build_alloc.py --dataset sample
@@ -24,8 +29,10 @@
                       mi = ดัชนีเดือนในลิสต์ month ของไฟล์เดียวกัน — แอปยุบกลับเป็นรายลูกค้าตามตัวกรองเอง
     top.json          "ปี|เดือน" → {gain: [ci…], loss: [ci…]} = 10 รายกำไรสูงสุดเป็นบาท (เฉพาะกำไร ≥ 0)
                       กับ 10 รายขาดทุนมากสุดเป็นบาท ของช่วงเวลานั้น (เดิมจัดด้วยอัตรากำไร % — ดู top_by_period) คีย์ว่างสองข้าง "|" = ทุกช่วง
-                      "2025|" = ทั้งปี · "|07" = เดือน 7 ของทุกปี · "2025|07" = เดือนเดียว (ตรงกับตัวกรองของแอป
-                      ที่เลือกปีกับเดือนแยกกันได้) — คัดในนี้เพื่อให้ฝั่งแอปกับบิลที่แนบไปตรงกันเสมอ
+                      "2025|" = ทั้งปี · "|07" = เดือน 7 ของทุกปี · "2025|07" = เดือนเดียว
+                      · "2025|03-05" = ช่วงเดือนในปีเดียว (เพิ่ม 24 ก.ย. 2569 — ตัวกรองของแอปเป็น ปี + ช่วงเดือน
+                      แบบแท็บ Damage Rate · คีย์ต้องตรงกับ allocTopKey() ใน app/src/lib/data/useAlloc.ts)
+                      — คัดในนี้เพื่อให้ฝั่งแอปกับบิลที่แนบไปตรงกันเสมอ
     bills.json        บิลรายใบ **เฉพาะลูกค้าที่ติด Top 10 ของช่วงใดช่วงหนึ่ง** (ci · เลขที่บิล · วันที่ ·
                       เลขที่ใบรายการ · เส้นทาง · รายได้ · ต้นทุนจัดสรร) — ข้อมูลจริงมีบิลราว 2 ล้านใบ
                       เก็บทุกใบไม่ไหว จึงเดินไฟล์บิลรอบที่สามเก็บเฉพาะรายที่แอปเปิดดูได้ (ที่เหลือแอปโชว์
@@ -79,7 +86,7 @@ ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
 
 SAMPLE_COST = HERE / "sample_data" / "ExampleCost.xlsx"   # เปลี่ยนชื่อไฟล์ 22 ก.ย. 2569
 SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
-REAL_COST_DIR = HERE / "data" / "travel"
+REAL_COST_DIR = HERE / "data" / "Dashboard real data"   # = REAL_COST_DIR ของ build_costrev.py
 REAL_REV_DIR = HERE / "data" / "revenue"
 
 COL_DOC = "เลขที่ใบรายการ"
@@ -237,22 +244,25 @@ class Rollup:
 
         ★ ต้องคัดที่นี่ ไม่ใช่ฝั่งแอป — bills.json เก็บบิลเฉพาะรายที่ติดอันดับ ถ้าสองฝั่งจัดอันดับคนละสูตร
           แถวที่แอปบอกว่ากดได้จะไม่มีบิลให้ดู · ยุบตามเดือนก่อนแล้วค่อยรวมเป็นช่วง จะได้แตะแต่ละระเบียน
-          ของ cust_mo แค่ 4 ครั้ง (ทุกช่วง · ปี · เดือน · ปี-เดือน) ไม่ใช่ไล่ทั้งตารางซ้ำทุกคีย์
+          ของ cust_mo แค่ไม่กี่ครั้ง (ทุกช่วง · ปี · เดือน · ปี-เดือน · ช่วงเดือนต่อยอด) ไม่ใช่ไล่ทั้งตารางซ้ำทุกคีย์
         """
         by_month: dict[str, dict[CustKey, list[float]]] = defaultdict(dict)
         for (side, code, month), v in self.cust_mo.items():
             if month:
                 by_month[month][(side, code)] = v
 
+        def add(acc: dict[CustKey, list[float]], month: str) -> None:
+            for k, v in by_month[month].items():
+                a = acc.get(k)
+                if a is None:
+                    acc[k] = [v[1], v[3], v[FLAG_REV]]   # [รายได้, กำไร, รายได้ที่ต้องตรวจสอบ]
+                else:
+                    a[0] += v[1]; a[1] += v[3]; a[2] += v[FLAG_REV]
+
         def merge(months: list[str]) -> dict[CustKey, list[float]]:
             acc: dict[CustKey, list[float]] = {}
             for m in months:
-                for k, v in by_month[m].items():
-                    a = acc.get(k)
-                    if a is None:
-                        acc[k] = [v[1], v[3], v[FLAG_REV]]   # [รายได้, กำไร, รายได้ที่ต้องตรวจสอบ]
-                    else:
-                        a[0] += v[1]; a[1] += v[3]; a[2] += v[FLAG_REV]
+                add(acc, m)
             return acc
 
         def pick(agg: dict[CustKey, list[float]]) -> dict[str, list[int]]:
@@ -274,6 +284,18 @@ class Rollup:
             out[f"|{mm}"] = pick(merge([m for m in months if m[5:] == mm]))
         for m in months:
             out[f"{m[:4]}|{m[5:]}"] = pick(merge([m]))
+        # ช่วงเดือนในปีเดียว (ตั้งแต่ a ถึง b · a < b · ไม่นับ ม.ค.–ธ.ค. ที่เป็นคีย์ทั้งปีแล้ว) — ต่อยอดทีละเดือน
+        # ไม่รวมใหม่ทุกช่วง · ข้ามช่วงที่ยังไม่มีเดือนไหนมีข้อมูล (แอปไม่มีลูกค้าให้โชว์อยู่แล้ว)
+        for y in years:
+            ym = {m[5:]: m for m in months if m[:4] == y}
+            for a in range(1, 13):
+                acc: dict[CustKey, list[float]] = {}
+                for b in range(a, 13):
+                    m = ym.get(f"{b:02d}")
+                    if m:
+                        add(acc, m)
+                    if b > a and acc and not (a == 1 and b == 12):
+                        out[f"{y}|{a:02d}-{b:02d}"] = pick(acc)
         return out
 
     # ---------------- เขียนไฟล์ ----------------
@@ -655,7 +677,7 @@ def build(dataset: str) -> None:
         rev_files = xlsx_files(SAMPLE_REV_DIR) if SAMPLE_REV_DIR.exists() else []
 
     if not cost_files:
-        sys.exit(f"ไม่มีรายงานค่าเดินทางใน {REAL_COST_DIR if dataset == 'real' else SAMPLE_COST}")
+        sys.exit(f"ไม่มีไฟล์ต้นทุนใน {REAL_COST_DIR if dataset == 'real' else SAMPLE_COST}")
     if not rev_files:
         sys.exit(f"ไม่มีไฟล์บิลใน {REAL_REV_DIR if dataset == 'real' else SAMPLE_REV_DIR}")
     routes: dict[str, dict[str, float]] = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))

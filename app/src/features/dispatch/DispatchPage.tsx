@@ -4,9 +4,14 @@
  * รับบิลที่ฝ่ายบริการลูกค้ากรอกไว้ (สถานะ "รอจัดรถ") มารวมเข้ารถคันเดียวกัน
  *   1. ตารางบิลรอจัดรถ + ตัวกรอง วันที่รับสินค้า · สาขา · ต้นทาง · ปลายทาง · กลุ่มบริการ
  *   2. ติ๊กเลือกบิล → ระบบรวม น้ำหนัก/ปริมาตร/รายได้/จำนวนลูกค้า ให้เอง
- *   3. เลือกรถ (ทะเบียนที่สถานะ "ใช้งาน" เท่านั้น) → น้ำหนัก/ปริมาณบรรทุกจริงมาจากบิลที่เลือก
+ *      ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน ปลายทางเดียวกันหรืออยู่ระหว่างทาง (lib/route/enRoute.ts)
+ *      ข้างตารางบิลมีกล่อง "สถานะการบรรทุก" (LoadTruck.tsx) รูปรถเติมของตามบิลที่ติ๊ก + หลอด Load Factor
+ *   3. เลือกรถ ประเภทรถ → ชนิดรถ → ทะเบียน (ทะเบียนที่สถานะ "ใช้งาน" เท่านั้น · ชุดช่องเดียวกับหางพ่วง)
+ *      → น้ำหนัก/ปริมาณบรรทุกจริงมาจากบิลที่เลือก
  *      **ใช้ฝั่งที่เต็มกว่า** ระหว่างน้ำหนักกับปริมาตรในการคิด Load Factor
  *   4. เกินความจุรถ = กดยืนยันไม่ได้ (บล็อกทั้งสองฝั่ง)
+ *      หางพ่วง (ทะเบียนรถคันที่ 2) เลือกเพิ่มได้ ไม่บังคับ — ความจุ = หัว + หาง รวมกัน (เจ้าของงานเคาะ 24 ก.ย. 2569)
+ *      ช่องหางแสดงเฉพาะชนิดรถที่เป็นหาง ส่วนช่องหัวไม่มีหางให้เลือก · ต้นทุนพยากรณ์ยังคิดตามชนิดรถของหัว
  *   5. กด "ยืนยันการจัดรถ" → ออกเลขที่ใบรายการ 13 หลัก สร้างใบรายการให้ แล้วประทับเลขกลับลงบิล
  *
  * กล่องสรุปแสดง กำไร · รายได้ (รวมทุกบิล) · ต้นทุนพยากรณ์ — กรอบเขียวเมื่อกำไร แดงเมื่อขาดทุน
@@ -20,10 +25,15 @@
  *        แล้วมีแถบให้กดอัปเดตสถานะ (useBills ก็ลองส่งบิลที่ค้างให้เองทุกครั้งที่เปิดหน้า)
  */
 import { useEffect, useMemo, useState } from "react";
-import { ACTIVE_VEHICLE_NAMES, REF, ROSTER_FLEET_TYPES, canonicalVehicleName, costFleetType, distanceFor } from "../../lib/refdata";
+import { ACTIVE_VEHICLE_NAMES, REF, TRAILER_VEHICLE_NAMES, costFleetType, distanceFor } from "../../lib/refdata";
 import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { useOverrides } from "../../lib/store/overrides";
-import { filterRoster, kindsOf, normPlate, useRoster } from "../../lib/store/roster";
+import { useRoster } from "../../lib/store/roster";
+import { loadStats } from "../../lib/dispatch/load";
+import { onRouteOf, stopsFor, useEnRoute } from "../../lib/route/enRoute";
+import { LoadTruckPanel } from "./LoadTruck";
+import { P0, VehiclePickFields, roleKind } from "./VehiclePick";
+import type { VehiclePick } from "./VehiclePick";
 import { useBills } from "../../lib/store/bills";
 import { loadCostRev } from "../../lib/data/useCostRev";
 import { COST_PART_LABELS, buildForecast, forecastFor } from "../../lib/forecast/forecast";
@@ -54,7 +64,6 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   const [ovr] = useOverrides();
   const [f, setF] = useState<Filter>(F0);
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [plate, setPlate] = useState("");
   const [releaseDate, setReleaseDate] = useState(todayISO());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ text: string; tone: "ok" | "warn" | "err" } | null>(null);
@@ -72,10 +81,23 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   /** บิลรอจัดรถ แยกออกเป็นที่จัดได้จริง กับที่อยู่ในใบรายการแล้ว (จัดรถค้างครึ่งทาง — ดูหัวไฟล์ข้อ 3) */
   const { free: waiting, stuck } = useMemo(() => splitStuckBills(
     bills.bills.filter((b) => b.status === "รอจัดรถ"), state.records), [bills.bills, state.records]);
+  /* ---------- ล็อกเส้นทางตามบิลแรก (เจ้าของงานสั่ง 24 ก.ย. 2569) ----------
+     ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน ที่ปลายทางเดียวกันหรืออยู่ระหว่างทาง (lib/route/enRoute.ts)
+     บิลแรก = บิลที่ติ๊กก่อนสุดที่ยังติ๊กอยู่ (Set เก็บตามลำดับที่ใส่) · เอาติ๊กออกหมด = กลับมาเห็นทุกบิล */
+  const [enRoute] = useEnRoute();
+  const anchor = useMemo(() => {
+    for (const id of picked) {
+      const b = waiting.find((x) => x.id === id);
+      if (b) return b;
+    }
+    return null;
+  }, [picked, waiting]);
   const rows = useMemo(() => waiting.filter((b) =>
     (!f.date || b.date === f.date) && (!f.branch || b.branch === f.branch)
     && (!f.origin || b.origin === f.origin) && (!f.dest || b.dest === f.dest)
-    && (!f.group || b.serviceGroup === f.group)), [waiting, f]);
+    && (!f.group || b.serviceGroup === f.group)
+    && (!anchor || onRouteOf(anchor, b, enRoute))), [waiting, f, anchor, enRoute]);
+  const anchorStops = anchor ? stopsFor(anchor.origin, anchor.dest, enRoute) : [];
 
   const chosen = useMemo(() => waiting.filter((b) => picked.has(b.id)), [waiting, picked]);
   const sum = useMemo(() => ({
@@ -90,38 +112,30 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
 
   /* ---------- รถที่เลือก ---------- */
   const usable = useMemo(() => roster.filter((v) => v.status === "ใช้งาน"), [roster]);
-  const truck = usable.find((v) => v.plate === plate) ?? null;
-
-  /* ---------- ตัวกรองเลือกรถ (ทะเบียน 899 คันแล้ว dropdown ยาวเกินหา — เจ้าของงานขอ 24 ก.ย. 2569) ---------- */
-  const [vf, setVf] = useState({ fleetType: "", vehicle: "", q: "" });
-  const ftOpts = useMemo(() => ROSTER_FLEET_TYPES.filter((ft) =>
-    usable.some((v) => kindsOf(v).some((k) => k.fleetType === ft))), [usable]);
-  /** ชนิดรถที่มีรถจริงตามประเภทที่เลือก — เรียงตามหน้าตั้งค่า */
-  const vkOpts = useMemo(() => ACTIVE_VEHICLE_NAMES.filter((n) =>
-    filterRoster(usable, { fleetType: vf.fleetType, vehicle: n }).length > 0), [usable, vf.fleetType]);
-  const choices = useMemo(() => filterRoster(usable, vf), [usable, vf]);
-  // คันที่เลือกไว้แล้วแต่หลุดตัวกรอง ต้องยังอยู่ใน dropdown ไม่งั้นช่องเลือกโชว์ว่างทั้งที่ยังเลือกคันนั้นอยู่
-  const shownChoices = truck && !choices.includes(truck) ? [truck, ...choices] : choices;
-  const vFiltered = !!(vf.fleetType || vf.vehicle || vf.q.trim());
-  // พิมพ์ทะเบียนตรงเต็มคัน = เลือกให้เลย (แบบเดียวกับหน้าคนขับ) · พิมพ์บางส่วนแค่กรองรายการ
-  useEffect(() => {
-    const key = normPlate(vf.q);
-    if (!key) return;
-    const exact = choices.find((v) => normPlate(v.plate) === key);
-    if (exact && exact.plate !== plate) setPlate(exact.plate);
-  }, [vf.q, choices, plate]);
-  const kind = truck ? canonicalVehicleName(truck.vehicle) : "";
+  /* ---------- รถหัว — เลือก ประเภท → ชนิด → ทะเบียน (แทนกล่องค้นหารถเดิม · เจ้าของงานสั่ง 24 ก.ย. 2569) ---------- */
+  const [hp, setHp] = useState<VehiclePick>(P0);
+  const [tp, setTp] = useState<VehiclePick>(P0);
+  /** รถที่เป็นหัวได้ — ตัดคันที่เป็นหางล้วน และคันที่เลือกเป็นหางอยู่ */
+  const heads = useMemo(() => usable.filter((v) => roleKind(v, false) && v.plate !== tp.plate), [usable, tp.plate]);
+  const truck = heads.find((v) => v.plate === hp.plate) ?? null;
+  const kind = truck ? hp.vehicle : "";
   const spec = vehicleSpec(REF.vehicles.find((v) => v.name === kind), ovr.vehicleSpecs);
-  const capKg = spec?.capacityKg ?? 0;
-  const capM3 = spec?.volumeM3 ?? 0;
 
-  /** ฝั่งที่เต็มกว่า — ใช้คิด Load Factor และใช้บล็อกการยืนยัน */
-  const useWeight = capKg > 0 ? sum.weight / capKg : 0;
-  const useVolume = capM3 > 0 ? sum.volume / capM3 : 0;
-  const binding = useWeight >= useVolume ? "น้ำหนัก" : "ปริมาตร";
-  const loadFactor = Math.max(useWeight, useVolume) * 100;
-  const overWeight = capKg > 0 && sum.weight > capKg;
-  const overVolume = capM3 > 0 && sum.volume > capM3;
+  /* ---------- หางพ่วง (ทะเบียนรถคันที่ 2) — ชุดช่องเดียวกับหัว · ไม่บังคับ ---------- */
+  const trailersAll = useMemo(() => usable.filter((v) => roleKind(v, true) && v.plate !== hp.plate), [usable, hp.plate]);
+  const trailer = trailersAll.find((v) => v.plate === tp.plate) ?? null;
+  const tSpec = trailer ? vehicleSpec(REF.vehicles.find((v) => v.name === tp.vehicle), ovr.vehicleSpecs) : null;
+  // เลือกทะเบียนหัวเป็นคันเดียวกับหาง (คันที่วิ่งได้ทั้งสองแบบ) = ปลดหางออก
+  useEffect(() => { if (tp.plate && tp.plate === hp.plate) setTp((t) => ({ ...t, plate: "" })); }, [hp.plate, tp.plate]);
+
+  /** ความจุ = หัว + หาง รวมกัน แล้วยังใช้ฝั่งที่เต็มกว่าเหมือนเดิม (lib/dispatch/load.ts) */
+  const headCap = { kg: spec?.capacityKg ?? 0, m3: spec?.volumeM3 ?? 0 };
+  const tailCap = trailer ? { kg: tSpec?.capacityKg ?? 0, m3: tSpec?.volumeM3 ?? 0 } : null;
+  const stats = truck ? loadStats(sum, headCap, tailCap) : null;
+  const capKg = stats?.capKg ?? 0;
+  const capM3 = stats?.capM3 ?? 0;
+  const overWeight = !!stats?.overWeight;
+  const overVolume = !!stats?.overVolume;
 
   /* ---------- เส้นทางของเที่ยว ---------- */
   const origins = uniq(chosen.map((b) => b.origin));
@@ -173,10 +187,13 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
       })),
       plate: truck.plate,
       // รถร่วมนอกพิเศษคิดต้นทุนแบบรถร่วม (costFleetType) — ใบรายการเก็บฝั่งของตารางต้นทุน
-      fleetType: costFleetType(truck.fleetType),
+      fleetType: costFleetType(hp.fleetType),
       vehicle: kind,
+      // หางพ่วงเก็บประเภทตามทะเบียนจริง (ไม่ผ่าน costFleetType) — ไม่ได้เข้าสูตรต้นทุน ใช้แสดง/ดูย้อนหลัง
+      ...(trailer ? { trailerPlate: trailer.plate, trailerFleetType: tp.fleetType, trailerVehicle: tp.vehicle } : {}),
       releaseDate,
       // ความจุกับน้ำหนักบรรทุกจริงมาจากบิลที่เลือก ไม่ต้องกรอกเอง (สเปกข้อ "แก้ น้ำหนัก/ปริมาณบรรทุกจริง")
+      // มีหางพ่วง = ความจุหัว + หาง
       capacity: capKg,
       loadActual: sum.weight,
     };
@@ -206,7 +223,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     }
     state.reload();
     setPicked(new Set());
-    const done = `จัดรถแล้ว — ใบรายการ ${docNo} · ${chosen.length} บิล · ${truck.plate}`;
+    setTp(P0);
+    const done = `จัดรถแล้ว — ใบรายการ ${docNo} · ${chosen.length} บิล · ${truck.plate}${trailer ? ` + หาง ${trailer.plate}` : ""}`;
     setMsg(billsOnSheet
       ? { text: done, tone: "ok" }
       : { text: `${done} · แต่ยังส่งสถานะบิลขึ้นชีตไม่สำเร็จ — ระบบจะส่งให้อีกครั้งเมื่อเปิดหน้านี้ครั้งถัดไป เครื่องอื่นจะไม่จัดบิลนี้ซ้ำเพราะอยู่ในใบรายการแล้ว`, tone: "warn" });
@@ -247,6 +265,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         </div>
       )}
 
+      {/* ขั้นที่ 1 แบ่งสองฝั่ง: ซ้าย = บิลที่รอจัดรถ · ขวา = สถานะการบรรทุก (รูปรถ + หลอด Load Factor) */}
+      <div className="dispatch-top">
       <div className="card">
         <div className="card-h">
           <span className="step">1</span><h2>บิลที่รอจัดรถ</h2>
@@ -284,19 +304,28 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <button type="button" className="dh-clear" onClick={() => setF(F0)}>↺ ล้างตัวกรอง</button>
         </div>
 
+        {anchor && (
+          <div className="dispatch-lock">
+            แสดงเฉพาะบิลที่ไปทางเดียวกับ <b>{anchor.origin} → {anchor.dest}</b>
+            {anchorStops.length ? <> · ปลายทางระหว่างทาง: {anchorStops.join(" · ")}</> : <> · ไม่มีจุดระหว่างทาง</>}
+            <span> — เอาติ๊กออกทุกบิลเพื่อดูบิลทั้งหมด</span>
+          </div>
+        )}
+
         {bills.loading ? <p className="muted">กำลังโหลดบิล… <TruckLoader label={null} /></p>
           : rows.length === 0 ? <p className="muted">ไม่มีบิลที่รอจัดรถตามตัวกรองที่เลือก</p>
           : (
             <GrowBox rows={rows} render={(shown) => (
               <table className="tbl dispatch-tbl">
                 <thead><tr>
-                  <th><input type="checkbox" checked={allShown} title="เลือกทั้งหมดที่เห็น"
+                  {/* เลือกทั้งหมดได้หลังติ๊กบิลแรกแล้วเท่านั้น — ก่อนนั้นจะได้บิลทุกเส้นทางปนกัน */}
+                  <th>{anchor && <input type="checkbox" checked={allShown} title="เลือกทุกบิลที่ไปทางเดียวกัน"
                     onChange={() => setPicked((s) => {
                       const next = new Set(s);
                       if (allShown) rows.forEach((b) => next.delete(b.id));
                       else rows.forEach((b) => next.add(b.id));
                       return next;
-                    })} /></th>
+                    })} />}</th>
                   <th>วันที่บิล</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>ต้นทาง</th><th>ปลายทาง</th>
                   <th>กลุ่มบริการ</th><th className="n">จำนวน (ชิ้น)</th><th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th>
                   <th className="n">ราคารวม</th>
@@ -324,56 +353,41 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           )}
       </div>
 
+      <LoadTruckPanel stats={stats} load={sum} headCap={headCap} tailCap={tailCap}
+        truckPlate={truck?.plate ?? ""} trailerPlate={trailer?.plate ?? ""} kind={kind} fleetType={hp.fleetType}
+        trailerKind={tp.vehicle} hasLoad={chosen.length > 0}
+        noTruckText="เลือกประเภทรถ ชนิดรถ และทะเบียนในขั้นที่ 2" noLoadText="ยังไม่ได้เลือกบิล"
+        overText="เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้" />
+      </div>
+
       <div className="card">
         <div className="card-h">
           <span className="step">2</span><h2>เลือกรถและยืนยัน</h2>
           <span className="hint">เลือกได้เฉพาะทะเบียนที่สถานะ "ใช้งาน" ({usable.length} คัน)</span>
         </div>
 
-        {/* ค้นหารถ — กรองรายการในช่อง "ทะเบียนรถ" ด้านล่าง ไม่ได้เปลี่ยนรถที่เลือกไว้ */}
-        <div className="dispatch-vf">
-          <div className="bill-grid">
-            <div className="f"><label>ประเภทรถ</label>
-              <select value={vf.fleetType} onChange={(e) => {
-                const fleetType = e.target.value;
-                // ชนิดรถเดิมไม่มีในประเภทใหม่ = ล้างทิ้ง ไม่งั้นรายการว่างโดยไม่รู้สาเหตุ
-                const keep = !vf.vehicle || filterRoster(usable, { fleetType, vehicle: vf.vehicle }).length > 0;
-                setVf({ ...vf, fleetType, vehicle: keep ? vf.vehicle : "" });
-              }}>
-                <option value="">ทุกประเภทรถ</option>
-                {ftOpts.map((ft) => <option key={ft} value={ft}>{ft}</option>)}
-              </select></div>
-            <div className="f"><label>ชนิดรถ</label>
-              <select value={vf.vehicle} onChange={(e) => setVf({ ...vf, vehicle: e.target.value })}>
-                <option value="">ทุกชนิดรถ</option>
-                {vkOpts.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select></div>
-            <div className="f"><label>ค้นหาทะเบียน</label>
-              <input type="search" value={vf.q} placeholder="พิมพ์เลขท้ายก็ได้ เช่น 0820"
-                onChange={(e) => setVf({ ...vf, q: e.target.value })} /></div>
-          </div>
-          <div className="dispatch-vf-foot">
-            {vFiltered
-              ? <>พบ <b>{choices.length}</b> คันจาก {usable.length} คัน
-                  <button type="button" className="dh-clear" onClick={() => setVf({ fleetType: "", vehicle: "", q: "" })}>↺ ล้างตัวกรอง</button></>
-              : <>เลือกประเภท/ชนิดรถ หรือพิมพ์ทะเบียน เพื่อให้รายการในช่องทะเบียนรถสั้นลง</>}
-          </div>
-        </div>
-
         <div className="bill-grid">
-          <div className="f"><label>ทะเบียนรถ</label>
-            <select value={plate} onChange={(e) => setPlate(e.target.value)}>
-              <option value="">{choices.length ? `เลือกทะเบียน (${choices.length} คัน)` : "ไม่พบรถตามตัวกรอง"}</option>
-              {shownChoices.map((v) => (
-                <option key={v.plate} value={v.plate}>{v.plate} · {v.vehicle} ({v.fleetType})</option>
-              ))}
-            </select></div>
-          <div className="f"><label>ชนิดรถ</label>
-            <input value={kind || "—"} readOnly tabIndex={-1} /></div>
-          <div className="f"><label>ประเภทรถ</label>
-            <input value={truck?.fleetType || "—"} readOnly tabIndex={-1} /></div>
+          <VehiclePickFields pick={hp} setPick={setHp} pool={heads} trailer={false}
+            kindNames={ACTIVE_VEHICLE_NAMES} anyKind="ทุกชนิดรถ" plateLabel="ทะเบียนรถ"
+            noneLabel={(n) => (n ? `เลือกทะเบียน (${n} คัน)` : "ไม่พบรถตามที่เลือก")} />
           <div className="f"><label>วันปล่อยรถ</label>
             <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} /></div>
+        </div>
+
+        <div className="dispatch-trailer">
+          <div className="dispatch-trailer-h">
+            หางพ่วง (ทะเบียนรถคันที่ 2)
+            {(tp.fleetType || tp.vehicle || tp.plate) && (
+              <button type="button" className="dh-clear" onClick={() => setTp(P0)}>✕ ไม่มีหางพ่วง</button>
+            )}
+          </div>
+          <div className="bill-grid">
+            <VehiclePickFields pick={tp} setPick={setTp} pool={trailersAll} trailer
+              kindNames={TRAILER_VEHICLE_NAMES} anyKind="ทุกชนิดหาง" plateLabel="ทะเบียนหางพ่วง"
+              noneLabel={(n) => (n ? `ไม่มีหางพ่วง (มีให้เลือก ${n} คัน)` : "ไม่พบหางตามที่เลือก")} />
+            {/* ช่องเปล่าแทน "วันปล่อยรถ" ของแถวหัว — ให้กริดมี 4 ช่องเท่ากัน ความกว้างช่องจึงตรงกับแถวบน */}
+            <div aria-hidden="true" />
+          </div>
         </div>
 
         <div className="dispatch-sum">
@@ -384,21 +398,6 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           <div><span>ปริมาตรรวม</span><b>{num3(sum.volume)} <small>ลบ.ม.</small></b></div>
           <div><span>รายได้รวม</span><b>{baht(sum.revenue)} <small>บาท</small></b></div>
         </div>
-
-        {truck && (
-          <div className={"dispatch-load" + (overWeight || overVolume ? " over" : "")}>
-            <div className="lf">Load Factor <b>{loadFactor.toFixed(1)}%</b>
-              <small> คิดจากฝั่ง{binding} (ฝั่งที่เต็มกว่า)</small></div>
-            <div className="cap">
-              น้ำหนัก {baht(sum.weight)} / {baht(capKg)} กก. ({(useWeight * 100).toFixed(1)}%) ·
-              ปริมาตร {num3(sum.volume)} / {num3(capM3)} ลบ.ม. ({(useVolume * 100).toFixed(1)}%)
-            </div>
-            {(overWeight || overVolume) && <div className="bill-bad">⚠ เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้</div>}
-            {capKg === 0 && capM3 === 0 && (
-              <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของ "{kind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
-            )}
-          </div>
-        )}
 
         {/* กล่องสรุปผล — แทนกล่องต้นทุนเดิม ใช้ต้นทุนพยากรณ์จากข้อมูลเก่า */}
         <div className={"dispatch-result " + (profit == null ? "" : profit >= 0 ? "good" : "bad")}>

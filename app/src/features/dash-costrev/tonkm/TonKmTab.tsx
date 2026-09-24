@@ -18,13 +18,15 @@ import { useMemo, useState } from "react";
 import FilterBar, { ClearFiltersBtn } from "../../../lib/ui/FilterBar";
 import EtlBanner from "../../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../../lib/data/etlStatus";
-import { useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { lfShellSource, useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { useShellSource } from "../../../lib/ui/dashContext";
 import type { LfManifest, LfTrip } from "../../../lib/data/useLoadFactor";
 import { BASE_W, STATUS_LABEL, hasTonKm, latestPeriod, overview, yearRows } from "../../../lib/tonkm/calc";
 import type { TkPeriod, TkStatus, YearRow } from "../../../lib/tonkm/calc";
 import { useTargetPct } from "../../../lib/tonkm/prefs";
 import { FF, Note, Pane, TableHead } from "../../dash-fleet/parts";
-import { MonthFF, SortTable, duniq, fmt, isFiltered, pct, useSort } from "../common";
+import { SortTable, duniq, fmt, isFiltered, monthName, pct, useSort } from "../common";
+import { MONTHS, withFrom, withTo } from "../../../lib/filter/period";
 import type { Col } from "../common";
 import TonKmCards, { BaseTag, StatusTag, periodStr, rateStr } from "./TonKmCards";
 import TonKmRowModal from "./TonKmRowModal";
@@ -35,6 +37,8 @@ export default function TonKmTab() {
   const { data, error, reload } = useLoadFactor();
   const etl = useEtlStatus("loadfactor");
   useAutoReloadOnEtl(etl, reload);
+  // หัวแดชบอร์ดบอกชุด loadfactor/ ไม่ใช่ไฟล์ต้นทุน (lfShellSource)
+  useShellSource(lfShellSource(data?.manifest));
   return (
     <>
       <EtlBanner status={etl} />
@@ -79,7 +83,7 @@ function Body({ trips, manifest }: { trips: LfTrip[]; manifest: LfManifest }) {
   // X% เปลี่ยนตอนป็อบอัพเปิดอยู่ → ใช้แถวใหม่ของปี × ชนิดรถเดิม ให้เป้าในป็อบอัพตรงกับตาราง
   const openRow = open && (table.find((r) => r.year === open.year && r.vk === open.vk) ?? null);
 
-  const isLatest = p.year === latest.year && p.month === latest.month;
+  const isLatest = p.year === latest.year && p.from === latest.from && p.to === latest.to;
   const excluded = manifest.check.tonKm?.noWeight ?? 0;
 
   return (
@@ -88,7 +92,13 @@ function Body({ trips, manifest }: { trips: LfTrip[]; manifest: LfManifest }) {
         <FF label="ปี" value={String(p.year)} onChange={(v) => setP((c) => ({ ...c, year: Number(v) }))}>
           {years.map((y) => <option key={y} value={y}>พ.ศ. {+y + 543}</option>)}
         </FF>
-        <MonthFF value={p.month} onChange={(v) => setP((c) => ({ ...c, month: v }))} />
+        {/* ช่วงเดือนแบบแท็บ Damage Rate — แท็บนี้ต้องมีปีเสมอ (Baseline คิดจากปีก่อนหน้า) จึงไม่มี "ทุกปี" */}
+        <FF label="ตั้งแต่เดือน" value={p.from} onChange={(v) => setP((c) => withFrom(c, v))}>
+          {MONTHS.map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
+        </FF>
+        <FF label="ถึงเดือน" value={p.to} onChange={(v) => setP((c) => withTo(c, v))}>
+          {MONTHS.filter((m) => m >= p.from).map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
+        </FF>
         <div className="ff tk-x">
           <label>เป้า: เพิ่มจากฐาน (%)</label>
           <input type="number" step={0.5} value={x}

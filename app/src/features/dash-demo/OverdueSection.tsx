@@ -3,8 +3,9 @@
  * (ไฟล์ "ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx" · etl/build_debtors.py) สเปกข้อ 5–7 ของ "ปรับปรุงโมเดล.pdf"
  * แก้ตามสเปกรุ่นแก้ 23 ก.ย. 2569 ("ใช้ข้อมูลทั้งที่รับชำระแล้ว และยังไม่ได้รับชำระ")
  *
- *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา ค่าเริ่มต้น = วันที่อ้างอิงในชีตสรุปวิเคราะห์ (manifest.refDate)
- *      ไฟล์รุ่นเก่าไม่มี → ใช้ asOf (วันที่ล่าสุดในไฟล์) · **ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1**
+ *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา **ค่าเริ่มต้น = 31/05/2026 (DEFAULT_AS_OF · เจ้าของงานสั่ง 24 ก.ย. 2569)**
+ *      ถ้าไฟล์เริ่มหลังวันนั้น (ข้อมูลชุดอื่น) ถอยไปใช้วันที่อ้างอิงในชีตสรุปวิเคราะห์ (manifest.refDate) → asOf (วันล่าสุดในไฟล์)
+ *      **ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1**
  *   6. การ์ดใหญ่ไล่สี 5 ใบ (แบบเดียวกับการ์ดของส่วนที่ 1 — เจ้าของงานสั่ง 23 ก.ย. 2569)
  *      รายการทั้งหมด · ชำระแล้ว · ยังไม่ชำระ · ยังไม่ถึงกำหนด · DSO
  *      **DSO แบบมาตรฐาน** (เจ้าของงานเลือก 23 ก.ย. 2569) = ยอดลูกหนี้ค้าง ณ วันที่เลือก ÷ ยอดวางบิล × จำนวนวัน
@@ -38,12 +39,13 @@ import { anim, axisProps, gridProps } from "../../lib/chart/primitives";
 import { D, DFONT, fmtShort, useChartTheme } from "../../lib/chart/theme";
 import { numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { ShortId } from "../../lib/custmap/ShortId";
-import { thDateSafe, thSlash } from "../../lib/record/date";
+import { monthSpan, thDateSafe, thMonthRange, thSlash } from "../../lib/record/date";
 import type { DebtorRow, DebtorState } from "../../lib/data/useDebtors";
 import { Hero, Note, Pane, TableHead } from "../dash-fleet/parts";
 import { SortTable, fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import TruckLoader from "../../lib/ui/TruckLoader";
+import SourceTag from "../../lib/ui/SourceTag";
 
 /**
  * ช่วงวันที่เกินกำหนด 6 ช่วง (เจ้าของงานสั่ง 23 ก.ย. 2569 — แยก 1–7 วันออกจาก 1–30 เดิม)
@@ -93,6 +95,9 @@ interface HistRow {
   unpaidN: number; paidN: number; custN: number; share: number;
 }
 
+/** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 24 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
+const DEFAULT_AS_OF = "2026-05-31";
+
 export default function OverdueSection({ state }: { state: DebtorState }) {
   const { data, error } = state;
   if (error || !data) {
@@ -109,12 +114,29 @@ export default function OverdueSection({ state }: { state: DebtorState }) {
       </div>
     );
   }
-  return <OverdueBody rows={data.rows} refDate={data.manifest.refDate ?? data.manifest.asOf}
-    range={data.manifest.dateRange} />;
+  const range = data.manifest.dateRange;
+  // ค่าเริ่มต้นตามที่เจ้าของงานสั่ง — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
+  const fallback = data.manifest.refDate ?? data.manifest.asOf;
+  const start = range.min && range.min <= DEFAULT_AS_OF ? DEFAULT_AS_OF : fallback;
+  return <OverdueBody rows={data.rows} refDate={start}
+    range={range} isSample={data.manifest.isSample} />;
 }
 
-function OverdueBody({ rows, refDate, range }: {
-  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null };
+/**
+ * ข้อจำกัดเมื่อไฟล์ลูกหนี้ครอบไม่ถึง 12 เดือน — null ถ้าครบ (เจ้าของงานสั่ง 24 ก.ย. 2569: ไฟล์จริงมีเฉพาะปี 2569
+ * ยังไม่ครบปี) · คิดจากช่วงวันที่วางบิลในไฟล์ทุกครั้ง ไม่เขียนปี/เดือนตายตัว ไฟล์รอบหน้าครบปีแล้วบรรทัดนี้หายเอง
+ */
+function coverageLimit(min: string, max: string): string | null {
+  const span = monthSpan(min, max);
+  if (span >= 12) return null;
+  const y1 = min.slice(0, 4), y2 = max.slice(0, 4);
+  const range = thMonthRange(min, max);
+  const what = y1 === y2 ? `มีเฉพาะปี ${+y1 + 543} (${range.replace(` ${+y1 + 543}`, "")})` : `มีเฉพาะ ${range} (${span} เดือน)`;
+  return `ข้อจำกัดด้านข้อมูล: ไฟล์ลูกหนี้${what} ยังไม่ครบทั้งปี — ยอดค้าง ยอดชำระ และ DSO ในส่วนนี้คิดจากช่วงนี้เท่านั้น`;
+}
+
+function OverdueBody({ rows, refDate, range, isSample }: {
+  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null }; isSample: boolean;
 }) {
   useDebtorCodes();
   const [asOf, setAsOf] = useState(refDate);
@@ -184,14 +206,17 @@ function OverdueBody({ rows, refDate, range }: {
     [aged, picked]);
 
   const dsoGap = kpi.dso != null && kpi.term != null ? Math.round(kpi.dso - kpi.term) : null;
+  const limit = range.min && range.max ? coverageLimit(range.min, range.max) : null;
 
   return (
     <Pane deps={[aged]}>
       <div className="cp-sec">
         <div>
-          <h3>ลูกหนี้รายใดจ่ายช้ากระทบกระแสเงินสด (DSO)</h3>
+          <h3>ลูกหนี้รายใดจ่ายช้ากระทบกระแสเงินสด (DSO)<SourceTag sample={isSample} what="ไฟล์ลูกหนี้" /></h3>
           <p>ใช้ข้อมูลทั้งที่รับชำระแล้วและยังไม่ได้รับชำระ · สถานะของทุกใบวางบิล ณ วันที่ที่เลือก ·
-            ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)}</p>
+            ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)} ·
+            ส่วนนี้ไม่ขึ้นกับตัวกรองด้านบน ใช้ "ข้อมูล ณ วันที่" ทางขวาแทน</p>
+          {limit && <p className="dso-limit">{limit}</p>}
         </div>
         <label className="cp-date">
           <span>ข้อมูล ณ วันที่</span>

@@ -9,12 +9,19 @@
  *     % จึงต่ำกว่าเมื่อเทียบกับหน้าอื่น (ชุดตัวอย่างรวมทุกปี 2.58% → 6.44%) · เที่ยวเปล่ายังอยู่ครบทุกเที่ยว
  *   ทุก % = ต้นทุนเที่ยวเปล่า ÷ ต้นทุนของ "ทุกเที่ยว" (รวมเที่ยวเปล่า) ในขอบเขตเดียวกัน
  *
- *   KPI  การ์ด 2 ใบขนาดเท่ากัน: % ต้นทุนเที่ยวเปล่าของปีล่าสุด (เทียบปีก่อน + เส้นแนวโน้มรายปีในการ์ด)
+ *   KPI  การ์ด 2 ใบขนาดเท่ากัน: % ต้นทุนเที่ยวเปล่าของปีล่าสุด (เส้นแนวโน้มรายปีในการ์ด · ส่วนเปรียบเทียบข้างล่าง
+ *        = "มูลค่ารถเที่ยวเปล่า (YTD ม.ค.–พ.ค. 69)" 3 บรรทัด: เฉลี่ย/เดือน · % ของต้นทุนวิ่งรวม · YoY ช่วงเดือนเดียวกัน
+ *        ของปีก่อน — เจ้าของงานสั่ง 24 ก.ย. 2569 แทน "เทียบปีก่อน ± จุด" เดิม · lib/empty/ytd.ts)
+ *        ★ การ์ดสองใบอยู่ใน EmptyHeroes.tsx ใช้ร่วมกับ Demo › ข้อ 2 กล่องที่ 3–4 — แก้ที่นั่นที่เดียว
  *        · มูลค่าต้นทุนเที่ยวเปล่า (จำนวนเที่ยวเปล่าอยู่ใต้ตัวเลขในการ์ดเดียวกัน)
  *   [1]  รายเดือน: แท่งเทา = ต้นทุนรวม · เส้น = % ต้นทุนเที่ยวเปล่า (แกนขวา) · ค่าเริ่มต้น "ทุกเส้นทาง"
  *        เลือกได้ทีละเส้นทาง · กดเดือน = ป็อบอัพรายการเที่ยววิ่งเปล่าของเดือนนั้น
  *   [2]  Top 10 เส้นทาง กรอบเดียว ปุ่มสลับ จำนวนเที่ยว ↔ ต้นทุน · กดแท่ง = ป็อบอัพรายการของเส้นทางนั้น
  *   [3]  ตารางทุกเส้นทางที่มีเที่ยวเปล่า (ไม่มีเกณฑ์ขั้นต่ำแล้ว — เกณฑ์ ≥ 20 เที่ยวเคยใช้คู่กับกราฟจุดที่ตัดออก)
+ *        + คอลัมน์ % เที่ยวเปล่า (นับเที่ยว) · คะแนน · ระดับ 🟢🟡🔴 จากเกณฑ์ percentile (lib/empty/routeScore.ts · 24 ก.ย. 2569)
+ *        เกณฑ์ P25/P75 คิดจาก **ทุกเส้นทาง** ในช่วงเวลา + ประเภทรถที่กรอง ไม่ตามต้นทาง/ปลายทาง
+ *        · คอลัมน์ "% เที่ยวเปล่า" เดิมคือ % ต้นทุน (คงชื่อเดิมไว้)
+ *        ★ กราฟ [1] เคยมีเส้น % นับเที่ยว + เส้นประ P25 — เจ้าของงานสั่งเอาออกทั้งคู่ 24 ก.ย. 2569 (กราฟกลับเป็นแบบเดิม)
  *   ตัดออก 23 ก.ย. 2569: กราฟ % รายปี · แท่ง 100% เปล่า vs มีรายได้ · กราฟจุดรายเส้นทาง
  *
  * ★ ในชุดตัวอย่าง เส้นทางที่มีเที่ยวเปล่า 28 จาก 29 เส้นทางเป็นเที่ยวเปล่าล้วน (เส้นทางตีรถกลับโดยเฉพาะ)
@@ -29,71 +36,62 @@ import { DBar } from "../../lib/chart/dcharts";
 import { BAR_RADIUS, anim, axisProps, gridProps, legendProps } from "../../lib/chart/primitives";
 import { D, DFONT, fmtShort, useChartTheme } from "../../lib/chart/theme";
 import { thDateSafe } from "../../lib/record/date";
-import { Hero, Note, Pane } from "../dash-fleet/parts";
-import { BASE_F0, isFiltered, ListFF, MonthFF, SortTable, YearFF, duniq, fmt, monthLabel, passBase, pct,
+import { Note, Pane } from "../dash-fleet/parts";
+import { BASE_F0, isFiltered, ListFF, PeriodFF, SortTable, duniq, fmt, monthLabel, passBase, pct,
          useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
-import type { CostRevMode } from "./CostRevDash";
+import EmptyHeroes from "./EmptyHeroes";
+import { GRADES, emptyScore, emptyThresholds, routeRates } from "../../lib/empty/routeScore";
+import type { EmptyGrade, EmptyThresholds } from "../../lib/empty/routeScore";
 
 const TOP_N = 10;
 
 const pctOf = (a: number, b: number): number => (b ? a / b * 100 : 0);
 /** ป้ายแกน % — ภาพรวมบริษัทอยู่ราว 2–3% ปัดเป็นจำนวนเต็มแล้วทุกขีดจะซ้ำกัน */
 const pctTick = (v: number): string => `${v < 10 ? Number(v.toFixed(1)) : Math.round(v)}%`;
-const beYear = (y: number | string): number => Number(y) + 543;
 const sumCost = (xs: Trip[]): number => xs.reduce((s, t) => s + t.cost, 0);
 
-interface RouteAgg { route: string; n: number; emptyN: number; emptyCost: number; cost: number; share: number }
+interface RouteAgg {
+  route: string; n: number; emptyN: number; emptyCost: number; cost: number;
+  /** % ต้นทุนเที่ยวเปล่า (ต้นทุน) */
+  share: number;
+  /** % เที่ยวเปล่า (นับเที่ยว) — ตัววัดของคะแนน percentile */
+  tripPct: number;
+}
 
 function byRoute(rows: Trip[]): RouteAgg[] {
   const m = new Map<string, RouteAgg>();
   for (const t of rows) {
     if (!t.rt) continue;
-    const a = m.get(t.rt) ?? { route: t.rt, n: 0, emptyN: 0, emptyCost: 0, cost: 0, share: 0 };
+    const a = m.get(t.rt) ?? { route: t.rt, n: 0, emptyN: 0, emptyCost: 0, cost: 0, share: 0, tripPct: 0 };
     a.n++; a.cost += t.cost;
     if (t.empty) { a.emptyN++; a.emptyCost += t.cost; }
     m.set(t.rt, a);
   }
-  return [...m.values()].map((a) => ({ ...a, share: pctOf(a.emptyCost, a.cost) }));
+  return [...m.values()].map((a) => ({ ...a, share: pctOf(a.emptyCost, a.cost), tripPct: pctOf(a.emptyN, a.n) }));
 }
 
 /** ขอบเขตของป็อบอัพ — ทุกเที่ยวในขอบเขต (ใช้คิดต้นทุนรวม/%) รายการในตารางเป็นเฉพาะเที่ยวเปล่า */
 interface Detail { title: string; scope: Trip[] }
 
-export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode }) {
+export default function EmptyTab({ trips }: { trips: Trip[] }) {
   const [f, setF] = useState<BaseFilter>(BASE_F0);
   const set = (k: keyof BaseFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const rows = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
   const [detail, setDetail] = useState<Detail | null>(null);
 
-  /* ---------- KPI ---------- */
-  const empties = useMemo(() => rows.filter((t) => t.empty), [rows]);
+  /* ---------- KPI — การ์ด 2 ใบอยู่ใน EmptyHeroes.tsx (ใช้ร่วมกับ Demo › ข้อ 2) ---------- */
+  const rowsAnyYear = useMemo(() => trips.filter((t) => passBase(t, f, { ignoreYear: true })), [trips, f]);
+
   /**
-   * % รายปี ใช้ทุกตัวกรองยกเว้นปี — การ์ดต้องเทียบกับปีก่อนและวาดเส้นแนวโน้มได้แม้กรองปีอยู่
-   * ปีที่การ์ดโชว์ = ปีที่กรอง ถ้าไม่กรองคือปีล่าสุดที่มีข้อมูล
+   * เกณฑ์ percentile ของ % เที่ยวเปล่ารายเส้นทาง (lib/empty/routeScore.ts · เจ้าของงานสั่ง 24 ก.ย. 2569)
+   * ขอบเขต = ช่วงเวลา + ประเภทรถ **ไม่ตามต้นทาง/ปลายทาง** — เกณฑ์เทียบทุกเส้นทางเสมอ (เจ้าของงานเลือก)
    */
-  const yearShare = useMemo(() => {
-    const m = new Map<number, { cost: number; empty: number }>();
-    for (const t of trips) {
-      if (!passBase(t, f, { ignoreYear: true })) continue;
-      const a = m.get(t.y) ?? { cost: 0, empty: 0 };
-      a.cost += t.cost;
-      if (t.empty) a.empty += t.cost;
-      m.set(t.y, a);
-    }
-    return [...m.entries()].sort((a, b) => a[0] - b[0])
-      .map(([y, a]) => ({ y, share: Math.round(pctOf(a.empty, a.cost) * 100) / 100 }));
-  }, [trips, f]);
-  const focusY = f.year ? Number(f.year) : yearShare[yearShare.length - 1]?.y;
-  const focusIdx = yearShare.findIndex((x) => x.y === focusY);
-  const focus = yearShare[focusIdx];
-  const prev = focusIdx > 0 ? yearShare[focusIdx - 1] : undefined;
-  // "เต็มปีไหม" เป็นเรื่องของข้อมูล ไม่ใช่ตัวกรอง — ดูเดือนสุดท้ายของปีนั้นจากทั้งชุด
-  const lastMo = focusY == null ? "" : trips.filter((t) => t.y === focusY).reduce((m, t) => (t.mo > m ? t.mo : m), "");
-  const partial = !!lastMo && Number(lastMo.slice(5)) < 12 ? lastMo : null;
-  const scope = f.year ? `ปี พ.ศ. ${beYear(f.year)}` : `รวม ${yearShare.length} ปี`;
+  const emptyTh = useMemo(
+    () => emptyThresholds(routeRates(trips.filter((t) => passBase(t, { ...f, o: "", de: "" })))),
+    [trips, f]);
 
   /* ---------- [1] รายเดือน ---------- */
   const routes = useMemo(() => byRoute(rows), [rows]);
@@ -146,16 +144,20 @@ export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode 
     { key: "cost", label: "ต้นทุนรวมของเส้นทาง", get: (r) => r.cost, num: true },
     { key: "share", label: "% เที่ยวเปล่า", get: (r) => r.share, num: true,
       render: (r) => <b style={{ color: "var(--d-rose-d)" }}>{pct(r.share)}</b> },
-  ], []);
+    // คะแนน percentile — % นับเที่ยว (ไม่ใช่ต้นทุน) เทียบ P25/P75 ของทุกเส้นทาง
+    { key: "tripPct", label: "% เที่ยวเปล่า (นับเที่ยว)", get: (r) => r.tripPct, num: true,
+      render: (r) => pct(r.tripPct) },
+    { key: "score", label: "คะแนน", get: (r) => (emptyTh ? emptyScore(r.tripPct, emptyTh).score : null), num: true,
+      render: (r) => (emptyTh ? <ScoreCell s={emptyScore(r.tripPct, emptyTh).score} /> : "–") },
+    { key: "grade", label: "ระดับ", get: (r) => (emptyTh ? GRADE_RANK[emptyScore(r.tripPct, emptyTh).grade] : null),
+      render: (r) => (emptyTh ? <GradeBadge g={emptyScore(r.tripPct, emptyTh).grade} th={emptyTh} /> : "–") },
+  ], [emptyTh]);
   const { sorted, sort, toggle } = useSort(emptyRoutes, cols, { key: "emptyCost", dir: -1 });
-
-  const delta = focus && prev ? focus.share - prev.share : null;
 
   return (
     <>
       <FilterBar>
-        <YearFF trips={trips} value={f.year} onChange={set("year")} />
-        <MonthFF value={f.month} onChange={set("month")} />
+        <PeriodFF trips={trips} value={f} onChange={setF} />
         <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(trips.map((t) => t.o))} />
         <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={duniq(trips.map((t) => t.de))} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(trips.map((t) => t.ft))} />
@@ -165,18 +167,7 @@ export default function EmptyTab({ trips }: { trips: Trip[]; mode?: CostRevMode 
       <Pane deps={[rows]}>
         {/* KPI — 2 ใบขนาดเท่ากัน · เส้นในการ์ดแรกเป็น % รายปีจริง ไม่ใช่ลายตกแต่ง */}
         <div className="dz-heroes em-heroes">
-          <Hero kind="loss"
-            l={focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${beYear(focusY)}` : "% ต้นทุนเที่ยวเปล่า"}
-            v={focus ? pct(focus.share) : "–"}
-            trend={yearShare.length >= 2 ? yearShare.map((x) => x.share) : undefined}
-            s={<>
-              {delta != null && prev
-                ? `เทียบปี ${beYear(prev.y)} ${delta > 0 ? "+" : delta < 0 ? "−" : "±"}${Math.abs(delta).toFixed(1)} จุด`
-                : "ไม่มีปีก่อนหน้าให้เทียบ"}
-              {partial && ` · ปีนี้ยังไม่เต็มปี (ข้อมูลถึง ${monthLabel(partial)})`}
-            </>} />
-          <Hero kind="cost" l={`มูลค่าต้นทุนเที่ยวเปล่า · ${scope}`} v={fmt(sumCost(empties))} unit="บาท"
-            s={<><b>{fmt(empties.length)}</b> เที่ยววิ่งเปล่า · จาก {fmt(rows.length)} เที่ยว</>} />
+          <EmptyHeroes all={trips} rows={rows} rowsAnyYear={rowsAnyYear} period={f} />
         </div>
 
         {/* [1] รายเดือน */}
@@ -251,7 +242,28 @@ const NoData = () => (
   <div style={{ padding: 20, color: "var(--ink-faint)", textAlign: "center" }}>ไม่มีข้อมูลตามตัวกรองที่เลือก</div>
 );
 
-interface MonthRow { key: string; mo: string; cost: number | null; share: number | null; empty: number; n: number; emptyN: number }
+/** ลำดับของระดับไว้เรียงคอลัมน์ — แย่มากขึ้นก่อนเมื่อเรียงมากไปน้อย */
+const GRADE_RANK: Record<EmptyGrade, number> = { good: 0, mid: 1, bad: 2 };
+
+/** คะแนน 2 ตำแหน่งตามตัวอย่างในสเปก (5.22) · ติดลบได้ (เกิน P75) */
+function ScoreCell({ s }: { s: number }) {
+  return <b style={{ color: s >= 10 ? "var(--green)" : s < 0 ? "var(--red)" : undefined }}>{s.toFixed(2)}</b>;
+}
+
+/** ป้ายระดับ 🟢🟡🔴 — วางเมาส์เห็นค่า P25/P50/P75 ที่ใช้ตัดสิน */
+function GradeBadge({ g, th }: { g: EmptyGrade; th: EmptyThresholds }) {
+  return (
+    <span title={`P25 ${pct(th.p25, 2)} · P50 ${pct(th.p50, 2)} · P75 ${pct(th.p75, 2)} (จาก ${fmt(th.routes)} เส้นทาง)`}
+      style={{ whiteSpace: "nowrap" }}>
+      {GRADES[g].emoji} {GRADES[g].label}
+    </span>
+  );
+}
+
+interface MonthRow {
+  key: string; mo: string; cost: number | null; share: number | null;
+  empty: number; n: number; emptyN: number;
+}
 
 /**
  * แท่งเทา = ต้นทุนรวม (แกนซ้าย บาท) · เส้น = % ต้นทุนเที่ยวเปล่า (แกนขวา)

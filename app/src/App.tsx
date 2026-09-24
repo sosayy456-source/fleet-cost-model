@@ -9,6 +9,7 @@
  */
 import { Suspense, useEffect, useRef, useState } from "react";
 import EntryForm from "./features/entry/EntryForm";
+import EntryAll from "./features/entry/EntryAll";
 import BillEntry from "./features/bills/BillEntry";
 import DispatchPage from "./features/dispatch/DispatchPage";
 import RecordsList from "./features/records/RecordsList";
@@ -36,6 +37,7 @@ import { useActiveDataset } from "./lib/dataset";
 import { loadSessionRole, saveSessionRole } from "./lib/store/sessionRole";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
+import { demoGo, useDemoNav } from "./lib/ui/demoNav";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
 const I = {
@@ -68,11 +70,15 @@ interface PageDef {
 }
 
 const PAGES: PageDef[] = [
-  { id: "dash-fleet", view: "dash", label: "แดชบอร์ด", icon: I.dash, h1: "แดชบอร์ด" },
+  // เปลี่ยนชื่อจาก "แดชบอร์ด" (เจ้าของงานสั่ง 24 ก.ย. 2569) · id เดิม — เหลือแค่มุมมอง "หน้างาน" ดู SHOW_TABS ใน FleetDash
+  { id: "dash-fleet", view: "dash", label: "Manager Dashboard", icon: I.dash, h1: "Manager Dashboard" },
   // ฝ่ายบริการลูกค้ากรอกบิล (ไม่มีเลขที่ใบรายการ) — ใบรายการเกิดที่หน้า "จัดรถ" ของฝ่ายจัดรถ
   { id: "bills", view: "form", label: "บันทึกบิล", icon: I.plus, h1: "บันทึกบิล" },
   { id: "dispatch", view: "form", label: "จัดรถ", icon: I.truck, h1: "จัดรถ" },
   { id: "entry", view: "form", label: "บันทึกข้อมูล", icon: I.plus, h1: "บันทึกข้อมูล" },
+  // ผู้ดูแลระบบเห็นหน้านี้หน้าเดียวแทน บันทึกบิล/จัดรถ/เที่ยวรถของฉัน/บันทึกข้อมูล — เอาหน้าจริงของ 4 ฝ่ายมาเรียงต่อกัน
+  // (features/entry/EntryAll.tsx · เจ้าของงานสั่ง 24 ก.ย. 2569) ฝ่ายอื่นยังเห็นหน้าของตัวเองแยกเหมือนเดิม
+  { id: "entry-all", view: "form", label: "บันทึกข้อมูลรวม", icon: I.plus, h1: "บันทึกข้อมูลรวม" },
   // ฝ่ายเจ้าหน้าที่จัดรถเห็นแท็บนี้ต่อจาก "บันทึกข้อมูล" — เนื้อหาเดียวกับแท็บ "สถานะกองรถ"
   // ในแดชบอร์ดเต็มของผู้จัดการ/ผู้ดูแลระบบ
   { id: "fleet-status", view: "dash", label: "สถานะกองรถ", icon: I.truck, h1: "สถานะกองรถ" },
@@ -82,14 +88,11 @@ const PAGES: PageDef[] = [
   { id: "custcode", view: "custcode", label: "ค้นหารหัสลูกค้า", icon: I.search, h1: "ค้นหารหัสลูกค้า" },
   // หน้านี้ไม่มีใน index.html บน main — เป็นของที่โปรเจ็กต์นี้เพิ่ม (Phase 6-8)
   { id: "route-profit", view: "dash", label: "กำไรรายเส้นทาง", icon: I.split, h1: "กำไรรายเส้นทาง" },
-  // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) — หน้าตาเดียวกัน ต่างกันที่ข้อมูล
+  // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) · เมนู "Dashboard ค่าเดินทาง(ไม่ใช้)" ลบแล้ว 24 ก.ย. 2569
   { id: "exec-dash", view: "dash", label: "Executive Dashboard", icon: I.dash, h1: "Executive Dashboard" },
-  { id: "all-dash", view: "dash", label: "Dashboard ค่าเดินทาง(ไม่ใช้)", icon: I.dash, h1: "Dashboard ค่าเดินทาง (ไม่ใช้)" },
   // หน้าทดลองสำหรับผู้ดูแลระบบ — ข้อมูลชุดเดียวกับ Executive Dashboard (เฉพาะเที่ยวที่จับคู่บิลได้)
   { id: "demo", view: "dash", label: "Demo", icon: I.chart, h1: "Demo" },
-  // เมนู "แดชบอร์ดรายได้" ถูกยุบเข้า Executive Dashboard แล้ว (17 ก.ย. 2569) เนื้อในอยู่ที่
-  // features/dash-revenue/board/ เป็นแท็บ "Dashboard รายได้" กับ "Dashboard ลูกหนี้"
-  // ส่วนกำไรลูกค้า (ปันส่วนต้นทุน) ลงไปเป็นแท็บย่อยของ "Dashboard รายได้" อีกชั้น
+  // แท็บ "Dashboard รายได้" / "Dashboard ลูกหนี้" / "กำไรลูกค้า (ปันส่วนต้นทุน)" ลบออกแล้ว 24 ก.ย. 2569 (เจ้าของงานสั่ง)
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
   { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
   // ★ "การตั้งค่า" อยู่ล่างสุดของอาร์เรย์นี้เสมอ (สั่ง 23 ก.ย. 2569) — แถบเมนูเรียงตาม PAGES
@@ -115,6 +118,8 @@ export default function App() {
 
   const readHash = (): string => {
     const h = location.hash.replace(/^#\/?/, "");
+    // ปุ่ม "แก้ไข" ในรายการทั้งหมด/ใบที่ยังไม่ครบ ส่งมาที่ #/entry — ผู้ดูแลระบบไม่มีหน้านั้นแล้ว ให้ไปหน้ารวมแทน
+    if (h === "entry" && !allowed.includes(h) && allowed.includes("entry-all")) return "entry-all";
     return allowed.includes(h) ? h : (allowed[0] ?? "entry");
   };
   const [page, setPage] = useState<string>(readHash);
@@ -148,6 +153,37 @@ export default function App() {
   // main:3002 — นับบิลของใบใหม่ที่ยังไม่ได้ชำระ (ไม่รวมข้อมูลเก่าจากชีต)
   const debtCount = state.records.flatMap(recBills).filter((b) => !billIsPaid(b)).length;
 
+  // แท็บย่อยของเมนู Demo — hook ต้องอยู่ก่อน return ของหน้าเลือกตำแหน่ง
+  const demoNav = useDemoNav();
+  // ป็อบอัพของปุ่ม Demo เด้งใต้ปุ่ม (ที่ไม่พอค่อยขึ้นเหนือปุ่ม) · กด Demo = เปิดหน้า Demo + รายการส่วน · กดซ้ำ = ปิด
+  const [pop, setPop] = useState<{ kind: "demo"; top: number; left: number; width: number; up: boolean } | null>(null);
+  const popBtn = useRef<HTMLButtonElement | null>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const togglePop = (kind: "demo", btn: HTMLButtonElement): void => {
+    if (pop?.kind === kind) { setPop(null); return; }
+    const r = btn.getBoundingClientRect();
+    popBtn.current = btn;
+    const up = r.bottom + 220 > window.innerHeight;   // 4 รายการ ~200px
+    setPop({ kind, top: up ? r.top - 6 : r.bottom + 6, left: r.left, width: Math.max(r.width, 220), up });
+  };
+  useEffect(() => {
+    if (!pop) return;
+    const close = (e: Event): void => {
+      const t = e.target as Node;
+      if (popRef.current?.contains(t) || popBtn.current?.contains(t)) return;
+      setPop(null);
+    };
+    const esc = (e: KeyboardEvent): void => { if (e.key === "Escape") setPop(null); };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+      window.removeEventListener("resize", close);
+    };
+  }, [pop]);
+
   if (!role) return <RolePicker onPick={setRole} />;
 
   const cur = pages.find((p) => p.id === page) ?? pages[0];
@@ -163,7 +199,13 @@ export default function App() {
             <button
               key={p.id} type="button"
               className={"navitem" + (page === p.id ? " active" : "")}
-              onClick={() => goto(p.id)}
+              onClick={(e) => {
+                if (p.id === "demo") togglePop("demo", e.currentTarget);
+                else setPop(null);
+                goto(p.id);
+              }}
+              aria-haspopup={p.id === "demo" ? "menu" : undefined}
+              aria-expanded={p.id === "demo" ? pop?.kind === "demo" : undefined}
             >
               {p.icon}
               {p.label}
@@ -176,6 +218,17 @@ export default function App() {
             </button>
           ))}
         </nav>
+        {/* ป็อบอัพของปุ่ม Demo — กด = เลื่อนไปหาส่วนนั้นแล้วปิด (lib/ui/demoNav.ts) */}
+        {pop && page === "demo" && demoNav.parts.length > 0 && (
+          <div ref={popRef} role="menu" className={"navpop" + (pop.up ? " up" : "")}
+            style={{ top: pop.top, left: pop.left, width: pop.width }}>
+            {demoNav.parts.map((x) => (
+              <button key={x.id} type="button" role="menuitem"
+                className={"navpopitem" + (demoNav.active === x.id ? " active" : "")}
+                onClick={() => { demoGo(x.id); setPop(null); }}>{x.label}</button>
+            ))}
+          </div>
+        )}
       </aside>
 
       <main className="app">
@@ -207,7 +260,8 @@ export default function App() {
           <ErrorBoundary resetKey={page} where={cur ? `หน้า “${cur.h1}”` : undefined}>
             {page === "bills" && <BillEntry />}
             {page === "dispatch" && <DispatchPage state={state} role={role} />}
-            {page === "entry" && <EntryForm role={role} state={state} />}
+            {page === "entry" && <EntryForm key="entry" role={role} state={state} />}
+            {page === "entry-all" && <EntryAll role={role} state={state} />}
             {page === "drafts" && <Drafts state={state} />}
             {page === "records" && <RecordsList role={role} state={state} />}
             {page === "debtors" && <Debtors state={state} />}
@@ -221,8 +275,7 @@ export default function App() {
                 {page === "dash-fleet" && <FleetDash state={state} role={role} sample={isSample} />}
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
                 {page === "route-profit" && <RouteProfit state={state} />}
-                {page === "exec-dash" && <CostRevDash mode="exec" state={state} />}
-                {page === "all-dash" && <CostRevDash mode="all" state={state} />}
+                {page === "exec-dash" && <CostRevDash />}
                 {page === "demo" && <DemoDash />}
               </Suspense>
             </DashPageContext.Provider>

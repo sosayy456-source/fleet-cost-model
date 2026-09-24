@@ -10,6 +10,7 @@
  * (★ Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์ ต้องดู content-type ไม่ใช่แค่ status)
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Period } from "../filter/period";
 
 export type AllocDataset = "sample" | "real";
 
@@ -98,6 +99,16 @@ export interface AllocBill {
 
 /** "ปี|เดือน" → ดัชนีลูกค้า Top 10 กำไรสูงสุด (gain) / ขาดทุนมากสุด (loss) เป็นบาท ที่ ETL คัดไว้ */
 export type AllocTop = Record<string, { gain: number[]; loss: number[] }>;
+
+/**
+ * คีย์ของ top.json ตามช่วงเวลา — ต้องตรงกับ top_by_period() ใน etl/build_alloc.py
+ *   ทุกปี "|" · ทั้งปี "2026|" · เดือนเดียว "2026|03" · ช่วงเดือน "2026|03-05" (เพิ่ม 24 ก.ย. 2569)
+ */
+export function allocTopKey(p: Period): string {
+  if (!p.year) return "|";
+  if (p.from === "01" && p.to === "12") return `${p.year}|`;
+  return p.from === p.to ? `${p.year}|${p.from}` : `${p.year}|${p.from}-${p.to}`;
+}
 
 export interface AllocData {
   manifest: AllocManifest;

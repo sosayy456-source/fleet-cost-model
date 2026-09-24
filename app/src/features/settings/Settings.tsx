@@ -9,6 +9,7 @@ import PriceTable from "../entry/panels/PriceTable";
 import RepairTable from "../entry/panels/RepairTable";
 import RepairImport from "./RepairImport";
 import ForecastSettings from "./ForecastSettings";
+import EnRouteSettings from "./EnRouteSettings";
 import SheetSettings from "./SheetSettings";
 import VehicleSpecTable from "./VehicleSpecTable";
 
@@ -22,6 +23,8 @@ export default function Settings() {
       </div>
       {/* ตั้งค่าจำนวนเดือนย้อนหลังของต้นทุนพยากรณ์ (สเปก 22 ก.ย. 2569) */}
       <ForecastSettings />
+      {/* จุดระหว่างทางของหน้าจัดรถ (24 ก.ย. 2569) */}
+      <EnRouteSettings />
       <RepairTable />
       {/* วางใต้ตารางค่าซ่อม เพราะผลการนำเข้าลงในตารางนั้นโดยตรง */}
       <RepairImport />

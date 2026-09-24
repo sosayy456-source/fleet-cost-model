@@ -23,19 +23,23 @@ import FilterBar, { ClearFiltersBtn } from "../../../lib/ui/FilterBar";
 import GrowBox from "../../../lib/ui/GrowBox";
 import EtlBanner from "../../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../../lib/data/etlStatus";
-import { useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { lfShellSource, useLoadFactor } from "../../../lib/data/useLoadFactor";
+import { useShellSource } from "../../../lib/ui/dashContext";
 import type { LfTrip } from "../../../lib/data/useLoadFactor";
 import {
   BE_LABEL, beTone, groupTrips, rankGroups, summarize, trend, whatIf,
 } from "../../../lib/loadfactor/calc";
 import type { LfGroupKey, LfRank } from "../../../lib/loadfactor/calc";
-import { FF, Hero, Note, Pane } from "../../dash-fleet/parts";
-import { ListFF, MonthFF, duniq, fmt, isFiltered, monthName, pct } from "../common";
+import { Hero, Note, Pane } from "../../dash-fleet/parts";
+import { ListFF, PeriodFF, duniq, fmt, isFiltered, monthName, pct } from "../common";
+import { PERIOD_ALL, inPeriod as inPeriodOf, periodLabel as periodText } from "../../../lib/filter/period";
+import type { Period } from "../../../lib/filter/period";
 import LfMatrix from "./LfMatrix";
 import TruckLoader from "../../../lib/ui/TruckLoader";
 
-interface Filter { year: string; month: string; ft: string }
-const F0: Filter = { year: "", month: "", ft: "" };
+/** ปี + ช่วงเดือน (แบบแท็บ Damage Rate — 24 ก.ย. 2569) + ประเภทรถ */
+interface Filter extends Period { ft: string }
+const F0: Filter = { ...PERIOD_ALL, ft: "" };
 
 const pctOf = (x: number, d = 0): string => pct(x * 100, d);
 const baht = (n: number): string => fmt(Math.round(n));
@@ -44,6 +48,7 @@ export default function LoadFactorTab() {
   const { data, error, reload } = useLoadFactor();
   const etl = useEtlStatus("loadfactor");
   useAutoReloadOnEtl(etl, reload);
+  useShellSource(lfShellSource(data?.manifest));
   return (
     <>
       <EtlBanner status={etl} />
@@ -73,15 +78,14 @@ function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; 
   const [beKey, setBeKey] = useState<LfGroupKey>("rt");
   const [delta, setDelta] = useState(15);
 
-  const years = useMemo(() => duniq(trips.map((t) => String(t.y))), [trips]);
 
   /** ชั้นที่ 1: ประเภทรถ + ชนิดรถ/เส้นทางที่กด (ยังไม่กรองเวลา — ส่วนแนวโน้มใช้ชุดนี้) */
   const scope = useMemo(
     () => trips.filter((t) => (!f.ft || t.ft === f.ft) && (!vk || t.vk === vk) && (!rt || t.rt === rt)),
     [trips, f.ft, vk, rt]);
-  const inPeriod = (t: LfTrip) => (!f.year || String(t.y) === f.year) && (!f.month || t.mo.slice(5) === f.month);
-  /** ชั้นที่ 2: + ปี/เดือน — ทุกส่วนยกเว้นแนวโน้มใช้ชุดนี้ */
-  const rows = useMemo(() => scope.filter(inPeriod), [scope, f.year, f.month]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const inPeriod = (t: LfTrip) => inPeriodOf(t, f);
+  /** ชั้นที่ 2: + ปี/ช่วงเดือน — ทุกส่วนยกเว้นแนวโน้มใช้ชุดนี้ */
+  const rows = useMemo(() => scope.filter(inPeriod), [scope, f.year, f.from, f.to]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- 1. ภาพรวม ---------- */
   const sum = useMemo(() => summarize(rows), [rows]);
@@ -111,16 +115,12 @@ function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; 
     vk && { k: "ชนิดรถ", v: vk, clear: () => setVk(null) },
     rt && { k: "เส้นทาง", v: rt, clear: () => setRt(null) },
   ].filter(Boolean) as { k: string; v: string; clear: () => void }[];
-  const periodLabel = (f.year ? `พ.ศ. ${+f.year + 543}` : "ทุกปี") + (f.month ? ` · ${monthName(f.month)}` : "");
+  const periodLabel = periodText(f);
 
   return (
     <>
       <FilterBar>
-        <FF label="ปี" value={f.year} onChange={set("year")}>
-          <option value="">ทุกปี</option>
-          {years.map((y) => <option key={y} value={y}>พ.ศ. {+y + 543}</option>)}
-        </FF>
-        <MonthFF value={f.month} onChange={set("month")} />
+        <PeriodFF trips={trips} value={f} onChange={setF} />
         <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(trips.map((t) => t.ft))} />
         <ClearFiltersBtn active={isFiltered(f, F0) || !!vk || !!rt} onClick={() => { setF(F0); setVk(null); setRt(null); }} />
       </FilterBar>
