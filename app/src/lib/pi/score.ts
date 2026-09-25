@@ -6,7 +6,10 @@
  *   คะแนนหมวด = ผลรวมสองตัวชี้วัด (เต็ม 20) · คะแนนรวม = ผลรวม 5 หมวด (เต็ม 100)
  *
  * ★ เกณฑ์สีเป็นตัวเลขตายตัวตามตารางของเจ้าของงาน (เจ้าของงานเลือก — ไม่คิด percentile สดจากข้อมูล)
- *   ช่องที่ตารางยังว่าง = band: null → "รอเกณฑ์" ไม่นับทั้งคะแนนและฐาน (คะแนนรวมบอกฐานที่คิดได้ไว้ด้วย)
+ *   ตารางรุ่น "Performance Index.pdf" (25 ก.ย. 2569) เติม Route / Service group (> 10% · 5–10% · < 5%) แล้ว ·
+ *   **Empty Return ใช้เกณฑ์ของแท็บ Empty Trips** (P25/P75 ของ % เที่ยวเปล่ารายเส้นทาง — เจ้าของงานสั่ง) เกณฑ์ขยับตามข้อมูล
+ *   จึงไม่ผ่าน band ตายตัว ให้สีใน lib/pi/empty.ts แล้วนับด้วย bandResult() สูตรเดียวกัน
+ *   metricResult() ของตัวที่ band: null ยังคืน "รอเกณฑ์" ไว้เผื่อตัวชี้วัดใหม่ที่ยังไม่มีเกณฑ์
  *   ชุดตัวอย่างมี Cost per Ton-km แพงกว่าเกณฑ์มาก (P25 ≈ 5.7 บาท) เกือบทุกคันจึงเป็นแดง — ผลของเกณฑ์ ไม่ใช่บั๊ก
  * ★ On-time Delivery ตัดออก (เจ้าของงานสั่ง) หมวด Service Quality เหลือ Damage Rate (DR) + Damage Incidence Rate (DIR)
  *   ตัวละ 10 คะแนน ให้คะแนนรวมยังเต็ม 100 · **สองตัวนี้ไม่ใช้การนับสี** — คิดคะแนนต่อเนื่องเทียบ P75 ตามสเปก
@@ -24,32 +27,74 @@ export interface MetricDef {
   label: string;
   /** หน่วยของ "รายการ" ที่ให้สี — ใช้ในข้อความบอกจำนวน */
   unit: string;
-  /** ให้สีรายการหนึ่งจากค่าของมัน · null = ยังไม่มีเกณฑ์ (รอตารางอัปเดต) */
+  /** ให้สีรายการหนึ่งจากค่าของมัน · null = ไม่ได้ให้สีด้วยเกณฑ์ตายตัว (Empty Return · DR · DIR) */
   band: ((v: number) => Band) | null;
+  /** ค่าที่วัดต่อรายการ — ป็อบอัพที่มาของคะแนน */
+  measure: string;
+  /** ข้อมูลที่ใช้และตัวกรองที่ตาม — ป็อบอัพที่มาของคะแนน */
+  source: string;
+  /** ข้อความเกณฑ์ เขียว · เหลือง · แดง — null = ไม่ได้นับสี (DR/DIR คิดคะแนนต่อเนื่อง) */
+  criteria: [string, string, string] | null;
 }
 
+/** ค่ามาก = ดี · v > green → เขียว (เกินเท่านั้น) · yellow ≤ v → เหลือง · ต่ำกว่านั้นแดง — ตาราง "> 10% · 5%-10% · < 5%" */
+const above = (green: number, yellow: number) => (v: number): Band => (v > green ? "g" : v >= yellow ? "y" : "r");
 /** ค่ามาก = ดี · green ≤ v → เขียว · yellow ≤ v → เหลือง · ต่ำกว่านั้นแดง */
 const higher = (green: number, yellow: number) => (v: number): Band => (v >= green ? "g" : v >= yellow ? "y" : "r");
 /** ค่าน้อย = ดี · v ≤ green → เขียว · v ≤ yellow → เหลือง · เกินนั้นแดง */
 const lower = (green: number, yellow: number) => (v: number): Band => (v <= green ? "g" : v <= yellow ? "y" : "r");
 
 export const METRICS: Record<MetricKey, MetricDef> = {
-  route: { label: "Route", unit: "เส้นทาง", band: null },
-  service: { label: "Service group", unit: "กลุ่มบริการ", band: null },
+  // %Margin รายเส้นทาง = Σกำไร ÷ Σรายได้ (lib/pi/route.ts) · > 10% / 5–10% / < 5%
+  route: { label: "Route", unit: "เส้นทาง", band: above(10, 5),
+    measure: "%Margin ของแต่ละเส้นทาง = Σกำไร ÷ Σรายได้ (รายได้ 0 แล้วขาดทุน = −100%)",
+    source: "เที่ยวของ Profit Per Route ตามตัวกรองทุกตัวของหน้า",
+    criteria: ["> 10%", "5% – 10%", "< 5%"] },
+  // %Margin ของ 3 กลุ่มบริการบนการ์ดท้าย Profit Per Route · > 10% / 5–10% / < 5%
+  service: { label: "Service group", unit: "กลุ่มบริการ", band: above(10, 5),
+    measure: "%Margin ของแต่ละกลุ่มบริการ = Σกำไร ÷ Σรายได้ (3 กลุ่มบนการ์ดท้าย Profit Per Route)",
+    source: "เที่ยวของ Profit Per Route ตามตัวกรองทุกตัวของหน้า",
+    criteria: ["> 10%", "5% – 10%", "< 5%"] },
   // Max LF รายเที่ยวของไฟล์ Load Factor (สัดส่วน 0–1.3) · ≥ 84% / 47–84% / < 47%
-  lf: { label: "Load Factor", unit: "เที่ยว", band: higher(0.84, 0.47) },
-  empty: { label: "Empty Return", unit: "เที่ยว", band: null },
-  // บาท ÷ ตัน-กม. รายคัน (VRow.perTkm ของหน้ารายละเอียด ข้อ 3) · ≤ 1.28 / 1.28–2.64 / > 2.64
-  tkm: { label: "Cost per Ton-km", unit: "คัน", band: lower(1.28, 2.64) },
+  lf: { label: "Load Factor", unit: "เที่ยว", band: higher(0.84, 0.47),
+    measure: "Max LF ของแต่ละเที่ยว (ฝั่งที่เต็มกว่าระหว่างน้ำหนักกับปริมาตร)",
+    source: "ไฟล์ Load Factor ตามตัวกรอง ปี · ช่วงเดือน · ประเภทรถ · ชนิดรถ (ไฟล์ไม่มีต้นทาง/ปลายทาง/กลุ่มบริการ)",
+    criteria: ["≥ 84%", "47% – 84%", "< 47%"] },
+  // เกณฑ์ของแท็บ Empty Trips (P25/P75) — ให้สีใน lib/pi/empty.ts ไม่ผ่าน band
+  empty: { label: "Empty Return", unit: "เส้นทาง", band: null,
+    measure: "% เที่ยววิ่งเปล่าของแต่ละเส้นทาง (ตามทิศ) = เที่ยวเปล่า ÷ เที่ยวทั้งหมด (นับเที่ยว)",
+    source: "เที่ยวในไฟล์ต้นทุนตามตัวกรองของหน้า ยกเว้นกลุ่มบริการ (เที่ยวเปล่าไม่มีกลุ่มบริการ) · "
+      + "P25/P75 คิดจากทุกเส้นทางในช่วงเวลา + ประเภทรถ/ชนิดรถที่เลือก ไม่ตามต้นทาง/ปลายทาง — เกณฑ์เดียวกับแท็บ Empty Trips",
+    criteria: ["≤ P25", "P25 – P75", "> P75"] },
+  // บาท ÷ ตัน-กม. รายคัน (VRow.perTkm ของแท็บ Vehicle Utilization Cost) · ≤ 1.28 / 1.28–2.64 / > 2.64
+  tkm: { label: "Cost per Ton-km", unit: "คัน", band: lower(1.28, 2.64),
+    measure: "ต้นทุน ÷ ตัน-กม. ของแต่ละคัน (บาท) — คันที่ไม่มีน้ำหนัก/ระยะทางไม่นับ",
+    source: "รายคันของแท็บ Vehicle Utilization Cost ตามตัวกรองทุกตัวของหน้า",
+    criteria: ["≤ 1.28 บาท", "1.28 – 2.64 บาท", "> 2.64 บาท"] },
   // Contribution ÷ ค่าเสื่อม (เท่า) รายคัน เฉพาะรถบริษัทที่มีค่าเสื่อม · ≥ 47.27 / 12.93–47.27 / < 12.93
-  coverage: { label: "Fixed Cost Coverage", unit: "คัน", band: higher(47.27, 12.93) },
+  coverage: { label: "Fixed Cost Coverage", unit: "คัน", band: higher(47.27, 12.93),
+    measure: "Contribution ÷ ค่าเสื่อม ของแต่ละคัน (เท่า) — เฉพาะรถบริษัทที่มีค่าเสื่อม",
+    source: "รายคันของแท็บ Vehicle Utilization Cost ตามตัวกรองทุกตัวของหน้า",
+    criteria: ["≥ 47.27 เท่า", "12.93 – 47.27 เท่า", "< 12.93 เท่า"] },
   // %Margin รายลูกค้า (marginOf ของหน้ากำไรลูกค้า) · ≥ 10% / 0–10% / < 0%
-  custProfit: { label: "Customer Net Profit", unit: "ลูกค้า", band: higher(10, 0) },
+  custProfit: { label: "Customer Net Profit", unit: "ลูกค้า", band: higher(10, 0),
+    measure: "%Margin ของแต่ละลูกค้า (หลังปันต้นทุนเข้าลูกค้า)",
+    source: "ชุดปันส่วนต้นทุน (alloc/) ตามตัวกรอง ปี · ช่วงเดือน (วันที่บิล)",
+    criteria: ["≥ 10%", "0% – 10%", "< 0% (ขาดทุน)"] },
   // วันที่จ่ายช้ากว่ากำหนดรายบิล (ตามไฟล์ลูกหนี้ ณ วันที่เลือก) · ตรงกำหนด / ช้า 1–30 วัน / ช้าเกิน 30 วัน
-  dso: { label: "DSO", unit: "บิล", band: lower(0, 30) },
+  dso: { label: "DSO", unit: "บิล", band: lower(0, 30),
+    measure: "จำนวนวันที่จ่ายช้ากว่ากำหนดของแต่ละบิล",
+    source: "ไฟล์ลูกหนี้ ณ \"ข้อมูล ณ วันที่\" ของส่วน DSO (ไม่ตามตัวกรองของหน้า)",
+    criteria: ["จ่ายตรงกำหนด", "จ่ายช้า 1 – 30 วัน", "ช้าเกิน 30 วัน"] },
   // คะแนนต่อเนื่อง MAX(0, 10 − 5 × KPI ÷ P75) — lib/pi/damage.ts ไม่ผ่าน band
-  dr: { label: "Damage Rate", unit: "", band: null },
-  dir: { label: "Damage Incidence Rate", unit: "", band: null },
+  dr: { label: "Damage Rate", unit: "", band: null,
+    measure: "มูลค่าบิลเคลียร์ ÷ รายได้รวม (Σ ÷ Σ ของช่วงที่เลือก)",
+    source: "เที่ยวที่จับคู่บิลได้ ไม่รวมเที่ยววิ่งเปล่า ตามตัวกรองทุกตัวของหน้า · P75 จาก KPI รายเดือนของทั้งบริษัททุกเดือนในไฟล์",
+    criteria: null },
+  dir: { label: "Damage Incidence Rate", unit: "", band: null,
+    measure: "เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมด",
+    source: "เที่ยวที่จับคู่บิลได้ ไม่รวมเที่ยววิ่งเปล่า ตามตัวกรองทุกตัวของหน้า · P75 จาก KPI รายเดือนของทั้งบริษัททุกเดือนในไฟล์",
+    criteria: null },
 };
 
 export interface IndexDef { id: string; title: string; subs: [MetricKey, MetricKey] }
@@ -82,10 +127,19 @@ export const scoreOf = (t: Tally): number | null => (t.n ? (t.g + 0.5 * t.y) / t
 /**
  * ผลของตัวชี้วัดหนึ่งตัว — pending = ยังไม่มีเกณฑ์ · score null = ไม่มีข้อมูล/ประเมินไม่ได้
  * na = ป้ายแทน "ไม่มีข้อมูล" เมื่อมีเหตุเฉพาะ (เช่น "ข้อมูลไม่เพียงพอ") · detail = ที่มาของคะแนนสำหรับ tooltip (ตัวที่ไม่ได้นับสี)
+ * basis = ค่าเกณฑ์ที่คิดจากข้อมูล (P25/P75 ของ Empty Return · P75 ของ DR/DIR) — ขึ้นในป็อบอัพที่มาของคะแนน
  */
 export interface MetricResult {
   key: MetricKey; pending: boolean; tally: Tally | null; score: number | null;
-  na?: string; detail?: string;
+  na?: string; detail?: string; basis?: string;
+}
+
+/** สีที่ให้มาแล้ว (เกณฑ์ขยับตามข้อมูล เช่น Empty Return) → ผลของตัวชี้วัด · bands null = ไม่มีข้อมูล */
+export function bandResult(key: MetricKey, bands: Band[] | null, extra?: Pick<MetricResult, "na" | "basis">): MetricResult {
+  if (!bands) return { key, pending: false, tally: null, score: null, ...extra };
+  const t: Tally = { g: 0, y: 0, r: 0, n: bands.length };
+  for (const b of bands) t[b]++;
+  return { key, pending: false, tally: t, score: scoreOf(t), ...extra };
 }
 
 /** ค่าของทุกรายการ → ผลของตัวชี้วัด · values null = ชุดข้อมูลยังไม่มี/โหลดไม่ได้ */

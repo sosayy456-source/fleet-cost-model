@@ -64,6 +64,11 @@ export function damageResults(trips: DamageTrip[], ref: DamageRef): [MetricResul
     detail: `มี ${k.n} เที่ยว ต้องอย่างน้อย ${ref.minTrips} เที่ยว (= 100 ÷ (2 × P75 ${pctTxt(ref.p75Dir ?? 0, 2)})) — เสีย 1 เที่ยวจะได้ 0 ทันที` };
   else { const s = p75Score(k.incidence, ref.p75Dir); dir = { key: "dir", pending: false, tally: null, score: s, detail: why(k.incidence, ref.p75Dir, 2, s) }; }
 
+  // ป็อบอัพที่มาของคะแนน — P75 ของชุดอ้างอิงที่ใช้เทียบ
+  const basis = (p75: number | null, d: number) => (p75 == null ? `ชุดอ้างอิง ${ref.months} เดือนไม่มีความเสียหายเลย`
+    : `P75 = ${pctTxt(p75, d)} จาก KPI รายเดือนของทั้งบริษัท ${ref.months} เดือน`);
+  dr.basis = basis(ref.p75Dr, 3);
+  dir.basis = basis(ref.p75Dir, 2) + ` · ต้องมีอย่างน้อย ${ref.minTrips} เที่ยว`;
   return [dr, dir];
 }
 

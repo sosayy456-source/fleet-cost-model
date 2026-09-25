@@ -2377,3 +2377,55 @@ body:has(#view-dash.active){background:#EDE7DF}
 /* กด C กลับจุดเดิม (lib/ui/returnPoint.ts · 25 ก.ย. 2569) — ซ่อนเนื้อหาระหว่างรอหน้าปลายทางวาดเสร็จ แล้วกระโดดไปจุดเดิมทีเดียว
    ไม่ให้เห็นจอวิ่งผ่านตารางระหว่างทาง · visibility (ไม่ใช่ display) เพื่อให้หน้ายังสูงตามจริงและวัดความสูงได้ · แถบเมนูซ้ายยังแสดง */
 html.rp-returning .app{visibility:hidden}
+
+/* Performance Index — กดกล่องคะแนนรวมเปิดป็อบอัพที่มาของคะแนน (PiDetailModal ใน PiIndex.tsx · 25 ก.ย. 2569)
+   สีเขียว/เหลือง/แดงชุดเดียวกับป้ายสถานะของ PI · เส้นซ้ายของแต่ละหมวดใช้สีต้นของพื้นไล่สีกล่องหมวดนั้น */
+#view-dash .pi-click{cursor:pointer;transition:transform .18s,box-shadow .18s}
+#view-dash .pi-click:hover{transform:translateY(-2px);box-shadow:0 22px 40px -26px rgba(30,27,75,.8)}
+#view-dash .pi-click:focus-visible{outline:3px solid #A5B4FC;outline-offset:3px}
+#view-dash .pi-more{font-style:normal;flex:none;padding:4px 12px;border-radius:999px;font-size:12.5px;font-weight:700;
+  color:#fff;background:rgba(255,255,255,.18)}
+#view-dash .pi-dm{max-width:min(980px,94vw)}
+#view-dash .pi-dm-body{display:flex;flex-direction:column;gap:14px}
+#view-dash .pi-dm-ix{border:1px solid var(--d-line2);border-left:5px solid var(--ix);border-radius:14px;padding:12px 16px;background:var(--d-soft)}
+#view-dash .pi-dm-ix.t-route{--ix:#4B2ED4}
+#view-dash .pi-dm-ix.t-fleet{--ix:#0E7490}
+#view-dash .pi-dm-ix.t-cost{--ix:#B45309}
+#view-dash .pi-dm-ix.t-cust{--ix:#0E8F6F}
+#view-dash .pi-dm-ix.t-service{--ix:#6D28D9}
+#view-dash .pi-dm-ixh{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#view-dash .pi-dm-ixh h4{margin:0;font-size:15.5px;font-weight:700;color:var(--ix)}
+#view-dash .pi-dm-ixh span{font-size:14px;color:var(--d-ink3)}
+#view-dash .pi-dm-ixh b{font-size:22px;font-weight:800;color:var(--d-ink)}
+#view-dash .pi-dm-ixh em{font-style:normal;font-size:12.5px}
+#view-dash .pi-dm-m{margin-top:10px;padding:10px 14px;border-radius:12px;background:var(--d-card);border:1px solid var(--d-line)}
+#view-dash .pi-dm-mh{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+#view-dash .pi-dm-mh b{font-size:14.5px;color:var(--d-ink)}
+#view-dash .pi-dm-sc{font-size:16px;font-weight:800;color:var(--d-ink)}
+#view-dash .pi-dm-sc.na{font-size:13px;font-weight:700;color:var(--d-ink3)}
+#view-dash .pi-dm-dl{display:grid;grid-template-columns:64px 1fr;gap:5px 10px;margin:8px 0 0;font-size:13px;line-height:1.55}
+#view-dash .pi-dm-dl dt{color:var(--d-ink3)}
+#view-dash .pi-dm-dl dd{margin:0;color:var(--d-ink2);min-width:0}
+#view-dash .pi-dm-crit,#view-dash .pi-dm-count{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+#view-dash .pi-dm-chip{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;font-weight:700}
+#view-dash .pi-dm-chip i,#view-dash .pi-dm-dot{display:inline-block;width:8px;height:8px;border-radius:999px;background:currentColor}
+#view-dash .pi-dm-dot{margin-right:5px;vertical-align:1px}
+#view-dash .pi-dm-chip.g{color:#0B7A62;background:#DDF4EC}
+#view-dash .pi-dm-chip.y{color:#8A5A07;background:#FBEFD6}
+#view-dash .pi-dm-chip.r{color:#B4233A;background:#FBE1E5}
+#view-dash .pi-dm-dot.g{color:#0E8F6F}
+#view-dash .pi-dm-dot.y{color:#D99A1E}
+#view-dash .pi-dm-dot.r{color:#D6405A}
+#view-dash .pi-dm-basis{display:block;margin-top:4px;color:var(--d-ink3)}
+#view-dash .pi-dm-stack{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--d-rail);margin:4px 0 6px;max-width:420px}
+#view-dash .pi-dm-stack i.g{background:#0E8F6F}
+#view-dash .pi-dm-stack i.y{background:#D99A1E}
+#view-dash .pi-dm-stack i.r{background:#D6405A}
+#view-dash .pi-dm-f{display:block;margin-top:4px;color:var(--d-ink)}
+#view-dash .pi-dm-f b{font-weight:800}
+#view-dash .pi-dm-sum{width:100%;border-collapse:collapse;font-size:13.5px}
+#view-dash .pi-dm-sum td{padding:8px 10px;border-bottom:1px solid var(--d-row);color:var(--d-ink2)}
+#view-dash .pi-dm-sum td.n{text-align:right;font-weight:700;color:var(--d-ink);white-space:nowrap}
+#view-dash .pi-dm-sum tfoot td{border-bottom:0;font-weight:800;font-size:15px;color:var(--d-ink)}
+@media (max-width: 600px){#view-dash .pi-dm-dl{grid-template-columns:1fr}#view-dash .pi-dm-dl dt{font-weight:700}}
+@media (prefers-reduced-motion: reduce){#view-dash .pi-click{transition:none}#view-dash .pi-click:hover{transform:none}}

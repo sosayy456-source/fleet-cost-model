@@ -4,6 +4,11 @@ import { METRICS, metricResult, scoreOf, sumScores, tally } from "./score";
 const bandOf = (k: keyof typeof METRICS) => METRICS[k].band!;
 
 describe("เกณฑ์สีตามตารางของเจ้าของงาน — ขอบเขตรวมอยู่ฝั่งไหน", () => {
+  it("Route / Service group > 10% / 5–10% / < 5% (10% พอดีเป็นเหลือง)", () => {
+    for (const k of ["route", "service"] as const) {
+      expect([10.01, 10, 5, 4.99, -100].map(bandOf(k))).toEqual(["g", "y", "y", "r", "r"]);
+    }
+  });
   it("Load Factor ≥ 84% / 47–84% / < 47%", () => {
     const b = bandOf("lf");
     expect([0.84, 0.8399, 0.47, 0.4699].map(b)).toEqual(["g", "y", "y", "r"]);
@@ -38,8 +43,8 @@ describe("คะแนน (เขียว + 0.5 × เหลือง) ÷ ร�
   it("ไม่มีรายการ = null ไม่ใช่ 0", () => {
     expect(scoreOf({ g: 0, y: 0, r: 0, n: 0 })).toBeNull();
   });
-  it("ยังไม่มีเกณฑ์ = รอเกณฑ์ ไม่นับเข้าฐานของคะแนนรวม", () => {
-    const rs = [metricResult("route", [1, 2]), metricResult("lf", [0.9, 0.1]), metricResult("tkm", null)];
+  it("ไม่มีเกณฑ์ตายตัว = รอเกณฑ์ ไม่นับเข้าฐานของคะแนนรวม", () => {
+    const rs = [metricResult("empty", [1, 2]), metricResult("lf", [0.9, 0.1]), metricResult("tkm", null)];
     expect(rs[0]).toMatchObject({ pending: true, score: null });
     expect(rs[2]).toMatchObject({ pending: false, tally: null, score: null });
     expect(sumScores(rs)).toEqual({ score: 5, max: 10 });

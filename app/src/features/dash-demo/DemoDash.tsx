@@ -104,7 +104,7 @@ export default function DemoDash() {
   const m = data?.manifest;
   /** เที่ยวที่กรองแล้วสำหรับกล่อง PI — null = ไฟล์ต้นทุนยังไม่มี/โหลดไม่ได้ (กล่องขึ้น "ไม่มีข้อมูล") */
   const piTrips = m && !error ? trips : null;
-  /** ชุดอ้างอิงของ P75 ใน Service Quality — ทุกเที่ยวในชุด ไม่ตามตัวกรอง */
+  /** ทุกเที่ยวในชุด ไม่ตามตัวกรอง — ชุดอ้างอิงของ P75 ใน Service Quality และชุดที่ Empty Return กรองเอง (ข้ามกลุ่มบริการ) */
   const piRef = m && !error ? all : null;
   const meta = m && (
     <Meta parts={[
@@ -158,9 +158,9 @@ export default function DemoDash() {
         </FilterBar>
 
         <PiReportProvider value={pi.report}>
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={f} />}<PiRoute /></>)}
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={f} />}<PiRoute trips={piTrips} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={all} trips={trips} tripsAnyYear={tripsAnyYear} f={f} />}
-            <PiFleet f={f} /></>)}
+            <PiFleet f={f} all={piRef} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={f.year} />}
             <PiCost trips={piTrips} /></>)}
           {part("cust", <>

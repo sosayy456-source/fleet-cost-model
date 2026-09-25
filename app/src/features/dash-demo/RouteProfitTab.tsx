@@ -38,9 +38,9 @@ import RouteMap, { type MapRoute } from "./RouteMap";
 import TonKmDemoRow from "../dash-costrev/tonkm/TonKmDemoRow";
 import { fixedOf, otherOf, semiOf, variableOf } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
+// กลุ่มบริการของการ์ดท้ายหน้า + %Margin รายเส้นทาง — ชุดเดียวกับ Performance Index (Route & Service)
+import { SERVICE_GROUPS, routeMargin } from "../../lib/pi/route";
 
-/** กลุ่มบริการที่ทำเป็นการ์ดท้ายหน้า — ชื่อต้องตรงกับ sg ที่ ETL เติมจากประเภทสินค้าในบิล */
-const SERVICE_GROUPS = ["สินค้าทั่วไป", "สินค้าแช่เย็น", "สินค้าแช่แข็ง"] as const;
 
 /**
  * กลุ่มต้นทุนตามเอกสาร "การจัดประเภทต้นทุนสำหรับ Dashboard" (ชุดเดียวกับแท็บต้นทุนของ Executive Dashboard)
@@ -141,7 +141,7 @@ export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFil
       perTrip: a.profit / a.n,
       // รายได้ 0 แล้วขาดทุน = เสียต้นทุนไปทั้งก้อนโดยไม่ได้อะไรกลับ → −100% (เจ้าของงานเลือก 21 ก.ย. 2569)
       // หารด้วยศูนย์ตรง ๆ ไม่ได้ · รายได้ 0 และไม่ขาดทุน (ต้นทุน 0 ด้วย) ยังเป็น null = "–"
-      margin: a.rev ? a.profit / a.rev * 100 : a.profit < 0 ? -100 : null,
+      margin: routeMargin(a.rev, a.profit),
       rank: 0,
     }));
     [...list].sort((a, b) => b.perTrip - a.perTrip).forEach((r, i) => { r.rank = i + 1; });
