@@ -2373,3 +2373,7 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .pi-st.fail{color:#B4233A}
 @media (prefers-reduced-motion: reduce){#view-dash .pi-box,#view-dash .pi-total{animation:none}
   #view-dash .pi-meter i,#view-dash .pi-bar i{transition:none}}
+
+/* กด C กลับจุดเดิม (lib/ui/returnPoint.ts · 25 ก.ย. 2569) — ซ่อนเนื้อหาระหว่างรอหน้าปลายทางวาดเสร็จ แล้วกระโดดไปจุดเดิมทีเดียว
+   ไม่ให้เห็นจอวิ่งผ่านตารางระหว่างทาง · visibility (ไม่ใช่ display) เพื่อให้หน้ายังสูงตามจริงและวัดความสูงได้ · แถบเมนูซ้ายยังแสดง */
+html.rp-returning .app{visibility:hidden}

@@ -38,6 +38,7 @@ import { loadSessionRole, saveSessionRole } from "./lib/store/sessionRole";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
 import { DEMO_PARTS, demoGo, useDemoNav } from "./lib/ui/demoNav";
+import { clearReturnPoints, goBack, hasReturnPoint } from "./lib/ui/returnPoint";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
 const I = {
@@ -145,7 +146,24 @@ export default function App() {
   }, [role]);
 
   // เปลี่ยนเมนูแล้วโหลดใบใหม่แบบเบาด้วย — หน้าถัดไปเห็นของล่าสุดเสมอ
-  const goto = (p: string) => { location.hash = `#/${p}`; setPage(p); state.refresh(); };
+  // กดเมนูเอง = เริ่มใหม่ ล้างจุดย้อนกลับของกล่องลิงก์ทิ้ง (lib/ui/returnPoint.ts)
+  const goto = (p: string) => { clearReturnPoints(); location.hash = `#/${p}`; setPage(p); state.refresh(); };
+
+  /* กดปุ่ม C = กลับไปจุดเดิมก่อนกดกล่องลิงก์ (เจ้าของงานขอ 25 ก.ย. 2569 — รุ่นแรกเป็นคลิกขวา แล้วเปลี่ยนเป็นปุ่ม C)
+     ดูจาก e.code ("KeyC") ไม่ใช่ e.key — แป้นภาษาไทยปุ่มเดียวกันพิมพ์ "แ" ก็ยังใช้ได้ ·
+     ไม่ทำงานตอนพิมพ์ในช่องกรอก และตอนกดคู่ Ctrl/⌘/Alt (Ctrl+C คัดลอกต้องใช้ได้ตามปกติ) · ไม่มีจุดให้กลับ = ไม่ทำอะไร */
+  useEffect(() => {
+    const on = (e: KeyboardEvent): void => {
+      if (e.code !== "KeyC" || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const t = e.target as Element | null;
+      if (t?.closest?.("input, textarea, select, [contenteditable]")) return;
+      if (!hasReturnPoint()) return;
+      e.preventDefault();
+      goBack();
+    };
+    document.addEventListener("keydown", on);
+    return () => document.removeEventListener("keydown", on);
+  }, []);
 
   // main:2355 — นับเฉพาะใบที่ยังไม่ครบ "และฝ่ายของเรายังไม่ได้กรอก" จึงเปลี่ยนตามตำแหน่ง
   const draftCount = state.records.filter((r) => !roleAllDone(r) && !(role && roleDone(r, role))).length;
@@ -202,7 +220,8 @@ export default function App() {
         </nav>
       </aside>
 
-      <main className="app">
+      {/* data-page = หน้าที่วาดอยู่จริง — returnPoint.ts รอให้ตรงกับ hash ก่อนเลื่อนกลับจุดเดิม (hash เปลี่ยนก่อน React วาด) */}
+      <main className="app" data-page={page}>
         {!isDash && (
           <div className="rolebar">
             {/* ใช้ดีไซน์เดียวกับ .dh-role ของหัวแดชบอร์ด (DashShell) ให้หน้าตาตรงกันทุกหน้า */}

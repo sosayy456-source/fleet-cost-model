@@ -8,11 +8,14 @@
  *   ถ้าอ่านแล้วลบในที่เดียว StrictMode เรียก initializer สองรอบ รอบหลังได้ null แล้วเปิดแท็บแรกแทน
  *   ต้องลบทิ้งเสมอ ไม่งั้นเข้าเมนูเองครั้งถัดไปจะค้างแท็บเดิม
  */
+import { pushReturnPoint } from "./returnPoint";
+
 const KEY = "execDashTab";
 /** id ของส่วนในแท็บที่ต้องเลื่อนไปหา (เช่น "d3-part2") — แท็บปลายทางอ่านเองด้วย peekExecAnchor() */
 const ANCHOR = "execDashAnchor";
 
 export function openExecTab(tab: string, anchor?: string): void {
+  pushReturnPoint();   // กดปุ่ม C ที่ปลายทาง = กลับมาตรงนี้ (returnPoint.ts)
   try {
     sessionStorage.setItem(KEY, tab);
     if (anchor) sessionStorage.setItem(ANCHOR, anchor); else sessionStorage.removeItem(ANCHOR);
