@@ -38,7 +38,7 @@ const toPart2 = (): void => openExecTab("detail3", "d3-part2");
 const toFleet = (): void => openExecTab("fleet");
 /** props ของสิ่งที่กดแล้วลิงก์ไป Executive Dashboard — แถวตาราง/แผง · กด Enter/เว้นวรรคได้ด้วย */
 const linkProps = (go: () => void, label: string) => ({
-  role: "link" as const, tabIndex: 0, title: `กดเพื่อเปิด${label}ใน Overall Dashboard`, onClick: go,
+  role: "link" as const, tabIndex: 0, title: `กดเพื่อเปิด ${label} ใน Overall Dashboard`, onClick: go,
   onKeyDown: (e: KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } },
 });
 
@@ -81,7 +81,7 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
           <th>ชนิดรถ</th><th className="n">บาท/เที่ยว</th><th className="n">บาท/กม.</th>
           <th className="n">บาท/ตัน-กม.</th><th className="n">% เปลี่ยนแปลงจากปีก่อน</th>
         </tr></thead>
-        <tbody className="i3-link">{cost.list.map((k) => <tr key={k.vk} {...linkProps(toPart1, "รายละเอียด ข้อ 3 (ต้นทุนขนส่ง)")}>
+        <tbody className="i3-link">{cost.list.map((k) => <tr key={k.vk} {...linkProps(toPart1, "Vehicle Utilization Cost (ต้นทุนขนส่ง)")}>
           <td><Kind name={k.vk} n={k.n} /></td>
           <td className="n i3-strong">{fmt(k.perTrip)}</td>
           <td className="n i3-soft">{money(k.perKm)}</td>
@@ -102,7 +102,7 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
         <thead><tr>
           <th>ชนิดรถ</th><th className="n">ค่าเสื่อมเฉลี่ย/เที่ยว</th><th className="i3-divcol">เทียบค่าเฉลี่ยรวม</th><th className="n">คุ้มค่าเสื่อม</th>
         </tr></thead>
-        <tbody className="i3-link">{depKinds.map((k) => <tr key={k.vk} {...linkProps(toPart2, "รายละเอียด ข้อ 3 (คุ้มค่าเสื่อม)")}>
+        <tbody className="i3-link">{depKinds.map((k) => <tr key={k.vk} {...linkProps(toPart2, "Vehicle Utilization Cost (คุ้มค่าเสื่อม)")}>
           <td><Kind name={k.vk} n={k.n} /></td>
           <td className="n i3-bold">฿{fmt(k.fc)}</td>
           <td><div className="i3-div" title={`${k.vsAvg >= 0 ? "+" : "−"}${pct(Math.abs(k.vsAvg))} เทียบ coverage เฉลี่ยรวม`}>
@@ -120,7 +120,7 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
     <Section tone="blue" title="ภาพรวมการใช้ประโยชน์กองรถ"
       sub="การใช้รถตามกลุ่มบริการและประเภทรถ">
       <div className="i3-fleet">
-        <div className="i3-panel i3-link" {...linkProps(toFleet, "การใช้ประโยชน์ของกองรถ")}>
+        <div className="i3-panel i3-link" {...linkProps(toFleet, "Vehicle Utilization")}>
           <div className="i3-panel-head"><b>การจัดรถตามกลุ่มบริการ</b><span>ดูสัดส่วนรถบริษัท รถร่วม และรถร่วมนอกพิเศษ</span></div>
           <div className="i3-groups">{mix.map((g) => {
             const comp = g.main === "รถบริษัท";
@@ -137,7 +137,7 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
           })}</div>
         </div>
 
-        <div className="i3-panel i3-donut-panel i3-link" {...linkProps(toFleet, "การใช้ประโยชน์ของกองรถ")}>
+        <div className="i3-panel i3-donut-panel i3-link" {...linkProps(toFleet, "Vehicle Utilization")}>
           <div className="i3-panel-head"><b>สัดส่วนการใช้รถแต่ละประเภท</b><span>รวม {fmt(typeTotal)} เที่ยว ในช่วงเวลาที่เลือก</span></div>
           <div className="i3-donut">
             <svg viewBox="0 0 180 180" role="img" aria-label={types.map((t) => `${t.key} ${pct(t.share, 0)}`).join(" · ")}>

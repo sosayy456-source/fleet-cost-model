@@ -14,11 +14,11 @@ import { useSyncExternalStore } from "react";
 
 /** ส่วนของหน้า Demo เรียงตามหน้า — แถบเมนูใช้วาดรายการได้แม้หน้า Demo ยังไม่เปิด */
 export const DEMO_PARTS = [
-  { id: "route", label: "กำไรรายเส้นทาง" },
-  // ชื่อส่วนเปลี่ยน 25 ก.ย. 2569 (เจ้าของงานสั่ง · เดิม "ข้อ 2" / "ข้อ 3") — id เดิม
+  // ชื่อส่วนเปลี่ยน 25 ก.ย. 2569 (เจ้าของงานสั่ง · เดิม "กำไรรายเส้นทาง" / "ข้อ 2" / "ข้อ 3" / "กำไรลูกค้า") — id เดิม
+  { id: "route", label: "Profit Per Route" },
   { id: "item2", label: "Inefficient Transportation Cost" },
   { id: "item3", label: "Vehicle Utilization Cost" },
-  { id: "cust", label: "กำไรลูกค้า" },
+  { id: "cust", label: "Customer Performance" },
 ] as const;
 
 export interface DemoNavState {

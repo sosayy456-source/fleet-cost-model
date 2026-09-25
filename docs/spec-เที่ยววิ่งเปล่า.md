@@ -1,5 +1,8 @@
 # สเปก: แท็บ "เที่ยววิ่งเปล่า" ใน Executive Dashboard และ Dashboard รวม
 
+> **ชื่อเปลี่ยน 25 ก.ย. 2569:** แท็บนี้ชื่อหน้าจอเป็น **"Empty Trips"** (id `empty` เดิม) อยู่ในเมนู **Overall Dashboard**
+> (= Executive Dashboard เดิม) · "Executive Dashboard" / "Demo" ในเอกสารนี้หมายถึงชื่อเดิมทั้งหมด — ดูตารางชื่อใน CLAUDE.md
+
 สถานะ: **ทำเสร็จแล้ว** (`dash-costrev/EmptyTab.tsx`) — แก้แท็บนี้ให้ทำตามเอกสารนี้ ไม่ต้องถามซ้ำ
 วันที่ตกลง: 17 ก.ย. 2569 · ที่ตั้ง: แท็บที่ 5 ของ `app/src/features/dash-costrev/` (ทั้ง `mode="exec"` และ `mode="all"`)
 

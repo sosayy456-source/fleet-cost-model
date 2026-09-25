@@ -37,13 +37,14 @@ import Detail3Tab from "./detail3/Detail3Tab";
 import TruckLoader from "../../lib/ui/TruckLoader";
 
 const TABS = [
-  { id: "fleet", label: "การใช้ประโยชน์ของกองรถ" },
+  // ชื่อแท็บเปลี่ยนเป็นภาษาอังกฤษ 25 ก.ย. 2569 (เจ้าของงานสั่ง) — id เดิม · ชื่อไทยเดิมอยู่ท้ายบรรทัด
+  { id: "fleet", label: "Vehicle Utilization" },            // การใช้ประโยชน์ของกองรถ
   { id: "damage", label: "Damage Rate" },
-  { id: "empty", label: "เที่ยววิ่งเปล่า" },
-  { id: "lf", label: "ต้นทุนที่จมกับที่ว่าง" },
-  { id: "tonkm", label: "กำไรส่วนเกิน/ตัน-กม." },
+  { id: "empty", label: "Empty Trips" },                    // เที่ยววิ่งเปล่า
+  { id: "lf", label: "Inefficient Transportation Cost" },  // ต้นทุนที่จมกับที่ว่าง
+  { id: "tonkm", label: "Contribution Margin" },            // กำไรส่วนเกิน/ตัน-กม.
   // สเปก ข้อ3.pdf (23 ก.ย. 2569) — ใช้ trips ชุดเดียวกับแท็บอื่น (ตัน-กม. คิดได้เฉพาะเที่ยวที่มีน้ำหนัก wt จากบิล)
-  { id: "detail3", label: "รายละเอียด ข้อ 3" },
+  { id: "detail3", label: "Vehicle Utilization Cost" },     // รายละเอียด ข้อ 3
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
