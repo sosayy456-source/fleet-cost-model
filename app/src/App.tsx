@@ -47,7 +47,7 @@ const I = {
   check: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>,
   person: <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-3.9 3.6-6.5 8-6.5s8 2.6 8 6.5Z" /></svg>,
   search: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
-  /* chart: เมนู "แดชบอร์ดรายได้" ที่ยุบเข้า Executive Dashboard เคยใช้ — เก็บไว้เผื่อเมนูใหม่ */
+  /* chart: เมนู "แดชบอร์ดรายได้" แล้วก็ Executive Dashboard (demo) เคยใช้ — ตอนนี้ไม่มีเมนูไหนใช้ เก็บไว้เผื่อเมนูใหม่ */
   chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
   split: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4" /></svg>,
   truck: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17V6h11v11" /><path d="M14 10h4l3 3v4h-7" /><circle cx="7.5" cy="17.5" r="2" /><circle cx="17.5" cy="17.5" r="2" /></svg>,
@@ -72,7 +72,11 @@ interface PageDef {
 const PAGES: PageDef[] = [
   // ★ เมนู Demo เดิม — ย้ายขึ้นบนสุดและเปลี่ยนชื่อเป็น "Executive Dashboard" (เจ้าของงานสั่ง 25 ก.ย. 2569)
   //   id ยังเป็น "demo" (hash #/demo · demoNav) · เห็นเฉพาะผู้ดูแลระบบเหมือนเดิม (เจ้าของงานเลือก)
-  { id: "demo", view: "dash", label: "Executive Dashboard", icon: I.chart, h1: "Executive Dashboard" },
+  //   ไอคอนเดียวกับ Dashboard อื่น (I.dash · เจ้าของงานสั่ง 25 ก.ย. 2569 — เดิม I.chart)
+  { id: "demo", view: "dash", label: "Executive Dashboard", icon: I.dash, h1: "Executive Dashboard" },
+  // ★ เดิมชื่อ "Executive Dashboard" — เปลี่ยนเป็น "Overall Dashboard" 25 ก.ย. 2569 (id exec-dash เหมือนเดิม)
+  //   อยู่ใต้ Executive Dashboard ทันที (เจ้าของงานสั่ง 25 ก.ย. 2569 — เดิมอยู่ท้ายเมนูก่อนการตั้งค่า)
+  { id: "exec-dash", view: "dash", label: "Overall Dashboard", icon: I.dash, h1: "Overall Dashboard" },
   // เปลี่ยนชื่อจาก "แดชบอร์ด" (เจ้าของงานสั่ง 24 ก.ย. 2569) · id เดิม — เหลือแค่มุมมอง "หน้างาน" ดู SHOW_TABS ใน FleetDash
   { id: "dash-fleet", view: "dash", label: "Manager Dashboard", icon: I.dash, h1: "Manager Dashboard" },
   // ฝ่ายบริการลูกค้ากรอกบิล (ไม่มีเลขที่ใบรายการ) — ใบรายการเกิดที่หน้า "จัดรถ" ของฝ่ายจัดรถ
@@ -91,8 +95,7 @@ const PAGES: PageDef[] = [
   { id: "custcode", view: "custcode", label: "ค้นหารหัสลูกค้า", icon: I.search, h1: "ค้นหารหัสลูกค้า" },
   // เมนู "กำไรรายเส้นทาง" (route-profit · features/dash-join/) ลบโค้ดทิ้งแล้ว 25 ก.ย. 2569 (เจ้าของงานสั่ง)
   // แดชบอร์ดจากไฟล์ต้นทุน+รายได้รายเที่ยว (realalldata) · เมนู "Dashboard ค่าเดินทาง(ไม่ใช้)" ลบแล้ว 24 ก.ย. 2569
-  // ★ เดิมชื่อ "Executive Dashboard" — เปลี่ยนเป็น "Overall Dashboard" 25 ก.ย. 2569 (id exec-dash เหมือนเดิม)
-  { id: "exec-dash", view: "dash", label: "Overall Dashboard", icon: I.dash, h1: "Overall Dashboard" },
+  // Overall Dashboard (exec-dash) ย้ายขึ้นไปใต้ Executive Dashboard แล้ว (25 ก.ย. 2569)
   // แท็บ "Dashboard รายได้" / "Dashboard ลูกหนี้" / "กำไรลูกค้า (ปันส่วนต้นทุน)" ลบออกแล้ว 24 ก.ย. 2569 (เจ้าของงานสั่ง)
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
   { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },

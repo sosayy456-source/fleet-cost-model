@@ -116,6 +116,8 @@ chokidar บน Windows เฝ้ารายไฟล์ด้วย `fs.watch`
 **ชื่อเมนูเปลี่ยน 25 ก.ย. 2569 (เจ้าของงานสั่ง) — อ่านเอกสารนี้ให้ถูกตัว:** เมนู **Demo** (id `demo` · `features/dash-demo/`)
 ย้ายขึ้นบนสุดของเมนูและชื่อหน้าจอเป็น **"Executive Dashboard"** (ยังเห็นเฉพาะผู้ดูแลระบบ · เป็นหน้าแรกของผู้ดูแลระบบ) ·
 เมนู **Executive Dashboard เดิม** (id `exec-dash` · `features/dash-costrev/`) ชื่อหน้าจอเป็น **"Overall Dashboard"** ·
+**Overall Dashboard อยู่ใต้ Executive Dashboard ทันที และทั้งคู่ใช้ไอคอน `I.dash` เดียวกับ Manager Dashboard** (เจ้าของงานสั่ง 25 ก.ย. 2569 ·
+แถบเมนูเรียงตาม `PAGES` ใน `App.tsx` ไม่ใช่ `ROLE_VIEWS` — ผู้จัดการจึงเห็น Overall Dashboard อยู่เหนือ Manager Dashboard แม้หน้าแรกยังเป็น Manager Dashboard) ·
 **ข้อความ "Executive Dashboard" / "Demo" ในหัวข้ออื่นของเอกสารนี้ที่เขียนก่อน 25 ก.ย. หมายถึงชื่อเดิม** (โค้ด/คอมเมนต์ก็เช่นกัน) ·
 ส่วนของ Demo ชื่อหน้าจอเป็นภาษาอังกฤษ (id เดิม · `lib/ui/demoNav.ts`): "กำไรรายเส้นทาง" = **Profit Per Route** (`route`) ·
 "ข้อ 2" = **Inefficient Transportation Cost** (`item2`) · "ข้อ 3" = **Vehicle Utilization Cost** (`item3`) · "กำไรลูกค้า" = **Customer Performance** (`cust`) ·
