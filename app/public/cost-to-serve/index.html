@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<!--
+  เครื่องคำนวณ Cost-to-Serve — เมนู "Cost to Serve" ของผู้ดูแลระบบ (เจ้าของงานส่งไฟล์ 25 ก.ย. 2569)
+  หน้าเดี่ยวตามไฟล์ที่ส่งมาทั้งเนื้อหา/ตัวเลข/สูตร **ไม่เชื่อมกับข้อมูลในโมเดล** (เจ้าของงานสั่ง) · ฝังผ่าน iframe ที่ features/costserve/CostToServe.tsx
+  ต่างจากต้นฉบับแค่: พื้นหลัง = --bg ของโมเดล (#F3F0EC) และตัดโหมดมืดออก (โมเดลไม่มีโหมดมืด) · ไม่มีขอบบนของหน้าเพราะหัวเรื่องอยู่ในแอปแล้ว
+-->
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>เครื่องคำนวณ Cost-to-Serve</title>
+<style>
+:root{
+  --bg:#F3F0EC; --surface:#FFFFFF; --surface-2:#F2F5F3;
+  --ink:#141C1A; --ink-2:#4A5652; --ink-3:#7A8581;
+  --border:#CCD4D0;
+  --teal:#0B5D48; --teal-bg:#D8F3EC; --teal-tx:#043327;
+  --amber:#9E6110; --amber-bg:#FDF3E3; --amber-tx:#543204;
+  --green:#325B0E; --green-bg:#E6F2D9; --green-tx:#1E3708;
+  --coral:#8F2424; --coral-bg:#FBE8E8; --coral-tx:#5C1414;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:8px 20px 40px}
+
+h1{font-size:26px;font-weight:700;margin:0 0 6px;letter-spacing:-0.3px;color:var(--teal)}
+.sub{color:var(--ink-2);font-size:15px;margin:0 0 32px;line-height:1.6}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,0.02)}
+.card h2{font-size:18px;font-weight:600;margin:0 0 6px;color:var(--ink);letter-spacing:-0.2px}
+.card .hint{color:var(--ink-2);font-size:13.5px;margin:0 0 18px;line-height:1.6}
+
+.trip-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;align-items:end}
+.trip-row .trip-amount{grid-column:1/-1;max-width:280px}
+.trip-input{display:flex;flex-direction:column;gap:6px}
+.trip-input label{font-size:13px;font-weight:500;color:var(--ink-2)}
+
+input[type=number],input[type=text]{
+  font:inherit;font-size:14.5px;color:var(--ink);background:var(--surface-2);
+  border:1.5px solid var(--border);border-radius:9px;padding:9px 12px;width:100%;
+  transition:border-color 0.2s;
+}
+input[type=number]:focus,input[type=text]:focus{outline:none;border-color:var(--teal)}
+input[type=number]{font-variant-numeric:tabular-nums}
+.trip-amount{width:240px}
+.trip-amount input{font-size:20px;font-weight:700;padding:12px;color:var(--teal)}
+
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--ink-2);font-size:12.5px;padding:0 8px 12px;white-space:nowrap;border-bottom:2px solid var(--border)}
+td{padding:10px 8px;border-top:1px solid var(--border);vertical-align:middle}
+td input{min-width:70px}
+td.name input{min-width:120px}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+
+.pill{display:inline-block;padding:4px 10px;border-radius:999px;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.pill.profit{background:var(--green-bg);color:var(--green-tx)}
+.pill.loss{background:var(--coral-bg);color:var(--coral-tx)}
+
+.rowbtn{background:none;border:none;color:var(--ink-3);cursor:pointer;font-size:18px;line-height:1;padding:4px;border-radius:4px}
+.rowbtn:hover{color:var(--coral);background:var(--coral-bg)}
+
+.addbtn{margin-top:14px;background:var(--teal-bg);color:var(--teal-tx);border:1.5px solid transparent;
+  border-radius:9px;padding:10px 18px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:all 0.2s}
+.addbtn:hover{border-color:var(--teal)}
+
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.stat{background:var(--surface-2);border-radius:12px;padding:16px 18px;border:1px solid var(--border)}
+.stat .lbl{font-size:13px;font-weight:500;color:var(--ink-2);margin-bottom:6px}
+.stat .val{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
+
+.overflow{overflow-x:auto}
+.group-title{font-size:17px;font-weight:700;color:var(--teal);margin:36px 0 10px;padding-left:2px;display:flex;align-items:center;gap:8px}
+.group-title .n{background:var(--teal-bg);color:var(--teal-tx);width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;font-size:14px}
+.err{color:var(--coral);font-size:13px;margin-top:8px;display:none;font-weight:500}
+
+.diagram-box{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:18px}
+.diagram-title{font-size:13.5px;font-weight:700;color:var(--teal);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.detail-list{font-size:13px;color:var(--ink-2);line-height:1.7;margin:0;padding-left:18px}
+.detail-list li{margin-bottom:6px}
+@media(max-width:640px){.trip-amount{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>เครื่องคำนวณต้นทุนต่อลูกค้า (Cost-to-Serve)</h1>
+  <p class="sub">กระจายต้นทุนรวมของเที่ยววิ่ง ไปยังแต่ละบิลตามสัดส่วนภาระงาน (Workload) แล้วเทียบกับรายได้เพื่อดูกำไร-ขาดทุนรายลูกค้าอย่างแม่นยำ</p>
+
+  <div class="group-title"><span class="n">1</span> ต้นทุนปกติ — คงที่ + ผันแปร + กึ่งผันแปร</div>
+
+  <div class="card">
+    <h2>1.1 คงที่ — ค่าเสื่อมราคารถ (Straight-line)</h2>
+    <p class="hint">ค่าเสื่อมราคา = (ราคาทุน − มูลค่าคงเหลือ) ÷ อายุการใช้งาน คำนวณแยกหัว-หาง แล้วเฉลี่ยเป็นรายวัน (สมมติ 1 เที่ยว = 1 วัน)</p>
+    <div class="trip-row">
+      <div class="trip-input"><label>ราคาทุนหัวรถ (บาท)</label><input type="number" id="depHeadCost" value="2400000" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>มูลค่าคงเหลือหัว (บาท)</label><input type="number" id="depHeadSalv" value="200000" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ราคาทุนหาง (บาท)</label><input type="number" id="depTailCost" value="900000" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>มูลค่าคงเหลือหาง (บาท)</label><input type="number" id="depTailSalv" value="100000" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>อายุการใช้งาน (ปี)</label><input type="number" id="depLife" value="8" min="1" oninput="calc()"></div>
+      <div class="trip-input"><label>จำนวนวันของเที่ยวนี้</label><input type="number" id="depDays" value="1" min="0" oninput="calc()"></div>
+    </div>
+
+    <div class="diagram-box">
+      <div class="diagram-title">📌 หลักการปันส่วนต้นทุนหัวรถและหางพ่วง (ตามกรณีการวิ่งจริง)</div>
+      <ul class="detail-list">
+        <li><b>กรณีที่ 1 (หัว-หาง 2 ทะเบียน วิ่งคู่กัน):</b> หางไม่มีค่าใช้จ่ายวิ่งงานเอง ➔ ปันส่วน "ค่าเสื่อมและค่าซ่อมบำรุงหางพ่วง" เข้าเป็นต้นทุนของใบรายการนั้นด้วย และปันส่วนรายได้ตามต้นทุนรถแยกกัน</li>
+        <li><b>กรณีที่ 2 (หัว-หาง 3 ทะเบียน วิ่งคู่กัน):</b> หางคันที่ 1 มี "ค่าเช่าจริง" (รวมค่าซ่อม/เสื่อมแล้ว) ➔ ใช้ค่าเช่าเป็นต้นทุนโดยไม่ต้องคำนวณแยก ส่วนหางคันที่ 2 ไม่มีค่าใช้จ่าย ➔ ปันส่วนค่าเสื่อมและค่าซ่อมเข้าใบรายการตามปกติ</li>
+        <li><b>กรณีที่ 3 (วิ่งคู่กัน แต่แยกเลขที่ใบรายการ 2 ใบ):</b> แต่ละคันมีใบรายการของตัวเอง ➔ คำนวณค่าซ่อมและค่าเสื่อมราคาเฉพาะทะเบียนรถของเจ้าของใบรายการนั้น ๆ เท่านั้น ไม่ต้องนำรถอีกคันมาปันเพิ่ม</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>1.2 ผันแปร</h2>
+    <p class="hint">ค่าน้ำมัน, ค่าแรงพนักงานขับรถ, ค่าใช้จ่ายอื่นๆ (เพิ่มเองได้) และค่าธรรมเนียมแยกตามประเภท</p>
+    <div class="trip-row">
+      <div class="trip-input"><label>ค่าน้ำมัน (บาท)</label><input type="number" id="varFuel" value="7500" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าแรงพนักงานขับรถ (บาท)</label><input type="number" id="varWage" value="2200" min="0" oninput="calc()"></div>
+    </div>
+
+    <p class="hint" style="margin-top:20px;font-weight:600;color:var(--ink)">ค่าใช้จ่ายอื่นๆ (เพิ่มหรือลดรายการได้อิสระ)</p>
+    <div class="overflow">
+      <table>
+        <thead>
+          <tr>
+            <th>ชื่อรายการค่าใช้จ่าย</th><th>จำนวนเงิน (บาท)</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="otherExpenseRows"></tbody>
+      </table>
+    </div>
+    <button class="addbtn" onclick="addOtherExpenseRow()" style="margin-bottom:20px">+ เพิ่มค่าใช้จ่ายอื่นๆ</button>
+
+    <p class="hint" style="font-weight:600;color:var(--ink)">ค่าธรรมเนียมต่างๆ</p>
+    <div class="trip-row">
+      <div class="trip-input"><label>ค่าคืนตู้ (บาท)</label><input type="number" id="feeReturn" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าเข้า-ออกท่าเรือ (บาท)</label><input type="number" id="feePort" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าทางด่วน (บาท)</label><input type="number" id="feeToll" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าส่งเอกสาร (บาท)</label><input type="number" id="feeDoc" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าปิดเปิดผ้าใบ (บาท)</label><input type="number" id="feeCover" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าตำรวจ (บาท)</label><input type="number" id="feePolice" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าประกันสินค้า (บาท)</label><input type="number" id="feeInsurance" value="0" min="0" oninput="calc()"></div>
+    </div>
+
+    <div class="diagram-box">
+      <div class="diagram-title">📌 ขั้นตอนการเชื่อมโยงข้อมูลค่าน้ำมันสุทธิต่อเที่ยวรถ</div>
+      <ul class="detail-list">
+        <li><b>การตรวจสอบเบื้องต้น:</b> ดึงรายงานจาก 2 ปั๊ม (เชียงใหม่ = ขาล่อง, นครสวรรค์ = ขาขึ้น) โดยประเภทรถ + ชนิดรถ + ทะเบียนรถ ต้องตรงกัน</li>
+        <li><b>1.1 กรณีจับคู่วันที่ได้:</b> เทียบวันที่บิลน้ำมันกับ <em>วันใบเบิก / วันตัดจำหน่าย / วันที่ปล่อยรถ</em> เพื่อระบุว่าค่าน้ำมันเป็นของเที่ยวรถใด</li>
+        <li><b>1.2 กรณีจับคู่วันที่ไม่ได้:</b> ใช้ "วันที่บิลน้ำมัน" เป็นหลัก ค้นหาเที่ยวรถที่ทะเบียนตรงกันและเลือกวันที่ใกล้เคียงที่สุด (หากมีหลายเที่ยว ให้พิจารณา <em>จุดขึ้น-จุดลง</em> ร่วมด้วย)</li>
+        <li><b>การปรับปรุงระหว่างเที่ยว:</b> ย้ายค่าน้ำมันขาขึ้นที่ติดอยู่ในเที่ยวขาล่องไปรวมเที่ยวขาขึ้นถัดไป และนำต้นทุนเที่ยวที่ยกเลิกไปรวมในเที่ยววิ่งจริงถัดไปของทะเบียนเดียวกัน</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>1.3 กึ่งผันแปร — ค่าซ่อมบำรุง (ABC)</h2>
+    <p class="hint">ค่าซ่อมแซม = (Actual Rate ระยะทาง × ระยะทางจริง) + (Actual Rate เวลา × จำนวนวันที่เกิดขึ้นจริง)</p>
+    <div class="trip-row">
+      <div class="trip-input"><label>Actual Rate ระยะทาง (บาท/กม.)</label><input type="number" id="semiRateDist" value="3.2" min="0" step="0.1" oninput="calc()"></div>
+      <div class="trip-input"><label>ระยะทางรวมของเที่ยว (กม.)</label><input type="number" id="semiDistance" value="320" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>Actual Rate เวลา (บาท/วัน)</label><input type="number" id="semiRateTime" value="450" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>จำนวนวันที่เกิดขึ้นจริง</label><input type="number" id="semiDays" value="1" min="0" oninput="calc()"></div>
+    </div>
+
+    <div class="diagram-box">
+      <div class="diagram-title">📌 หลักการคำนวณค่าซ่อมบำรุง (Activity-Based Costing: ABC)</div>
+      <ul class="detail-list">
+        <li>รวบรวมข้อมูลค่าซ่อมแซมของรถและหางแต่ละประเภทในปี 2567–2569</li>
+        <li>กำหนดตัวผลักดันต้นทุน (Cost Drivers) ได้แก่ <b>ระยะทาง</b> และ <b>ระยะเวลา</b> เพื่อคำนวณหาอัตราที่แท้จริง (Actual Rate)</li>
+        <li>นำอัตราที่ได้มาคูณกับระยะทางจริงและจำนวนวันที่เกิดขึ้นจริง (สมมติ 1 เที่ยว = 1 วัน) เพื่อจัดสรรเข้าแต่ละเที่ยวรถ</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="group-title"><span class="n">2</span> ต้นทุนสูญเปล่า</div>
+
+  <div class="card">
+    <h2>ต้นทุนสูญเปล่า</h2>
+    <p class="hint">น้ำมันจากการวิ่งอ้อม/นอกเส้นทาง และค่าใช้จ่ายในการวิ่งรถเที่ยวเปล่า แยกตามองค์ประกอบ</p>
+    <div class="trip-row">
+      <div class="trip-input"><label>ค่าน้ำมันวิ่งอ้อม/นอกเส้นทาง (บาท)</label><input type="number" id="wasteDetour" value="0" min="0" oninput="calc()"></div>
+    </div>
+    <p class="hint" style="margin-top:16px;font-weight:600;color:var(--ink)">ค่าใช้จ่ายวิ่งเที่ยวเปล่า</p>
+    <div class="trip-row">
+      <div class="trip-input"><label>ค่าน้ำมัน (บาท)</label><input type="number" id="emptyFuel" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าทางด่วน (บาท)</label><input type="number" id="emptyToll" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าแรง (บาท)</label><input type="number" id="emptyWage" value="0" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ค่าสึกหรอ (บาท)</label><input type="number" id="emptyWear" value="0" min="0" oninput="calc()"></div>
+    </div>
+  </div>
+
+  <div class="card" style="border: 2px solid var(--teal);">
+    <h2 style="color: var(--teal);">ต้นทุนรวมต่อเที่ยว (คำนวณอัตโนมัติ)</h2>
+    <p class="hint">รวมต้นทุนคงที่ + ผันแปร + กึ่งผันแปร + สูญเปล่า ใช้เป็นฐานจัดสรรลงบิลตามภาระงานด้านล่าง</p>
+    <div class="summary">
+      <div class="stat"><div class="lbl">1) ต้นทุนปกติ รวม</div><div class="val" id="outNormal">–</div></div>
+      <div class="stat"><div class="lbl">— คงที่</div><div class="val" id="outFixed">–</div></div>
+      <div class="stat"><div class="lbl">— ผันแปร</div><div class="val" id="outVar">–</div></div>
+      <div class="stat"><div class="lbl">— กึ่งผันแปร</div><div class="val" id="outSemi">–</div></div>
+      <div class="stat"><div class="lbl">2) ต้นทุนสูญเปล่า</div><div class="val" id="outWaste">–</div></div>
+    </div>
+    <div class="trip-input trip-amount" style="margin-top:20px">
+      <label style="color:var(--teal);font-weight:700">ต้นทุนรวมต่อเที่ยว (บาท)</label>
+      <input type="text" id="tripCostDisplay" value="" readonly>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>รายการบิลในเที่ยวนี้</h2>
+    <p class="hint">ภาระงาน = ค่าที่มากกว่าระหว่าง (น้ำหนัก กก. ÷ 1000) × ระยะทาง และ (ปริมาตร CBM × 0.167) × ระยะทาง</p>
+
+    <div class="diagram-box">
+      <div class="diagram-title">📌 หลักการและเกณฑ์การคำนวณภาระงาน (Workload)</div>
+      <ul class="detail-list">
+        <li><b>แปลงน้ำหนัก:</b> (น้ำหนัก กก. ÷ 1000) × ระยะทาง (กม.)</li>
+        <li><b>แปลงปริมาตร:</b> (ปริมาตร CBM × 0.167) × ระยะทาง (กม.)</li>
+        <li>นำค่าทั้งสองมาเปรียบเทียบกัน แล้วเลือกค่าที่มากกว่ามาใช้เป็นสัดส่วนภาระงาน (Workload) ของแต่ละบิล เพื่อใช้ในการกระจายต้นทุนรวมต่อไป</li>
+        <li><b>กรณีพิเศษ:</b> หากไม่บันทึกน้ำหนัก/ปริมาตร หรือมีค่าผิดปกติ จะใช้สัดส่วนรายได้แทน</li>
+      </ul>
+    </div>
+
+    <div class="overflow" style="margin-top: 18px;">
+      <table>
+        <thead>
+          <tr>
+            <th>ลูกค้า / บิล</th><th>น้ำหนัก (กก.)</th><th>ปริมาตร (CBM)</th><th>ระยะทาง (กม.)</th><th>รายได้ (บาท)</th>
+            <th>ภาระงาน</th><th>ต้นทุนบิล</th><th>กำไร/ขาดทุน</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <button class="addbtn" onclick="addRow()">+ เพิ่มบิล</button>
+    <p class="err" id="errMsg">กรอกน้ำหนักหรือปริมาตรอย่างน้อยหนึ่งอย่าง และระยะทางมากกว่า 0 ในทุกบิล</p>
+  </div>
+
+  <div class="card" style="background: var(--teal-bg); border-color: var(--teal);">
+    <h2 style="color: var(--teal-tx);">สรุปผลกำไร-ขาดทุนเที่ยวนี้</h2>
+    <div class="summary" style="margin-top:14px">
+      <div class="stat" style="background: var(--surface);"><div class="lbl">รายได้รวม</div><div class="val" id="sumRevenue" style="color:var(--teal)">–</div></div>
+      <div class="stat" style="background: var(--surface);"><div class="lbl">ต้นทุนรวมที่จัดสรร</div><div class="val" id="sumCost">–</div></div>
+      <div class="stat" style="background: var(--surface);"><div class="lbl">กำไร/ขาดทุนรวม</div><div class="val" id="sumProfit">–</div></div>
+      <div class="stat" style="background: var(--surface);"><div class="lbl">บิลที่ขาดทุน</div><div class="val" id="sumLossCount">–</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let rowId = 0;
+let otherExpId = 0;
+
+function fmt(n){
+  return new Intl.NumberFormat('th-TH',{maximumFractionDigits:0}).format(Math.round(n));
+}
+
+function addOtherExpenseRow(name, amount){
+  otherExpId++;
+  const tr = document.createElement('tr');
+  tr.dataset.id = otherExpId;
+  tr.innerHTML =
+    '<td class="name"><input type="text" value="'+(name||('ค่าใช้จ่ายอื่นๆ '+otherExpId))+'" oninput="calc()"></td>'+
+    '<td><input type="number" min="0" value="'+(amount??0)+'" oninput="calc()"></td>'+
+    '<td><button class="rowbtn" aria-label="ลบรายการนี้" onclick="delOtherExpenseRow(this)">✕</button></td>';
+  document.getElementById('otherExpenseRows').appendChild(tr);
+  calc();
+}
+
+function delOtherExpenseRow(btn){
+  btn.closest('tr').remove();
+  calc();
+}
+
+function addRow(name, weight, volume, distance, revenue){
+  rowId++;
+  const tr = document.createElement('tr');
+  tr.dataset.id = rowId;
+  tr.innerHTML =
+    '<td class="name"><input type="text" value="'+(name||('ลูกค้า '+rowId))+'" oninput="calc()"></td>'+
+    '<td><input type="number" min="0" value="'+(weight??0)+'" oninput="calc()"></td>'+
+    '<td><input type="number" min="0" value="'+(volume??0)+'" oninput="calc()"></td>'+
+    '<td><input type="number" min="0" value="'+(distance??0)+'" oninput="calc()"></td>'+
+    '<td><input type="number" min="0" value="'+(revenue??0)+'" oninput="calc()"></td>'+
+    '<td class="num" data-f="wl">–</td>'+
+    '<td class="num" data-f="cost">–</td>'+
+    '<td class="num" data-f="profit">–</td>'+
+    '<td><button class="rowbtn" aria-label="ลบบิลนี้" onclick="delRow(this)">✕</button></td>';
+  document.getElementById('rows').appendChild(tr);
+  calc();
+}
+
+function delRow(btn){
+  const tr = btn.closest('tr');
+  if(document.getElementById('rows').children.length > 1){ tr.remove(); calc(); }
+}
+
+function num(id){ return parseFloat(document.getElementById(id).value) || 0; }
+
+function calcTripCost(){
+  const life = num('depLife') || 8;
+  const depHead = Math.max(num('depHeadCost') - num('depHeadSalv'), 0);
+  const depTail = Math.max(num('depTailCost') - num('depTailSalv'), 0);
+  const fixedCost = ((depHead + depTail) / life / 365) * num('depDays');
+
+  let otherExpensesTotal = 0;
+  const otherTrs = document.getElementById('otherExpenseRows').querySelectorAll('tr');
+  otherTrs.forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    otherExpensesTotal += parseFloat(inputs[1].value) || 0;
+  });
+
+  const varCost = num('varFuel') + num('varWage') + otherExpensesTotal + num('feeReturn') + num('feePort') +
+    num('feeToll') + num('feeDoc') + num('feeCover') + num('feePolice') + num('feeInsurance');
+
+  const semiCost = num('semiRateDist') * num('semiDistance') + num('semiRateTime') * num('semiDays');
+
+  const wasteCost = num('wasteDetour') + num('emptyFuel') + num('emptyToll') + num('emptyWage') + num('emptyWear');
+
+  document.getElementById('outFixed').textContent = fmt(fixedCost) + ' บาท';
+  document.getElementById('outVar').textContent = fmt(varCost) + ' บาท';
+  document.getElementById('outSemi').textContent = fmt(semiCost) + ' บาท';
+  document.getElementById('outNormal').textContent = fmt(fixedCost + varCost + semiCost) + ' บาท';
+  document.getElementById('outWaste').textContent = fmt(wasteCost) + ' บาท';
+
+  const total = fixedCost + varCost + semiCost + wasteCost;
+  document.getElementById('tripCostDisplay').value = fmt(total) + ' บาท';
+  return total;
+}
+
+function calc(){
+  const tripCost = calcTripCost();
+  const trs = [...document.getElementById('rows').children];
+  let totalWorkload = 0, hasInvalid = false;
+  const data = trs.map(tr=>{
+    const [nameEl, wEl, vEl, dEl, rEl] = tr.querySelectorAll('input');
+    const weight = parseFloat(wEl.value) || 0;
+    const volume = parseFloat(vEl.value) || 0;
+    const distance = parseFloat(dEl.value) || 0;
+    const revenue = parseFloat(rEl.value) || 0;
+    if(distance <= 0 || (weight <= 0 && volume <= 0)) hasInvalid = true;
+    const wl = Math.max((weight/1000)*distance, (volume*0.167)*distance);
+    totalWorkload += wl;
+    return {tr, wl, revenue};
+  });
+  document.getElementById('errMsg').style.display = hasInvalid ? 'block' : 'none';
+
+  let sumRevenue = 0, sumCost = 0, lossCount = 0;
+  data.forEach(d=>{
+    const share = totalWorkload > 0 ? d.wl / totalWorkload : 0;
+    const cost = share * tripCost;
+    const profit = d.revenue - cost;
+    sumRevenue += d.revenue; sumCost += cost;
+    if(profit < 0) lossCount++;
+    d.tr.querySelector('[data-f=wl]').textContent = fmt(d.wl);
+    d.tr.querySelector('[data-f=cost]').textContent = fmt(cost);
+    const pf = d.tr.querySelector('[data-f=profit]');
+    pf.innerHTML = '<span class="pill '+(profit>=0?'profit':'loss')+'">'+(profit>=0?'+':'')+fmt(profit)+' บาท</span>';
+  });
+
+  document.getElementById('sumRevenue').textContent = fmt(sumRevenue)+' บาท';
+  document.getElementById('sumCost').textContent = fmt(sumCost)+' บาท';
+  const profitEl = document.getElementById('sumProfit');
+  const totalProfit = sumRevenue - sumCost;
+  profitEl.textContent = (totalProfit>=0?'+':'')+fmt(totalProfit)+' บาท';
+  profitEl.style.color = totalProfit>=0 ? 'var(--green)' : 'var(--coral)';
+  document.getElementById('sumLossCount').textContent = lossCount + ' / ' + data.length + ' บิล';
+}
+
+addRow('บริษัท เอ จำกัด', 8000, 12, 320, 9200);
+addRow('บริษัท บี จำกัด', 2500, 4, 320, 2100);
+addRow('บริษัท ซี จำกัด', 14000, 22, 320, 15800);
+</script>
+</body>
+</html>

@@ -76,7 +76,7 @@ export const ROLE_VIEWS: Record<RoleKey, string[]> = {
   manager: ["dash-fleet", "records", "exec-dash", "driver"],
   // บันทึกบิล/จัดรถ/เที่ยวรถของฉัน/บันทึกข้อมูล ยุบเป็น "บันทึกข้อมูลรวม" หน้าเดียว (เจ้าของงานสั่ง 24 ก.ย. 2569)
   // Executive Dashboard (id demo) ขึ้นก่อน = หน้าแรกหลังเลือกตำแหน่ง ตรงกับที่อยู่บนสุดของเมนู (25 ก.ย. 2569)
-  admin: ["demo", "dash-fleet", "entry-all", "records", "drafts", "debtors", "custcode", "settings", "exec-dash"],
+  admin: ["demo", "dash-fleet", "entry-all", "records", "drafts", "debtors", "custcode", "settings", "exec-dash", "cost-to-serve"],
 };
 
 export const isEntryRole = (r: RoleKey): boolean => ROLE_ORDER.includes(r);

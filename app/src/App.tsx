@@ -17,6 +17,7 @@ import Drafts from "./features/drafts/Drafts";
 import Debtors from "./features/debtors/Debtors";
 import CustCode from "./features/custcode/CustCode";
 import Settings from "./features/settings/Settings";
+import CostToServe from "./features/costserve/CostToServe";
 import DriverJobs from "./features/driver/DriverJobs";
 import { lazyPage } from "./lib/ui/lazyPage";
 // แดชบอร์ดลากไลบรารีกราฟมาด้วยราว 400 KB แยกเป็นก้อนต่างหาก
@@ -99,9 +100,11 @@ const PAGES: PageDef[] = [
   // แท็บ "Dashboard รายได้" / "Dashboard ลูกหนี้" / "กำไรลูกค้า (ปันส่วนต้นทุน)" ลบออกแล้ว 24 ก.ย. 2569 (เจ้าของงานสั่ง)
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
   { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
-  // ★ "การตั้งค่า" อยู่ล่างสุดของอาร์เรย์นี้เสมอ (สั่ง 23 ก.ย. 2569) — แถบเมนูเรียงตาม PAGES
-  // ไม่ใช่ตาม ROLE_VIEWS จึงพอวางไว้ท้ายสุดที่เดียว ก็อยู่ล่างสุดของทุกตำแหน่ง ห้ามแทรกอะไรต่อท้าย
+  // ★ "การตั้งค่า" อยู่ท้ายอาร์เรย์นี้ (สั่ง 23 ก.ย. 2569) — แถบเมนูเรียงตาม PAGES ไม่ใช่ตาม ROLE_VIEWS
+  //   ยกเว้น "Cost to Serve" ที่เจ้าของงานสั่งให้อยู่ใต้การตั้งค่า (25 ก.ย. 2569 · เห็นเฉพาะผู้ดูแลระบบ) — ห้ามแทรกอะไรเพิ่มต่อท้าย
   { id: "settings", view: "settings", label: "การตั้งค่า", icon: I.gear, h1: "การตั้งค่า" },
+  // เครื่องคำนวณตามไฟล์ที่เจ้าของงานส่ง ไม่เชื่อมข้อมูลในโมเดล (features/costserve/CostToServe.tsx)
+  { id: "cost-to-serve", view: "records", label: "Cost to Serve", icon: I.split, h1: "Cost to Serve" },
 ];
 
 export default function App() {
@@ -262,6 +265,7 @@ export default function App() {
             {page === "records" && <RecordsList role={role} state={state} />}
             {page === "debtors" && <Debtors state={state} />}
             {page === "settings" && <Settings />}
+            {page === "cost-to-serve" && <CostToServe />}
             <DashPageContext.Provider value={isDash && cur ? {
               title: cur.h1,
               roleLabel: ROLES[role].en ?? ROLES[role].label,

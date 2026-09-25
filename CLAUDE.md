@@ -129,6 +129,11 @@ chokidar บน Windows เฝ้ารายไฟล์ด้วย `fs.watch`
 ServiceTable · TripTable) และแท็บ "ต้นทุน" (CostTab) ของ Overall Dashboard — แท็บแรกจึงเป็น Vehicle Utilization ·
 หัวข้อของสิ่งที่ลบไปแล้วข้างล่างเก็บไว้เป็นประวัติการตัดสินใจ (`lib/fleetcompare/compare.ts` ยังใช้อยู่ที่ utilization/ข้อ 3)
 
+**เมนู "Cost to Serve" (id `cost-to-serve` · เฉพาะผู้ดูแลระบบ · อยู่ใต้การตั้งค่า — เจ้าของงานสั่ง 25 ก.ย. 2569)** = เครื่องคำนวณตามไฟล์ HTML
+ที่เจ้าของงานส่งมาทั้งเนื้อหา/ค่าตั้งต้น/สูตร **ไม่เชื่อมข้อมูลในโมเดล** (เจ้าของงานสั่ง) · หน้าเดี่ยว `public/cost-to-serve/index.html` ฝังผ่าน iframe
+ใน `features/costserve/CostToServe.tsx` (ยืดสูงตามเนื้อหา) — ไม่แปลงเป็น React เพราะ CSS ชื่อสามัญ (.card/table/input) จะชนกับ `index.css` ·
+ต่างจากต้นฉบับแค่พื้นหลัง = `--bg` ของโมเดล (#F3F0EC) และตัดโหมดมืด · สูตรในหน้านี้เป็นของมันเอง **ไม่ใช่** `computeCost`/`alloc.py` ห้ามอ้างเป็นแหล่งสูตร
+
 **ตัวกรองเวลา = ปี + ช่วงเดือน ตั้งแต่–ถึง แบบแท็บ Damage Rate** (เจ้าของงานสั่ง 24 ก.ย. 2569 · `lib/filter/period.ts` +
 `PeriodFF` ใน `dash-costrev/common.tsx`) ใช้ที่ Demo ทั้งหน้า · Empty Trips · Vehicle Utilization · Inefficient Transportation Cost ·
 Contribution Margin · Vehicle Utilization Cost · Damage Rate — **เลือกเดือนได้เมื่อเลือกปีแล้ว** ล้างปี = ช่วงกลับเป็นทั้งปี ·
