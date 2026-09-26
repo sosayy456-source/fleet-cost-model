@@ -5,5 +5,5 @@ src/data/story.real.json
 src/assets/shots/real/
 tools/.cache/
 qa/
-clips/
-public/clips/
+/clips/
+# public/clips/ (วิดีโอที่ตัดแล้ว) commit ได้ — เจ้าของงานยืนยันว่าเป็นข้อมูลตัวอย่าง 26 ก.ย. 2569 · คลิปดิบใน clips/ ใหญ่เกิน 100 MB ขึ้น GitHub ไม่ได้
