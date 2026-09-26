@@ -110,6 +110,9 @@ const PAGES: PageDef[] = [
   { id: "cost-to-serve", view: "records", label: "Cost to Serve", icon: I.split, h1: "Cost to Serve" },
 ];
 
+/** หน้าที่อ่าน state.oldRecords / oldDebtors / fileOld — หน้าอื่นไม่โหลดไฟล์ข้อมูลเก่า (useRecords) */
+const FILE_OLD_PAGES = new Set(["records", "debtors", "fleet-status"]);
+
 export default function App() {
   // เปิดเว็บใหม่ต้องเลือกตำแหน่งเสมอ ไม่จำลงเครื่อง (ตรงตาม main:2129)
   // แต่จำไว้ระดับ "แท็บ" เพื่อให้รีโหลดแล้วไม่ต้องเลือกซ้ำ — sessionStorage ตายตอนปิดแท็บ ดีไซน์เดิมจึงยังอยู่
@@ -122,7 +125,6 @@ export default function App() {
   };
   // true เฉพาะรอบแรกที่ตำแหน่งถูกกู้มาจากการรีโหลด — ใช้ตัดสินว่าจะอยู่หน้าเดิมหรือเด้งไปหน้าแรก
   const restoredRole = useRef(role !== null);
-  const state = useRecords();
   const { isSample } = useActiveDataset();
   const [dismissed, setDismissed] = useState(false);
 
@@ -137,6 +139,8 @@ export default function App() {
     return allowed.includes(h) ? h : (allowed[0] ?? "entry");
   };
   const [page, setPage] = useState<string>(readHash);
+  // ข้อมูลเก่าจากไฟล์ (costrev/old_*.json) โหลดเฉพาะหน้าที่ใช้ — ข้อมูลจริงก้อนใหญ่ ไม่ต้องโหลดตอนเปิดทุกหน้า
+  const state = useRecords(FILE_OLD_PAGES.has(page));
 
   useEffect(() => {
     const on = () => setPage(readHash());

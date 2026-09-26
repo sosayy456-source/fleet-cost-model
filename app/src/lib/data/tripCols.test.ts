@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { decodeTripColumns, isTripColumns } from "./tripCols";
+import { decodeTripColumns, decodeTripColumnsAsync, decodeTripColumnsSlow, isTripColumns } from "./tripCols";
 import type { TripColumns } from "./tripCols";
 
 describe("trips.json แบบคอลัมน์", () => {
@@ -20,6 +20,7 @@ describe("trips.json แบบคอลัมน์", () => {
     };
     expect(isTripColumns(enc)).toBe(true);
     expect(isTripColumns([])).toBe(false);
+    expect(decodeTripColumnsSlow(enc)).toEqual(decodeTripColumns(enc));
     expect(decodeTripColumns(enc)).toEqual([
       { id: "1", br: "ลำปาง", km: null, m: true, cus: ["a", "b"],
         vs: [{ pl: "a", vk: "10 ล้อ", c: 100 }], serviceRevenue: { "ทั่วไป": 50.5 } },
@@ -27,11 +28,16 @@ describe("trips.json แบบคอลัมน์", () => {
     ]);
   });
 
-  it("ไฟล์ชุดตัวอย่างที่ commit ไว้แปลงได้ครบตาม manifest", () => {
+  it("ไฟล์ชุดตัวอย่างที่ commit ไว้แปลงได้ครบตาม manifest", async () => {
     const dir = resolve(__dirname, "../../../public/data/sample/costrev");
     const raw = JSON.parse(readFileSync(resolve(dir, "trips.json"), "utf8"));
     const manifest = JSON.parse(readFileSync(resolve(dir, "manifest.json"), "utf8"));
     const trips = isTripColumns(raw) ? decodeTripColumns(raw) : raw;
+    // สามทาง (เร็ว · แบ่งช่วง · ทีละคอลัมน์) ต้องได้ผลเดียวกันทุกฟิลด์
+    if (isTripColumns(raw)) {
+      expect(await decodeTripColumnsAsync(raw, 1000)).toEqual(trips);
+      expect(decodeTripColumnsSlow(raw)).toEqual(trips);
+    }
     expect(trips).toHaveLength(manifest.rows);
     expect(typeof trips[0].m).toBe("boolean");
     expect(Array.isArray(trips[0].cus)).toBe(true);

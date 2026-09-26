@@ -9,8 +9,8 @@
  * trips.json 1 ระเบียน = 1 เที่ยว คีย์สั้น ๆ เพื่อให้ไฟล์เล็ก — ความหมายอยู่ใน interface Trip
  * ไฟล์เก็บเป็นคอลัมน์ + ตารางข้อความ (tripCols.ts · 26 ก.ย. 2569) แปลงกลับเป็น Trip[] ตอนโหลด หน้าจอไม่ต้องรู้
  */
-import { useCallback, useEffect, useState } from "react";
-import { decodeTripColumns, isTripColumns } from "./tripCols";
+import { startTransition, useCallback, useEffect, useState } from "react";
+import { decodeTripColumnsAsync, isTripColumns } from "./tripCols";
 import type { TripColumns } from "./tripCols";
 
 export type CostRevDataset = "sample" | "real";
@@ -174,7 +174,9 @@ async function detect(): Promise<CostRevDataset> {
 export const resetCostRevDataset = (): void => { if (!FORCED) resolved = null; };
 
 async function fetchJson<T>(ds: CostRevDataset, f: string): Promise<T> {
-  const res = await fetch(url(ds, f), { cache: "no-store" });
+  // manifest ถามเซิร์ฟเวอร์ใหม่ทุกครั้ง · ไฟล์ก้อนใหญ่ใช้แคชของเบราว์เซอร์แต่ต้องถามเซิร์ฟเวอร์ก่อนว่าไฟล์เปลี่ยนไหม
+  // (no-cache = ส่ง ETag ไปเทียบ ไม่เปลี่ยนได้ 304 ไม่ต้องดาวน์โหลดใหม่ · ETL รันใหม่ = ได้ไฟล์ใหม่ ไม่มีทางได้ของเก่าค้าง)
+  const res = await fetch(url(ds, f), { cache: f === "manifest.json" ? "no-store" : "no-cache" });
   const isJson = (res.headers.get("content-type") ?? "").includes("json");
   if (!res.ok || !isJson) throw new Error(`โหลด costrev/${f} ไม่ได้ (HTTP ${res.status})`);
   return res.json() as Promise<T>;
@@ -191,7 +193,7 @@ export async function loadCostRev(): Promise<CostRevData> {
       fetchJson<SvcAlloc>(ds, "svc.json").catch(() => null),
     ]);
     // ETL ตั้งแต่ 26 ก.ย. 2569 เก็บเป็นคอลัมน์ (tripCols.ts) · ไฟล์รุ่นก่อนเป็นแถวอยู่แล้ว
-    const trips = isTripColumns(raw) ? (decodeTripColumns(raw) as unknown as Trip[]) : raw;
+    const trips = isTripColumns(raw) ? (await decodeTripColumnsAsync(raw) as unknown as Trip[]) : raw;
     return { manifest, trips, svc };
   })().catch((e) => { cache = null; throw e; });
   return cache;
@@ -234,7 +236,9 @@ export function useCostRev(): CostRevState {
     let alive = true;
     setLoading(true); setError(null);
     loadCostRev()
-      .then((d) => { if (alive) { setData(d); setLoading(false); } })
+      // วาดหน้าแรกหลังได้ข้อมูลแบบ transition — React แบ่งงานวาดเป็นช่วงให้เบราว์เซอร์หายใจได้ ไม่ค้างทั้งก้อน
+      // (ข้อมูลจริงหลายหมื่นเที่ยว หน้า Executive Dashboard คิดทั้ง 4 ส่วนพร้อมกัน · 26 ก.ย. 2569)
+      .then((d) => { if (alive) startTransition(() => { setData(d); setLoading(false); }); })
       .catch((e) => { if (alive) { setError((e as Error).message); setLoading(false); } });
     return () => { alive = false; };
   }, [tick]);

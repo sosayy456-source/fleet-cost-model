@@ -13,7 +13,7 @@
  * ใบเดียวกันอาจอยู่ทั้งในเครื่องและบนชีต — ถือว่าของบนชีตใหม่กว่าเสมอ
  * ยกเว้นใบที่ยังไม่ได้ sync (synced=false) ซึ่งของในเครื่องใหม่กว่า
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getUrl, loadOld, loadTrips } from "../sheet/client";
 import { loadCostRevOld } from "../data/useCostRev";
 import { getAll, migrateFromLocalStorage, remove } from "./records";
@@ -140,7 +140,8 @@ async function purgeDeleted(local: TripRecord[], sheet: TripRecord[]): Promise<v
   for (const r of gone) await remove(r.id).catch(() => { /* ลบไม่ได้ก็แค่ค้างไว้รอบหน้า */ });
 }
 
-export function useRecords(): RecordsState {
+/** wantFileOld = หน้าที่เปิดอยู่ใช้ข้อมูลเก่าจากไฟล์ (oldRecords/oldDebtors/fileOld) — false = ไม่โหลดไฟล์นั้น */
+export function useRecords(wantFileOld = true): RecordsState {
   const [records, setRecords] = useState<TripRecord[]>([]);
   const [manualRows, setManualRows] = useState<Record<string, unknown>[]>(readOldCache);
   const [fileOld, setFileOld] = useState<RecordsState["fileOld"]>({ records: [], debtors: [] });
@@ -216,15 +217,6 @@ export function useRecords(): RecordsState {
       if (!alive) return;
       setRecords(local);
 
-      // ข้อมูลเก่าจากไฟล์ — ไม่ต้องมีชีตก็โหลดได้ (คืนค่าว่างถ้ายังไม่รัน ETL)
-      // บิลจาก ETL ไม่มี source ติดมา — เติมให้ ที่ใช้แยกเก่า/ใหม่ใน dash-fleet กับ debtRows จะได้ถูก
-      loadCostRevOld().then((fo) => {
-        if (alive) setFileOld({
-          records: fo.records as TripRecord[],
-          debtors: (fo.debtors as OldDebtor[]).map((d) => ({ ...d, source: "เก่า" })),
-        });
-      });
-
       if (!getUrl()) {
         setLoading(false);
         return;
@@ -254,6 +246,26 @@ export function useRecords(): RecordsState {
 
     return () => { alive = false; };
   }, [tick]);
+
+  // ข้อมูลเก่าจากไฟล์ — ไม่ต้องมีชีตก็โหลดได้ (คืนค่าว่างถ้ายังไม่รัน ETL)
+  // ★ โหลดเฉพาะเมื่อหน้าที่เปิดอยู่ใช้ (wantFileOld) และครั้งเดียวต่อการกดรีเฟรช (26 ก.ย. 2569)
+  //   เดิมโหลดตอนเปิดแอปทุกหน้า — ข้อมูลจริงก้อนใหญ่ กินหน่วยความจำทั้งที่หน้า Dashboard ไม่ได้ใช้
+  // บิลจาก ETL ไม่มี source ติดมา — เติมให้ ที่ใช้แยกเก่า/ใหม่ใน dash-fleet กับ debtRows จะได้ถูก
+  const fileOldTick = useRef(-1);
+  useEffect(() => {
+    if (!wantFileOld || fileOldTick.current === tick) return;
+    fileOldTick.current = tick;
+    let alive = true, done = false;
+    loadCostRevOld().then((fo) => {
+      done = true;
+      if (alive) setFileOld({
+        records: fo.records as TripRecord[],
+        debtors: (fo.debtors as OldDebtor[]).map((d) => ({ ...d, source: "เก่า" })),
+      });
+    });
+    // ออกจากหน้าก่อนโหลดเสร็จ — ผลรอบนี้ทิ้ง กลับมาหน้าเดิมแล้วโหลดใหม่
+    return () => { alive = false; if (!done) fileOldTick.current = -1; };
+  }, [wantFileOld, tick]);
 
   const oldRecords = useMemo(
     () => [...manualRows, ...(fileOld.records as unknown as Record<string, unknown>[])],

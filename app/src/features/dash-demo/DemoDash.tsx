@@ -19,7 +19,7 @@
  * ★ Performance Index (เจ้าของงานสั่ง 25 ก.ย. 2569 · PiIndex.tsx · สูตร lib/pi/score.ts) — กล่องยาวท้ายทุกส่วน
  *   วาดเสมอแม้ส่วนนั้นขึ้นข้อความแทนเนื้อหา (ขึ้น "ไม่มีข้อมูล" เอง) · คะแนนรวม XX/100 เป็นบรรทัดสุดท้ายของหน้า
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import DashShell, { Meta } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
@@ -28,15 +28,32 @@ import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
 import { useDebtors } from "../../lib/data/useDebtors";
 import { ListFF, PeriodFF, duniq, fmt, isFiltered } from "../dash-costrev/common";
-import RouteProfitTab from "./RouteProfitTab";
-import Item2Tab from "./Item2Tab";
-import Item3Tab from "./Item3Tab";
-import CustomerProfitTab from "./CustomerProfitTab";
+import RouteProfitTabRaw from "./RouteProfitTab";
+import Item2TabRaw from "./Item2Tab";
+import Item3TabRaw from "./Item3Tab";
+import CustomerProfitTabRaw from "./CustomerProfitTab";
 import { DEMO_F0, passDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
-import { DamageRateBox, PiCost, PiFleet, PiReportProvider, PiRoute, PiService, PiTotal, usePiReports } from "./PiIndex";
+import * as Pi from "./PiIndex";
+import { PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+
+/*
+ * ★ ทุกส่วนห่อ memo (26 ก.ย. 2569 · docs/แผนแก้-ข้อมูลจริงช้า.md ข้อ 2)
+ *   กล่อง PI แต่ละกล่องแจ้งคะแนนขึ้นมาที่หน้านี้ (setReports) — เดิมทุกครั้งที่แจ้ง ทั้ง 4 ส่วนวาดใหม่หมด
+ *   ตอนเปิดหน้าจึงคิดทั้งหน้าซ้ำ 5–6 รอบ · ห่อแล้ววาดใหม่เฉพาะส่วนที่ props เปลี่ยนจริง ตัวเลขเท่าเดิม
+ *   props ที่ส่งเข้าต้องคงที่ (useMemo / ค่าจาก state) ไม่งั้น memo ไม่มีผล
+ */
+const RouteProfitTab = memo(RouteProfitTabRaw);
+const Item2Tab = memo(Item2TabRaw);
+const Item3Tab = memo(Item3TabRaw);
+const CustomerProfitTab = memo(CustomerProfitTabRaw);
+const PiRoute = memo(Pi.PiRoute);
+const PiFleet = memo(Pi.PiFleet);
+const PiCost = memo(Pi.PiCost);
+const PiService = memo(Pi.PiService);
+const DamageRateBox = memo(Pi.DamageRateBox);
 
 const PARTS = DEMO_PARTS;
 type PartId = (typeof PARTS)[number]["id"];
@@ -49,6 +66,13 @@ export default function DemoDash() {
   const etl = useEtlStatus("costrev");
   useAutoReloadOnEtl(etl, reload);
   const [f, setF] = useState<DemoFilter>(DEMO_F0);
+  /**
+   * ตัวกรองที่เนื้อหาใช้ — ตามหลัง f (ที่แถบตัวกรองโชว์) ด้วย useDeferredValue
+   * เลือกตัวกรองแล้วช่องเลือกเปลี่ยนทันที ส่วนการคิดทั้งหน้าใหม่ทำเบื้องหลังแบบแบ่งช่วง (React หยุดให้เบราว์เซอร์
+   * ตอบสนองได้ระหว่างวาดแต่ละส่วน) เปลี่ยนตัวกรองรัว ๆ ก็ทิ้งรอบที่ยังคิดไม่เสร็จ · ระหว่างรอเนื้อหาจางลง (stale)
+   */
+  const fv = useDeferredValue(f);
+  const stale = fv !== f;
   const set = (k: keyof DemoFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [active, setActive] = useState<PartId>("route");
   const pi = usePiReports();
@@ -58,11 +82,11 @@ export default function DemoDash() {
     ...all.map((t) => t.br),
     ...(debtors.data?.rows ?? []).map((r) => r.br),
   ]), [all, debtors.data]);
-  const branchTrips = useMemo(() => all.filter((t) => !f.br || t.br === f.br), [all, f.br]);
+  const branchTrips = useMemo(() => all.filter((t) => !fv.br || t.br === fv.br), [all, fv.br]);
   const emptyN = useMemo(() => all.filter((t) => t.empty).length, [all]);
-  const trips = useMemo(() => all.filter((t) => passDemo(t, f)), [all, f]);
+  const trips = useMemo(() => all.filter((t) => passDemo(t, fv)), [all, fv]);
   // ข้อ 3 ส่วนที่ 1 เทียบปีที่เลือกกับปีก่อนหน้า — ต้องได้เที่ยวทุกปีที่ผ่านตัวกรองอื่น
-  const tripsAnyYear = useMemo(() => all.filter((t) => passDemo(t, f, { ignoreYear: true })), [all, f]);
+  const tripsAnyYear = useMemo(() => all.filter((t) => passDemo(t, fv, { ignoreYear: true })), [all, fv]);
 
   /* ---------- ปุ่มแท็บ = เลื่อนไปหาส่วน · ไฮไลต์ตามส่วนที่เลื่อนถึง ---------- */
   const partRefs = useRef<Partial<Record<PartId, HTMLElement | null>>>({});
@@ -142,7 +166,7 @@ export default function DemoDash() {
   ) : null;
 
   const part = (id: PartId, body: ReactNode) => (
-    <section key={id} id={`demo-${id}`} className="dm-part" ref={(el) => { partRefs.current[id] = el; }}>
+    <section key={id} id={`demo-${id}`} className={stale ? "dm-part dm-stale" : "dm-part"} ref={(el) => { partRefs.current[id] = el; }}>
       <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>
       {body}
     </section>
@@ -166,13 +190,13 @@ export default function DemoDash() {
         </FilterBar>
 
         <PiReportProvider value={pi.report}>
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={f} />}<PiRoute trips={piTrips} /></>)}
-          {part("item2", <>{tripsState ?? <Item2Tab all={branchTrips} trips={trips} tripsAnyYear={tripsAnyYear} f={f} />}
-            <PiFleet f={f} all={piRef ? branchTrips : null} /></>)}
-          {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={f.year} />}
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} /></>)}
+          {part("item2", <>{tripsState ?? <Item2Tab all={branchTrips} trips={trips} tripsAnyYear={tripsAnyYear} f={fv} />}
+            <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
+          {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
             <PiCost trips={piTrips} /></>)}
           {part("cust", <>
-            <CustomerProfitTab f={f} />
+            <CustomerProfitTab f={fv} />
             {/* Service Quality (ซ้าย) + การ์ด Damage Rate (ขวา) ขนาดเท่ากัน */}
             <div className="pi-pair">
               <PiService trips={piTrips} refTrips={piRef} />

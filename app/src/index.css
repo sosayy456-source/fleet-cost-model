@@ -2454,3 +2454,6 @@ html.rp-returning .app{visibility:hidden}
 .rs-branch span{font-weight:700;font-size:14.5px}
 .rs-branch select{padding:10px 12px;border:1px solid var(--border);border-radius:12px;font:inherit;background:#fff}
 .rs-branch em{font-style:normal;font-size:12.5px;color:var(--ink-muted)}
+
+/* Executive Dashboard: เนื้อหาที่ยังคิดตามตัวกรองใหม่ไม่เสร็จ (useDeferredValue ใน DemoDash) — จางลงให้รู้ว่ากำลังคิด */
+#view-dash .dm-part.dm-stale{opacity:.55;transition:opacity .2s .15s}

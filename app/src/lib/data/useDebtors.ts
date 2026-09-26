@@ -92,7 +92,9 @@ const detect = detectDebtorDataset;
 export const resetDebtorDataset = (): void => { if (!FORCED) resolved = null; };
 
 async function fetchJson<T>(ds: DebtorDataset, f: string): Promise<T> {
-  const res = await fetch(url(ds, f), { cache: "no-store" });
+  // manifest ถามเซิร์ฟเวอร์ใหม่ทุกครั้ง · ไฟล์ก้อนใหญ่ใช้แคชของเบราว์เซอร์แต่ต้องถามเซิร์ฟเวอร์ก่อนว่าไฟล์เปลี่ยนไหม
+  // (no-cache = ส่ง ETag ไปเทียบ ไม่เปลี่ยนได้ 304 ไม่ต้องดาวน์โหลดใหม่ · ETL รันใหม่ = ได้ไฟล์ใหม่ ไม่มีทางได้ของเก่าค้าง)
+  const res = await fetch(url(ds, f), { cache: f === "manifest.json" ? "no-store" : "no-cache" });
   const isJson = (res.headers.get("content-type") ?? "").includes("json");
   if (!res.ok || !isJson) throw new Error(`โหลด debtors/${f} ไม่ได้ (HTTP ${res.status})`);
   return res.json() as Promise<T>;
