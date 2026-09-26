@@ -22,12 +22,13 @@ import DriverJobs from "./features/driver/DriverJobs";
 import { lazyPage } from "./lib/ui/lazyPage";
 // แดชบอร์ดลากไลบรารีกราฟมาด้วยราว 400 KB แยกเป็นก้อนต่างหาก
 // คนที่เข้ามาแค่กรอกข้อมูลจะได้ไม่ต้องโหลดตาม
-const FleetDash = lazyPage(() => import("./features/dash-fleet/FleetDash"));
 // หน้าสถานะกองรถเดี่ยว ๆ ของฝ่ายจัดรถ — แท็บเดียวกับในแดชบอร์ดเต็ม อยู่ในก้อนเดียวกัน
 const FleetStatus = lazyPage(() => import("./features/dash-fleet/FleetDash")
   .then((m) => ({ default: m.FleetStatusPage })));
 const CostRevDash = lazyPage(() => import("./features/dash-costrev/CostRevDash"));
 const DemoDash = lazyPage(() => import("./features/dash-demo/DemoDash"));
+// Manager Dashboard (เมนู dash-fleet) แทนเนื้อหา FleetDash ทั้งหน้า 26 ก.ย. 2569 — FleetDash ยังใช้ที่สถานะกองรถ
+const ManagerDash = lazyPage(() => import("./features/dash-manager/ManagerDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
 import { DashPageContext } from "./lib/ui/dashContext";
 import { ROLES, ROLE_PICK, ROLE_VIEWS, roleAllDone, roleDone } from "./lib/record/roles";
@@ -35,6 +36,8 @@ import { billIsPaid, recBills } from "./lib/record/payment";
 import { useRecords } from "./lib/store/useRecords";
 import { useActiveDataset } from "./lib/dataset";
 import { loadSessionRole, saveSessionRole } from "./lib/store/sessionRole";
+import { saveSessionBranch } from "./lib/store/sessionBranch";
+import BranchPick from "./features/dash-manager/BranchPick";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
 import { DEMO_PARTS, demoGo, useDemoNav } from "./lib/ui/demoNav";
@@ -78,7 +81,7 @@ const PAGES: PageDef[] = [
   // ★ เดิมชื่อ "Executive Dashboard" — เปลี่ยนเป็น "Overall Dashboard" 25 ก.ย. 2569 (id exec-dash เหมือนเดิม)
   //   อยู่ใต้ Executive Dashboard ทันที (เจ้าของงานสั่ง 25 ก.ย. 2569 — เดิมอยู่ท้ายเมนูก่อนการตั้งค่า)
   { id: "exec-dash", view: "dash", label: "Overall Dashboard", icon: I.dash, h1: "Overall Dashboard" },
-  // เปลี่ยนชื่อจาก "แดชบอร์ด" (เจ้าของงานสั่ง 24 ก.ย. 2569) · id เดิม — เหลือแค่มุมมอง "หน้างาน" ดู SHOW_TABS ใน FleetDash
+  // เปลี่ยนชื่อจาก "แดชบอร์ด" (เจ้าของงานสั่ง 24 ก.ย. 2569) · id เดิม — เนื้อหาเป็น ManagerDash ตั้งแต่ 26 ก.ย. 2569 (features/dash-manager/)
   { id: "dash-fleet", view: "dash", label: "Manager Dashboard", icon: I.dash, h1: "Manager Dashboard" },
   // ฝ่ายบริการลูกค้ากรอกบิล (ไม่มีเลขที่ใบรายการ) — ใบรายการเกิดที่หน้า "จัดรถ" ของฝ่ายจัดรถ
   { id: "bills", view: "form", label: "บันทึกบิล", icon: I.plus, h1: "บันทึกบิล" },
@@ -112,7 +115,11 @@ export default function App() {
   // แต่จำไว้ระดับ "แท็บ" เพื่อให้รีโหลดแล้วไม่ต้องเลือกซ้ำ — sessionStorage ตายตอนปิดแท็บ ดีไซน์เดิมจึงยังอยู่
   // (จำเป็นเพราะ lazyPage รีโหลดหน้าเองได้เมื่อมี deploy ทับระหว่างเปิดค้าง)
   const [role, setRoleState] = useState<RoleKey | null>(loadSessionRole);
-  const setRole = (r: RoleKey | null): void => { saveSessionRole(r); setRoleState(r); };
+  // สาขาของผู้จัดการเลือกพร้อมตำแหน่ง (Manager Dashboard) — เปลี่ยนหน้าที่ = ลืมทั้งคู่
+  const setRole = (r: RoleKey | null, branch: string | null = null): void => {
+    saveSessionBranch(r === "manager" ? branch : null);
+    saveSessionRole(r); setRoleState(r);
+  };
   // true เฉพาะรอบแรกที่ตำแหน่งถูกกู้มาจากการรีโหลด — ใช้ตัดสินว่าจะอยู่หน้าเดิมหรือเด้งไปหน้าแรก
   const restoredRole = useRef(role !== null);
   const state = useRecords();
@@ -272,7 +279,7 @@ export default function App() {
               onSwitchRole: () => setRole(null),
             } : null}>
               <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด... <TruckLoader label={null} /></p></div>}>
-                {page === "dash-fleet" && <FleetDash state={state} role={role} sample={isSample} />}
+                {page === "dash-fleet" && <ManagerDash role={role} />}
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
                 {page === "exec-dash" && <CostRevDash />}
                 {page === "demo" && <DemoDash />}
@@ -297,8 +304,11 @@ export default function App() {
  * หน้าเลือกหน้าที่ — เต็มจอ ตามดีไซน์ Role Selection ของ main
  * ต้องเลือกการ์ดก่อนปุ่ม Continue จึงจะกดได้ และเลื่อนเลือกด้วยลูกศรได้
  */
-function RolePicker({ onPick }: { onPick: (k: RoleKey) => void }) {
+function RolePicker({ onPick }: { onPick: (k: RoleKey, branch?: string | null) => void }) {
   const [sel, setSel] = useState<RoleKey | null>(null);
+  // ผู้จัดการต้องเลือกสาขาก่อนกด Continue (Manager Dashboard ดูได้เฉพาะสาขาตัวเอง)
+  const [branch, setBranch] = useState("");
+  const ready = !!sel && (sel !== "manager" || !!branch);
 
   const onKey = (e: React.KeyboardEvent, i: number) => {
     const d = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1
@@ -338,12 +348,14 @@ function RolePicker({ onPick }: { onPick: (k: RoleKey) => void }) {
           ))}
         </div>
 
+        {sel === "manager" && <BranchPick value={branch} onChange={setBranch} />}
+
         <div className="rs-foot rs-in" style={{ "--i": ROLE_PICK.length + 2 } as React.CSSProperties}>
           <button
             type="button"
-            className={"rs-cta" + (sel ? " on" : "")}
-            disabled={!sel} aria-disabled={!sel}
-            onClick={() => sel && onPick(sel)}
+            className={"rs-cta" + (ready ? " on" : "")}
+            disabled={!ready} aria-disabled={!ready}
+            onClick={() => sel && ready && onPick(sel, sel === "manager" ? branch : null)}
           >
             <span>{sel ? `Continue as ${ROLES[sel].en}` : "Continue"}</span>
             <span style={{ fontSize: 15 }}>→</span>
