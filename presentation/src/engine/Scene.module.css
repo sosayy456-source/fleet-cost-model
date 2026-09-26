@@ -1,3 +1,0 @@
-.scene { position:relative; min-height:100svh; background:var(--bg); overflow:clip; }
-.stage { height:100svh; padding:88px 3.5vw 52px; display:flex; flex-direction:column; position:relative; transform-origin:center top; }
-@media(max-width:800px) { .stage { padding:82px 18px 42px; } }

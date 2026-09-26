@@ -7,8 +7,20 @@
 
 ## รอเจ้าของงานตัดสิน
 
-- Q1–Q6 ใน `PRESENTATION_BRIEF.md` ข้อ 9 (ตัวเลขจริง · ผู้ชม/เวลา · ขึ้น Pages ไหม · ฉากที่ต้องมี · ข้อมูลหน้าปก · ลิงก์เดโม)
-  — ตอบก่อน Phase 3 · P0–P2 ใช้ค่าตั้งต้นในตารางไปก่อนได้
+- (ไม่มี) — คำถาม Q1–Q6 ของแนวทางหน้าจอจำลองเลิกใช้แล้ว (`docs/archive/PRESENTATION_BRIEF-v3.md`)
+
+---
+
+## 2569-09-26 · Claude · ใช้แบบคลิปอย่างเดียว · ลบฉากหน้าจอจำลอง · เลิกแบ่งหน้าที่ Claude/Codex (เจ้าของงานสั่ง)
+
+- **ลบโค้ด** ฉาก R0/R1 และทุกอย่างที่ใช้เฉพาะมัน: `src/App.tsx` · `components/` · `engine/` · `mock/` · `narration/` · `primitives/` · `scenes/` ·
+  `data/scenario.*` · `tools/build-scenario.ts` · `scenario.input.json` · `app-reference.config.ts` · `capture-reference.mjs` · `check-presentation.mjs`
+- `main.tsx` เปิดโหมดคลิป (`Tour`) เสมอ ไม่ต้องต่อ `?tour` (ต่อไว้ก็ยังเปิดได้)
+- `package.json`: ตัด script `scenario`/`reference`/`test` และ `gsap` · `lenis` · `vitest` (ไม่มีใครใช้แล้ว)
+- **เลิกแบ่งหน้าที่** — Claude กับ Codex ทำได้ทั้งวางแผนและเขียนโค้ด ไม่ต้องมีบล็อก "ขั้นต่อไป: ไปสั่ง…" ·
+  `HANDOFF.md` · `IMPLEMENTATION_PLAN.md` · `STORYBOARD.md` · `DESIGN_DIRECTION.md` · `PRESENTATION_BRIEF.md` ย้ายไป `docs/archive/`
+  (ส่วนเหตุผล "ทำไมต้องมีเว็บนี้" ในบรีฟอ้างถึงแอปหลักค้าง — แก้ไปแล้วที่ `docs/แผนแก้-ข้อมูลจริงช้า.md`)
+- ตรวจ: `npm run build` ผ่าน (JS gzip 77 KB) · เปิด preview กดเริ่ม → สไลด์เปิดเรื่อง 18 วิ → วิดีโอเล่นต่อ ไม่มี error
 
 ---
 

@@ -1,9 +1,8 @@
 import { createRoot } from 'react-dom/client';
-import App from './App';
 import Tour from './tour/Tour';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/global.css';
-// ?tour = โหมดสาธิตด้วยวิดีโอ (ทดลอง 26 ก.ย. 2569) · ไม่มี = ฉากหน้าจอจำลองเดิม
-const tour = new URLSearchParams(location.search).has('tour');
-createRoot(document.getElementById('root')!).render(tour ? <Tour/> : <App/>);
+// เว็บนำเสนอ = โหมดวิดีโอ (คลิปแอปจริง) อย่างเดียว — ฉากหน้าจอจำลอง R0/R1 ลบแล้ว 26 ก.ย. 2569 (เจ้าของงานสั่ง)
+// ลิงก์เก่าที่ต่อ ?tour ยังเปิดได้ตามเดิม
+createRoot(document.getElementById('root')!).render(<Tour/>);
