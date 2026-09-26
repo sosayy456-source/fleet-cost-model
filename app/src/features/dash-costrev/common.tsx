@@ -180,7 +180,7 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
   return { sorted, sort, toggle, isDefault };
 }
 
-export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps, maxHeight }: {
+export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps, maxHeight, filterRow }: {
   rows: T[]; cols: Col<T>[]; sort: { key: string; dir: 1 | -1 };
   onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;
   /** คลาสเพิ่มให้ตัวตาราง — ใช้ตกแต่งเฉพาะหน้า */
@@ -189,6 +189,8 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, classNam
   rowProps?: (r: T, i: number) => React.HTMLAttributes<HTMLTableRowElement>;
   /** ความสูงสูงสุดของกล่องเลื่อน — ไม่ส่ง = ค่าตั้งต้นของ GrowBox (60vh) */
   maxHeight?: number | string;
+  /** แถวตัวกรองรายคอลัมน์ใต้หัวตาราง (Manager Dashboard) — คืนช่องกรองของคอลัมน์นั้น · ไม่ส่ง = ไม่มีแถวนี้ */
+  filterRow?: (c: Col<T>) => ReactNode;
 }) {
   return (
     <GrowBox rows={rows} maxHeight={maxHeight} render={(shown) => (
@@ -204,7 +206,9 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, classNam
               </span>
             </th>
           ))}
-        </tr></thead>
+        </tr>
+        {filterRow && <tr className="dz-frow">{cols.map((c) => <th key={c.key}>{filterRow(c)}</th>)}</tr>}
+        </thead>
         <tbody>
           {rows.length === 0 ? (
             <tr><td colSpan={cols.length} style={{ textAlign: "center", color: "var(--ink-faint)", padding: 16 }}>{empty}</td></tr>
