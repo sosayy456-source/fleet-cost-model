@@ -64,6 +64,8 @@ export default function DemoDash() {
   const { data, error, loading, reload } = useCostRev();
   const debtors = useDebtors();
   const etl = useEtlStatus("costrev");
+  // แถบที่หัวหน้า = สถานะรวมทุกงาน ETL (งานปันส่วนกำไรลูกค้าแปลงต่อหลังงานนี้อีกนาน)
+  const etlAll = useEtlStatus("all");
   useAutoReloadOnEtl(etl, reload);
   const [f, setF] = useState<DemoFilter>(DEMO_F0);
   /**
@@ -174,7 +176,7 @@ export default function DemoDash() {
 
   return (
     <>
-      <EtlBanner status={etl} />
+      <EtlBanner status={etlAll} />
       <DashShell sample={m?.isSample} meta={meta || undefined}
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
         <FilterBar>

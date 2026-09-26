@@ -5,6 +5,8 @@ import { spawn } from "node:child_process";
 import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { EtlBatch } from "./src/lib/data/etlBatch";
+import type { EtlJob } from "./src/lib/data/etlBatch";
 
 /**
  * รัน ETL ให้เองตอน dev เมื่อไฟล์ .xlsx ใน etl/data/ เปลี่ยน
@@ -94,7 +96,8 @@ function autoEtl(): Plugin {
     /** ความคืบหน้า 0–100 กับขั้นที่ทำอยู่ — python พิมพ์ `##ETL## <pct> <ขั้น>` (etl/src/progress.py) · มีเฉพาะตอน running */
     pct?: number; step?: string;
   };
-  type Job = "rev" | "cr" | "al" | "db" | "lf";
+  type Job = EtlJob;
+  const ORDER_JOBS: Job[] = ["rev", "cr", "al", "db", "lf"];
   const EVENT: Record<Job, string> = {
     rev: "etl:status", cr: "costrev:status", al: "alloc:status", db: "debtors:status", lf: "loadfactor:status",
   };
@@ -107,11 +110,13 @@ function autoEtl(): Plugin {
     lf: { state: "idle", message: "", at: Date.now() },
   };
   let emit: (job: Job, s: Status) => void = () => {};
+  let emitAll: (s: Status) => void = () => {};
   const setStatus = (job: Job, state: Status["state"], message: string) => {
     // ข้อความเดิมซ้ำ (เช่นโพลเจอไฟล์กำลังคัดลอกทุก 2 วิ) ไม่ส่งซ้ำ — เวลา "เริ่ม" บนแถบจะได้ไม่ขยับ
     if (status[job].state === state && status[job].message === message) return;
     status[job] = { state, message, at: Date.now() };
     emit(job, status[job]);
+    track(job);
   };
   /** อัปเดต % โดยไม่เปลี่ยน at — แถบบนหน้าเว็บใช้ at เป็นเวลาเริ่ม */
   const setProgress = (job: Job, pct: number, step: string) => {
@@ -119,6 +124,14 @@ function autoEtl(): Plugin {
     if (cur.state !== "running" || (cur.pct === pct && cur.step === step)) return;
     status[job] = { ...cur, pct, step };
     emit(job, status[job]);
+    track(job);
+  };
+
+  /** สถานะรวมทุกงานในรอบเดียว + % รวม → event "all:status" ที่หัวทุก Dashboard (src/lib/data/etlBatch.ts) */
+  const etlBatch = new EtlBatch();
+  const track = (job: Job | null) => {
+    const st = etlBatch.update(job, status, busy, ORDER_JOBS.some((j) => want[j]));
+    if (st) emitAll(st);
   };
   /** งานที่ต้องรอคิว — ให้แถบขึ้นตั้งแต่ตอนนี้ ไม่ใช่รอจนถึงคิวของตัวเอง (เจ้าของขอ 16 ก.ย. 2569) */
   const QUEUED: Record<Job, string> = {
@@ -285,7 +298,7 @@ function autoEtl(): Plugin {
   const pump = (log: (m: string) => void) => {
     if (busy) return;
     const job: Job | null = want.rev ? "rev" : want.cr ? "cr" : want.al ? "al" : want.db ? "db" : want.lf ? "lf" : null;
-    if (!job) return;
+    if (!job) { track(null); return; }
     want[job] = false;
     busy = job;
     // อะไรก็ตามที่พังใน plugin นี้ต้องไม่ล้ม dev server — แค่บอกใน terminal แล้วปล่อยแอปรันต่อ
@@ -305,6 +318,8 @@ function autoEtl(): Plugin {
       if (!existsSync(revDir)) return;
 
       emit = (job, st) => server.ws.send({ type: "custom", event: EVENT[job], data: st });
+      emitAll = (st) => server.ws.send({ type: "custom", event: "all:status", data: st });
+      server.ws.on("all:hello", (_d, c) => c.send({ type: "custom", event: "all:status", data: etlBatch.status }));
       // แท็บที่เพิ่งเปิด/รีโหลดขอสถานะล่าสุด — ไม่งั้นจะไม่รู้ว่ากำลังแปลงอยู่
       server.ws.on("etl:hello", (_d, c) => c.send({ type: "custom", event: EVENT.rev, data: status.rev }));
       server.ws.on("costrev:hello", (_d, c) => c.send({ type: "custom", event: EVENT.cr, data: status.cr }));

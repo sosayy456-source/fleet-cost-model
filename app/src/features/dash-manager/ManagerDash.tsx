@@ -50,6 +50,8 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
   const lf = useLoadFactor();
   const debtors = useDebtors();
   const etl = useEtlStatus("costrev");
+  // แถบที่หัวหน้า = สถานะรวมทุกงาน ETL (งานปันส่วนกำไรลูกค้าแปลงต่อหลังงานนี้อีกนาน)
+  const etlAll = useEtlStatus("all");
   useAutoReloadOnEtl(etl, cr.reload);
   useDebtorCodes();
 
@@ -121,7 +123,7 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
 
   return (
     <>
-      <EtlBanner status={etl} />
+      <EtlBanner status={etlAll} />
       <DashShell sample={m?.isSample} meta={meta || undefined} tabs={tabs}
         onRefresh={cr.reload} loading={cr.loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่">
         <FilterBar>

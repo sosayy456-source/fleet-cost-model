@@ -16,7 +16,6 @@
  */
 import { useMemo, useState } from "react";
 import FilterBar, { ClearFiltersBtn } from "../../../lib/ui/FilterBar";
-import EtlBanner from "../../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../../lib/data/etlStatus";
 import { lfShellSource, useLoadFactor } from "../../../lib/data/useLoadFactor";
 import { useShellSource } from "../../../lib/ui/dashContext";
@@ -41,7 +40,7 @@ export default function TonKmTab() {
   useShellSource(lfShellSource(data?.manifest));
   return (
     <>
-      <EtlBanner status={etl} />
+      {/* แถบสถานะ ETL อยู่ที่หัว Overall Dashboard (สถานะรวมทุกงาน) */}
       {error ? (
         <div className="card">
           <div className="banner">{error}</div>

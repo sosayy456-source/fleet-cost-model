@@ -36,7 +36,6 @@ import { PiBox } from "./PiIndex";
 import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { ShortId } from "../../lib/custmap/ShortId";
-import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { allocTopKey, useAlloc } from "../../lib/data/useAlloc";
 import { inPeriod, periodLabel as periodText } from "../../lib/filter/period";
@@ -133,8 +132,7 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
   useAutoReloadOnEtl(etlDebt, debtors.reload);
   return (
     <>
-      <EtlBanner status={etlAlloc} />
-      <EtlBanner status={etlDebt} />
+      {/* แถบสถานะ ETL อยู่ที่หัวหน้า (สถานะรวมทุกงาน) — ส่วนนี้แค่รีเฟรชเองเมื่อชุดของตัวเองเสร็จ */}
       {alloc.error ? (
         <div className="card">
           <div className="banner">{alloc.error}</div>

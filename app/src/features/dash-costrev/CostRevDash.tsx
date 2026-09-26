@@ -54,6 +54,8 @@ export default function CostRevDash() {
   const { data, error, loading, reload } = useCostRev();
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/Dashboard real data/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("costrev");
+  // แถบที่หัวหน้า = สถานะรวมทุกงาน ETL (งานปันส่วนกำไรลูกค้าแปลงต่อหลังงานนี้อีกนาน)
+  const etlAll = useEtlStatus("all");
   useAutoReloadOnEtl(etl, reload);
   // แท็บที่หน้าอื่นสั่งให้เปิด (lib/ui/dashJump.ts) — รับเฉพาะชื่อแท็บที่มีจริง
   const [tab, setTab] = useState<TabId>(() => {
@@ -99,7 +101,7 @@ export default function CostRevDash() {
 
   return (
     <>
-      <EtlBanner status={etl} />
+      <EtlBanner status={etlAll} />
       <DashShell title={title} sample={m?.isSample} meta={meta || undefined}
         tabs={tabs} onRefresh={reload} loading={loading} refreshTitle={refreshTitle}>
         {STANDALONE.has(tab) ? (

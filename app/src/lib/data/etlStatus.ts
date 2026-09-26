@@ -24,9 +24,11 @@ export interface EtlStatus {
  * (build_costrev.py) · "alloc" = ปันส่วนต้นทุนเข้าบิลลูกค้า (build_alloc.py)
  * · "debtors" = ไฟล์ใบวางบิลลูกหนี้ (build_debtors.py) · "loadfactor" = ไฟล์ Load Factor รายเที่ยว (build_loadfactor.py)
  * plugin ส่งคนละ event กัน เพื่อให้แดชบอร์ดแต่ละชุดรีเฟรชเฉพาะตอนข้อมูลของตัวเองเปลี่ยน
+ * · "all" = สถานะรวมทุกงานในรอบเดียว + % รวม (26 ก.ย. 2569) — ใช้แสดงที่หัว Dashboard เท่านั้น
+ *   รีเฟรชข้อมูลยังต้องฟังช่องของชุดนั้นเอง (useAutoReloadOnEtl) ไม่งั้นรอจนทุกงานจบถึงจะรีเฟรช
  */
 export function useEtlStatus(
-  channel: "etl" | "costrev" | "alloc" | "debtors" | "loadfactor" = "etl",
+  channel: "etl" | "costrev" | "alloc" | "debtors" | "loadfactor" | "all" = "etl",
 ): EtlStatus | null {
   const [status, setStatus] = useState<EtlStatus | null>(null);
   useEffect(() => {
