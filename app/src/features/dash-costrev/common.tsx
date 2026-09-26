@@ -257,7 +257,7 @@ export function Meter({ l, v, s, dot, bar, tone, fill, onClick }: {
     <div className={"dz-kc meter" + (tone ? ` t-${tone}` : "") + (onClick ? " clickable" : "")}
       style={{ "--dot": dot, "--bar": c } as CSSProperties} {...press}>
       <div className="l"><i className="d" />{l}</div>
-      {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
+      {/* key = ค่าเปลี่ยนแล้วได้กล่องใหม่ ท่า fade-down เล่นใหม่ (useNumFade) */}
       <div className="v" key={v} data-real={v}>{v}</div>
       <div className="kbar"><i style={{ width: `${w}%` }} /></div>
       <div className="s">{s}</div>

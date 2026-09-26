@@ -11,18 +11,23 @@
 ```powershell
 cd presentation
 npm.cmd ci
-npm.cmd run build
-npm.cmd run preview
+npm.cmd run dev        # เปิด URL ที่ Vite แสดง (ถ้าแอปหลักรันอยู่ที่ 5173 จะได้พอร์ตถัดไป)
 ```
 
 เปิด URL ที่แสดง (ปกติ `http://127.0.0.1:4173/`) · หรือดับเบิลคลิก `dist/index.html` เปิดออฟไลน์ได้ (ต้องมีโฟลเดอร์ `dist/clips/` คู่กัน)
 
 ปุ่ม: `→` ถัดไป · `←` ย้อน · `Space` หยุด/เล่น · `1`–`5` ข้ามไปฝ่าย · `F` เต็มจอ
 
+ส่งต่อแบบไม่ต้องต่อเน็ต: `npm.cmd run build` แล้วเปิด `dist/index.html` โดยให้มีโฟลเดอร์ `dist/clips/` อยู่ข้างกัน สคริปต์ สไตล์ และฟอนต์ฝังไว้ในไฟล์แล้ว แต่วิดีโอเป็นไฟล์แยก เก็บ `dist/OFL.txt` คู่กันด้วย
+
 ## แก้เนื้อหา
 
 - `src/data/tour.json` — ตารางกลาง: สไลด์เปิดเรื่อง · บท (ฝ่าย) · ช่วงของคลิป (`from`/`to` วินาทีในคลิปต้นฉบับ · `speed` · หัวข้อ · คำอธิบาย · จุดซูม `focus` · การ์ดตัวเลข `callout`)
-- ตัดคลิปใหม่หลังแก้ช่วงเวลา: `python tools/build-tour.py` (ต้องมี ffmpeg · คลิปดิบใน `clips/` ไม่ขึ้น git) → `public/clips/tour.webm` + `tour.mp4`
+- ตัดคลิปใหม่หลังแก้ช่วงเวลา: `python tools/build-tour.py "clips/<ไฟล์ที่อัด>.mp4"` (ต้องมี ffmpeg · คลิปดิบใน `clips/` ไม่ขึ้น git) → `public/clips/tour.webm` + `tour.mp4`
 - หน้าจอ: `src/tour/Tour.tsx` + `Tour.module.css`
 
-`npm.cmd run build` ตรวจ TypeScript · งบขนาด (ไม่นับวิดีโอ) · ไฟล์เปิดออฟไลน์ได้
+แก้ `tour.json` แล้วต้องตัดคลิปใหม่ ไม่งั้นคำอธิบายบนจอจะไม่ตรงกับภาพ
+
+## การตรวจ
+
+`npm.cmd run build` ตรวจ TypeScript งบขนาด (JS gzip ≤ 300 KB · ไม่นับวิดีโอ) และไฟล์ออฟไลน์

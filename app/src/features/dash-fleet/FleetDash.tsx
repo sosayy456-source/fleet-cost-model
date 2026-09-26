@@ -30,6 +30,7 @@ import FleetRoster from "../entry/panels/FleetRoster";
 import type { OldDebtor, RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
 import TruckLoader from "../../lib/ui/TruckLoader";
+import FleetMap, { MAP_COLOR, type MapCmd, type MapRoute, type MapStop, type MapStopLabels, type MapView } from "../dash-costrev/FleetMap";
 
 /**
  * ★ Manager Dashboard เหลือแค่มุมมอง "หน้างาน" (เจ้าของงานสั่ง 24 ก.ย. 2569) — แถบแท็บกับปุ่ม หลัก/หน้างาน ซ่อนไว้
@@ -1259,8 +1260,16 @@ function FleetPane({ state }: { state: RecordsState }) {
  *   - ยังไม่ถึงวันที่ประมาณว่าจะถึงปลายทาง (tripProgress) → กำลังเดินทาง ตำแหน่ง = ต้นทาง→ปลายทาง
  *   - เลยวันประมาณการ / คนขับกดจบงานแล้ว / ไม่มีใบเลย → ว่าง ตำแหน่ง = จุดลงของเที่ยวล่าสุด
  * ข้อจำกัด: สดใหม่แค่เท่าที่มีคนกรอกใบหรือกดจบงาน ไม่ใช่ตำแหน่งเรียลไทม์บนแผนที่
+ * แผนที่ (เจ้าของงานสั่ง 26 ก.ย. 2569) ใช้ rows ชุดเดียวกับตาราง — ว่าง = วงที่จุดลงของเที่ยวล่าสุด · กำลังเดินทาง = วงที่ปลายทาง
+ *   ไม่พร้อมใช้งาน / ไม่มีประวัติ / รอออกเดินทาง ไม่มีจุดให้ปัก · กดวง = กรองตารางเหลือรถที่จุดนั้น
  */
 type FleetStatusKey = "idle" | "moving" | "down";
+/** ชื่อสถานะในป้ายตอนชี้วงบนแผนที่ — สีวง: ว่าง = เขียว (ready) · กำลังเดินทาง = น้ำเงิน (moving) */
+const MAP_LABELS: MapStopLabels = { ready: "ว่างอยู่ที่คลัง", moving: "กำลังเดินทางมา" };
+/** ปุ่มมุมมองแผนที่ — แก้จุด กทม. กระจุกกัน (เจ้าของงานเลือกแนวทางนี้ 26 ก.ย. 2569) */
+const MAP_VIEWS: { id: MapView; label: string }[] = [
+  { id: "all", label: "ทั้งหมด" }, { id: "north", label: "ภาคเหนือ" }, { id: "bkk", label: "กทม." },
+];
 const STATUS_META: Record<FleetStatusKey, { label: string; badge: string }> = {
   idle: { label: "ว่างอยู่ที่คลัง", badge: "paid" },
   moving: { label: "กำลังเดินทาง", badge: "b1" },
@@ -1274,14 +1283,33 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
   const [q, setQ] = useState("");
   const [filterStatus, setFilterStatus] = useState<"" | FleetStatusKey>("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [mapSel, setMapSel] = useState<string | null>(null);
+  const [mapMissing, setMapMissing] = useState<string[]>([]);
+  const [mapView, setMapView] = useState<MapView>("all");
+  /** กดการ์ดสถานะ — เลือกสถานะนั้น / กดซ้ำ = ทุกสถานะ · ล้างจุดที่เลือกบนแผนที่ด้วย (จุดนั้นอาจไม่มีรถสถานะใหม่เลย) */
+  const toggleStatus = (k: FleetStatusKey) => { setFilterStatus((cur) => (cur === k ? "" : k)); setMapSel(null); };
+  const [mapCmd, setMapCmd] = useState<MapCmd | null>(null);
+  const pickView = (view: MapView) => { setMapView(view); setMapCmd({ id: Date.now(), type: "view", view }); };
+  /** กดแถวในรายการจุด = เลือกจุด + ซูมไปกลุ่มของจุดนั้น (กดซ้ำ = เลิกเลือก ไม่ซูม) */
+  const pickStop = (stop: string) => {
+    if (mapSel === stop) { setMapSel(null); return; }
+    setMapSel(stop);
+    setMapCmd({ id: Date.now(), type: "zoomTo", stop });
+  };
   const base = useSourced(state, src);
   const [roster] = useRoster();
   const today = todayISO();
 
+  /* จัดกลุ่มใบตามทะเบียนครั้งเดียว — เดิม filter ทั้งชุดทุกคัน (899 คัน × ~4,000 ใบ ≈ 3.6 ล้านรอบทุกครั้งที่คิดใหม่)
+     เป็นหนึ่งในงานยาวตอนเปิดหน้า (แก้ 26 ก.ย. 2569 ตอนเจ้าของงานแจ้งว่าส่วนแผนที่แลค) */
+  const byPlate = useMemo(() => {
+    const m = new Map<string, TripRecord[]>();
+    for (const r of base) { const l = m.get(r.plate); if (l) l.push(r); else m.set(r.plate, [r]); }
+    return m;
+  }, [base]);
   const rows = useMemo(() => roster.map((v) => {
     // เรียงด้วยวันที่เริ่มวิ่งจริง (วันปล่อยรถก่อน ไม่มีค่อยใช้วันที่ใบ) ไม่ใช่วันที่ใบอย่างเดียว
-    const trips = base.filter((r) => r.plate === v.plate)
-      .slice().sort((a, b) => tripStart(b).localeCompare(tripStart(a)));
+    const trips = (byPlate.get(v.plate) ?? []).slice().sort((a, b) => tripStart(b).localeCompare(tripStart(a)));
     const latest = trips[0] ?? null;
     const p = latest ? tripProgress(latest, today) : null;
     // เที่ยวที่ออกไปแล้วจริง ๆ — ใบที่ลงวันปล่อยรถไว้ล่วงหน้ายังไม่พารถไปไหน
@@ -1290,21 +1318,25 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
 
     let statusKey: FleetStatusKey;
     let position: string;
+    /** จุดที่ปักบนแผนที่ — ว่าง = จุดลงของเที่ยวล่าสุดที่ออกแล้ว · เดินทาง = ปลายทางที่กำลังไป · null = ไม่มีจุด */
+    let stop: string | null = null;
     if (v.status !== "ใช้งาน") {
       statusKey = "down";
       position = v.status || "–";
     } else if (p?.moving) {
       statusKey = "moving";
       position = routeLabel(latest!);
+      stop = latest!.dest || null;
     } else {
       statusKey = "idle";
+      stop = arrived?.dest || null;
       // จุดลงของเที่ยวล่าสุดที่ออกไปแล้ว = ที่ที่รถน่าจะจอดอยู่ตอนนี้
       position = arrived?.dest || (arrived ? "ไม่ระบุปลายทาง"
         : latest ? "รอออกเดินทาง" : "ไม่มีประวัติ");
     }
 
-    return { v, latest, statusKey, position, eta: p?.eta ?? null };
-  }), [roster, base, today]);
+    return { v, latest, statusKey, position, stop, eta: p?.eta ?? null };
+  }), [roster, byPlate, today]);
 
   async function onFinish(r: TripRecord) {
     if (!confirm(`ยืนยันว่าเที่ยวนี้จบแล้ว?\n${r.plate} · ${routeLabel(r)}`)) return;
@@ -1320,7 +1352,8 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
   const cnt = (k: FleetStatusKey) => rows.filter((x) => x.statusKey === k).length;
   const nIdle = cnt("idle"), nMoving = cnt("moving"), nDown = cnt("down");
 
-  const shown = useMemo(() => {
+  /** ตามตัวกรองสถานะ + ช่องค้นหา — แผนที่นับจากชุดนี้ (ไม่ตามจุดที่กดบนแผนที่ ไม่งั้นวงอื่นหายหมด) */
+  const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return rows
       .filter((x) =>
@@ -1329,6 +1362,34 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
       // เดินทาง (ต้องติดตาม) ขึ้นก่อน แล้วว่าง สุดท้ายค่อยไม่พร้อมใช้งาน — ตามที่เจ้าของข้อมูลขอ
       .sort((a, b) => STATUS_SORT[a.statusKey] - STATUS_SORT[b.statusKey]);
   }, [rows, filterStatus, q]);
+  const shown = useMemo(() => (mapSel ? filtered.filter((x) => x.stop === mapSel) : filtered), [filtered, mapSel]);
+  const mapStops = useMemo<MapStop[]>(() => {
+    const m = new Map<string, MapStop>();
+    for (const x of filtered) {
+      if (!x.stop) continue;
+      const s = m.get(x.stop) ?? { stop: x.stop, total: 0, ready: 0, moving: 0 };
+      if (x.statusKey === "moving") s.moving!++; else s.ready!++;
+      s.total++;
+      m.set(x.stop, s);
+    }
+    return [...m.values()].sort((a, b) => b.total - a.total || a.stop.localeCompare(b.stop, "th"));
+  }, [filtered]);
+  /** เส้นทางของรถกำลังเดินทาง (ต้นทาง → ปลายทางของใบล่าสุด) — ชุดเดียวกับป้ายสีฟ้า
+      วาดเฉพาะตอนกดการ์ด/เลือกสถานะ "กำลังเดินทาง" (เจ้าของงานสั่ง 26 ก.ย. 2569 — หน้าแรกไม่มีเส้น) */
+  const mapRoutes = useMemo<MapRoute[]>(() => {
+    const m = new Map<string, MapRoute>();
+    if (filterStatus !== "moving") return [];
+    for (const x of filtered) {
+      if (x.statusKey !== "moving" || !x.stop || !x.latest?.origin) continue;
+      const key = `${x.latest.origin}\u0000${x.stop}`;
+      const r = m.get(key) ?? { from: x.latest.origin, to: x.stop, n: 0 };
+      r.n++;
+      m.set(key, r);
+    }
+    return [...m.values()];
+  }, [filtered, filterStatus]);
+  const onMap = mapStops.reduce((n, s) => n + s.total, 0);
+  const noStop = filtered.filter((x) => !x.stop && x.statusKey !== "down").length;
 
   return (
     <>
@@ -1343,7 +1404,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
             <option value="down">ไม่พร้อมใช้งาน</option>
           </select>
         </div>
-        <ResetBtn onClick={() => { setSrc(""); setFilterStatus(""); setQ(""); }} />
+        <ResetBtn onClick={() => { setSrc(""); setFilterStatus(""); setQ(""); setMapSel(null); }} />
       </FilterBar>
 
       <Pane deps={[rows, filterStatus, q]}>
@@ -1352,15 +1413,75 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
             s={<>คัน · ว่าง {fmt(nIdle)} · เดินทาง {fmt(nMoving)} · ไม่พร้อมใช้งาน {fmt(nDown)}</>} />
         </div>
         <div className="dz-cards">
+          {/* กดการ์ด = กรองทั้งแผนที่ รายการจุด และตารางตามสถานะนั้น (ตัวเดียวกับช่อง "สถานะ" ที่หัว) · กดซ้ำ = ทุกสถานะ
+              (เจ้าของงานสั่ง 26 ก.ย. 2569) */}
           <KC dot={D.emeraldLight} tone="good" l="ว่างอยู่ที่คลัง" v={fmt(nIdle)}
-            s={<>คัน · {roster.length ? Math.round(nIdle / roster.length * 100) : 0}% ของกองรถ</>} />
+            s={<>คัน · {roster.length ? Math.round(nIdle / roster.length * 100) : 0}% ของกองรถ</>}
+            onClick={() => toggleStatus("idle")} active={filterStatus === "idle"} />
           <KC dot={D.indigo} l="กำลังเดินทาง" v={fmt(nMoving)}
-            s={<>คัน · {roster.length ? Math.round(nMoving / roster.length * 100) : 0}% ของกองรถ</>} />
-          <KC dot={D.rose} tone="bad" l="ไม่พร้อมใช้งาน" v={fmt(nDown)} s="คัน · ซ่อมบำรุง/จอด/ปลดระวาง" />
+            s={<>คัน · {roster.length ? Math.round(nMoving / roster.length * 100) : 0}% ของกองรถ</>}
+            onClick={() => toggleStatus("moving")} active={filterStatus === "moving"} />
+          <KC dot={D.rose} tone="bad" l="ไม่พร้อมใช้งาน" v={fmt(nDown)} s="คัน · ซ่อมบำรุง/จอด/ปลดระวาง"
+            onClick={() => toggleStatus("down")} active={filterStatus === "down"} />
         </div>
 
         <div className="dz-cc" style={{ marginTop: 14 }}>
-          <TableHead title="สถานะรายคัน (เดาจากใบรายการล่าสุด)">
+          <TableHead title="แผนที่ตำแหน่งรถ (ข้อมูลเดียวกับตารางสถานะรายคัน)">
+            {mapSel && <button type="button" className="btn-mini" onClick={() => setMapSel(null)}>แสดงทุกจุด</button>}
+          </TableHead>
+          {/* สองคอลัมน์: แผนที่ (ซ้าย · สูงกว่ากว้าง ให้ครอบภาคเหนือถึง กทม. ได้ทั้งหมด — กล่องกว้างเตี้ยแผนที่ถูกตัดเหลือภาคกลาง)
+              | รายการจุด (ขวา · กดแถว = เลือกจุดเดียวกับกดวง) */}
+          <div className="fl-map-grid">
+            <div className="rp-mapbox light fl-loc-map">
+              <FleetMap stops={mapStops} routes={mapRoutes} labels={MAP_LABELS} sel={mapSel} onSel={setMapSel} onMissing={setMapMissing}
+                cmd={mapCmd} onView={setMapView} />
+              <div className="rp-theme fl-map-views" role="group" aria-label="มุมมองแผนที่">
+                {MAP_VIEWS.map((v) => (
+                  <button key={v.id} type="button" aria-pressed={mapView === v.id} onClick={() => pickView(v.id)}>{v.label}</button>
+                ))}
+              </div>
+              {mapStops.length === 0 && (
+                <div className="fl-map-empty" role="status">
+                  {filterStatus === "moving" ? "ตอนนี้ไม่มีรถที่กำลังเดินทาง" : "ไม่มีรถที่มีจุดให้ปักตามเงื่อนไข"}
+                </div>
+              )}
+              <ul className="fl-loc-legend" aria-label="คำอธิบายสีวง">
+                <li><i style={{ background: MAP_COLOR.ready }} />ว่างอยู่ที่คลัง</li>
+                <li><i style={{ background: MAP_COLOR.moving }} />กำลังเดินทาง</li>
+              </ul>
+            </div>
+            <GrowBox rows={mapStops} maxHeight={620} render={(page) => (
+              <table className="dz-tbl fl-map-stops">
+                <thead><tr><th>จุด</th><th className="n">ว่างอยู่ที่คลัง</th><th className="n">กำลังเดินทางมา</th><th className="n">รวม</th></tr></thead>
+                <tbody>
+                  {page.length === 0 ? <Empty cols={4} text="ไม่มีรถที่มีจุดให้ปักตามเงื่อนไข" /> : page.map((s) => (
+                    <tr key={s.stop} className={s.stop === mapSel ? "on" : undefined} role="button" tabIndex={0}
+                      title="กดเพื่อดูรถที่จุดนี้ในตาราง และซูมแผนที่ไปเขตของจุดนี้ · กดซ้ำเพื่อดูทุกจุด"
+                      onClick={() => pickStop(s.stop)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickStop(s.stop); } }}>
+                      <td style={{ fontWeight: 700 }}>{s.stop}</td>
+                      <td className="n" style={{ color: s.ready ? MAP_COLOR.ready : undefined, fontWeight: 700 }}>{fmt(s.ready ?? 0)}</td>
+                      <td className="n" style={{ color: s.moving ? MAP_COLOR.moving : undefined, fontWeight: 700 }}>{fmt(s.moving ?? 0)}</td>
+                      <td className="n">{fmt(s.total)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )} />
+          </div>
+          <p className="dz-note" style={{ marginTop: 8 }}>
+            บนแผนที่ {fmt(onMap)} คัน ใน {fmt(mapStops.length)} จุด · ไม่มีจุดให้ปัก {fmt(noStop)} คัน (ไม่มีประวัติ / รอออกเดินทาง / ไม่ระบุปลายทาง)
+            · ไม่พร้อมใช้งานไม่แสดงบนแผนที่ · ตามตัวกรองสถานะและช่องค้นหาของตาราง · กดวงหรือแถวในรายการจุดเพื่อดูรถที่จุดนั้นในตาราง (กดแถว = ซูมไปเขตของจุดนั้นด้วย) ·
+            {filterStatus === "moving"
+              ? <>กดป้ายรถเพื่อดูเส้นทางที่รถวิ่งผ่านมา (ต้นทาง → ปลายทาง) · กดซ้ำเพื่อซ่อน · </>
+              : <>กดการ์ด “กำลังเดินทาง” แล้วกดป้ายรถเพื่อดูเส้นทางที่วิ่งผ่านมา · </>}
+            จุดใน กทม. อยู่ชิดกัน กดปุ่ม “กทม.” มุมขวาบนของแผนที่เพื่อซูมดู · มุมมองทั้งหมดขึ้นป้ายชื่อเฉพาะจุดที่มีรถ 5 คันขึ้นไป
+            {mapMissing.length > 0 && <> · จุดที่แผนที่ยังไม่มีพิกัด: {mapMissing.join(", ")}</>}
+          </p>
+        </div>
+
+        <div className="dz-cc" style={{ marginTop: 14 }}>
+          <TableHead title={mapSel ? `สถานะรายคัน · ที่ ${mapSel}` : "สถานะรายคัน (เดาจากใบรายการล่าสุด)"}>
             <input style={searchStyle} value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="🔍 ค้นหา ทะเบียน / ชนิดรถ / ตำแหน่ง" />
           </TableHead>

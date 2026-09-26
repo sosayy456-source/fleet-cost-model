@@ -72,11 +72,13 @@ export function tube(parent, d, color, { scale = 1, off = 0 } = {}) {
 export const NEON = { a: "#1fd1a0", b: "#3aa8ff", base: "#2b4a42", comet: "#e8fffb", bg: "#0f1e1b" };
 /* เส้นทางที่ขาดทุน (กำไร < 0) ไล่สีแดง→ส้มแทน (เจ้าของงานขอ 24 ก.ย. 2569) · รถยังเป็นแบบเดิม */
 export const NEON_LOSS = { a: "#ff4d5e", b: "#ff9f43" };
+/* แผนที่เที่ยววิ่งเปล่า (Overall Dashboard › Empty Trips · 26 ก.ย. 2569) — เส้นกับรถแดงล้วน (tone "empty") */
+export const NEON_EMPTY = { a: "#e11d2e", b: "#ff5a6a", roof: "#ff9aa3", halo: "#ff5a6a" };
 const NEON_W = { "n-base": 3, "n-glow": 9, "n-line": 3.2, "n-comet": 3 };
 let neonId = 0;
 
-export function neonTube(parent, d, { a, b, off = 0, loss = false } = {}) {
-  const pal = loss ? NEON_LOSS : NEON;
+export function neonTube(parent, d, { a, b, off = 0, loss = false, empty = false } = {}) {
+  const pal = empty ? NEON_EMPTY : loss ? NEON_LOSS : NEON;
   const id = "neon" + (++neonId);
   const g = parent.append("g").attr("class", "tube neon");
   // ไล่สีตามแนวต้นทาง→ปลายทางในหน่วย viewBox (objectBoundingBox ใช้ไม่ได้ — เส้นตรงแนวนอน/ตั้งมีกรอบกว้าง 0 แล้วไม่วาดเลย)
@@ -102,7 +104,7 @@ export function neonTube(parent, d, { a, b, off = 0, loss = false } = {}) {
     .append("animate").attr("attributeName", "stroke-dashoffset").attr("from", len).attr("to", 0)
     .attr("dur", "2.4s").attr("repeatCount", "indefinite");
   const t = {
-    g, color: pal.a, off, neon: true,
+    g, color: pal.a, off, neon: true, empty,
     node: line.node(),
     state(s) { t.on = s === "on"; g.attr("opacity", t.on ? 1 : .22); return t; },
     place(k) {
@@ -115,9 +117,10 @@ export function neonTube(parent, d, { a, b, off = 0, loss = false } = {}) {
   return t;
 }
 
-/* รถของโหมด #dark: ตู้ขาวขอบเขียว หัวเขียว ไฟหน้าเหลือง + วงแสงสีฟ้ากระพริบ (แบบเดียวกับดีไซน์ "Route 1c") */
-function drawTruckNeon(g) {
-  const c = { body: NEON.a, roof: "#5fe6bf", halo: NEON.b };
+/* รถของโหมด #dark: ตู้ขาวขอบเขียว หัวเขียว ไฟหน้าเหลือง + วงแสงสีฟ้ากระพริบ (แบบเดียวกับดีไซน์ "Route 1c")
+   empty = รถของแผนที่เที่ยววิ่งเปล่า: หัว/ขอบแดง วงแสงแดง */
+function drawTruckNeon(g, empty = false) {
+  const c = empty ? { body: NEON_EMPTY.a, roof: NEON_EMPTY.roof, halo: NEON_EMPTY.halo } : { body: NEON.a, roof: "#5fe6bf", halo: NEON.b };
   g.html(`
     <circle r="9" fill="${c.halo}" opacity=".35"><animate attributeName="r" values="7;14;7" dur="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values=".45;0;.45" dur="1.8s" repeatCount="indefinite"/></circle>
     <rect x="-13" y="-5" width="27" height="11" rx="3" fill="#000" opacity=".18" transform="translate(1,1.5)"/>
@@ -185,13 +188,17 @@ export function Cars(layer, getK) {
     });
   }
 
+  /* ลูปเฟรมวิ่งเฉพาะตอนมีรถ — เดิมวิ่งทุกเฟรมตลอดแม้ไม่มีรถสักคัน (หน้าสถานะกองรถไม่มีเส้นเลย กินเฟรมเปล่า ๆ · 26 ก.ย. 2569)
+     หยุดแล้ว last = null เพื่อให้รอบใหม่ไม่นับช่วงที่หยุดเป็นเวลาวิ่ง */
+  let raf = 0;
   function tick(now) {
+    if (!cars.length) { raf = 0; last = null; return; }
     if (last != null && playing) clock += Math.min(100, now - last);
     last = now;
-    if (cars.length) render();
-    requestAnimationFrame(tick);
+    render();
+    raf = requestAnimationFrame(tick);
   }
-  requestAnimationFrame(tick);
+  const wake = () => { if (!raf && cars.length) raf = requestAnimationFrame(tick); };
 
   return {
     render,
@@ -202,12 +209,13 @@ export function Cars(layer, getK) {
       cars = tubes.map((tube, i) => {
         const len = tube.node.getTotalLength();
         const g = layer.append("g").attr("class", "car").attr("pointer-events", "none");
-        if (tube.neon) drawTruckNeon(g); else drawTruck(g, tube.color);
+        if (tube.neon) drawTruckNeon(g, tube.empty); else drawTruck(g, tube.color);
         // เส้นเรืองแสงวิ่งช้ากว่า (ดีไซน์ใช้ ~14 วินาทีต่อเส้นเหนือ→กรุงเทพฯ) ให้เห็นเส้นค่อย ๆ ลากตามรถ
         return { tube, g, node: tube.node, len, ang: 0,
           dur: tube.neon ? Math.max(6000, len / NEON_SPEED * 1000) : Math.max(3500, len / SPEED * 1000), phase: tubes.length > 1 ? (i * .37) % 1 : 0 };
       });
       render();
+      wake();
     },
     get playing() { return playing; },
     toggle(v = !playing) { playing = v; return playing; }

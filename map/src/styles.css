@@ -125,3 +125,10 @@ body.dark .sheet{background-color:#0f1e1b;
   background-size:20px 20px}
 body.dark .pin text{fill:#a9c2ba;stroke:#0f1e1b}
 body.dark .attr{color:#4c6b62}
+
+/* รูปรถของโหมดตำแหน่งรถ (หน้าสถานะกองรถ · ดีไซน์ truck-marker-2b 26 ก.ย. 2569 · ไม่มีกรอบแคปซูลแล้ว): หายใจเบา ๆ · ชี้แล้วขยาย */
+.fl-pill{transform-box:fill-box;transform-origin:center;animation:flBreathe 3.2s ease-in-out infinite;
+  transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
+.fl-pin:hover .fl-pill{animation:none;transform:scale(1.15)}
+@keyframes flBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+@media (prefers-reduced-motion: reduce){.fl-pill{animation:none}}

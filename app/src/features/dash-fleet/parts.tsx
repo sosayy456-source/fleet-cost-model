@@ -4,7 +4,7 @@
  */
 import { useRef } from "react";
 import type { ReactNode, RefObject } from "react";
-import { useCountUp } from "../../lib/chart/dashfx";
+import { useNumFade } from "../../lib/chart/dashfx";
 
 /** เส้นประกอบในการ์ดเด่น — เป็นลายตกแต่ง ไม่ใช่ข้อมูลจริง (ตรงตาม main) */
 export const SPARK = (
@@ -37,7 +37,7 @@ function Trend({ data }: { data: number[] }) {
  * การ์ดเด่นพื้นไล่สี — หนึ่งใบต่อแท็บ ยกเว้นแท็บหลักที่มีสามใบ
  * unit  = ชิปหน่วยมุมขวาบน (ดีไซน์ 1A) · trend = ชุดตัวเลขจริงสำหรับเส้นแนวโน้ม
  * ไม่ส่ง trend → ใช้เส้นตกแต่ง SPARK แบบเดิม (หน้าที่ยังไม่มีชุดข้อมูลรายเดือนให้)
- * vSub  = ตัวเล็กข้างตัวเลขใหญ่ เช่น "(81%)" — อยู่นอก .v เพราะ useCountUp เขียน textContent ทับทั้งกล่อง
+ * vSub  = ตัวเล็กข้างตัวเลขใหญ่ เช่น "(81%)" — อยู่นอก .v เพราะ useNumFade เล่นท่ากับทั้งกล่อง .v
  * onClick/active = การ์ดกดได้ (แท็บกำไรลูกค้าของ Demo ใช้กรองตาราง) — ไม่ส่ง = การ์ดธรรมดา
  * foot  = บรรทัดใต้ชิป s เช่น ยอดกำไรของกลุ่มนั้น (แท็บกำไรลูกค้าของ Demo) — ไม่ส่ง = ไม่มีบรรทัดนี้
  */
@@ -64,7 +64,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot }
         <div className="l">{l}</div>
         {unit && <span className="u">{unit}</span>}
       </div>
-      {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
+      {/* key = ค่าเปลี่ยนแล้วได้กล่องใหม่ ท่า fade-down เล่นใหม่ (useNumFade) */}
       {vSub ? (
         <div className="vrow">
           <div className="v" key={v} data-real={v}>{v}</div>
@@ -91,7 +91,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot }
 }
 
 /** การ์ดตัวเลขธรรมดา — จุดสีหน้าป้ายมาจากตัวแปร --dot เหมือน main */
-export function KC({ l, v, s, dot, tone, small, bar }: {
+export function KC({ l, v, s, dot, tone, small, bar, onClick, active }: {
   l: string; v: string; s?: ReactNode;
   dot?: string;
   tone?: "good" | "warn" | "bad";
@@ -99,10 +99,17 @@ export function KC({ l, v, s, dot, tone, small, bar }: {
   small?: boolean;
   /** แถบตกแต่งใต้ตัวเลข — main ใส่ไว้สองใบในแท็บกองรถ */
   bar?: string;
+  /** การ์ดกดได้ (หน้าสถานะกองรถใช้กรองตามสถานะ · 26 ก.ย. 2569) — ไม่ส่ง = การ์ดธรรมดา · active = กำลังกรองอยู่ */
+  onClick?: () => void;
+  active?: boolean;
 }) {
+  const press = onClick ? {
+    role: "button", tabIndex: 0, onClick, "aria-pressed": !!active,
+    onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } },
+  } : {};
   return (
-    <div className={"dz-kc" + (tone ? ` t-${tone}` : "")}
-      style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined}>
+    <div className={"dz-kc" + (tone ? ` t-${tone}` : "") + (onClick ? " clickable" : "") + (active ? " on" : "")}
+      style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined} {...press}>
       <div className="l">{dot && <i className="d" />}{l}</div>
       <div className="v" key={v} data-real={v} style={small ? { fontSize: 15.5 } : undefined}>{v}</div>
       {s && <div className="s">{s}</div>}
@@ -202,11 +209,11 @@ export const selectStyle: React.CSSProperties = {
 };
 
 /**
- * ห่อเนื้อหาของแท็บหนึ่ง แล้วสั่งให้ตัวเลขในการ์ดนับขึ้นใหม่ทุกครั้งที่ข้อมูลเปลี่ยน
- * (main เรียก countUp() ท้าย render ของทุกแท็บ)
+ * ห่อเนื้อหาของแท็บหนึ่ง แล้วสั่งให้ตัวเลขในการ์ด fade-down ใหม่ทุกครั้งที่ข้อมูลเปลี่ยน
+ * (main เรียก countUp() ท้าย render ของทุกแท็บ — ที่นี่เปลี่ยนท่าเป็น fade-down)
  */
 export function Pane({ deps, children }: { deps: unknown[]; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
-  useCountUp(ref as RefObject<HTMLElement | null>, deps);
+  useNumFade(ref as RefObject<HTMLElement | null>, deps);
   return <div ref={ref}>{children}</div>;
 }

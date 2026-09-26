@@ -1,10 +1,10 @@
 /**
- * ลูกเล่นของแดชบอร์ด — ถอดจาก moveDashInk() และ countUp() ใน index.html บน main
+ * ลูกเล่นของแดชบอร์ด — ถอดจาก moveDashInk() ใน index.html บน main · ตัวเลขในการ์ด fade-down (แทน countUp() ของ main)
  *
  * ทั้งสองตัวทำงานกับ DOM ที่วาดเสร็จแล้ว (วัดตำแหน่งแท็บ / เขียนทับข้อความในการ์ด)
  * จึงเขียนเป็น hook ที่ยิงหลัง paint แทนที่จะยัดเข้าไปใน render
  */
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { RefObject } from "react";
 
 /**
@@ -33,54 +33,24 @@ export function useDashInk(barRef: RefObject<HTMLElement | null>, active: string
 }
 
 /**
- * นับตัวเลขจาก 0 ขึ้นไปหาค่าจริง แล้วคืนข้อความเดิมเป๊ะ ๆ
- * (คงรูปแบบคอมมา ทศนิยม เครื่องหมายลบ และหน่วยที่ต่อท้าย)
+ * ตัวเลขในการ์ดค่อย ๆ โผล่แบบ fade-down (นุ่ม) — ลอยลงจากข้างบนพร้อมจางเข้า ไล่เริ่มทีละใบ
+ * (เจ้าของงานสั่ง 26 ก.ย. 2569 แทนการนับขึ้นจาก 0 ของ main · ท่าอยู่ที่ .num-fd ท้าย index.css)
  *
- * main เรียกทุกครั้งที่เปลี่ยนแท็บหรือตัวกรอง — ที่นี่ผูกกับ deps เดียวกัน
- * ข้อความล้วน (เช่น ชื่อลูกค้า) ไม่มีตัวเลขจับได้ ก็ปล่อยผ่านไป
+ * ยิงใหม่ทุกครั้งที่เปลี่ยนแท็บหรือตัวกรอง (deps เดียวกับของเดิม) · ไม่แตะ textContent แล้ว
+ * ข้อความที่ React วาดจึงเป็นค่าจริงเสมอ ไม่มีจังหวะที่ตัวเลขผิด
  */
-export function useCountUp(paneRef: RefObject<HTMLElement | null>, deps: unknown[]): void {
-  const runId = useRef(0);
+export function useNumFade(paneRef: RefObject<HTMLElement | null>, deps: unknown[]): void {
   useEffect(() => {
     const box = paneRef.current;
     if (!box) return;
-    const run = String(++runId.current);
-    const timers: number[] = [];
-
-    box.querySelectorAll<HTMLElement>(".dz-kc .v, .op-tile .op-val b, .op-passline b").forEach((el, i) => {
-      /*
-       * ★ ค่าจริงต้องมาจาก data-real ที่ React วาดใหม่ทุกครั้ง ห้ามจำไว้เองใน dataset
-       *   ของเดิมเขียน dataset.real ครั้งแรกแล้วใช้ค่านั้นตลอด พอเปลี่ยนตัวกรอง (เช่นปี)
-       *   ตัวเลขใหม่ถูกเขียนทับกลับเป็นค่าแรกที่เห็น ทุกปีจึงแสดงเท่ากับ "ทุกปี"
-       * การ์ดใส่ key={ค่า} ไว้ด้วย ค่าเปลี่ยนเมื่อไหร่ React สร้างกล่องใหม่ จึงไม่ไปอัปเดต
-       * text node เก่าที่ถูก textContent ด้านล่างถอดออกไปแล้ว
-       */
-      const txt = el.dataset.real ?? el.textContent ?? "";
-      const m = txt.match(/-?[\d,]*\.?\d+/);
-      if (!m) return;
-      const target = parseFloat(m[0].replace(/,/g, ""));
-      if (!Number.isFinite(target) || target === 0) return;
-      const dec = (m[0].split(".")[1] ?? "").length;
-      // ดีไซน์ 1A: 1400ms easeOutQuart ไล่เริ่มทีละใบ (main เดิม 900ms easeOutCubic)
-      const dur = 1400, delay = 110 + i * 60;
-      let t0: number | null = null;
-      const finish = () => { if (runId.current === +run) el.textContent = txt; };
-      const step = (now: number) => {
-        if (runId.current !== +run) return;
-        if (t0 === null) { t0 = now; el.textContent = txt.replace(m[0], (0).toFixed(dec)); }
-        const p = Math.min(1, Math.max(0, (now - t0 - delay) / dur));
-        if (p >= 1) { finish(); return; }
-        const v = target * (1 - Math.pow(1 - p, 4));
-        el.textContent = txt.replace(m[0],
-          v.toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }));
-        requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-      // กันตัวเลขค้าง ถ้าเฟรมไม่ทำงาน (แท็บถูกซ่อน / prefers-reduced-motion)
-      timers.push(window.setTimeout(finish, delay + dur + 400));
+    const els = box.querySelectorAll<HTMLElement>(".dz-kc .v, .op-tile .op-val b, .op-passline b");
+    els.forEach((el) => el.classList.remove("num-fd"));
+    // อ่าน offsetWidth ครั้งเดียวให้เบราว์เซอร์ล้างท่าเดิม ถอด-ใส่คลาสแล้วท่าจึงเล่นซ้ำได้
+    void box.offsetWidth;
+    els.forEach((el, i) => {
+      el.style.animationDelay = `${80 + i * 55}ms`;
+      el.classList.add("num-fd");
     });
-
-    return () => { runId.current++; timers.forEach(clearTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 }

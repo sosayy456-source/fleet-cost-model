@@ -17,6 +17,10 @@
  *   [1]  รายเดือน: แท่งเทา = ต้นทุนรวม · เส้น = % ต้นทุนเที่ยวเปล่า (แกนขวา) · ค่าเริ่มต้น "ทุกเส้นทาง"
  *        เลือกได้ทีละเส้นทาง · กดเดือน = ป็อบอัพรายการเที่ยววิ่งเปล่าของเดือนนั้น
  *   [2]  Top 10 เส้นทาง กรอบเดียว ปุ่มสลับ จำนวนเที่ยว ↔ ต้นทุน · กดแท่ง = ป็อบอัพรายการของเส้นทางนั้น
+ *   [2b] แผนที่เที่ยววิ่งเปล่า (เจ้าของงานสั่ง 26 ก.ย. 2569 "หลักการเหมือนกำไรเป๊ะ") — การ์ดแผนที่ตัวเดียวกับ Profit Per Route
+ *        (dash-demo/routeMapParts.tsx) · ขวาบนจัดอันดับเส้นทางที่มีเที่ยวเปล่า สลับ จำนวนเที่ยว ↔ ต้นทุน (เจ้าของงานเลือก) ·
+ *        ขวาล่างรายละเอียดต้นทุนของเที่ยวเปล่าในเส้นทางนั้น + ปุ่ม i · กดแถว = เส้นแดง + รถแดงวิ่ง + จุดเหลืองตามแนวเส้น
+ *        (map tone "empty") · กดแถวเดิมซ้ำ = เอาเส้นออก
  *   [3]  ตารางทุกเส้นทางที่มีเที่ยวเปล่า (ไม่มีเกณฑ์ขั้นต่ำแล้ว — เกณฑ์ ≥ 20 เที่ยวเคยใช้คู่กับกราฟจุดที่ตัดออก)
  *        + คอลัมน์ % เที่ยวเปล่า (นับเที่ยว) · คะแนน · ระดับ 🟢🟡🔴 จากเกณฑ์ percentile (lib/empty/routeScore.ts · 24 ก.ย. 2569)
  *        เกณฑ์ P25/P75 คิดจาก **ทุกเส้นทาง** ในช่วงเวลา + ประเภทรถที่กรอง ไม่ตามต้นทาง/ปลายทาง
@@ -44,6 +48,8 @@ import type { BaseFilter, Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 import EmptyHeroes from "./EmptyHeroes";
 import { GRADES, emptyScore, emptyThresholds, routeRates } from "../../lib/empty/routeScore";
+import { CostBreakdown, RP, RouteMapCard, buildCostTree, useRouteEnds } from "../dash-demo/routeMapParts";
+import type { MapRoute } from "../dash-demo/RouteMap";
 import type { EmptyGrade, EmptyThresholds } from "../../lib/empty/routeScore";
 
 const TOP_N = 10;
@@ -219,6 +225,9 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
           </div>
         </div>
 
+        {/* [2b] แผนที่เที่ยววิ่งเปล่า */}
+        <EmptyRouteMap rows={rows} routes={emptyRoutes} onList={openRoute} />
+
         {/* [3] ตาราง */}
         <div className="dz-cc" style={{ marginTop: 14 }}>
           <h4>ต้นทุนเที่ยวเปล่ารายเส้นทาง · คลิกหัวคอลัมน์เพื่อเรียง</h4>
@@ -235,6 +244,124 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
 
       {detail && <EmptyTripsModal detail={detail} onClose={() => setDetail(null)} />}
     </>
+  );
+}
+
+/** แถวของตารางจัดอันดับบนการ์ดแผนที่ */
+interface MapRow extends RouteAgg { o: string; de: string; rank: number }
+
+/**
+ * [2b] แผนที่เที่ยววิ่งเปล่า — การ์ดแผนที่ตัวเดียวกับ Profit Per Route (RouteMapCard) · ข้อมูลตามตัวกรองของแท็บ
+ * จัดอันดับด้วยจำนวนเที่ยวเปล่าหรือต้นทุนเที่ยวเปล่า (ปุ่มสลับหัวตาราง) · คอลัมน์ # = อันดับตามมุมที่เลือก คงที่ไม่ขยับตามการกดเรียง
+ * แผนที่เปิดมาเปล่า กดแถว = เส้นนั้นโผล่ (แดง + รถแดง + จุดเหลือง) · กดแถวเดิมซ้ำ = เอาออก · รายละเอียดโชว์แถวแรกไว้ก่อนได้
+ */
+function EmptyRouteMap({ rows, routes, onList }: { rows: Trip[]; routes: RouteAgg[]; onList: (rt: string) => void }) {
+  const [view, setView] = useState<"n" | "cost">("n");
+  const [picked, setPicked] = useState<string | null>(null);
+  const [missing, setMissing] = useState<string[]>([]);
+  const ends = useRouteEnds(rows);
+  const list = useMemo<MapRow[]>(() => {
+    const out = routes.map((r) => ({ ...r, ...(ends.get(r.route) ?? { o: "", de: "" }), rank: 0 }));
+    [...out].sort((a, b) => (view === "n" ? b.emptyN - a.emptyN || b.emptyCost - a.emptyCost : b.emptyCost - a.emptyCost))
+      .forEach((r, i) => { r.rank = i + 1; });
+    return out;
+  }, [routes, ends, view]);
+  const barMax = useMemo(() => Math.max(1, ...list.map((r) => (view === "n" ? r.emptyN : r.emptyCost))), [list, view]);
+
+  const cols = useMemo<Col<MapRow>[]>(() => [
+    { key: "rank", label: "#", get: (r) => r.rank,
+      render: (r) => <span className="rp-rank">{String(r.rank).padStart(2, "0")}</span> },
+    { key: "route", label: "เส้นทาง", get: (r) => r.route,
+      render: (r) => <div className="rp-rt"><b>{r.route}</b><small>{fmt(r.emptyN)} จาก {fmt(r.n)} เที่ยว</small></div> },
+    view === "n"
+      ? { key: "emptyN", label: "เที่ยวเปล่า", get: (r) => r.emptyN, num: true,
+          render: (r) => <MapBar v={fmt(r.emptyN)} w={r.emptyN / barMax} /> }
+      : { key: "emptyCost", label: "ต้นทุนเที่ยวเปล่า (บาท)", get: (r) => r.emptyCost, num: true,
+          render: (r) => <MapBar v={fmt(Math.round(r.emptyCost))} w={r.emptyCost / barMax} /> },
+    view === "n"
+      ? { key: "tripPct", label: "% เที่ยวเปล่า", get: (r) => r.tripPct, num: true,
+          render: (r) => <span className="rp-margin" style={{ color: RP.loss }}>{pct(r.tripPct)}</span> }
+      : { key: "share", label: "% ต้นทุน", get: (r) => r.share, num: true,
+          render: (r) => <span className="rp-margin" style={{ color: RP.loss }}>{pct(r.share)}</span> },
+  ], [view, barMax]);
+  const { sorted, sort, toggle } = useSort(list, cols, { key: "rank", dir: 1 });
+
+  const pickedRow = useMemo(() => list.find((r) => r.route === picked) ?? null, [list, picked]);
+  const mapRoutes = useMemo<MapRoute[]>(() => (pickedRow && pickedRow.o && pickedRow.de
+    ? [{ key: pickedRow.route, from: pickedRow.o, to: pickedRow.de, profit: -Math.round(pickedRow.emptyCost),
+        color: RP.loss, tone: "empty" as const }]
+    : []), [pickedRow?.route, pickedRow?.o, pickedRow?.de]);
+  // เส้นทางที่เลือกไว้หลุดจากตัวกรอง → กลับไปใช้แถวแรกของตาราง
+  const detail = pickedRow ?? sorted[0] ?? null;
+  const emptyTrips = useMemo(() => (detail ? rows.filter((t) => t.rt === detail.route && t.empty) : []), [rows, detail]);
+  const tree = useMemo(() => buildCostTree(emptyTrips), [emptyTrips]);
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      <RouteMapCard routes={mapRoutes} onMissing={setMissing} label="แผนที่เที่ยววิ่งเปล่า" chipLoss
+        chip={pickedRow ? pickedRow.route : "กดเส้นทางในตารางเพื่อดูบนแผนที่"}
+        cantDraw={!!pickedRow && (missing.includes(pickedRow.route) || !pickedRow.o || !pickedRow.de)}>
+        <section className="rp-sec">
+          <header className="rp-sh">
+            <span className="rp-ico red" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7" /></svg>
+            </span>
+            <div className="rp-sht">
+              <h3>{view === "n" ? "จัดอันดับเที่ยววิ่งเปล่า · จำนวนเที่ยว" : "จัดอันดับเที่ยววิ่งเปล่า · ต้นทุน"}</h3>
+              <p>คลิกเส้นทางเพื่อดูบนแผนที่และรายละเอียดต้นทุน · กดซ้ำเพื่อเอาเส้นทางออกจากแผนที่</p>
+            </div>
+            <div className="cp-seg" role="group" aria-label="จัดอันดับด้วย">
+              <button type="button" className={view === "n" ? "on" : ""} onClick={() => setView("n")}>จำนวนเที่ยว</button>
+              <button type="button" className={view === "cost" ? "on" : ""} onClick={() => setView("cost")}>ต้นทุน (บาท)</button>
+            </div>
+          </header>
+          <div className="rp-tblwrap">
+            <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.route}
+              empty="ไม่มีเส้นทางที่มีเที่ยววิ่งเปล่าตามตัวกรองที่เลือก" className="rp-tbl" maxHeight={300}
+              rowProps={(r) => ({
+                className: r.route === detail?.route ? "on" : undefined,
+                onClick: () => setPicked((p) => (p === r.route ? null : r.route)),
+                title: r.route === picked ? "กดอีกครั้งเพื่อเอาเส้นทางออกจากแผนที่" : "กดเพื่อดูเส้นทางบนแผนที่และรายละเอียดต้นทุน",
+              })} />
+          </div>
+        </section>
+        <section className="rp-sec">
+          {detail ? <>
+            <header className="rp-sh rp-dh">
+              <div className="rp-sht">
+                <h3>{detail.route}</h3>
+                <p>เที่ยววิ่งเปล่า {fmt(detail.emptyN)} จาก {fmt(detail.n)} เที่ยว · ต้นทุนเที่ยวเปล่ารวม {fmt(Math.round(detail.emptyCost))} บาท</p>
+              </div>
+              <button type="button" className="rp-i" onClick={() => onList(detail.route)}
+                title="ดูรายการเที่ยววิ่งเปล่าของเส้นทางนี้" aria-label="ดูรายการเที่ยววิ่งเปล่าของเส้นทางนี้">i</button>
+            </header>
+            <div className="rp-dbody">
+              <div className="rp-stats">
+                <div><span>เที่ยววิ่งเปล่า</span><b>{fmt(detail.emptyN)}</b></div>
+                <div><span>ต้นทุน/เที่ยวเปล่า</span><b>{fmt(Math.round(detail.emptyCost / Math.max(1, detail.emptyN)))}</b></div>
+                <div className="pf loss"><span>% เที่ยวเปล่า (นับเที่ยว)</span><b>{pct(detail.tripPct)}</b></div>
+              </div>
+              <CostBreakdown tree={tree} n={Math.max(1, detail.emptyN)} cost={detail.emptyCost} />
+            </div>
+          </> : <p className="rp-foot rp-pad">เลือกเส้นทางจากรายการด้านบน</p>}
+        </section>
+      </RouteMapCard>
+      <Note>
+        แผนที่เที่ยววิ่งเปล่า · เส้นแดง = เส้นทางที่เลือก · จุดเหลือง = จุดขึ้นลงที่เส้นวิ่งผ่านหรืออยู่ในรัศมี 100 กม. จากแนวเส้น ·
+        รายละเอียดต้นทุนเป็นของเที่ยววิ่งเปล่าในเส้นทางนั้น (บาทต่อเที่ยวเปล่า) · ปุ่ม <b>i</b> เปิดรายการเที่ยววิ่งเปล่าของเส้นทาง ·
+        แนวเส้นบนแผนที่ตามทางหลวงหลักโดยประมาณ ไม่ใช่เส้นทาง GPS จริง
+      </Note>
+    </div>
+  );
+}
+
+/** ค่า + แท่งแดงใต้ค่า (แบบเดียวกับคอลัมน์กำไร/เที่ยวของ Profit Per Route) */
+function MapBar({ v, w }: { v: string; w: number }) {
+  return (
+    <div className="rp-val">
+      <b>{v}</b>
+      <span className="rp-track" aria-hidden="true"><i style={{ width: `${Math.max(0, w) * 100}%`, background: RP.loss }} /></span>
+    </div>
   );
 }
 
