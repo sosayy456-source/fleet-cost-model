@@ -1,3 +1,0 @@
-.panel { position: fixed; bottom: 86px; right: 24px; width: min(400px, calc(100vw - 48px)); z-index: 30; background: var(--card); border: 1px solid var(--border); padding: 16px 20px; box-shadow: 0 12px 48px #1a171422; border-radius: 12px; }
-.panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--overall); }.panel button { border: 0; background: transparent; min-width: 44px; min-height: 44px; font-size: 24px; }.panel p { font-size: 15px; line-height: 1.7; padding: 8px 0 16px; }.panel footer { border-top: 1px solid var(--border); padding-top: 12px; font-size: 12px; color: var(--faint); line-height: 1.8; }
-.panel header, .panel p, .panel footer { font-size: 18px; }
