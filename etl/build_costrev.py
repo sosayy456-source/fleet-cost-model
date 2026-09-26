@@ -82,6 +82,7 @@ from src.alloc import DROPPED_TRIP_TYPES, Item  # noqa: E402
 from src.custcodes import resolve_codes  # noqa: E402
 from src.svcalloc import SvcAlloc  # noqa: E402
 from src.tripcols import encode as encode_trips  # noqa: E402
+from src.sheetcache import cached_rows  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -234,7 +235,10 @@ def iter_sheet(path: Path, header_row: int):
       ถ้าอ่านเข้าหน่วยความจำทั้งก้อนพร้อมกันจะกินหลาย GB
     """
     if _calamine is not None:
-        rows = _calamine.CalamineWorkbook.from_path(str(path)).get_sheet_by_index(0).to_python(skip_empty_area=False)
+        # แคชแถวดิบไว้ใน etl/.cache/sheets/ (src/sheetcache.py) — build_alloc อ่านไฟล์รายได้ชุดเดิมอีก 3 รอบ
+        rows = cached_rows(
+            path, f"calamine-{getattr(_calamine, '__version__', '?')}",
+            lambda: _calamine.CalamineWorkbook.from_path(str(path)).get_sheet_by_index(0).to_python(skip_empty_area=False))
         hdr = [text(c) for c in rows[header_row]]
         body = (r for r in rows[header_row + 1:] if any(c is not None and str(c).strip() != "" for c in r))
         return hdr, body

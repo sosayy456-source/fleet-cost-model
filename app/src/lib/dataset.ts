@@ -3,7 +3,7 @@
  *
  * เดิมต้องตั้ง VITE_DATASET=real ตอนสตาร์ท dev server ซึ่งต้องพิมพ์ env แบบ PowerShell
  * ปิด server เก่า แล้วเปิดใหม่ทุกครั้ง — ยากเกินไปสำหรับงานที่ทำบ่อย
- * ตอนนี้แอปตรวจเองจาก public/data/real/manifest.json: มี = real / ไม่มี = sample
+ * ตอนนี้แอปตรวจเองจาก public/data/real/costrev/manifest.json: มี = real / ไม่มี = sample
  * และตรวจซ้ำทุกครั้งที่กดรีเฟรชข้อมูล จึงวางไฟล์ตอน server รันอยู่ก็เห็นผลได้
  *
  * VITE_DATASET ยังบังคับได้ถ้าตั้งไว้ — workflow deploy ตั้ง sample เสมอ
@@ -30,7 +30,9 @@ const EV = "dataset:changed";
 
 async function detect(): Promise<DatasetName> {
   try {
-    const res = await fetch(dataUrl("real", "manifest.json"), { cache: "no-store" });
+    // ★ ดูจากชุดต้นทุน+รายได้ (costrev/) — build_json.py ที่เคยเขียน real/manifest.json เลิกรันอัตโนมัติแล้ว
+    //   (26 ก.ย. 2569 · ไม่มีหน้าไหนอ่านผลของมัน แต่แปลงไฟล์รายได้จริงกินเวลา 20–40 นาที)
+    const res = await fetch(dataUrl("real", "costrev/manifest.json"), { cache: "no-store" });
     const isJson = (res.headers.get("content-type") ?? "").includes("json");
     return res.ok && isJson ? "real" : "sample";
   } catch {

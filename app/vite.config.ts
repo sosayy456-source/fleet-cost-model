@@ -112,7 +112,7 @@ function autoEtl(): Plugin {
   /** งานที่ต้องรอคิว — ให้แถบขึ้นตั้งแต่ตอนนี้ ไม่ใช่รอจนถึงคิวของตัวเอง (เจ้าของขอ 16 ก.ย. 2569) */
   const QUEUED: Record<Job, string> = {
     rev: "อยู่ในคิว — รอชุดต้นทุน+รายได้รายเที่ยวเสร็จก่อน แล้วจะแปลงไฟล์รายได้",
-    cr: "อยู่ในคิว — รอแปลงไฟล์รายได้ให้เสร็จก่อน แล้วจะจับคู่ต้นทุน+รายได้รายเที่ยวต่อทันที",
+    cr: "อยู่ในคิว — รองานอื่นเสร็จก่อน แล้วจะจับคู่ต้นทุน+รายได้รายเที่ยวต่อทันที",
     al: "อยู่ในคิว — รอชุดต้นทุน+รายได้เสร็จก่อน แล้วจะปันส่วนต้นทุนเข้าบิลลูกค้าต่อ",
     db: "อยู่ในคิว — รองานอื่นเสร็จก่อน แล้วจะแปลงไฟล์ลูกหนี้ให้เอง",
     lf: "อยู่ในคิว — รองานอื่นเสร็จก่อน แล้วจะแปลงไฟล์ Load Factor ให้เอง",
@@ -310,7 +310,10 @@ function autoEtl(): Plugin {
        * หลุดจากการเฝ้าไปเลย ไฟล์ที่แก้ทีหลังไม่มีใครเห็น และแถบสถานะค้างกับผลรอบที่พัง
        * (เกิดจริงตอนวาง "ข้อมูลการรับชำระ.xlsx" — เงียบไปสองรอบ)
        *
-       * วิธีที่ใช้อยู่: อ่านรายชื่อ+ขนาด+เวลาแก้ไขของไฟล์ทุก 2 วินาที เทียบกับรอบก่อน
+       * วิธีที่ใช้อยู่: อ่านรายชื่อ+ขนาดของไฟล์ทุก 2 วินาที เทียบกับรอบก่อน
+       * ★ ไม่ดูเวลาแก้ไข (26 ก.ย. 2569) — โฟลเดอร์อยู่ใต้ Documents โปรแกรมอื่น (OneDrive/แอนตี้ไวรัส) แตะเวลาไฟล์ได้
+       *   โดยเนื้อหาไม่เปลี่ยน แล้วสั่ง ETL ซ้ำทั้งชุด (เคยเห็นแปลงไฟล์รายได้สองรอบติดกัน 25 ก.ย. 2569)
+       *   แก้ไฟล์ .xlsx แล้วขนาดเท่าเดิมเป๊ะแทบไม่มีทางเกิด (เป็น zip) — ถ้าเกิดจริงให้กดรีเฟรชหรือรัน ETL เอง
        * เปลี่ยน = มีการวาง/ลบ/เขียนไฟล์ · ไฟล์ที่กำลังคัดลอกอยู่ขนาดจะเปลี่ยนทุกรอบ
        * จึงไม่มีทางเริ่ม ETL จนกว่าจะคัดลอกเสร็จจริง (ดีกว่าเดิมที่ยิงตอนเห็นไฟล์โผล่)
        * statSync บนไฟล์ที่ล็อกอยู่โยน error ได้ → ถือว่า "ยังเปลี่ยนอยู่" แล้วรอรอบหน้า
@@ -320,7 +323,7 @@ function autoEtl(): Plugin {
         if (!existsSync(dir)) return "";
         try {
           return readdirSync(dir).filter(isXlsx).sort()
-            .map((f) => { const st = statSync(resolve(dir, f)); return `${f}|${st.size}|${st.mtimeMs}`; })
+            .map((f) => `${f}|${statSync(resolve(dir, f)).size}`)
             .join("\n");
         } catch { return null; }
       };
@@ -333,13 +336,17 @@ function autoEtl(): Plugin {
           const sig = signature(WATCH[job]);
           if (sig === null || sig === last[job]) continue;
           last[job] = sig;
-          request(job, 2000);
-          if (hasXlsx(WATCH[job])) setStatus(job, "running", COPYING[job]);
           if (job === "rev") {
+            // ★ ไม่รัน build_json.py (งาน rev) แล้ว (26 ก.ย. 2569) — ผลของมัน (real/*.json) ไม่มีหน้าไหนใช้
+            //   ตั้งแต่ลบ Dashboard รายได้ 24 ก.ย. 2569 แต่แปลงไฟล์รายได้จริงกินเวลา 20–40 นาที
+            //   ป้าย "ข้อมูลตัวอย่าง" ดูจาก real/costrev/manifest.json แทน (lib/dataset.ts) · รันเองได้ถ้าต้องการ
             // ไฟล์รายได้เปลี่ยน = คู่ที่จับได้เปลี่ยน → แปลงชุดต้นทุน+รายได้ใหม่ด้วย
             if (hasXlsx(costDir)) { request("cr", 2500); setStatus("cr", "running", COPYING.cr); }
             // ไฟล์บิลคือฝั่งรายได้ของการปันส่วนต้นทุน → ปันใหม่ด้วย
             if (hasXlsx(costDir)) { request("al", 3000); setStatus("al", "running", COPYING.al); }
+          } else {
+            request(job, 2000);
+            if (hasXlsx(WATCH[job])) setStatus(job, "running", COPYING[job]);
           }
           // ไฟล์ลูกหนี้ไม่เกี่ยวกับสามงานข้างบนเลย (คนละเลขเอกสาร) จึงไม่สั่งงานอื่นตาม
         }
@@ -352,7 +359,7 @@ function autoEtl(): Plugin {
 
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
-      const pendingRev = hasXlsx(revDir) && !existsSync(resolve(revOut, "manifest.json"));
+      const pendingRev = false;   // build_json.py ไม่รันอัตโนมัติแล้ว — ดูเหตุผลใน tick()
       const pendingCr = hasXlsx(costDir) && !existsSync(resolve(costOut, "manifest.json"));
       const pendingAl = hasXlsx(costDir) && hasXlsx(revDir)
         && !existsSync(resolve(allocOut, "manifest.json"));
