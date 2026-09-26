@@ -24,14 +24,13 @@ import { totalDamage } from "../../lib/damage/damage";
 import { INDEXES, METRICS, METRIC_MAX, TOTAL_MAX, metricResult, sumScores } from "../../lib/pi/score";
 import { routeMarginValues, serviceMarginValues } from "../../lib/pi/route";
 import { emptyResult } from "../../lib/pi/empty";
-import { passBase } from "../dash-costrev/common";
 import { DAMAGE_STATUS_LABEL, damageRef, damageResults, damageStatus } from "../../lib/pi/damage";
 import type { DamageStatus } from "../../lib/pi/damage";
 import type { IndexDef, MetricKey, MetricResult } from "../../lib/pi/score";
 import type { Trip } from "../../lib/data/useCostRev";
 import { Hero } from "../dash-fleet/parts";
 import { fmt, pct } from "../dash-costrev/common";
-import { passLfDemo } from "./filter";
+import { passDemo, passLfDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 
 /** คะแนนทศนิยมไม่เกิน 1 ตำแหน่ง — 6.25 → "6.3" · 10 → "10" */
@@ -154,7 +153,7 @@ export function PiFleet({ f, all }: { f: DemoFilter; all: Trip[] | null }) {
     () => metricResult("lf", error || !lf ? null : lf.trips.filter((t) => passLfDemo(t, f)).map((t) => t.lf)),
     [lf, error, f]);
   const empty = useMemo(() => (all
-    ? emptyResult(all.filter((t) => passBase(t, f)), all.filter((t) => passBase(t, { ...f, o: "", de: "" })))
+    ? emptyResult(all.filter((t) => passDemo(t, { ...f, sg: "" })), all.filter((t) => passDemo(t, { ...f, o: "", de: "", sg: "" })))
     : emptyResult(null, null)), [all, f]);
   const results = useMemo(() => [lfResult, empty], [lfResult, empty]);
   return <PiBox index={INDEXES.fleet} results={results} />;

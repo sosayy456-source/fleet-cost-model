@@ -14,20 +14,20 @@ import type { Trip } from "../../lib/data/useCostRev";
 import { inPeriod, isPartialYear } from "../../lib/filter/period";
 import type { LfTrip } from "../../lib/data/useLoadFactor";
 
-export interface DemoFilter extends BaseFilter { sg: string }
+export interface DemoFilter extends BaseFilter { br: string; sg: string }
 /** คีย์ที่ FilterScope พูดถึง — "month" = ช่วงเดือน (from–to) */
-export type DemoKey = "year" | "month" | "o" | "de" | "ft" | "vk" | "sg";
-export const DEMO_F0: DemoFilter = { ...BASE_F0, sg: "" };
+export type DemoKey = "year" | "month" | "br" | "o" | "de" | "ft" | "vk" | "sg";
+export const DEMO_F0: DemoFilter = { ...BASE_F0, br: "", sg: "" };
 
 const LABEL: Record<DemoKey, string> = {
-  year: "ปี", month: "ช่วงเดือน", o: "ต้นทาง", de: "ปลายทาง", ft: "ประเภทรถ", vk: "ชนิดรถ", sg: "กลุ่มบริการ",
+  year: "ปี", month: "ช่วงเดือน", br: "สาขา", o: "ต้นทาง", de: "ปลายทาง", ft: "ประเภทรถ", vk: "ชนิดรถ", sg: "กลุ่มบริการ",
 };
-const ORDER: DemoKey[] = ["year", "month", "o", "de", "ft", "vk", "sg"];
+const ORDER: DemoKey[] = ["year", "month", "br", "o", "de", "ft", "vk", "sg"];
 const isSet = (f: DemoFilter, k: DemoKey): boolean => (k === "month" ? isPartialYear(f) : !!f[k]);
 
 /** เที่ยวผ่านตัวกรองของหน้า — กลุ่มบริการว่าง = "ไม่ระบุ" (กติกาเดิมของแท็บกำไรรายเส้นทาง) */
 export const passDemo = (t: Trip, f: DemoFilter, opts?: Parameters<typeof passBase>[2]): boolean =>
-  passBase(t, f, opts) && (!f.sg || (t.sg || "ไม่ระบุ") === f.sg);
+  passBase(t, f, opts) && (!f.br || t.br === f.br) && (!f.sg || (t.sg || "ไม่ระบุ") === f.sg);
 
 /** เที่ยวของไฟล์ Load Factor ผ่านตัวกรองของหน้า — ไฟล์ LF มีแค่ ปี · เดือน · ประเภทรถ · ชนิดรถ
  *  (ใช้ทั้งกล่อง LF ของข้อ 2 และคะแนน Load Factor ของ Performance Index ให้นับชุดเดียวกัน) */

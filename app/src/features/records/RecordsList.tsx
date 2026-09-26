@@ -17,6 +17,7 @@ import TripDetailModal from "./TripDetailModal";
 import { buildForecast } from "../../lib/forecast/forecast";
 import type { ForecastTable } from "../../lib/forecast/forecast";
 import { loadCostRev } from "../../lib/data/useCostRev";
+import { loadSessionBranch } from "../../lib/store/sessionBranch";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey, TripRecord } from "../../types/record";
 
@@ -31,11 +32,19 @@ type Src = "all" | "new" | "old";
 /** locked = แถวอ่านอย่างเดียวจากชีตโดยตรง (ข้อมูลเก่า หรือข้อมูลใหม่ที่พิมพ์ตรงในชีตเอง) แก้ในแอปไม่ได้ */
 interface Row { r: TripRecord; locked: boolean }
 
-export default function RecordsList({ state }: { role: RoleKey; state: RecordsState }) {
+export default function RecordsList({ role, state }: { role: RoleKey; state: RecordsState }) {
   const { records, loading, sheetError, connected, reload } = state;
   // "ข้อมูลเก่า" ในหน้านี้มาจากไฟล์ต้นทุน+รายได้ (เที่ยวที่จับคู่กับข้อมูลรายได้จริงได้)
   // ส่วนแถวที่พิมพ์ตรงในชีต (source "ใหม่") ยังมาจากชีตตามเดิม — ข้อมูลใหม่ทั้งหมดยังเชื่อมกับชีต
   const oldRecords = state.oldRecords;
+  const branch = role === "manager" ? loadSessionBranch() : null;
+  // ผู้จัดการใช้สาขาเดียวกับ Manager Dashboard; หากไม่มีสาขาที่เลือก จะไม่แสดงรายการใด
+  const inBranch = (r: TripRecord) => role !== "manager" || (!!branch && r.branch === branch);
+  const scopedRecords = useMemo(() => records.filter(inBranch), [records, role, branch]);
+  const scopedOldRecords = useMemo(
+    () => (oldRecords as unknown as TripRecord[]).filter(inBranch),
+    [oldRecords, role, branch],
+  );
   const [q, setQ] = useState("");
   const [src, setSrc] = useState<Src>("all");
   const [msg, setMsg] = useState<string | null>(null);
@@ -62,11 +71,11 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
   const list = useMemo<Row[]>(() => {
     const out: Row[] = [];
     const editableDocNos = new Set<string>();
-    for (const r of records) if (roleAllDone(r)) {
+    for (const r of scopedRecords) if (roleAllDone(r)) {
       out.push({ r, locked: false });
       if (r.docNo) editableDocNos.add(r.docNo);
     }
-    for (const r of oldRecords as unknown as TripRecord[]) {
+    for (const r of scopedOldRecords) {
       // กันโชว์ซ้ำ: ใบที่เพิ่งบันทึกผ่านแอปมีทั้งฉบับแก้ไขได้ (records, ยึดอันนี้) กับฉบับที่
       // อ่านตรงจากชีต (ยังไม่มี _DATA ตอนเพิ่งบันทึกเสร็จใหม่ ๆ) — ใบเก่าจริงไม่กันชนแบบนี้
       if (!isOld(r) && r.docNo && editableDocNos.has(r.docNo)) continue;
@@ -85,13 +94,13 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
       return [r.docNo, route, r.branch, r.plate]
         .some((v) => String(v ?? "").toLowerCase().includes(needle));
     });
-  }, [records, oldRecords, q, src]);
+  }, [scopedRecords, scopedOldRecords, q, src]);
 
-  const newCount = records.filter(roleAllDone).length
-    + (oldRecords as unknown as TripRecord[]).filter((r) => !isOld(r)).length;
-  const oldCount = (oldRecords as unknown as TripRecord[]).filter(isOld).length;
+  const newCount = scopedRecords.filter(roleAllDone).length
+    + scopedOldRecords.filter((r) => !isOld(r)).length;
+  const oldCount = scopedOldRecords.filter(isOld).length;
 
-  const unsynced = records.filter((r) => r.synced === false && roleAllDone(r));
+  const unsynced = scopedRecords.filter((r) => r.synced === false && roleAllDone(r));
 
   async function syncAll() {
     if (!unsynced.length) { setMsg("ไม่มีใบที่ยังไม่ได้ซิงก์"); return; }
@@ -134,11 +143,11 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
 
   /** ล้างใบในเครื่องทั้งหมด — main:2692 ไม่แตะข้อมูลบน Google Sheet */
   async function clearAll() {
-    if (!records.length) return;
+    if (!scopedRecords.length) return;
     if (!confirm("ล้างรายการในเครื่องทั้งหมด? (ไม่ลบข้อมูลใน Google Sheet)")) return;
     setBusy(true);
     try {
-      for (const r of records) await remove(r.id);
+      for (const r of scopedRecords) await remove(r.id);
       setMsg("ล้างรายการในเครื่องแล้ว");
       reload();
     } finally { setBusy(false); }
@@ -275,7 +284,7 @@ export default function RecordsList({ state }: { role: RoleKey; state: RecordsSt
         )} />
         {list.length === 0 && (
           <div className="rec-empty">
-            {records.length + oldRecords.length === 0
+            {scopedRecords.length + scopedOldRecords.length === 0
               ? "ยังไม่มีรายการ — ไปที่ “บันทึกข้อมูล” เพื่อเพิ่มรายการ (ข้อมูลเก่ากด “รีเฟรช”)"
               : "ไม่พบรายการที่ตรงกับเงื่อนไข"}
           </div>

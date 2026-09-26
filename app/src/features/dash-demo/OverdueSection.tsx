@@ -93,8 +93,19 @@ interface HistRow {
 const DEFAULT_AS_OF = "2026-05-31";
 
 /** onAsOf = แจ้ง "ข้อมูล ณ วันที่" ที่เลือกอยู่ออกไป — คะแนน DSO ของ Performance Index ใช้วันเดียวกับส่วนนี้ */
-export default function OverdueSection({ state, onAsOf }: { state: DebtorState; onAsOf?: (iso: string) => void }) {
+export default function OverdueSection({ state, branch, onAsOf }: { state: DebtorState; branch: string; onAsOf?: (iso: string) => void }) {
   const { data, error } = state;
+  const rows = useMemo(() => data ? (branch ? data.rows.filter((r) => r.br === branch) : data.rows) : [], [data, branch]);
+  const range = useMemo(() => {
+    if (!data) return { min: null, max: null };
+    if (!branch) return data.manifest.dateRange;
+    let min: string | null = null, max: string | null = null;
+    for (const r of rows) {
+      if (!min || r.issue < min) min = r.issue;
+      if (!max || r.issue > max) max = r.issue;
+    }
+    return { min, max };
+  }, [data, branch, rows]);
   if (error || !data) {
     return (
       <div className="dz-cc">
@@ -109,11 +120,10 @@ export default function OverdueSection({ state, onAsOf }: { state: DebtorState; 
       </div>
     );
   }
-  const range = data.manifest.dateRange;
   // ค่าเริ่มต้นตามที่เจ้าของงานสั่ง — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
   const fallback = data.manifest.refDate ?? data.manifest.asOf;
   const start = range.min && range.min <= DEFAULT_AS_OF ? DEFAULT_AS_OF : fallback;
-  return <OverdueBody rows={data.rows} refDate={start}
+  return <OverdueBody rows={rows} refDate={start}
     range={range} isSample={data.manifest.isSample} onAsOf={onAsOf} />;
 }
 

@@ -22,7 +22,7 @@
  *
  * ★ Demo รวมเป็นหน้ายาวหน้าเดียว (24 ก.ย. 2569) — ส่วนนี้ไม่มีตัวกรองของตัวเองแล้ว ใช้ ปี/เดือน จากตัวกรองของหน้า
  *   (ชุด alloc/ ยุบได้แค่ลูกค้า × เดือนตามวันที่บิล ตัวกรองอื่นขึ้นบรรทัดบอกผ่าน FilterScope)
- *   ส่วนที่ 2 (DSO) ไม่ขึ้นกับตัวกรองของหน้า มี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ที่หัวส่วนที่ 2
+ *   ส่วนที่ 2 (DSO) ใช้ตัวกรองสาขาของหน้า และมี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ที่หัวส่วนที่ 2
  *   ป้ายตัวอย่าง/จริงของแต่ละส่วนอยู่ที่ SourceTag — สองชุดเลือก real/sample แยกกัน
  *
  * ★ ท้ายส่วน (25 ก.ย. 2569): กล่อง Customer Profitability & Cash Flow Index กล่องยาว (การ์ด Damage Rate ย้ายไปข้าง Service Quality)
@@ -123,9 +123,9 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
     const d = debtors.data;
     return [
       metricResult("custProfit", a ? rollupCustomers(a, f).map((r) => r.m) : null),
-      metricResult("dso", d && asOf ? ageBills(d.rows, asOf).map((x) => x.over) : null),
+      metricResult("dso", d && asOf ? ageBills(d.rows.filter((r) => !f.br || r.br === f.br), asOf).map((x) => x.over) : null),
     ];
-  }, [alloc.data, debtors.data, asOf, f.year, f.month]);
+  }, [alloc.data, debtors.data, asOf, f.year, f.month, f.br]);
   // ETL ของสองชุดนี้แยกกัน (วางไฟล์คนละโฟลเดอร์) — รีเฟรชเฉพาะชุดที่เปลี่ยน
   const etlAlloc = useEtlStatus("alloc");
   const etlDebt = useEtlStatus("debtors");
@@ -158,7 +158,7 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
 
       {/* ส่วนที่ 2 — เว้นบรรทัดจากส่วนแรกตามสเปก */}
       <div style={{ height: 28 }} />
-      <OverdueSection state={debtors} onAsOf={setAsOf} />
+      <OverdueSection state={debtors} branch={f.br} onAsOf={setAsOf} />
 
       {/* Performance Index — กล่องยาว */}
       <PiBox index={INDEXES.cust} results={custPi} />
@@ -251,7 +251,7 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
     <>
       <Pane deps={[rows]}>
         <SourceTag block sample={data.manifest.isSample} what="ส่วนกำไรลูกค้า (ไฟล์ต้นทุน + บิลรายได้)" />
-        <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
+        <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่มีสาขาและไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
           <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"

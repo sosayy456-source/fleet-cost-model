@@ -27,7 +27,7 @@ import { DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { Hero, KC, Note, Pane } from "../dash-fleet/parts";
 import {
-  Meter, SortTable, fmt, groupBy, monthLabel, passBase, pct, signed, useSort,
+  Meter, SortTable, fmt, groupBy, monthLabel, pct, signed, useSort,
 } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { passDemo } from "./filter";
@@ -262,7 +262,7 @@ export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFil
   }, [detailTrips]);
 
   /** เที่ยวสำหรับแผงกลุ่มบริการ — ตัวกรองแท็บทุกตัว ยกเว้นกลุ่มบริการ เพราะกราฟต้องวาดครบสามเส้น */
-  const rowsNoSg = useMemo(() => trips.filter((t) => passBase(t, f)), [trips, f]);
+  const rowsNoSg = useMemo(() => trips.filter((t) => passDemo(t, { ...f, sg: "" })), [trips, f]);
 
   /* ---------- 5. อัตรากำไรตามกลุ่มบริการ (คิดตามตัวกรองด้านบน) ---------- */
   const groups = useMemo(() => SERVICE_GROUPS.map((g) => {

@@ -26,6 +26,7 @@ import EtlBanner from "../../lib/ui/EtlBanner";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
+import { useDebtors } from "../../lib/data/useDebtors";
 import { ListFF, PeriodFF, duniq, fmt, isFiltered } from "../dash-costrev/common";
 import RouteProfitTab from "./RouteProfitTab";
 import Item2Tab from "./Item2Tab";
@@ -44,6 +45,7 @@ const SPY_LINE = 160;
 
 export default function DemoDash() {
   const { data, error, loading, reload } = useCostRev();
+  const debtors = useDebtors();
   const etl = useEtlStatus("costrev");
   useAutoReloadOnEtl(etl, reload);
   const [f, setF] = useState<DemoFilter>(DEMO_F0);
@@ -52,6 +54,11 @@ export default function DemoDash() {
   const pi = usePiReports();
 
   const all = useMemo(() => (data ? data.trips.filter(inProfitScope) : []), [data]);
+  const branches = useMemo(() => duniq([
+    ...all.map((t) => t.br),
+    ...(debtors.data?.rows ?? []).map((r) => r.br),
+  ]), [all, debtors.data]);
+  const branchTrips = useMemo(() => all.filter((t) => !f.br || t.br === f.br), [all, f.br]);
   const emptyN = useMemo(() => all.filter((t) => t.empty).length, [all]);
   const trips = useMemo(() => all.filter((t) => passDemo(t, f)), [all, f]);
   // ข้อ 3 ส่วนที่ 1 เทียบปีที่เลือกกับปีก่อนหน้า — ต้องได้เที่ยวทุกปีที่ผ่านตัวกรองอื่น
@@ -148,6 +155,7 @@ export default function DemoDash() {
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
         <FilterBar>
           <PeriodFF trips={all} value={f} onChange={setF} />
+          <ListFF label="สาขา" all="ทุกสาขา" value={f.br} onChange={set("br")} opts={branches} />
           <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(all.map((t) => t.o))} />
           <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={duniq(all.map((t) => t.de))} />
           <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(all.map((t) => t.ft))} />
@@ -159,8 +167,8 @@ export default function DemoDash() {
 
         <PiReportProvider value={pi.report}>
           {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={f} />}<PiRoute trips={piTrips} /></>)}
-          {part("item2", <>{tripsState ?? <Item2Tab all={all} trips={trips} tripsAnyYear={tripsAnyYear} f={f} />}
-            <PiFleet f={f} all={piRef} /></>)}
+          {part("item2", <>{tripsState ?? <Item2Tab all={branchTrips} trips={trips} tripsAnyYear={tripsAnyYear} f={f} />}
+            <PiFleet f={f} all={piRef ? branchTrips : null} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={f.year} />}
             <PiCost trips={piTrips} /></>)}
           {part("cust", <>
