@@ -7,7 +7,7 @@
 
 ## รอเจ้าของงานตัดสิน
 
-- (ไม่มี) — คำถาม Q1–Q6 ของแนวทางหน้าจอจำลองเลิกใช้แล้ว (`docs/archive/PRESENTATION_BRIEF-v3.md`)
+- (ไม่มี) — คำถาม Q1–Q6 ของแนวทางหน้าจอจำลองเลิกใช้แล้ว
 
 ---
 
@@ -18,7 +18,8 @@
 - `main.tsx` เปิดโหมดคลิป (`Tour`) เสมอ ไม่ต้องต่อ `?tour` (ต่อไว้ก็ยังเปิดได้)
 - `package.json`: ตัด script `scenario`/`reference`/`test` และ `gsap` · `lenis` · `vitest` (ไม่มีใครใช้แล้ว)
 - **เลิกแบ่งหน้าที่** — Claude กับ Codex ทำได้ทั้งวางแผนและเขียนโค้ด ไม่ต้องมีบล็อก "ขั้นต่อไป: ไปสั่ง…" ·
-  `HANDOFF.md` · `IMPLEMENTATION_PLAN.md` · `STORYBOARD.md` · `DESIGN_DIRECTION.md` · `PRESENTATION_BRIEF.md` ย้ายไป `docs/archive/`
+  **ลบเอกสารแนวทางเดิมทั้งหมด** (เจ้าของงานสั่ง): `HANDOFF.md` · `IMPLEMENTATION_PLAN.md` · `STORYBOARD.md` · `DESIGN_DIRECTION.md` ·
+  `PRESENTATION_BRIEF.md` และทั้งโฟลเดอร์ `docs/archive/` — ดูย้อนหลังได้ใน git history (ก่อน commit นี้) · รายการเก่าข้างล่างที่อ้างไฟล์พวกนี้เก็บไว้เป็นประวัติ
   (ส่วนเหตุผล "ทำไมต้องมีเว็บนี้" ในบรีฟอ้างถึงแอปหลักค้าง — แก้ไปแล้วที่ `docs/แผนแก้-ข้อมูลจริงช้า.md`)
 - ตรวจ: `npm run build` ผ่าน (JS gzip 77 KB) · เปิด preview กดเริ่ม → สไลด์เปิดเรื่อง 18 วิ → วิดีโอเล่นต่อ ไม่มี error
 
