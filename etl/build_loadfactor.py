@@ -54,6 +54,7 @@ from datetime import datetime
 from pathlib import Path
 
 from build_costrev import iter_sheet, num, text as txt, utf8_stdout, xlsx_files
+from src.progress import report, span
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -186,7 +187,8 @@ def build(dataset: str) -> None:
     trips: list[dict] = []
     dropped: dict[str, int] = {}
     used: list[str] = []
-    for f in files:
+    for fi, f in enumerate(files):
+        span(0, 90, fi, len(files), f"อ่านไฟล์ Load Factor {fi + 1}/{len(files)}")
         got, dr = read_file(f, routes, fill)
         if not got and not dr:
             continue
@@ -257,6 +259,7 @@ def build(dataset: str) -> None:
 
     out = OUT_ROOT / dataset / "loadfactor"
     out.mkdir(parents=True, exist_ok=True)
+    report(95, "เขียนไฟล์ผลลัพธ์")
     columns = {k: [t[k] for t in trips] for k in trips[0]}
     for name, obj in (("manifest.json", manifest), ("trips.json", columns)):
         p = out / name

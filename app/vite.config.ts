@@ -89,7 +89,11 @@ function autoEtl(): Plugin {
    * สถานะล่าสุดของแต่ละงาน ส่งให้เบราว์เซอร์ผ่าน HMR websocket
    * แดชบอร์ดจะได้ขึ้น "กำลังแปลง…" และรีเฟรชเองตอนเสร็จ ไม่ต้องเดาว่าเสร็จหรือยัง
    */
-  type Status = { state: "idle" | "running" | "done" | "error" | "cleared"; message: string; at: number };
+  type Status = {
+    state: "idle" | "running" | "done" | "error" | "cleared"; message: string; at: number;
+    /** ความคืบหน้า 0–100 กับขั้นที่ทำอยู่ — python พิมพ์ `##ETL## <pct> <ขั้น>` (etl/src/progress.py) · มีเฉพาะตอน running */
+    pct?: number; step?: string;
+  };
   type Job = "rev" | "cr" | "al" | "db" | "lf";
   const EVENT: Record<Job, string> = {
     rev: "etl:status", cr: "costrev:status", al: "alloc:status", db: "debtors:status", lf: "loadfactor:status",
@@ -107,6 +111,13 @@ function autoEtl(): Plugin {
     // ข้อความเดิมซ้ำ (เช่นโพลเจอไฟล์กำลังคัดลอกทุก 2 วิ) ไม่ส่งซ้ำ — เวลา "เริ่ม" บนแถบจะได้ไม่ขยับ
     if (status[job].state === state && status[job].message === message) return;
     status[job] = { state, message, at: Date.now() };
+    emit(job, status[job]);
+  };
+  /** อัปเดต % โดยไม่เปลี่ยน at — แถบบนหน้าเว็บใช้ at เป็นเวลาเริ่ม */
+  const setProgress = (job: Job, pct: number, step: string) => {
+    const cur = status[job];
+    if (cur.state !== "running" || (cur.pct === pct && cur.step === step)) return;
+    status[job] = { ...cur, pct, step };
     emit(job, status[job]);
   };
   /** งานที่ต้องรอคิว — ให้แถบขึ้นตั้งแต่ตอนนี้ ไม่ใช่รอจนถึงคิวของตัวเอง (เจ้าของขอ 16 ก.ย. 2569) */
@@ -224,14 +235,26 @@ function autoEtl(): Plugin {
     const n = readdirSync(spec.dir).filter(isXlsx).length;
     log(spec.startLog(n));
     setStatus(job, "running", spec.startMsg(n));
+    setProgress(job, 0, "เริ่ม");
 
     const exe = pythonExe();
     const child = spawn(exe, [spec.script, "--dataset", "real"], {
       cwd: etlDir, stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8" },
+      env: { ...process.env, PYTHONUTF8: "1", PYTHONIOENCODING: "utf-8", ETL_PROGRESS: "1" },
     });
     let tail = "";
-    child.stdout.on("data", (d) => { tail = (tail + d.toString()).slice(-800); });
+    // บรรทัด ##ETL## = ความคืบหน้า ส่งไปหน้าเว็บ ไม่เก็บใน log · ที่เหลือเก็บท้าย log ไว้โชว์ตอนจบ/พัง
+    let buf = "";
+    child.stdout.on("data", (d) => {
+      buf += d.toString();
+      const lines = buf.split(/\r?\n/);
+      buf = lines.pop() ?? "";
+      for (const ln of lines) {
+        const m = /^##ETL## (\d+) ?(.*)$/.exec(ln);
+        if (m) setProgress(job, Number(m[1]), m[2]!);
+        else tail = (tail + ln + "\n").slice(-800);
+      }
+    });
     child.stderr.on("data", (d) => { tail = (tail + d.toString()).slice(-800); });
     child.on("error", (e) => {
       log(`✗ รัน python ไม่ได้ (${e.message}) — รันเองด้วย: cd etl && python ${spec.script} --dataset real`);
@@ -239,6 +262,7 @@ function autoEtl(): Plugin {
       done();
     });
     child.on("close", (code) => {
+      if (buf) tail = (tail + buf).slice(-800);
       if (code === 0) {
         // ท้าย log ของ cr/lf มีตัวตรวจรูปแบบไฟล์ (บรรทัด [!]) — โชว์ให้เห็นใน terminal ของ dev server
         log(`✓ ${spec.doneMsg}` + (job === "cr" || job === "lf" ? " — " + tail.trim().split("\n").slice(-6).join(" | ") : ""));

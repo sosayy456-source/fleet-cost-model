@@ -12,8 +12,11 @@ import { useEffect, useRef, useState } from "react";
 export interface EtlStatus {
   state: "idle" | "running" | "done" | "error" | "cleared";
   message: string;
-  /** เวลาที่สถานะนี้เกิด (ms) — ใช้แยกเหตุการณ์ใหม่ออกจากอันเดิม */
+  /** เวลาที่สถานะนี้เกิด (ms) — ใช้แยกเหตุการณ์ใหม่ออกจากอันเดิม · อัปเดต % ไม่เปลี่ยนค่านี้ */
   at: number;
+  /** ความคืบหน้า 0–100 และขั้นที่ทำอยู่ (etl/src/progress.py) — มีเฉพาะตอน running ที่ python เริ่มแล้ว (รอคิวไม่มี) */
+  pct?: number;
+  step?: string;
 }
 
 /**

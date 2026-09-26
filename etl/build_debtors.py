@@ -80,6 +80,8 @@ try:                      # calamine เร็วกว่า openpyxl ราว
 except ImportError:
     _calamine = None
 
+from src.progress import report, span  # noqa: E402
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
@@ -371,7 +373,8 @@ def build(dataset: str) -> None:
     rows: list[dict] = []
     skipped = 0
     ref_date: date | None = None
-    for f in files:
+    for fi, f in enumerate(files):
+        span(0, 90, fi, len(files), f"อ่านไฟล์ลูกหนี้ {fi + 1}/{len(files)}")
         got, sk, ref = read_file(f)
         rows.extend(got)
         skipped += sk
@@ -429,6 +432,7 @@ def build(dataset: str) -> None:
         (out_dir / name).write_text(
             json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 
+    report(95, "เขียนไฟล์ผลลัพธ์")
     dump("debtors.json", rows)
     dump("codes.json", {k: codes[k] for k in ("base", "next", "codes")})
     dump("manifest.json", manifest)

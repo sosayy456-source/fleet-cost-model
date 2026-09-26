@@ -83,6 +83,7 @@ from src.custcodes import resolve_codes  # noqa: E402
 from src.svcalloc import SvcAlloc  # noqa: E402
 from src.tripcols import encode as encode_trips  # noqa: E402
 from src.sheetcache import cached_rows  # noqa: E402
+from src.progress import report, span  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -308,7 +309,8 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
     paid_seen = 0
     paid_total = 0.0
     files = xlsx_files(rev_dir)
-    for p in files:
+    for fi, p in enumerate(files):
+        span(12, 92, fi, len(files), f"อ่านไฟล์รายได้ {fi + 1}/{len(files)}")
         hdr, rows = iter_sheet(p, 0)
         col = {h: i for i, h in enumerate(hdr)}
         need = ["เลขที่ใบรายการ", "เลขที่บิล", "วันที่", "ราคารวม", "สถานะการชำระเงิน"]
@@ -412,7 +414,8 @@ def build(dataset: str) -> None:
     skipped_no_doc = skipped_no_date = dropped_type = 0
     rent_unknown = trailer_first_n = 0   # แถวค่าเช่าที่บอกไม่ได้ว่าคันไหนเช่า · แถวค่าเช่าที่หางเป็นคันที่ 1
     kinds = Counter()
-    for cf in cost_files:
+    for ci, cf in enumerate(cost_files):
+        span(0, 12, ci, len(cost_files), f"อ่านไฟล์ต้นทุน {ci + 1}/{len(cost_files)}")
         hrow = find_header_row(cf, "เลขที่ใบรายการ")
         hdr, rows = read_sheet(cf, hrow)
         col = {h: i for i, h in enumerate(hdr)}
@@ -583,6 +586,7 @@ def build(dataset: str) -> None:
             for service, amount in sorted(service_revenue.get(t["id"], {}).items())
         }
 
+    report(93, "ปันต้นทุนเข้ากลุ่มบริการ")
     # ปันต้นทุน/รายได้ของเที่ยวเข้ากลุ่มบริการ — ใบที่เลขซ้ำหลายแถวรวมยอดเป็นใบเดียว (เหมือน build_alloc.py)
     doc_tot: dict[str, list[float]] = {}
     for t in trips:
@@ -660,6 +664,7 @@ def build(dataset: str) -> None:
     neg_other = [t for t in trips if t["cost"] - sum(t[k] for k in ("waste", "fuel", "allow", "fee", "repair", "dep", "rent")) < -1]
     manifest["costChecks"] = {"trailerFirstRent": trailer_first_n, "rentUnknown": rent_unknown,
                               "negativeOther": len(neg_other)}
+    report(97, "เขียนไฟล์ผลลัพธ์")
     dump("manifest.json", manifest)
     # เก็บเป็นคอลัมน์ + ตารางข้อความ (src/tripcols.py) — ข้อมูลจริงแบบแถวใหญ่จนแท็บเบราว์เซอร์หน่วยความจำหมด
     # รูปข้อมูลที่ไม่รู้จัก = เขียนแบบแถวเหมือนเดิม แอปอ่านได้ทั้งสองแบบ

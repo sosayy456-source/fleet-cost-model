@@ -58,6 +58,7 @@ from pathlib import Path
 
 from build_costrev import find_header_row, iter_sheet, parse_date, utf8_stdout, xlsx_files
 from src.custcodes import resolve_codes
+from src.progress import report, span
 from src.alloc import (
     DIST_EXACT,
     DIST_FALLBACK,
@@ -411,7 +412,8 @@ def load_trips(cost_files: list[Path]) -> tuple[dict[str, float], dict[str, str]
     cost: dict[str, float] = defaultdict(float)
     ttype: dict[str, str] = {}
     bad = 0
-    for path in cost_files:
+    for ci, path in enumerate(cost_files):
+        span(0, 5, ci, len(cost_files), f"อ่านไฟล์ต้นทุน {ci + 1}/{len(cost_files)}")
         hdr, body = iter_sheet(path, find_header_row(path, COL_DOC))
         col = {h: i for i, h in enumerate(hdr)}
         for need in (COL_DOC, COL_COST):
@@ -559,7 +561,8 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
     acc: dict[str, TripAcc] = {}
     docs_in_bills: set[str] = set()
     bill_files: list[Path] = []          # เฉพาะไฟล์ที่เป็นไฟล์บิลจริง — รอบสอง/สามไม่ต้องเปิดไฟล์ที่ข้ามซ้ำ
-    for path in rev_files:
+    for fi, path in enumerate(rev_files):
+        span(5, 45, fi, len(rev_files), f"รอบ 1/3 หาตัวหาร · ไฟล์บิล {fi + 1}/{len(rev_files)}")
         n = 0
         for it in item_reader(path):
             n += 1
@@ -582,7 +585,8 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
 
     print("รอบสอง: ปันต้นทุนแล้วยุบเป็นระดับลูกค้า")
     roll = Rollup()
-    for path in rev_files:
+    for fi, path in enumerate(rev_files):
+        span(45, 75, fi, len(rev_files), f"รอบ 2/3 ปันต้นทุน · ไฟล์บิล {fi + 1}/{len(rev_files)}")
         n = 0
         for it in item_reader(path):
             n += 1
@@ -600,6 +604,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
         bills = roll.flush_file()
         print(f"  {path.name}: บิลที่ปันได้ {bills:,}")
 
+    report(75, "จัดอันดับ Top 10")
     print("จัดอันดับ Top 10 อัตรากำไรต่อช่วงเวลา")
     order = roll.order()
     top = roll.top_by_period({k: i for i, k in enumerate(order)})
@@ -643,7 +648,8 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
     เส้นทาง/วันที่/ใบรายการเอาจากรายการแรกของบิล (บิลหนึ่งใบอยู่ในเที่ยวเดียวและมีวันที่เดียว)
     """
     acc: dict[str, list] = {}
-    for path in rev_files:
+    for fi, path in enumerate(rev_files):
+        span(77, 95, fi, len(rev_files), f"รอบ 3/3 เก็บบิลลูกค้าที่ติดอันดับ · ไฟล์บิล {fi + 1}/{len(rev_files)}")
         for it in item_reader(path):
             cost = trip_cost.get(it.doc)
             if cost is None or exclusion_of(it, ttype.get(it.doc, "")):
@@ -691,6 +697,7 @@ def build(dataset: str) -> None:
         "generatedAt": datetime.now().replace(microsecond=0).isoformat(),
         **info,
     }
+    report(96, "เขียนไฟล์ผลลัพธ์")
     roll.write(out, manifest, top, bills)
     print(f"เขียน {out.relative_to(ROOT)}  (ที่มา: {info['source']})")
     roll.report()
