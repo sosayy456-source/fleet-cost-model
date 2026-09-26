@@ -11,7 +11,8 @@
     svc.json           ปันต้นทุน/รายได้ของเที่ยวเข้ากลุ่มบริการ (ประเภทสินค้าของบิล) 1 ระเบียน = ใบรายการ × กลุ่ม
                        เก็บเป็นคอลัมน์ id/g/n/rev/cost — Σ ทุกกลุ่มของใบ = รายได้/ต้นทุนของเที่ยวเสมอ (ดู src/svcalloc.py)
     manifest.json      สรุปจำนวน ช่วงวันที่ %จับคู่ระยะทาง
-    trips.json         1 แถว = 1 เที่ยว (ทุกแถวในไฟล์) มีธง m = เลขที่ใบรายการตรงกับข้อมูลรายได้
+    trips.json         1 เที่ยวต่อระเบียน (ทุกแถวในไฟล์) มีธง m = เลขที่ใบรายการตรงกับข้อมูลรายได้
+                       เก็บเป็นคอลัมน์ + ตารางข้อความ (src/tripcols.py · 26 ก.ย. 2569) แอปแปลงกลับเป็น Trip[]
     old_records.json   เที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้ารายการทั้งหมด
     old_debtors.json   บิล "ที่ยังค้างชำระ" จากไฟล์รายได้ของเที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้าลูกหนี้
 
@@ -80,6 +81,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from src.alloc import DROPPED_TRIP_TYPES, Item  # noqa: E402
 from src.custcodes import resolve_codes  # noqa: E402
 from src.svcalloc import SvcAlloc  # noqa: E402
+from src.tripcols import encode as encode_trips  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -655,7 +657,12 @@ def build(dataset: str) -> None:
     manifest["costChecks"] = {"trailerFirstRent": trailer_first_n, "rentUnknown": rent_unknown,
                               "negativeOther": len(neg_other)}
     dump("manifest.json", manifest)
-    dump("trips.json", trips)
+    # เก็บเป็นคอลัมน์ + ตารางข้อความ (src/tripcols.py) — ข้อมูลจริงแบบแถวใหญ่จนแท็บเบราว์เซอร์หน่วยความจำหมด
+    # รูปข้อมูลที่ไม่รู้จัก = เขียนแบบแถวเหมือนเดิม แอปอ่านได้ทั้งสองแบบ
+    trips_cols = encode_trips(trips)
+    if trips_cols is None:
+        print("  [!] trips.json มีรูปข้อมูลที่ตัวเก็บแบบคอลัมน์ไม่รู้จัก — เขียนแบบแถวแทน (ไฟล์ใหญ่กว่า)")
+    dump("trips.json", trips_cols if trips_cols is not None else trips)
     dump("svc.json", svc_out)
     dump("old_records.json", old_records)
     dump("old_debtors.json", old_debtors)

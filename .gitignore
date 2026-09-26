@@ -45,6 +45,10 @@ app/node_modules/
 app/dist/
 # ข้อมูลจริงที่ ETL สร้าง ห้ามขึ้น repo (GitHub Pages เป็นเว็บสาธารณะ)
 app/public/data/real/
+# ไฟล์เดิมที่เก็บไว้เทียบตอนตรวจ (app/tools/verify-trips.mjs) — ลบหลังตรวจเสร็จ
+app/public/data/*/costrev/trips.old.json
+# แคชแถวของไฟล์ .xlsx ที่ ETL อ่านแล้ว (etl/src/sheetcache.py) — เป็นข้อมูลดิบ ห้ามขึ้น repo
+etl/.cache/
 
 # ── ETL ────────────────────────────────────────────────
 # กันข้อมูลจริงใต้ etl/data/ แต่ยอมให้ README ขึ้น repo ได้

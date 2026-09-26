@@ -6,9 +6,12 @@
  * ไม่งั้น sample — เพราะไฟล์ต้นทุนจริงกับไฟล์รายได้จริงอาจถูกวางคนละเวลากัน
  * (★ Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์ ต้องดู content-type)
  *
- * trips.json เก็บ 1 แถว = 1 เที่ยว คีย์สั้น ๆ เพื่อให้ไฟล์เล็ก — ความหมายอยู่ใน interface Trip
+ * trips.json 1 ระเบียน = 1 เที่ยว คีย์สั้น ๆ เพื่อให้ไฟล์เล็ก — ความหมายอยู่ใน interface Trip
+ * ไฟล์เก็บเป็นคอลัมน์ + ตารางข้อความ (tripCols.ts · 26 ก.ย. 2569) แปลงกลับเป็น Trip[] ตอนโหลด หน้าจอไม่ต้องรู้
  */
 import { useCallback, useEffect, useState } from "react";
+import { decodeTripColumns, isTripColumns } from "./tripCols";
+import type { TripColumns } from "./tripCols";
 
 export type CostRevDataset = "sample" | "real";
 
@@ -182,11 +185,13 @@ let cache: Promise<CostRevData> | null = null;
 export async function loadCostRev(): Promise<CostRevData> {
   cache ??= (async () => {
     const ds = await detect();
-    const [manifest, trips, svc] = await Promise.all([
+    const [manifest, raw, svc] = await Promise.all([
       fetchJson<CostRevManifest>(ds, "manifest.json"),
-      fetchJson<Trip[]>(ds, "trips.json"),
+      fetchJson<Trip[] | TripColumns>(ds, "trips.json"),
       fetchJson<SvcAlloc>(ds, "svc.json").catch(() => null),
     ]);
+    // ETL ตั้งแต่ 26 ก.ย. 2569 เก็บเป็นคอลัมน์ (tripCols.ts) · ไฟล์รุ่นก่อนเป็นแถวอยู่แล้ว
+    const trips = isTripColumns(raw) ? (decodeTripColumns(raw) as unknown as Trip[]) : raw;
     return { manifest, trips, svc };
   })().catch((e) => { cache = null; throw e; });
   return cache;
