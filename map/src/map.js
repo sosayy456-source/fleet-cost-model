@@ -13,7 +13,7 @@ import "./styles.css";
    ------------------------------------------------------------------ */
 const W = 1000, H = 1400;
 const OUT = "#1a73e8", IN = "#e37400";          // สีเส้นขาออก / ขาเข้า ของจุดที่เลือก
-const svg = d3.select("#map");
+  const svg = d3.select("#map");
 let selected = null;   // เส้นทางที่เลือกในแท็บกำไรสูงสุด (null = ยังไม่เลือก แสดงเป็นเงาทั้งหมด, 0 = ทั้งหมด)
 let netSel = null;     // จุดที่เลือกในแท็บเครือข่าย
 let k = 1;             // ระดับซูมปัจจุบัน
@@ -40,25 +40,55 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
   const world = topojson.feature(tWorld, tWorld.objects.countries);
 
   const proj = d3.geoMercator().fitExtent([[70, 70], [W - 70, H - 70]], prov);
-  const path = d3.geoPath(proj);
+  /* โหมดฝัง (#embed) ลดจุดขอบเขตด้วยการปัดพิกัด (หลังฉายแผนที่) ลงตารางขนาด THIN ÷ ระดับซูม (26 ก.ย. 2569 · หน้าสถานะกองรถแลค)
+     ขอบเขตจังหวัดต้นฉบับมี 28,109 จุด วาดสองชั้น + เส้น non-scaling-stroke ต้องวาดใหม่ทั้งหมดทุกครั้งที่ซูม/เลื่อน
+     · ปัดลงตาราง ไม่ใช่ "ข้ามจุดที่ใกล้จุดก่อนหน้า" — จังหวัดที่ติดกันได้จุดบนเส้นแบ่งตรงกันพอดี (รุ่นข้ามจุดทำให้มีรอยแยกสีเทาตอนซูม)
+     · ตารางละเอียดขึ้นตามซูม: ซูมเสร็จแล้ววาดเส้นขอบใหม่ (redrawLand · ขั้นละ 2 เท่า) — ซูม 1 เท่าเบา ซูมลึก (มุมมอง กทม.) ยังคม
+     1.5 หน่วย viewBox (1000 หน่วย) ≈ 1 พิกเซลบนจอของกล่องกว้าง ~600px · หน้าแผนที่เต็ม (ไม่มี #embed) ใช้ความละเอียดเดิม */
+  const HASH0 = new URLSearchParams(decodeURIComponent(location.hash.slice(1)));
+  const THIN = HASH0.has("embed") ? 1.5 : 0;
+  const snap = (out, g) => {
+    let px = NaN, py = NaN;
+    return {
+      point(x, y) { x = Math.round(x / g) * g; y = Math.round(y / g) * g; if (x !== px || y !== py) { out.point(x, y); px = x; py = y; } },
+      lineStart() { px = py = NaN; out.lineStart(); }, lineEnd() { out.lineEnd(); },
+      polygonStart() { out.polygonStart(); }, polygonEnd() { out.polygonEnd(); },
+      sphere() { out.sphere?.(); },
+    };
+  };
+  const pathAt = g => d3.geoPath(g ? { stream: s => proj.stream(snap(s, g)) } : proj);
+  let landLevel = 1;   // ระดับซูมที่ใช้คิดตารางของเส้นขอบที่วาดอยู่ (1, 2, 4, 8, …)
+  const path = pathAt(THIN);
+  /** วาดเส้นขอบ (.geo) ใหม่ให้ละเอียดพอกับระดับซูม — เรียกตอนซูมเสร็จ ไม่ใช่ทุกเฟรม */
+  function redrawLand() {
+    if (!THIN) return;
+    const lv = 2 ** Math.max(0, Math.floor(Math.log2(k)));
+    if (lv === landLevel) return;
+    landLevel = lv;
+    root.selectAll(".geo").attr("d", pathAt(THIN / lv));
+  }
 
   addDefs(svg);
 
   /* ---------- พื้นหลัง: ทะเล / ประเทศเพื่อนบ้าน / จังหวัด ---------- */
   svg.append("rect").attr("class", "water").attr("width", W).attr("height", H).attr("fill", "var(--water)");
   const root = svg.append("g");   // ทุกอย่างที่ซูมได้อยู่ในกลุ่มนี้
-
+  // ประเทศเพื่อนบ้านเฉพาะที่อยู่ในกรอบรอบไทย — เดิมวาดครบ 176 ประเทศทั่วโลก (~10,700 จุด) ทั้งที่อยู่นอกจอเกือบหมด
+  const NEAR_BOX = ([[x0, y0], [x1, y1]]) => x1 > 85 && x0 < 115 && y1 > -5 && y0 < 32;
   root.append("g").attr("class", "neighbors").selectAll("path")
-    .data(world.features.filter(f => f.properties.name !== "Thailand"))
-    .join("path").attr("d", path)
+    .data(world.features.filter(f => f.properties.name !== "Thailand" && NEAR_BOX(d3.geoBounds(f))))
+    .join("path").attr("class", "geo").attr("d", path)
     .attr("fill", "var(--neighbor)").attr("stroke", "var(--neighbor)")
     .attr("stroke-width", 3.5).attr("stroke-linejoin", "round");
 
   /* ฐาน 3 มิติของโหมด #3d (ใช้คู่กับ #thai · เคยเปิดในหน้า Demo แล้วเจ้าของงานให้กลับเป็น 2 มิติ 24 ก.ย. 2569): เงาเบลอใต้ประเทศ + ผนังด้านข้าง
      = เงาของรูปประเทศซ้อนกันเลื่อนลงทีละนิด (สีเข้มขึ้นตามความลึก) · ใช้รูปจังหวัดทั้งหมดต่อเป็น path เดียว
      ไม่ต้อง merge ขอบเขต (fill ซ้อนกันแล้วได้รูปประเทศ) · โหมดอื่นซ่อนไว้ด้วย CSS (.thai3d) */
-  const land = prov.features.map(f => path(f)).join("");
   const g3d = root.append("g").attr("class", "thai3d");
+  /* สร้างเฉพาะตอนเปิดด้วย #3d — เดิมสร้างทุกครั้ง: รูปประเทศทั้งก้อนซ้อน 17 ชั้น = ข้อความพิกัดหลาย MB + เงาเบลอ
+     แม้ CSS ซ่อนไว้ก็ยังเสียเวลาเปิดแผนที่ (โหมดนี้ปิดอยู่ · ต้องการเปิดคืนต้องโหลดหน้าใหม่พร้อม #3d) */
+  if (HASH0.has("3d")) {
+  const land = prov.features.map(f => path(f)).join("");
   svg.select("defs").append("filter").attr("id", "landShadow")
     .attr("x", "-20%").attr("y", "-20%").attr("width", "140%").attr("height", "140%")
     .append("feGaussianBlur").attr("stdDeviation", 14);
@@ -70,14 +100,15 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
     g3d.append("path").attr("d", land).attr("fill", side(DEPTH - i)).attr("stroke", side(DEPTH - i))
       .attr("stroke-width", 1).attr("transform", `translate(0,${i * STEP})`);
   }
+  }
 
   // เส้นขอบประเทศ: วาดเส้นหนาไว้ข้างล่าง แล้วให้ชั้นจังหวัดทับส่วนที่อยู่ด้านใน
   root.append("g").selectAll("path").data(prov.features).join("path")
-    .attr("d", path).attr("fill", "var(--land)")
+    .attr("class", "geo").attr("d", path).attr("fill", "var(--land)")
     .attr("stroke", "var(--border)").attr("stroke-width", 3).attr("stroke-linejoin", "round");
 
   root.append("g").selectAll("path").data(prov.features).join("path")
-    .attr("d", path).attr("fill", "var(--land)")
+    .attr("class", "geo").attr("d", path).attr("fill", "var(--land)")
     .attr("stroke", "var(--province)").attr("stroke-width", .8).attr("stroke-linejoin", "round");
 
   /* ---------- ตัวช่วยวาดป้ายชื่อ (มี halo สีขาว) ---------- */
@@ -113,7 +144,8 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
   const gStops = root.append("g");   // จุดขึ้นลง
   const gNetEnd = root.append("g");  // แท็บเครือข่าย: หมุดของจุดที่เลือก
   const gEnd = root.append("g");     // แท็บกำไรสูงสุด: หมุดต้นทาง/ปลายทางของเส้นที่เลือก
-  const cars = Cars(root.append("g"), kk);   // รถวิ่งตามเส้นทางที่แสดงอยู่ (ทั้งสองแท็บ)
+  const gCars = root.append("g");   // ชั้นรถ — โหมดตำแหน่งรถย้ายขึ้นไปอยู่เหนือเส้นทางรถกำลังเดินทาง (feedFleet)
+  const cars = Cars(gCars, kk);   // รถวิ่งตามเส้นทางที่แสดงอยู่ (ทั้งสองแท็บ + เส้นทางของโหมดตำแหน่งรถ)
   let mode = "net";
   let netTubes = [];   // เส้นเข้า–ออกของจุดที่เลือกในแท็บเครือข่าย
   let focus = null;    // เส้นทางที่ส่งมาทางลิงก์ #from=…&to=… เช่น จาก dashboard: [ต้นทาง, ปลายทาง]
@@ -132,7 +164,8 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
   let routes = [];
   let fed = false;
   let fedStops = new Set();
-  /* จุดที่เส้นที่เลือกวิ่งผ่าน + จุดใกล้เคียงในรัศมี NEAR_KM จากแนวเส้น → ทาสีเหลือง (เจ้าของงานขอ 24 ก.ย. 2569) */
+  /* จุดสีเหลือง = จุดที่เส้นวิ่งผ่าน + จุดในรัศมี NEAR_KM จากแนวเส้น — **เฉพาะเส้น tone "empty"** (แผนที่เที่ยววิ่งเปล่า)
+     เดิมใช้กับแผนที่กำไร (เจ้าของงานขอ 24 ก.ย. 2569) แล้วสั่งเอาออกจากแผนที่กำไร และย้ายมาไว้ที่แผนที่เที่ยววิ่งเปล่าแทน 26 ก.ย. 2569 */
   let fedNear = new Set();
   const NEAR_KM = 100, NEAR_FILL = "#fbbc04", NEAR_STROKE = "#b06000";
 
@@ -148,7 +181,8 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
       const pts = r.coords.map(c => proj(c));
       const d = line(pts);
       // หน้าที่ฝัง (Demo) ใช้เส้นเรืองแสง + รถแบบใหม่ทั้งโหมดขาวและดำ — สลับโหมดเปลี่ยนแค่พื้น/ประเทศ/จุดขึ้นลง
-      r.tube = fed ? neonTube(gRoutes, d, { a: pts[0], b: pts[pts.length - 1], off: r.off, loss: r.profit < 0 })
+      r.tube = fed ? neonTube(gRoutes, d, { a: pts[0], b: pts[pts.length - 1], off: r.off,
+          empty: r.tone === "empty", loss: r.tone !== "empty" && r.profit < 0 })
         : tube(gRoutes, d, r.color, { off: r.off });
       r.tube.g.style("cursor", "pointer").on("click", () => toggle(r.id));
       r.$hit = gRoutes.append("path").attr("d", d).attr("stroke", "transparent")
@@ -237,8 +271,10 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
   const outOf = n => PAIRS.filter(p => p[0] === n).map(p => p[1]);
   const inTo  = n => PAIRS.filter(p => p[1] === n).map(p => p[0]);
 
-  // แนวเส้นทางตามถนนหลัก (src/roads.js) คำนวณไว้ล่วงหน้าทุกคู่ แสดงเฉพาะเมื่อเลือกจุด
-  const netRoutes = PAIRS.map(([from, to]) =>
+  // แนวเส้นทางตามถนนหลัก (src/roads.js) ทุกคู่ แสดงเฉพาะเมื่อเลือกจุด — คิดตอนใช้ครั้งแรก
+  // (เดิมคิดล่วงหน้าตอนเปิด 326 คู่ × หาเส้นทางสั้นสุด ทั้งที่โหมดฝังไม่เคยเลือกจุด)
+  let netRoutesMemo = null;
+  const netRoutes = () => netRoutesMemo ??= PAIRS.map(([from, to]) =>
     ({ from, to, off: 0, d: line(roadPath(from, to).map(c => proj(c))) }));
   const gNetLine = gNet.append("g").attr("fill", "none")
     .attr("stroke-linecap", "round").attr("stroke-linejoin", "round");
@@ -271,7 +307,7 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
     focus = null;
     // แจ้งหน้าที่ฝังแผนที่ไว้ (iframe) ว่าเลือกจุดไหน ให้กรองกราฟตามได้
     if (window.parent !== window) window.parent.postMessage({ type: "map:stop", stop: netSel }, "*");
-    const rel = netSel ? netRoutes.filter(r => r.from === netSel || r.to === netSel) : [];
+    const rel = netSel ? netRoutes().filter(r => r.from === netSel || r.to === netSel) : [];
     // ขาออกเยื้องขวา ขาเข้าเยื้องซ้ายเล็กน้อย ให้เห็นทั้งสองสีบนถนนเส้นเดียวกัน; ขาออกวาดทับบนสุด
     rel.forEach(r => { r.off = r.from === netSel ? 2 : -2; });
     rel.sort((a, b) => (a.from === netSel) - (b.from === netSel));
@@ -406,20 +442,98 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
     // โหมดฝังแผนที่เต็มกล่อง (preserveAspectRatio slice) — viewBox ถูกขยายตามด้านที่ต้องขยายมากกว่า
     const { width: w, height: h } = svg.node().getBoundingClientRect();
     ui = document.body.classList.contains("embed") && w && h ? Math.max(1, 1 / fitOf(w, h)) : 1;
+    layoutFleet();   // ตำแหน่งวงของโหมดตำแหน่งรถขึ้นกับระดับซูม — ต้องคิดก่อนวางหมุด
     root.selectAll(".pin").attr("transform", function () { return pinT(this.__p); });
     freeText.attr("font-size", function () { return this.__fs / kk(); })
       .attr("stroke-width", function () { return this.__sw / kk(); });
     routes.forEach(r => { r.tube.place(kk()); r.$hit.attr("transform", `translate(${r.off / kk()},0)`); });
     netTubes.forEach(t => t.place(kk()));
+    root.selectAll(".fl-rw").attr("stroke-width", function () { return this.__w / kk(); });   // เส้นทางของหน้าสถานะกองรถ
     cars.render();
     showLabels();
+    showFleetLabels();
     updateScale();
+  }
+  /* ดันป้ายรถของโหมดตำแหน่งรถที่ทับกันให้แยก (26 ก.ย. 2569 — จุดใจกลาง กทม. ห่างกัน 2–3 กม. ทับกันแม้ซูมมุมมอง กทม.)
+     ป้ายเป็นแคปซูล (กว้าง __hw×2 · สูง __hh×2 px บนจอ) — คิดแบบกล่อง: ทับกันทั้งสองแกน = ดันออกตามแกนที่ทับน้อยกว่า คู่ละครึ่ง
+     ห่าง ≥ 6px · คิดในหน่วยของ root (px ÷ kk()) · ซูมเข้าจนไม่ทับ = กลับที่เดิมเอง
+     ป้ายที่ถูกดันเกิน 7px มีเส้นโยงกลับตำแหน่งจริง (__leader) · __p0 = ตำแหน่งจริง · __p = ตำแหน่งที่วาด
+     ไม่อ้างตัวแปรของส่วนตำแหน่งรถ (ประกาศทีหลัง rescale — TDZ) */
+  function layoutFleet() {
+    const nodes = root.selectAll(".fl-pin").nodes();
+    if (!nodes.length) return;
+    const s = 1 / kk(), GAP = 6;
+    const pts = nodes.map(n => ({ n, x: n.__p0[0], y: n.__p0[1], hw: (n.__hw || 14) * s, hh: (n.__hh || 14) * s }));
+    for (let it = 0; it < 80; it++) {
+      let moved = false;
+      for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) {
+        const a = pts[i], b = pts[j];
+        let dx = b.x - a.x, dy = b.y - a.y;
+        const ox = a.hw + b.hw + GAP * s - Math.abs(dx), oy = a.hh + b.hh + GAP * s - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        // ตำแหน่งเดียวกันพอดี — แยกตามลำดับ ให้ผลเหมือนเดิมทุกครั้ง
+        if (!dx && !dy) dy = (i + j) % 2 ? 1 : -1;
+        if (oy <= ox || !dx) { const p = oy / 2 * Math.sign(dy || 1); a.y -= p; b.y += p; }
+        else { const p = ox / 2 * Math.sign(dx); a.x -= p; b.x += p; }
+        moved = true;
+      }
+      if (!moved) break;
+    }
+    pts.forEach(p => {
+      p.n.__p = [p.x, p.y];
+      const ln = p.n.__leader, [x0, y0] = p.n.__p0;
+      if (!ln) return;
+      const far = Math.hypot(p.x - x0, p.y - y0) > 7 * s;
+      ln.setAttribute("display", far ? "inline" : "none");
+      ln.setAttribute("x1", x0); ln.setAttribute("y1", y0); ln.setAttribute("x2", p.x); ln.setAttribute("y2", p.y);
+    });
+  }
+  /** ป้ายชื่อของโหมดตำแหน่งรถ: ผ่านเกณฑ์ (data-min) หรือซูมถึง 2.5 เท่า = ผู้สมัคร
+      ไล่วางทีละป้าย (จุดที่เลือกก่อน แล้วจุดที่มีรถมากก่อน) ลองตำแหน่ง ใต้ → ขวา → ซ้าย → บน เอาตำแหน่งแรกที่ไม่ชนป้าย/แคปซูลอื่น
+      ไม่มีที่ว่างเลย = ซ่อน (ชื่อดูได้จากป้ายตอนชี้/รายการจุดในหน้า) · จุดที่เลือกได้ตำแหน่งใต้เสมอ
+      คิดในหน่วย root (หมุดย่อ 1/kk()) · ไม่อ้างตัวแปรของส่วนนั้น (ประกาศทีหลัง — TDZ) */
+  function showFleetLabels() {
+    const s = 1 / kk();
+    const pins = root.selectAll(".fl-pin").nodes();
+    const boxes = [];
+    // แคปซูลของทุกจุด หดขอบ 2px — กล่องป้ายเผื่อขอบไว้แล้ว ถ้านับเต็มขนาด จุดที่ชิดกันไม่เหลือที่วางป้ายเลย
+    const pills = pins.map(n => {
+      const [x, y] = n.__p, hw = ((n.__hw || 14) - 2) * s, hh = ((n.__hh || 14) - 2) * s;
+      return { n, b: [x - hw, y - hh, x + hw, y + hh] };
+    });
+    const cand = pins.map(n => ({ n, t: n.querySelector(".fl-lbl") })).filter(c => c.t)
+      .map(c => ({ ...c, on: c.t.getAttribute("data-on") === "1", tot: +c.t.getAttribute("data-t"),
+        ok: c.t.getAttribute("data-min") === "1" || k >= 2.5 }))
+      .sort((a, b) => b.on - a.on || b.tot - a.tot);
+    const over = (b, o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1];
+    const hit = (b, n) => boxes.some(o => over(b, o)) || pills.some(p => p.n !== n && over(b, p.b));
+    for (const c of cand) {
+      let pick = null;
+      if (c.ok) {
+        const [x, y] = c.n.__p, tw = (c.t.getComputedTextLength?.() || 60) + 4, H = 16;
+        const hw = c.n.__hw || 14, hh = c.n.__hh || 14;
+        // [ตำแหน่งข้อความในหน่วยหมุด (x, y baseline, anchor), กล่องในหน่วยหมุด (x0, y0, x1, y1)]
+        const spots = [
+          [0, hh + 13, "middle", -tw / 2, hh + 1, tw / 2, hh + 1 + H],
+          [hw + 5, 4, "start", hw + 3, -H / 2, hw + 3 + tw, H / 2],
+          [-(hw + 5), 4, "end", -(hw + 3) - tw, -H / 2, -(hw + 3), H / 2],
+          [0, -(hh + 5), "middle", -tw / 2, -(hh + 2) - H, tw / 2, -(hh + 2)],
+        ];
+        for (const sp of (c.on ? spots.slice(0, 1) : spots)) {
+          const b = [x + sp[3] * s, y + sp[4] * s, x + sp[5] * s, y + sp[6] * s];
+          if (c.on || !hit(b, c.n)) { pick = sp; boxes.push(b); break; }
+        }
+      }
+      if (pick) { c.t.setAttribute("x", pick[0]); c.t.setAttribute("y", pick[1]); c.t.setAttribute("text-anchor", pick[2]); }
+      c.t.setAttribute("display", pick ? "inline" : "none");
+    }
   }
 
   const zoom = d3.zoom().scaleExtent([1, 24]).translateExtent([[0, 0], [W, H]])
     // ล้อเมาส์ต้องกด Ctrl ค้าง (ทัชแพดแบบบีบนิ้วส่ง Ctrl ให้อัตโนมัติ) หน้าเว็บจึงยังเลื่อนขึ้นลงได้ตามปกติ
     .filter(e => (e.type === "wheel" ? e.ctrlKey || e.metaKey : !e.button))
-    .on("zoom", e => { k = e.transform.k; root.attr("transform", e.transform); rescale(); });
+    .on("zoom", e => { k = e.transform.k; root.attr("transform", e.transform); rescale(); })
+    .on("end", redrawLand);
   svg.call(zoom);
 
   // ซูมให้กรอบ [lon,lat] พอดีกับพื้นที่ทางซ้ายของแผงรายการ (แผงกว้าง ~340px ทับด้านขวา; โหมดฝังไม่มีแผง)
@@ -500,7 +614,8 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
   window.addEventListener("resize", rescale);
 
   /* ================= รับเส้นทางจากหน้าที่ฝังแผนที่ไว้ (iframe) =================
-     { type:"map:routes", routes:[{ key, from, to, profit, color? }] }
+     { type:"map:routes", routes:[{ key, from, to, profit, color?, tone? }] }
+       tone "empty" = แผนที่เที่ยววิ่งเปล่า: เส้น/รถแดง (NEON_EMPTY) + จุดขึ้นลงที่เส้นผ่าน/ในรัศมี 100 กม. เป็นสีเหลือง
        → แทนเส้นที่แสดงทั้งชุด (หน้า Demo ส่งทีละเส้น · ว่าง = ล้าง) · from/to ต้องเป็นชื่อใน STOPS (network.js)
          ไม่งั้นข้ามเส้นนั้น · แนวเส้นตามถนนหลักจาก roads.js · มุมมองคงที่ (fitAllStops) ไม่ซูมตามเส้น
      แผนที่ส่ง "map:ready" ตอนวาดพื้นเสร็จ (ข้อความที่ส่งมาก่อนหน้านั้นหายไป หน้าที่ฝังต้องรอสัญญาณนี้) ·
@@ -542,12 +657,12 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
     if (first) root.node().insertBefore(gStops.node(), gTop.node());
     const ok = (msg.routes || []).filter(r => STOPS[r.from] && STOPS[r.to] && r.from !== r.to);
     buildTop(ok.map((r, i) => ({
-      id: i + 1, key: r.key, from: r.from, to: r.to, profit: +r.profit || 0,
+      id: i + 1, key: r.key, from: r.from, to: r.to, profit: +r.profit || 0, tone: r.tone,
       name: r.from + "–" + r.to, color: r.color || PALETTE[i % PALETTE.length],
       coords: roadPath(r.from, r.to)
     })));
     fedStops = new Set(routes.flatMap(r => [r.from, r.to]));
-    fedNear = nearStops(routes.map(r => r.coords));
+    fedNear = nearStops(routes.filter(r => r.tone === "empty").map(r => r.coords));
     // แจ้งกลับว่าวาดเส้นไหนได้บ้าง — หน้าที่ฝังจะบอกผู้ใช้เองว่าเส้นที่เหลือไม่มีพิกัดในแผนที่
     if (window.parent !== window) window.parent.postMessage({ type: "map:drawn", keys: routes.map(r => r.key) }, "*");
     setMode("top");
@@ -556,11 +671,231 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
     if (first) fitAllStops();
   }
 
+  /* ================= ตำแหน่งรถปัจจุบัน (หน้าสถานะกองรถ · ข้อมูลชุดเดียวกับตารางสถานะรายคัน · 26 ก.ย. 2569) =================
+     { type:"map:fleet", stops:[{ name, ready, moving, upcoming, stale, total }], labels?:{ ready, moving, upcoming, stale } }
+       labels = ชื่อสถานะในป้ายตอนชี้วง (หน้าสถานะกองรถส่ง "ว่างอยู่ที่คลัง"/"กำลังเดินทางมา") · ไม่ส่ง = ชื่อตั้งต้นด้านล่าง
+       → รูปรถ 3 มิติ ไม่มีกรอบ ตัวเลขบนตู้สินค้า (= จำนวนรถทั้งหมดที่จุดนั้น) ที่จุดขึ้นลงแต่ละจุด ขนาดเท่ากันทุกจุด · จุดขึ้นลงอื่นซ่อน
+         สีรถ: มีรถพร้อม = เขียว · มีแต่รถกำลังเข้า = ฟ้า · มีแต่รถจัดงานแล้ว = ส้ม · มีแต่ข้อมูลเก่า = เทา
+         มีรถพร้อมและรถกำลังเข้าด้วย = รถเขียวมีจุดน้ำเงินเหนือหัว · รถหายใจเบา ๆ (.fl-pill ใน styles.css) · เลือกอยู่ = ใหญ่ขึ้น 1.25 เท่า
+       กดวง → ส่ง "map:stop" { stop } กลับ (กดซ้ำ = null) · หน้าเว็บส่ง "map:fleetSel" { stop, zoom? } ให้ไฮไลต์วงตามตารางได้
+       (zoom = ซูมไปกลุ่มของจุดนั้นด้วย แล้วส่ง "map:view" { view } กลับ) · หน้าเว็บส่ง "map:view" { view: all | north | bkk } สลับมุมมอง
+       ชื่อที่ไม่มีใน STOPS ส่งกลับเป็น "map:fleetMissing" { names } · ส่ง stops ว่าง = ล้างวงทั้งหมด
+     routes?:[{ from, to, n }] = เส้นทางของรถที่กำลังเดินทาง (หน้าส่งเฉพาะตอนกรองสถานะ "กำลังเดินทาง")
+       **ไม่วาดจนกว่าจะกดป้ายรถ** (เจ้าของงานสั่ง 26 ก.ย. 2569) — กดป้าย = วาดเส้นทางที่รถของจุดนั้นวิ่งผ่านมา (to = จุดที่เลือก)
+       ตามถนน (roadPath) แบบลากเส้นจากต้นทางถึงปลายทาง แล้วมีแสงวิ่งตามเส้นวน · ต้นทาง = วงกลวง + ชื่อ · หนาขึ้นตามจำนวนรถ
+       + **รถวิ่งตามเส้นละหนึ่งคัน** (เจ้าของงานขอ 26 ก.ย. 2569 · `Cars` ตัวเดียวกับหน้า Demo) ออกวิ่งหลังลากเส้นเสร็จ · ชั้นรถ (gCars)
+       ย้ายมาอยู่เหนือเส้นทาง ใต้ป้ายรถ ตอนได้ข้อมูลชุดแรก
+       ความหนาเป็นหน่วย viewBox (.fl-rw · __w ÷ kk() ใน rescale) ไม่ใช่ non-scaling-stroke เพราะการลากเส้นใช้ dasharray
+       ★ ต้องตั้ง style vector-effect:none — styles.css มี `#map path{vector-effect:non-scaling-stroke}` ครอบทุกเส้น ถ้าไม่ทับ
+         เบราว์เซอร์วัดขีด (dasharray) กับความหนาเป็นพิกเซลบนจอ ซูมเข้า k เท่า = ขีดยาวแค่ 1/k ของเส้น เส้นหายเหลือท่อนเดียว
+         ทั้งที่รถยังวิ่งบนเส้นที่มองไม่เห็น + เส้นบางลง (เจ้าของงานเจอตอนกดมุมมองภาคเหนือ 26 ก.ย. 2569) · ต้องเป็น style ไม่ใช่ attribute
+         เพราะกฎ CSS ชนะ presentation attribute · dasharray คิดจากความยาวจริง (getTotalLength)
+       ต้นทาง/ปลายทางที่ไม่มีใน STOPS หรือต้นทาง = ปลายทาง ไม่วาด (ไม่นับใน fleetMissing — ป้ายยังปักที่ปลายทางได้) */
+  const gFleetRoutes = root.append("g").attr("fill", "none")
+    .attr("stroke-linecap", "round").attr("stroke-linejoin", "round");   // เส้นทางรถกำลังเดินทาง (ใต้วงและเส้นโยง)
+  const gFleetLines = root.append("g").attr("pointer-events", "none");   // เส้นโยงของวงที่ถูกดันออก (ใต้วง)
+  const gFleet = root.append("g");
+  let fleetSel = null, fleetData = [], fleetRoutes = [];
+  let fleetCarTimer = 0;   // หน่วงให้รถออกวิ่งหลังลากเส้นเสร็จ — ล้างทุกครั้งที่วาดใหม่
+  let fleetLabels = { ready: "พร้อมใช้งาน", moving: "กำลังเข้า", upcoming: "จัดงานแล้ว", stale: "ไม่มีข้อมูลล่าสุด" };
+  const FLEET_COL = { ready: "#0f8a5f", moving: "#1a73e8", upcoming: "#e37400", stale: "#9aa0a6" };
+  const FLEET_LABEL_MIN = 5;
+  /* ป้ายขนาดเท่ากันทุกจุด (เจ้าของงานสั่ง 26 ก.ย. 2569 — เดิมโตตามจำนวนรถ วงใหญ่ใน กทม./เชียงใหม่ทับกันจนอ่านไม่ออก) */
+  const fleetMain = s => s.ready ? "ready" : s.moving ? "moving" : s.upcoming ? "upcoming" : "stale";
+
+  /* รถ 3 มิติในแคปซูล (ดีไซน์ truck-marker-2b ที่เจ้าของงานส่ง 26 ก.ย. 2569 — ว่าง = รถเขียว · กำลังเดินทาง = รถฟ้า)
+     วาดครั้งเดียวใน <defs> ต่อสี แล้วแต่ละจุดอ้างด้วย <use> — viewBox 37×27: เงาพื้น · ตู้สินค้า (ด้านข้างไล่เฉด + หลังคาสว่าง + แถบเงา)
+     · หัวรถ (ไล่เฉด + หลังคา + กระจกสะท้อน + ไฟหน้า) · แชสซี · ล้อมีดุม */
+  const TRUCK_TONE = {
+    ready:    { hi: "#5fd39a", lo: "#1f8a5c", cabHi: "#7fe0b0", cabLo: "#2a9d6a", top: "#b6ecd0", ink: "#0d4a31" },
+    moving:   { hi: "#7fb6ff", lo: "#1a5fc4", cabHi: "#9cc8ff", cabLo: "#2f7fe8", top: "#cfe2ff", ink: "#0b3a80" },
+    upcoming: { hi: "#ffb566", lo: "#c96200", cabHi: "#ffc98a", cabLo: "#e37400", top: "#ffe2bf", ink: "#6b3300" },
+    stale:    { hi: "#c3c8cd", lo: "#80868b", cabHi: "#d3d7db", cabLo: "#9aa0a6", top: "#e8eaed", ink: "#3c4043" },
+  };
+  {
+    const defs = svg.append("defs");
+    const grad = (id, a, b) => {
+      const g = defs.append("linearGradient").attr("id", id).attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 1);
+      g.append("stop").attr("offset", 0).attr("stop-color", a);
+      g.append("stop").attr("offset", 1).attr("stop-color", b);
+    };
+    grad("flGlass", "#f4faff", "#8fbfe6");
+    Object.entries(TRUCK_TONE).forEach(([kind, t]) => {
+      grad(`flBox-${kind}`, t.hi, t.lo);
+      grad(`flCab-${kind}`, t.cabHi, t.cabLo);
+      const s = defs.append("symbol").attr("id", `flTruck-${kind}`).attr("viewBox", "0 0 37 27")
+        .attr("stroke-linejoin", "round").attr("stroke-linecap", "round");
+      s.append("ellipse").attr("cx", 18.5).attr("cy", 24.6).attr("rx", 17).attr("ry", 2.1).attr("fill", "rgba(0,0,0,.22)");
+      // ตู้สินค้า: หลังคา (เอียงไปหลัง) → ด้านข้าง → แถบสะท้อน → รอยต่อแผ่น
+      s.append("path").attr("d", "M2 5.2 L5.6 1.6 H24.4 L22 5.2 Z").attr("fill", t.top).attr("stroke", t.ink).attr("stroke-width", 1.1);
+      s.append("rect").attr("x", 2).attr("y", 5.2).attr("width", 20).attr("height", 14.3).attr("rx", 1.8)
+        .attr("fill", `url(#flBox-${kind})`).attr("stroke", t.ink).attr("stroke-width", 1.3);
+      // (ไม่มีแถบสะท้อน/รอยต่อแผ่นบนตู้แล้ว — ตัวเลขจำนวนรถเขียนทับตู้ตรงนี้ · เจ้าของงานสั่ง 26 ก.ย. 2569)
+      // หัวรถ: หลังคา → ตัวหัว → กระจก (+ แสงสะท้อน) → ไฟหน้า
+      s.append("path").attr("d", "M22 9.2 L24.2 7 H29.8 L29.2 9.2 Z").attr("fill", t.top).attr("stroke", t.ink).attr("stroke-width", 1);
+      s.append("path").attr("d", "M22 9.2 H29.2 L35.2 15.6 V20 H22 Z")
+        .attr("fill", `url(#flCab-${kind})`).attr("stroke", t.ink).attr("stroke-width", 1.3);
+      s.append("path").attr("d", "M24 11.2 H28.4 L32 15.1 H24 Z").attr("fill", "url(#flGlass)").attr("stroke", t.ink).attr("stroke-width", .9);
+      s.append("path").attr("d", "M25 12.2 L27.2 12.2 L25 14.4 Z").attr("fill", "#fff").attr("opacity", .75);
+      s.append("rect").attr("x", 33.4).attr("y", 16.4).attr("width", 1.8).attr("height", 1.8).attr("rx", .6).attr("fill", "#ffd66b");
+      // แชสซี + กันชน
+      s.append("rect").attr("x", 1.6).attr("y", 19.2).attr("width", 34.2).attr("height", 1.9).attr("rx", .95).attr("fill", "#37414b");
+      // ล้อ: ยาง → ดุม → จุดสะท้อน
+      [8, 29].forEach(cx => {
+        s.append("circle").attr("cx", cx).attr("cy", 21.4).attr("r", 3.6).attr("fill", "#2b2f36").attr("stroke", "#111").attr("stroke-width", .8);
+        s.append("circle").attr("cx", cx).attr("cy", 21.4).attr("r", 1.5).attr("fill", "#c9d1d9");
+        s.append("circle").attr("cx", cx - .9).attr("cy", 20.3).attr("r", .6).attr("fill", "#fff").attr("opacity", .7);
+      });
+    });
+  }
+
+  function drawFleet() {
+    gFleet.selectAll("*").remove();
+    gFleetLines.selectAll("*").remove();
+    gFleetRoutes.selectAll("*").remove();
+    const dark = isDark();
+    // เส้นทางที่รถของจุดที่เลือกวิ่งผ่านมา — วาดเฉพาะตอนกดป้าย (ยังไม่เลือก = ไม่มีเส้น)
+    // ลากเส้น (dasharray = ความยาวจริง · dashoffset ความยาว → 0) ~1.4 วิ แล้วแสงวิ่งจากต้นทางถึงปลายทางวนไป
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    clearTimeout(fleetCarTimer);
+    cars.set([]);
+    const carTubes = [];
+    fleetRoutes.filter(r => fleetSel && r.to === fleetSel).sort((a, b) => a.n - b.n).forEach(r => {
+      const g = gFleetRoutes.append("g");
+      g.append("title").text(`${r.from} → ${r.to} · กำลังเดินทาง ${r.n} คัน`);
+      const w = Math.min(6, 3 + (r.n - 1) * .6);
+      const path = (cls, stroke, width) => g.append("path").attr("class", "fl-rw " + cls).attr("d", r.d)
+        .attr("stroke", stroke).style("vector-effect", "none").each(function () { this.__w = width; })
+        .attr("stroke-width", width / kk());
+      path("fl-rbase", "#fff", w + 3).attr("opacity", .9);   // ขอบขาวให้เส้นเด่นจากเส้นจังหวัด
+      const main = path("fl-rline", FLEET_COL.moving, w);
+      const L = main.node().getTotalLength();   // หน่วยเดียวกับ dasharray (หน่วยของเส้น ไม่ขึ้นกับซูม)
+      // Cars ใช้ getTotalLength/getPointAtLength ของเส้นนี้ตรง ๆ
+      carTubes.push({ node: main.node(), color: FLEET_COL.moving, off: 0 });
+      if (!reduce) {
+        [g.select(".fl-rbase"), main].forEach(p => p.attr("stroke-dasharray", `${L} ${L}`).attr("stroke-dashoffset", L)
+          .append("animate").attr("attributeName", "stroke-dashoffset").attr("from", L).attr("to", 0)
+          .attr("dur", "1.4s").attr("fill", "freeze").attr("calcMode", "spline").attr("begin", "indefinite").attr("data-at", 0)
+          .attr("keyTimes", "0;1").attr("keySplines", ".4 0 .2 1"));
+        // แสงวิ่งตามเส้น — เริ่มหลังลากเส้นเสร็จ
+        path("fl-rcomet", "#fff", Math.max(2, w - 1)).attr("stroke-dasharray", `${L * .06} ${L * .94}`).attr("stroke-dashoffset", L)
+          .attr("opacity", .95).append("animate").attr("attributeName", "stroke-dashoffset").attr("from", L).attr("to", 0)
+          .attr("dur", "2.2s").attr("begin", "indefinite").attr("data-at", 1.4).attr("repeatCount", "indefinite");
+      }
+      const a = pin(g, pos[r.from]);
+      a.append("circle").attr("r", 5.5).attr("fill", dark ? NEON.bg : "#fff")
+        .attr("stroke", FLEET_COL.moving).attr("stroke-width", 2.6);
+      label(a, r.from, 0, -11, { size: 12, weight: 700, fill: dark ? "#e8f0ee" : "#1a4f99",
+        halo: dark ? "rgba(15,30,27,.9)" : "rgba(255,255,255,.92)", haloW: 4 }).attr("text-anchor", "middle");
+    });
+    // SMIL นับเวลาจากตอนโหลดเอกสาร — ภาพเคลื่อนไหวที่เพิ่มทีหลังด้วย begin ตัวเลขจะถือว่าจบไปแล้ว (เห็นเส้นเต็มทันที)
+    // จึงตั้ง begin="indefinite" แล้วสั่งเริ่มเองตอนนี้ (data-at = หน่วงกี่วินาที)
+    if (!reduce) gFleetRoutes.selectAll("animate").each(function () { this.beginElementAt?.(+this.getAttribute("data-at") || 0); });
+    // รถออกวิ่งหลังเส้นลากถึงปลายทาง (1.4 วิ ตรงกับ animate ข้างบน) · ลดการเคลื่อนไหว = วางรถไว้เลย (Cars หยุดเองตาม setPlay)
+    if (carTubes.length) fleetCarTimer = setTimeout(() => cars.set(carTubes), reduce ? 0 : 1400);
+    // โหมดนี้ซ่อนจุดขึ้นลงทั้งหมด (~150 หมุดพร้อมป้าย) — ไม่ต้องใช้ และลดของที่ต้องวาดใหม่ทุกครั้งที่ซูม/เลื่อน
+    // ซ่อนแม้ไม่มีรถให้ปักเลย (เช่นกรองสถานะที่ไม่มีรถ) — เดิมโชว์จุดขึ้นลงเทาทั้งหมดแทน ดูเหมือนมีรถอยู่ทุกจุด
+    // (drawFleet ถูกเรียกเฉพาะจากหน้าสถานะกองรถ — หน้า Demo ไม่ส่ง map:fleet)
+    gStops.attr("display", "none");
+    [...fleetData].sort((a, b) => a.total - b.total).forEach(s => {
+      const on = s.name === fleetSel, kind = fleetMain(s), col = FLEET_COL[kind];
+      const g = pin(gFleet, pos[s.name]).classed("fl-pin", true).style("cursor", "pointer")
+        .attr("opacity", on || !fleetSel ? 1 : .55)
+        .on("click", () => {
+          fleetSel = fleetSel === s.name ? null : s.name;
+          drawFleet();
+          if (window.parent !== window) window.parent.postMessage({ type: "map:stop", stop: fleetSel }, "*");
+        });
+      g.append("title").text(`${s.name} · ${s.total} คัน — ` + Object.keys(FLEET_COL)
+        .filter(k => s[k]).map(k => `${fleetLabels[k]} ${s[k]}`).join(" · "));
+      // รูปรถล้วน ไม่มีกรอบ/แคปซูล · ตัวเลขจำนวนรถอยู่บนตู้สินค้าด้านหลัง (เจ้าของงานสั่ง 26 ก.ย. 2569 — แคปซูลขาวดูไม่ออกตอนดูทั้งหมด)
+      // รถ 44×32 (symbol viewBox 37×27 · ×1.19) จัดกึ่งกลางที่จุด · ตู้สินค้าอยู่ x −19.6…4.2 · y −9.8…7.2 → ตัวเลขกลางตู้ (−7.7, −1.3)
+      // ขนาดเท่ากันทุกจุด (ไม่โตตามจำนวนรถ) · จุดที่เลือก = รถใหญ่ขึ้น 1.25 เท่า แทนกรอบดำ
+      const TW = 44, TH = 32, sc = on ? 1.25 : 1;
+      g.node().__hw = TW / 2 * sc; g.node().__hh = TH / 2 * sc;
+      const p = g.append("g").attr("class", "fl-pill").append("g").attr("transform", sc !== 1 ? `scale(${sc})` : null);
+      p.append("use").attr("href", `#flTruck-${kind}`).attr("x", -TW / 2).attr("y", -TH / 2).attr("width", TW).attr("height", TH);
+      const txt = String(s.total);
+      p.append("text").text(txt).attr("x", -7.7).attr("y", -1.3).attr("dy", "0.36em").attr("text-anchor", "middle")
+        .attr("font-size", txt.length >= 3 ? 9.5 : 12).attr("font-weight", 800)
+        .style("fill", "#fff").style("stroke", TRUCK_TONE[kind].ink).style("stroke-width", "2.6px")
+        .style("paint-order", "stroke").style("stroke-linejoin", "round").attr("pointer-events", "none");
+      // มีทั้งรถว่างและรถกำลังเดินทางมา — จุดน้ำเงินเหนือหัวรถ
+      if (s.ready && s.moving) p.append("circle").attr("cx", 15).attr("cy", -11).attr("r", 4.5)
+        .attr("fill", FLEET_COL.moving).attr("stroke", "#fff").attr("stroke-width", 1.6);
+      // ป้ายชื่อเฉพาะจุดที่มีรถ ≥ FLEET_LABEL_MIN หรือจุดที่เลือก — จุดในเชียงใหม่/กทม. อยู่ชิดกันมาก ป้ายทุกจุดซ้อนจนอ่านไม่ออก
+      // สร้างป้ายทุกจุด แต่โชว์เฉพาะที่ผ่านเกณฑ์ — ซูมถึง 2.5 เท่า (เช่นกดมุมมอง กทม.) โชว์ทุกจุด (showFleetLabels() · เรียกซ้ำใน rescale)
+      label(g, s.name, 0, g.node().__hh + 13, { size: 12, weight: on ? 700 : 600,
+        fill: dark ? "#e8f0ee" : "#3c4043", halo: dark ? "rgba(15,30,27,.9)" : "rgba(255,255,255,.9)", haloW: 4 })
+        .attr("class", "fl-lbl").attr("data-min", on || s.total >= FLEET_LABEL_MIN ? 1 : 0)
+        .attr("data-on", on ? 1 : 0).attr("data-t", s.total);
+      if (on) g.raise();
+      g.node().__p0 = pos[s.name];
+      g.node().__leader = gFleetLines.append("line").attr("stroke", col).attr("stroke-width", 1.5)
+        .attr("stroke-dasharray", "3 2").attr("vector-effect", "non-scaling-stroke").attr("display", "none").node();
+    });
+    layoutFleet();
+    gFleet.selectAll(".fl-pin").attr("transform", function () { return pinT(this.__p); });
+    showFleetLabels();
+  }
+
+  /* มุมมองของโหมดนี้ (เจ้าของงานเลือกแนวทาง "ปุ่มสลับมุมมอง" 26 ก.ย. 2569 แก้จุด กทม. กระจุกกัน):
+     "all" = ทุกจุด (fitAllStops) · "north" / "bkk" = กรอบของจุดกลุ่มนั้นใน STOPS (คิดจากพิกัดจริง + ขอบ 8%)
+     — ไม่ใช้กรอบ #zNorth เดิมเพราะตัดแม่ฮ่องสอน/ขุนยวมทิ้ง */
+  // ราชบุรีอยู่กลุ่ม bkk แต่ห่างใจกลางเมือง ~70 กม. — ถ้านับด้วยกรอบ กทม. กว้างจนจุดในเมืองยังทับกัน (ยังเห็นในมุมมองทั้งหมด)
+  const VIEW_SKIP = new Set(["ราชบุรี"]);
+  function groupBox(grp) {
+    const cs = names.filter(n => STOPS[n].group === grp && !VIEW_SKIP.has(n)).map(n => STOPS[n].c);
+    const [x0, x1] = d3.extent(cs, c => c[0]), [y0, y1] = d3.extent(cs, c => c[1]);
+    const px = Math.max(.12, (x1 - x0) * .08), py = Math.max(.08, (y1 - y0) * .08);
+    return [[x0 - px, y0 - py], [x1 + px, y1 + py]];
+  }
+  function fleetView(v) {
+    if (v === "north" || v === "bkk") zoomToBox(groupBox(v)); else fitAllStops();
+  }
+
+  function feedFleet(msg) {
+    if (!fed) feed({ routes: [] });   // ล้างเส้นตัวอย่างของ data.js · มุมมองคงที่ครอบทุกจุด
+    else if (routes.length) feed({ routes: [] });
+    root.node().insertBefore(gCars.node(), gFleetLines.node());   // รถอยู่เหนือเส้นทาง ใต้ป้ายรถ
+    if (msg.labels) fleetLabels = { ...fleetLabels, ...msg.labels };
+    const all = (msg.stops || []).map(s => ({ ready: 0, moving: 0, upcoming: 0, stale: 0, ...s }));
+    fleetData = all.filter(s => pos[s.name] && s.total > 0);
+    if (fleetSel && !fleetData.some(s => s.name === fleetSel)) fleetSel = null;
+    // แนวถนนคิดครั้งเดียวต่อข้อมูลชุดใหม่ — drawFleet ถูกเรียกซ้ำทุกครั้งที่เลือกวง
+    fleetRoutes = (msg.routes || []).filter(r => pos[r.from] && pos[r.to] && r.from !== r.to && r.n > 0)
+      .map(r => ({ from: r.from, to: r.to, n: r.n, d: line(roadPath(r.from, r.to).map(c => proj(c))) }));
+    drawFleet();
+    const missing = all.filter(s => !pos[s.name]).map(s => s.name);
+    if (window.parent !== window) window.parent.postMessage({ type: "map:fleetMissing", names: missing }, "*");
+  }
+
   window.addEventListener("message", e => {
     if (e.source !== window.parent || !e.data) return;
     if (e.data.type === "map:routes") feed(e.data);
+    if (e.data.type === "map:fleet") feedFleet(e.data);
+    if (e.data.type === "map:fleetSel") {
+      // หน้าส่งกลับจุดเดิมทุกครั้งหลังกดป้าย (map:stop → sel → map:fleetSel) — ไม่วาดซ้ำ ไม่งั้นแอนิเมชันเส้นทางเริ่มใหม่
+      const next = e.data.stop || null;
+      if (next !== fleetSel) { fleetSel = next; drawFleet(); }
+      // เลือกจากรายการจุดในหน้า → ซูมไปกลุ่มของจุดนั้น แล้วแจ้งกลับให้ปุ่มมุมมองในหน้าตรงกัน
+      const grp = fleetSel && e.data.zoom ? STOPS[fleetSel]?.group : null;
+      if (grp) { fleetView(grp); window.parent.postMessage({ type: "map:view", view: grp }, "*"); }
+    }
+    if (e.data.type === "map:view") fleetView(e.data.view);
+    /* ปุ่ม + / − / มุมเริ่มต้น บนการ์ดแผนที่ของหน้าที่ฝัง (เจ้าของงานขอ 26 ก.ย. 2569 · โหมดฝังซ่อนปุ่มซูมของแผนที่เอง .zoombar)
+       reset = มุมตั้งต้นของโหมดนั้น: ตำแหน่งรถ → มุมมอง "ทั้งหมด" (แจ้ง map:view กลับให้ปุ่มในหน้าตรงกัน) · เส้นทาง → ครอบทุกจุด (fitAllStops) */
+    if (e.data.type === "map:zoom") {
+      if (e.data.op === "in") zoomBy(1.6);
+      else if (e.data.op === "out") zoomBy(1 / 1.6);
+      else if (fleetData.length) { fleetView("all"); window.parent.postMessage({ type: "map:view", view: "all" }, "*"); }
+      else fitAllStops();
+    }
     // สลับโหมดขาว/ดำจากปุ่มในหน้าที่ฝัง — ไม่โหลดแผนที่ใหม่ เส้นกับรถที่วิ่งอยู่ไม่เริ่มใหม่
-    if (e.data.type === "map:theme") { document.body.classList.toggle("dark", !!e.data.dark); styleStops(); }
+    if (e.data.type === "map:theme") {
+      document.body.classList.toggle("dark", !!e.data.dark); styleStops();
+      if (fleetData.length) drawFleet();
+    }
   });
   if (window.parent !== window) window.parent.postMessage({ type: "map:ready" }, "*");
 })();

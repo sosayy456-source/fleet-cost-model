@@ -19,7 +19,11 @@
  */
 import { useEffect, useRef, useState } from "react";
 
-export interface MapRoute { key: string; from: string; to: string; profit: number; color: string }
+export interface MapRoute {
+  key: string; from: string; to: string; profit: number; color: string;
+  /** "empty" = แผนที่เที่ยววิ่งเปล่า (Empty Trips): เส้น/รถแดง + จุดขึ้นลงที่เส้นผ่าน/ในรัศมี 100 กม. สีเหลือง */
+  tone?: "empty";
+}
 
 /**
  * ?v= ต่อเวลาที่โหลดหน้า — ไม่งั้นแท็บที่เปิดค้างไว้ (หรือแคช index.html ของ Pages max-age=600) ยังใช้แผนที่รุ่นก่อน
@@ -28,6 +32,28 @@ export interface MapRoute { key: string; from: string; to: string; profit: numbe
  */
 const srcOf = (dark: boolean) =>
   `${import.meta.env.BASE_URL}map/index.html?v=${Date.now()}#embed&bare&thai${dark ? "&dark" : ""}&tab=top`;
+
+/**
+ * ปุ่มซูมเข้า · ซูมออก · กลับมุมเริ่มต้น ใต้ปุ่ม ขาว/ดำ มุมขวาบนของแผนที่ (เจ้าของงานขอ 26 ก.ย. 2569 — ทุกแผนที่ในแอป)
+ * โหมดฝังของแอปแผนที่ซ่อนปุ่มซูมของตัวเอง (.zoombar) จึงวาดบนการ์ดแทน แล้วสั่งผ่าน postMessage "map:zoom" { op }
+ * ใช้ร่วมกับ dash-costrev/FleetMap.tsx · กดได้เมื่อแผนที่พร้อม (ข้อความก่อน map:ready หายเงียบ)
+ */
+export function MapZoomButtons({ ready, post }: { ready: boolean; post: (msg: object) => void }) {
+  const zoom = (op: "in" | "out" | "reset") => post({ type: "map:zoom", op });
+  return (
+    <div className="map-zoom" role="group" aria-label="ซูมแผนที่">
+      <button type="button" disabled={!ready} onClick={() => zoom("in")} title="ซูมเข้า" aria-label="ซูมเข้า">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      </button>
+      <button type="button" disabled={!ready} onClick={() => zoom("out")} title="ซูมออก" aria-label="ซูมออก">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+      </button>
+      <button type="button" disabled={!ready} onClick={() => zoom("reset")} title="กลับมุมเริ่มต้น" aria-label="กลับมุมเริ่มต้น">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+      </button>
+    </div>
+  );
+}
 
 export default function RouteMap({ routes, onMissing, dark }: {
   /** โหมดดำ (#dark) / ขาว — ปุ่มในหน้า Demo สลับได้ ส่งผ่าน map:theme ไม่ต้องโหลด iframe ใหม่ */
@@ -74,6 +100,7 @@ export default function RouteMap({ routes, onMissing, dark }: {
     <div className="rp-map">
       <iframe ref={frame} src={src} title="แผนที่เส้นทาง" loading="lazy" />
       {!ready && <div className="rp-map-wait">กำลังโหลดแผนที่…</div>}
+      <MapZoomButtons ready={ready} post={(msg) => frame.current?.contentWindow?.postMessage(msg, "*")} />
     </div>
   );
 }

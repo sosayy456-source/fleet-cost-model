@@ -7,7 +7,7 @@
  *   2. ชนิดรถอัตราสูงสุด · 3. ต่ำสุด — พร้อมเป้าหมายและป้ายสถานะ
  *   4. จำนวนชนิดรถที่ต่ำกว่าเป้าเฉพาะตัว (รวมชนิดที่ Baseline ≤ 0 — ป้าย "ต่ำกว่าเป้า" เหมือนกัน)
  *
- * ★ ชื่อชนิดรถใช้ .tk-name ไม่ใช่ .v — useCountUp ไล่ตัวเลขทุก .dz-kc .v "รถ 10 ล้อ" จะถูกนับขึ้นจาก 0
+ * ★ ชื่อชนิดรถใช้ .tk-name ไม่ใช่ .v — useNumFade เล่นท่ากับทุก .dz-kc .v ชื่อชนิดรถไม่ควรลอยตามตัวเลข
  */
 import type { CSSProperties, ReactNode } from "react";
 import { D } from "../../../lib/chart/theme";
@@ -69,7 +69,7 @@ export default function TonKmCards({ ov, x, onClick }: { ov: TkOverview; x: numb
         {/* ไม่ใส่เดือน/ปีในหัวการ์ด (เจ้าของงานสั่ง 23 ก.ย. 2569) — ช่วงเวลาดูจากบรรทัดเทียบข้างล่างและชี้เมาส์ */}
         <div className="l" title={`ช่วง ${periodStr(ov.period)}`}>กำไรส่วนเกิน/ตัน-กม. เฉลี่ยรวม</div>
         <div className="tk-vrow">
-          {/* key + data-real — ดูเหตุผลที่ useCountUp() */}
+          {/* key = ค่าเปลี่ยนแล้วได้กล่องใหม่ ท่า fade-down เล่นใหม่ (useNumFade) */}
           <div className="v" key={rateStr(ov.all.rate)} data-real={rateStr(ov.all.rate)}>{rateStr(ov.all.rate)}</div>
           <span className="tk-unit">บาท/ตัน-กม.</span>
         </div>

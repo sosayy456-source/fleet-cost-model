@@ -1535,7 +1535,7 @@ body:has(#view-dash.active){background:#EDE7DF}
 /* บรรทัดยอดเงินใต้ชิป (Hero foot) — อยู่เหนือเส้นตกแต่ง */
 #view-dash .dz-kc.hero .ft{margin-top:8px;font:700 17px/1.4 var(--font-num);color:#fff;position:relative;z-index:1}
 @media(max-width:900px){#view-dash .dz-heroes.cp-heroes,#view-dash .dz-heroes.cp-heroes:has(> :nth-child(3):last-child){grid-template-columns:1fr}}
-/* ตัวเลขใหญ่ + ตัวเล็ก (81%) ข้างกัน — .vs อยู่นอก .v เพราะ useCountUp เขียน textContent ทับทั้ง .v */
+/* ตัวเลขใหญ่ + ตัวเล็ก (81%) ข้างกัน — .vs อยู่นอก .v เพราะ useNumFade เล่นท่ากับทั้ง .v */
 #view-dash .dz-kc.hero .vrow{display:flex;align-items:baseline;gap:10px;position:relative;z-index:1}
 #view-dash .dz-kc.hero .vrow .v{margin-top:10px}
 #view-dash .dz-kc.hero .vrow .vs{font-family:var(--d-num);font-size:18px;font-weight:700;color:rgba(255,255,255,.9)}
@@ -2210,6 +2210,8 @@ body:has(#view-dash.active){background:#EDE7DF}
 .rp-ico svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round}
 .rp-ico.green{background:linear-gradient(135deg,#0F8F76,#17A99A);box-shadow:0 6px 14px -6px rgba(15,143,118,.7)}
 .rp-ico.violet{background:linear-gradient(135deg,#5B2EE0,#9B4DF0);box-shadow:0 6px 14px -6px rgba(91,46,224,.7)}
+/* ไอคอนแดงของการ์ดแผนที่เที่ยววิ่งเปล่า (Empty Trips · 26 ก.ย. 2569) */
+.rp-ico.red{background:linear-gradient(135deg,#c8384e,#ef5a6f);box-shadow:0 6px 14px -6px rgba(200,56,78,.7)}
 .rp-sht{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 #view-dash .rp-sht h3{margin:0;font-size:19px;font-weight:700;color:#1C1B22;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rp-sht p{margin:0;font-size:12.5px;color:#7A7280}
@@ -2429,3 +2431,52 @@ html.rp-returning .app{visibility:hidden}
 #view-dash .pi-dm-sum tfoot td{border-bottom:0;font-weight:800;font-size:15px;color:var(--d-ink)}
 @media (max-width: 600px){#view-dash .pi-dm-dl{grid-template-columns:1fr}#view-dash .pi-dm-dl dt{font-weight:700}}
 @media (prefers-reduced-motion: reduce){#view-dash .pi-click{transition:none}#view-dash .pi-click:hover{transform:none}}
+
+/* ตัวเลขทั้งโมเดล: fade-down (นุ่ม) แทนการนับขึ้นจาก 0 (เจ้าของงานสั่ง 26 ก.ย. 2569)
+   การ์ดแดชบอร์ดใส่คลาสผ่าน useNumFade() · ตัวเลขในรูปรถหน้าจัดรถใส่ตรง ๆ + key */
+@keyframes numFadeDown{from{opacity:0;transform:translateY(-10px);filter:blur(3px)}to{opacity:1;transform:none;filter:none}}
+.num-fd{animation:numFadeDown .8s cubic-bezier(.22,1,.36,1) both}
+b.num-fd{display:inline-block}
+text.num-fd{transform-box:fill-box}
+@media (prefers-reduced-motion: reduce){.num-fd{animation:none}}
+
+/* ---------- หน้าสถานะกองรถ › แผนที่ตำแหน่งรถ (StatusPane ใน FleetDash.tsx + dash-costrev/FleetMap.tsx · 26 ก.ย. 2569) ----------
+   กล่องแผนที่ใช้ .rp-mapbox.light ชุดเดียวกับ Demo › กำไรรายเส้นทาง (ขาวอย่างเดียว) · สีจุดในคำอธิบาย = MAP_COLOR (ตรงกับวงบนแผนที่) */
+#view-dash .fl-map-grid{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:16px;align-items:start}
+/* สูงกว่ากว้าง — จุดขึ้นลงเรียงยาวเหนือ→ใต้ กล่องกว้างเตี้ยแผนที่ต้องย่อเกินขั้นต่ำ (ซูม 1 เท่า) จึงถูกตัด */
+#view-dash .fl-loc-map{margin:0;height:620px;min-height:0}
+/* ปุ่มมุมมอง ทั้งหมด/ภาคเหนือ/กทม. — รูปเดียวกับปุ่ม ขาว/ดำ ของ Demo (.rp-theme) มุมขวาบนของแผนที่ */
+#view-dash .fl-map-views button[aria-pressed="true"]{background:#0F8F76;color:#fff}
+/* การ์ดสถานะกดได้ (KC onClick) — กดแล้วกรองแผนที่/ตารางตามสถานะ · .on = กำลังกรอง (กรอบสีเดียวกับจุดของการ์ด) */
+#view-dash .dz-kc.clickable:not(.hero):not(.meter){cursor:pointer;transition:border-color .18s,transform .18s,box-shadow .18s}
+#view-dash .dz-kc.clickable:not(.hero):not(.meter):hover{transform:translateY(-2px);box-shadow:0 10px 22px -14px rgba(26,23,20,.4)}
+#view-dash .dz-kc.clickable:not(.hero):not(.meter):focus-visible{outline:3px solid color-mix(in srgb,var(--dot,#0F8F76) 45%,transparent);outline-offset:2px}
+#view-dash .dz-kc.clickable:not(.hero):not(.meter).on{border-color:var(--dot,#0F8F76);box-shadow:0 0 0 2px var(--dot,#0F8F76) inset}
+#view-dash .dz-kc.clickable:not(.hero):not(.meter).on .l::after{content:"· กำลังกรอง";margin-left:6px;font-size:12px;font-weight:700;color:var(--dot,#0F8F76)}
+#view-dash .fl-map-stops tbody tr{cursor:pointer}
+#view-dash .fl-map-stops tbody tr:hover td{background:var(--d-rail,#F4F0EA)}
+#view-dash .fl-map-stops tbody tr.on td{background:rgba(15,138,95,.12)}
+@media (max-width: 1000px){#view-dash .fl-map-grid{grid-template-columns:1fr}}
+#view-dash .fl-loc-legend{position:absolute;left:12px;top:12px;max-width:calc(100% - 24px);z-index:1;display:flex;flex-wrap:wrap;gap:4px 12px;
+  margin:0;padding:6px 10px;list-style:none;border-radius:10px;background:rgba(255,255,255,.92);
+  border:1px solid #E6E2DE;font-size:12px;font-weight:700;color:#4A453F}
+#view-dash .fl-loc-legend li{display:flex;align-items:center;gap:5px}
+#view-dash .fl-loc-legend i{width:10px;height:10px;border-radius:50%}
+@media (max-width: 560px){#view-dash .fl-loc-map{height:480px}}
+
+/* แผนที่ตำแหน่งรถไม่มีรถให้ปักเลย (เช่นกดการ์ด "กำลังเดินทาง" ตอนไม่มีรถวิ่ง) — ป้ายกลางแผนที่ ไม่ปล่อยให้เห็นแผนที่เปล่าแล้วเดาเอง */
+#view-dash .fl-map-empty{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;pointer-events:none;
+  padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(0,0,0,.12);
+  font-size:13px;font-weight:700;color:var(--d-ink);white-space:nowrap}
+
+/* ---------- ปุ่มซูมเข้า/ออก/มุมเริ่มต้น ของทุกแผนที่ (MapZoomButtons ใน dash-demo/RouteMap.tsx · 26 ก.ย. 2569) ----------
+   มุมขวาบน ใต้ปุ่ม ขาว/ดำ (.rp-theme สูง ~34px ที่ top 12px · หน้าสถานะกองรถ = ใต้ปุ่มมุมมอง) — เจ้าของงานสั่งย้ายจากมุมขวาล่าง 26 ก.ย. 2569 ·
+   รูปแคปซูลขาวแบบเดียวกับปุ่ม ขาว/ดำ */
+.map-zoom{position:absolute;right:12px;top:54px;z-index:2;display:flex;flex-direction:column;gap:2px;padding:3px;border-radius:12px;
+  background:rgba(255,255,255,.94);border:1px solid #E6E2DE;box-shadow:0 4px 10px -6px rgba(0,0,0,.2)}
+.map-zoom button{width:30px;height:30px;display:grid;place-items:center;border:0;border-radius:9px;background:transparent;
+  color:#4A453F;cursor:pointer;transition:background-color .15s,color .15s}
+.map-zoom button:hover:not(:disabled){background:#F1ECE8;color:#1C1B22}
+.map-zoom button:disabled{opacity:.4;cursor:default}
+.map-zoom button:focus-visible{outline:2px solid #0F8F76;outline-offset:1px}
+.map-zoom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}

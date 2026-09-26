@@ -3,7 +3,7 @@
  * "Truck Load Factor (standalone).html" 24 ก.ย. 2569) · ใช้สี/ฟอนต์ของโมเดล ไม่ใช่ของไฟล์ต้นแบบ
  *
  * มีหางพ่วง = วาดหางต่อท้ายรถ แล้วเติมตู้หัวก่อน ล้นไปตู้หาง (splitLoad) · หลอดกับตัวเลขใต้รูปเป็น Load Factor รวม
- * ตัวเลขในตู้นับขึ้นทีละเฟรม ล้อหมุนตลอด — ปิดทั้งคู่เมื่อผู้ใช้ตั้ง prefers-reduced-motion
+ * ตัวเลขในตู้ fade-down เมื่อค่าเปลี่ยน ล้อหมุนตลอด — ปิดทั้งคู่เมื่อผู้ใช้ตั้ง prefers-reduced-motion
  * ข้อความสรุป/คำเตือนใต้หลอดมาจากหน้าจัดรถ (children) ที่นี่แค่วาดกรอบให้
  */
 import { useEffect, useId, useRef, useState } from "react";
@@ -38,27 +38,25 @@ const sinkOf = (pct: number): number => Math.min(100, pct) * 0.06;
 export default function LoadTruck({ hint, lf, head, tail, basis, over, children }: Props) {
   const uid = useId().replace(/:/g, "");
   const [reduced] = useState(reducedMotion);
-  const [shown, setShown] = useState({ lf: 0, head: 0, tail: 0 });
-  const shownRef = useRef(shown);
-  shownRef.current = shown;
+  const shownRef = useRef({ lf: 0, head: 0, tail: 0 });
   const wheels = useRef<(SVGGElement | null)[]>([]);
   const hasTail = tail != null;
 
-  // ตัวเลข % นับขึ้น/ลงไปหาค่าใหม่ใน 0.7 วิ (ease-out)
+  // ค่าที่ไล่ตามทีละเฟรมใน 0.7 วิ (ease-out) — ใช้หมุนล้อเท่านั้น ตัวเลขในตู้โชว์ค่าจริงแล้ว fade-down (.num-fd)
   useEffect(() => {
     const target = { lf, head, tail: tail ?? 0 };
-    if (reduced) { setShown(target); return; }
+    if (reduced) { shownRef.current = target; return; }
     const from = shownRef.current;
     const t0 = performance.now();
     let raf = 0;
     const step = (now: number) => {
       const p = Math.min(1, (now - t0) / 700);
       const e = 1 - (1 - p) ** 3;
-      setShown({
+      shownRef.current = {
         lf: from.lf + (target.lf - from.lf) * e,
         head: from.head + (target.head - from.head) * e,
         tail: from.tail + (target.tail - from.tail) * e,
-      });
+      };
       if (p < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
@@ -92,7 +90,7 @@ export default function LoadTruck({ hint, lf, head, tail, basis, over, children 
   const arch = (cx: number) => `M${cx - 42} 236A42 42 0 0 1 ${cx + 42} 236Z`;
 
   /** ตู้สินค้าหนึ่งตู้ — กรอบ + ของที่เติม (scaleY จากพื้นตู้) + ตัวเลข % กลางตู้ */
-  const cargo = (x: number, w: number, pct: number, shownPct: number, label: string, clipId: string) => (
+  const cargo = (x: number, w: number, pct: number, numPct: number, label: string, clipId: string) => (
     <>
       <rect x={x - 8} y={26} width={w + 16} height={194} rx={14} className="lt-frame" />
       <rect x={x} y={34} width={w} height={178} rx={10} className="lt-inner" />
@@ -106,10 +104,12 @@ export default function LoadTruck({ hint, lf, head, tail, basis, over, children 
       </g>
       <rect x={x - 8} y={26} width={w + 16} height={10} rx={5} className="lt-rail" />
       {/* ตัวหนังสือขาวเฉพาะบนพื้นแดง — บนพื้นเหลืองขาวอ่านไม่ออก ใช้สีเข้มตามเดิม */}
-      <text x={x + w / 2} y={128} textAnchor="middle" className={"lt-pct" + (shownPct > 55 && isFull(pct) ? " on" : "")}>
-        {Math.round(shownPct)}%
+      {/* key = ค่าเปลี่ยนแล้วได้ตัวหนังสือใหม่ ท่า fade-down จึงเล่นใหม่ทุกครั้ง */}
+      <text key={Math.round(numPct)} x={x + w / 2} y={128} textAnchor="middle"
+        className={"lt-pct num-fd" + (numPct > 55 && isFull(pct) ? " on" : "")}>
+        {Math.round(numPct)}%
       </text>
-      <text x={x + w / 2} y={152} textAnchor="middle" className={"lt-cap" + (shownPct > 55 && isFull(pct) ? " on" : "")}>{label}</text>
+      <text x={x + w / 2} y={152} textAnchor="middle" className={"lt-cap" + (numPct > 55 && isFull(pct) ? " on" : "")}>{label}</text>
     </>
   );
 
@@ -140,7 +140,7 @@ export default function LoadTruck({ hint, lf, head, tail, basis, over, children 
           {/* หางพ่วง — ต่อท้ายด้วยคานลาก */}
           {tail != null && (
             <g className="lt-body" style={{ transform: `translateY(${sinkOf(tail)}px)` }}>
-              {cargo(-320, 296, tail, shown.tail, "ตู้หาง", `${uid}clipT`)}
+              {cargo(-320, 296, tail, tail, "ตู้หาง", `${uid}clipT`)}
               <rect x={-332} y={218} width={320} height={16} rx={6} className="lt-chassis" />
               <rect x={-16} y={222} width={34} height={6} rx={3} className="lt-chassis" />
             </g>
@@ -148,7 +148,7 @@ export default function LoadTruck({ hint, lf, head, tail, basis, over, children 
 
           {/* รถหัว — ตู้ + หัวเก๋ง (รูปตามไฟล์ต้นแบบ) */}
           <g className="lt-body" style={{ transform: `translateY(${sinkOf(head)}px)` }}>
-            {cargo(24, 376, head, hasTail ? shown.head : shown.lf, hasTail ? "ตู้หัว" : "LOAD FACTOR", `${uid}clipH`)}
+            {cargo(24, 376, head, hasTail ? head : lf, hasTail ? "ตู้หัว" : "LOAD FACTOR", `${uid}clipH`)}
             <path d="M392 78.5H400M392 123H400M392 167.5H400" className="lt-tick" />
             <rect x={12} y={218} width={556} height={16} rx={6} className="lt-chassis" />
             <path d="M418 232V96Q418 82 432 82H508Q522 82 531 94L570 150Q578 161 578 175V220Q578 232 566 232Z" className="lt-cab" />
