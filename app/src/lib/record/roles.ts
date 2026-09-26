@@ -29,30 +29,30 @@ export const ROLES: Record<RoleKey, RoleDef> = {
   },
   dispatch: {
     label: "ฝ่ายเจ้าหน้าที่จัดรถ", en: "Fleet Coordinator", icon: "🚚",
-    desc: "จัดรถ จัดคนขับ และติดตามเส้นทาง",
+    desc: "จัดรถ และติดตามเส้นทาง",
     // ★ ช่องหางพ่วงต้องอยู่ในรายการนี้ ไม่งั้น saveRecord (read-modify-write) ทิ้งทะเบียนหางเงียบ ๆ
     fields: ["plate", "fleetType", "vehicle", "releaseDate", "capacity", "loadActual", "emptyLeg",
              "trailerPlate", "trailerFleetType", "trailerVehicle"],
   },
   account: {
     label: "ฝ่ายบัญชีการเงิน", en: "Accounting Department", icon: "🧾",
-    desc: "ต้นทุน บิลน้ำมัน และใบแจ้งหนี้",
+    desc: "ตรวจเอกสาร และบันทึกค่าใช้จ่าย",
     fields: ["cost"],
   },
   manager: {
     label: "ผู้จัดการ", en: "Manager", icon: "📊",
-    desc: "ภาพรวมทั้งหมด รายงาน และการอนุมัติ",
+    desc: "ดูภาพรวม และผลการดำเนินงานของสาขา",
     fields: [],
   },
   driver: {
     label: "คนขับ", en: "Driver", icon: "🧑‍✈️",
-    desc: "ดูงานที่กำลังวิ่ง และกดจบงานเมื่อส่งของเสร็จ",
+    desc: "ติดตามงานขนส่งที่ได้รับ และยืนยันเมื่อส่งเสร็จ",
     // ไม่ได้กรอกช่องไหนในใบ — กดจบงานเขียนตรงผ่าน finishTrip() ไม่ผ่าน saveRecord()
     fields: [],
   },
   admin: {
     label: "ผู้ดูแลระบบ", en: "Admin", icon: "🛠️",
-    desc: "เข้าถึงได้ทุกหน้า และกรอกแทนได้ทุกฝ่าย",
+    desc: "ผู้ดูแลระบบ เข้าถึงได้ทุกฝ่าย",
     fields: [],
   },
 };

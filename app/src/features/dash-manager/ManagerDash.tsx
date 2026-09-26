@@ -3,7 +3,7 @@
  * (โค้ด FleetDash ยังอยู่ · สถานะกองรถของฝ่ายจัดรถไม่กระทบ) · สูตรทั้งหมดอยู่ใน lib/manager/manager.ts
  *
  *   ตัวกรองหัว: ช่วงเวลา รายวัน / รายเดือน / รายไตรมาส + เลือกค่า (ตั้งต้น = ช่วงล่าสุดที่ไฟล์มีข้อมูล) · สาขา
- *   สาขา: ผู้จัดการ = สาขาที่เลือกตอนเลือกตำแหน่ง (ล็อก) · ผู้ดูแลระบบ = ทุกสาขา (ตั้งต้น) หรือเลือกสาขาเดียว
+ *   สาขา: ผู้จัดการ = สาขาที่เลือกในหน้าต่างหลังเข้าหน้า (ล็อก) · ผู้ดูแลระบบ = ทุกสาขา (ตั้งต้น) หรือเลือกสาขาเดียว
  *         "ทุกสาขา" เท่านั้นที่มีตารางเปรียบเทียบรายสาขา (เจ้าของงานเลือกแบบตารางอย่างเดียว)
  *   แท็บหน้างาน: การ์ด 4 ใบ (เที่ยวทั้งหมด · ผ่าน · เฝ้าระวัง · ไม่ผ่าน ตาม Load Factor) + ตารางเที่ยวที่กำลังวิ่งในช่วง
  *   แท็บการเงิน: การ์ด 3 ใบ (กำไร · รายได้ · ต้นทุน ของเที่ยวที่ปล่อยรถในช่วง) + ลูกหนี้ค้างชำระ (การ์ด 4 ใบ + ตารางบิล)
@@ -55,10 +55,10 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
   useAutoReloadOnEtl(etl, cr.reload);
   useDebtorCodes();
 
-  /* ---------- สาขา: ผู้จัดการล็อกตามที่เลือกตอนเลือกตำแหน่ง ---------- */
+  /* ---------- สาขา: ผู้จัดการล็อกตามที่เลือกในหน้าต่างก่อนดูข้อมูล ---------- */
   const locked = role === "manager" ? loadSessionBranch() : null;
   const [pickBr, setPickBr] = useState(ALL);
-  const branch = locked ?? pickBr;
+  const branch = role === "manager" ? locked ?? "" : pickBr;
 
   /* ---------- เที่ยว = ไฟล์ต้นทุน + LF ---------- */
   const lfById = useMemo(() => new Map((lf.data?.trips ?? []).map((t) => [t.id, t.lf])), [lf.data]);
@@ -77,7 +77,8 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
   const range = useMemo(() => (period ? periodRange(period) : null), [period?.kind, period?.value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const branches = useMemo(() => [...new Set(all.map((t) => t.br))].sort((a, b) => a.localeCompare(b, "th")), [all]);
-  const inBranch = <T extends { br: string }>(x: T): boolean => !branch || x.br === branch;
+  const inBranch = <T extends { br: string }>(x: T): boolean =>
+    role === "manager" ? !!locked && x.br === locked : !branch || x.br === branch;
 
   const running = useMemo(() => (range ? all.filter((t) => onRoad(t, range) && inBranch(t)) : []), [all, range, branch]); // eslint-disable-line react-hooks/exhaustive-deps
   const released = useMemo(() => (range ? all.filter((t) => releasedIn(t, range) && inBranch(t)) : []), [all, range, branch]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -102,18 +103,18 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
   const m = cr.data?.manifest;
   const meta = m && (
     <Meta parts={[
-      <>สาขา <b>{branch || "ทุกสาขา"}</b>{locked && " (สาขาของคุณ)"}</>,
+      <>สาขา <b>{branch || (role === "manager" ? "รอเลือกสาขา" : "ทุกสาขา")}</b>{locked && " (สาขาของคุณ)"}</>,
       period ? periodLabel(period) : "",
       <span className="dh-num">ข้อมูล {m.dateRange.min} → {m.dateRange.max}</span>,
     ]} />
   );
 
-  const body: ReactNode = cr.error ? (
+  const body: ReactNode = role === "manager" && !locked ? (
+    <div className="card"><p className="muted">เลือกสาขาเพื่อดูข้อมูลใน Manager Dashboard</p></div>
+  ) : cr.error ? (
     <div className="card"><div className="banner">{cr.error}</div></div>
   ) : !cr.data || !range || !period ? (
     <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>
-  ) : role === "manager" && !locked ? (
-    <div className="card"><p className="muted">ยังไม่ได้เลือกสาขา — กด "เปลี่ยนหน้าที่" แล้วเลือกตำแหน่งผู้จัดการพร้อมสาขาของคุณ</p></div>
   ) : tab === "ops" ? (
     <OpsTab trips={running} compare={!branch} lfSample={lf.data?.manifest.isSample} lfMissing={!!lf.error} />
   ) : (
@@ -149,9 +150,9 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
               </select>
             </div>
           )}
-          {locked ? (
+          {role === "manager" ? (
             <div className="ff mg-lock" title="ผู้จัดการดูได้เฉพาะสาขาของตัวเอง — เปลี่ยนได้ที่ปุ่ม เปลี่ยนหน้าที่">
-              <label>สาขา</label><b>{locked}</b>
+              <label>สาขา</label><b>{locked || "รอเลือกสาขา"}</b>
             </div>
           ) : (
             <div className="ff">

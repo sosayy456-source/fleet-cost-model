@@ -518,30 +518,29 @@
   /* ===== หน้าเลือกหน้าที่ (ตามไฟล์ดีไซน์ Role Selection) ===== */
   .picker-ov{position:fixed;inset:0;z-index:200;overflow-y:auto;
     background:var(--rs-bg);color:var(--rs-ink);font-family:Anuphan,"Noto Sans Thai",system-ui,sans-serif;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    display:flex;flex-direction:column;align-items:center;justify-content:safe center;
     padding:64px 24px;box-sizing:border-box}
-  .picker-bx{width:100%;max-width:992px;display:flex;flex-direction:column}
-  .rs-head{max-width:520px}
-  .rs-head h1{margin:0;font:600 52px/1.05 Anuphan,sans-serif;letter-spacing:-.02em;color:var(--rs-ink)}
-  .rs-head p{margin:14px 0 0;font:400 16px/1.6 Anuphan,sans-serif;color:var(--rs-muted)}
-  .rs-grid{margin-top:34px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .picker-bx{width:100%;max-width:1180px;display:flex;flex-direction:column}
+  .rs-head{max-width:660px}
+  .rs-head h1{margin:0;font:600 60px/1.05 Anuphan,sans-serif;letter-spacing:-.02em;color:var(--rs-ink)}
+  .rs-head p{margin:16px 0 0;font:400 18px/1.6 Anuphan,sans-serif;color:var(--rs-muted)}
+  .rs-grid{margin-top:42px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
   .ropt{position:relative;cursor:pointer;background:var(--rs-surface);border:1px solid var(--rs-line);
-    border-radius:14px;padding:22px 24px;display:flex;gap:18px;align-items:flex-start;
+    border-radius:16px;padding:28px 30px;display:flex;gap:20px;align-items:flex-start;
     width:100%;text-align:left;font-family:inherit;
     transition:transform .18s,box-shadow .18s}
   .ropt:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(23,19,26,.10)}
   .ropt:focus-visible{outline:2px solid var(--rs-accent);outline-offset:2px}
-  .ropt .ix{font:500 13px/1 Anuphan,sans-serif;color:var(--rs-accent);padding-top:5px}
+  .ropt .ix{font:500 15px/1 Anuphan,sans-serif;color:var(--rs-accent);padding-top:6px}
   .ropt>span:last-of-type{flex:1}
-  .ropt .t{display:block;font:600 21px/1.2 Anuphan,sans-serif;color:var(--rs-ink)}
-  .ropt .d{display:block;margin-top:6px;font:400 13.5px/1.5 Anuphan,sans-serif;color:var(--rs-muted)}
-  .ropt .ring{position:absolute;inset:0;border-radius:14px;pointer-events:none;
+  .ropt .t{display:block;font:600 25px/1.2 Anuphan,sans-serif;color:var(--rs-ink)}
+  .ropt .d{display:block;margin-top:8px;font:400 15.5px/1.5 Anuphan,sans-serif;color:var(--rs-muted)}
+  .ropt .ring{position:absolute;inset:0;border-radius:16px;pointer-events:none;
     box-shadow:inset 0 0 0 2px var(--rs-accent);opacity:0;transition:opacity .2s}
   .ropt[aria-checked="true"] .ring{opacity:1}
-  .ropt.wide{grid-column:1/-1}
-  .rs-foot{margin-top:40px;display:flex;align-items:center;justify-content:flex-end;gap:24px}
-  .rs-cta{display:flex;align-items:center;gap:10px;padding:14px 26px;border-radius:999px;
-    border:none;font:600 15px/1 Anuphan,sans-serif;white-space:nowrap;
+  .rs-foot{margin-top:42px;display:flex;align-items:center;justify-content:flex-end;gap:24px}
+  .rs-cta{display:flex;align-items:center;gap:10px;padding:16px 32px;border-radius:999px;
+    border:none;font:600 17px/1 Anuphan,sans-serif;white-space:nowrap;
     background:rgba(23,19,26,.08);color:var(--rs-subtle);cursor:not-allowed;
     transition:background .2s,color .2s}
   .rs-cta.on{background:var(--rs-accent);color:var(--rs-bg);cursor:pointer}
@@ -553,7 +552,11 @@
   @media(max-width:720px){
     .picker-ov{padding:40px 20px}
     .rs-head h1{font-size:36px}
+    .rs-head p{font-size:16px}
     .rs-grid{grid-template-columns:1fr}
+    .ropt{padding:22px 24px}
+    .ropt .t{font-size:21px}
+    .ropt .d{font-size:14px}
     .rs-foot{flex-direction:column;align-items:stretch}
     .rs-cta{justify-content:center;width:100%}
   }
@@ -2434,7 +2437,7 @@ html.rp-returning .app{visibility:hidden}
 
 /* ---- Manager Dashboard (features/dash-manager/ManagerDash.tsx · 26 ก.ย. 2569) ----
    การ์ดเด่นสีเหลืองอำพัน (.hero.warn) · สาขาที่ล็อกของผู้จัดการ · แถวกรองรายคอลัมน์ (.dz-frow · SortTable filterRow)
-   ช่องเลือกสาขาในหน้าเลือกตำแหน่ง (.rs-branch) */
+   ช่องเลือกสาขาในหน้าต่างกลางจอ (.rs-branch) */
 #view-dash .dz-kc.hero.warn{background:linear-gradient(135deg,#B45309 0%,#D97706 55%,#F0A020 100%)}
 #view-dash .dz-kc.hero.warn:hover{box-shadow:0 20px 38px -16px rgba(180,83,9,.6)}
 #view-dash .mg-heroes{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -2454,8 +2457,35 @@ html.rp-returning .app{visibility:hidden}
 #view-dash .mg-sub{margin:4px 0 14px;font-size:13px;color:var(--d-ink5)}
 .rs-branch{display:flex;flex-direction:column;gap:6px;margin:18px auto 0;max-width:420px}
 .rs-branch span{font-weight:700;font-size:14.5px}
-.rs-branch select{padding:10px 12px;border:1px solid var(--border);border-radius:12px;font:inherit;background:#fff}
+.rs-branch details{border:1px solid var(--border);border-radius:12px;background:#fff;overflow:hidden}
+.rs-branch summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;
+  padding:10px 12px;box-sizing:border-box;cursor:pointer;list-style:none;font:inherit;color:var(--rs-ink)}
+.rs-branch summary::-webkit-details-marker{display:none}
+.rs-branch summary::after{content:"";width:8px;height:8px;flex:none;border-right:2px solid currentColor;
+  border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-4px 3px 0 0}
+.rs-branch details[open] summary::after{transform:rotate(225deg);margin:4px 3px 0 0}
+.rs-branch-options{display:flex;flex-direction:column;max-height:min(220px,38vh);overflow-y:auto;border-top:1px solid var(--border)}
+.rs-branch-options button{width:100%;padding:10px 12px;border:0;background:#fff;color:var(--rs-ink);
+  font:inherit;text-align:left;cursor:pointer}
+.rs-branch-options button:hover,.rs-branch-options button[aria-pressed="true"]{background:var(--rs-bg)}
 .rs-branch em{font-style:normal;font-size:12.5px;color:var(--ink-muted)}
+.mg-branch-dialog{width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-sizing:border-box;
+  margin:auto;padding:30px;border:1px solid var(--rs-line);border-radius:20px;background:var(--rs-surface);
+  color:var(--rs-ink);font-family:var(--font-thai);box-shadow:0 28px 80px rgba(23,19,26,.24)}
+.mg-branch-dialog::backdrop{background:rgba(23,19,26,.38);backdrop-filter:blur(8px)}
+.mg-branch-dialog form{display:flex;flex-direction:column}
+.mg-branch-kicker{font-size:11px;font-weight:800;letter-spacing:.09em;color:var(--rs-accent)}
+.mg-branch-dialog h2{margin:9px 0 5px;font-size:25px;line-height:1.25;color:var(--rs-ink)}
+.mg-branch-dialog p{margin:0;color:var(--rs-muted);font-size:14px;line-height:1.6}
+.mg-branch-dialog .rs-branch{width:100%;max-width:none;margin:22px 0 0}
+.mg-branch-dialog .rs-branch summary:focus-visible,.mg-branch-dialog button:focus-visible{
+  outline:2px solid var(--rs-accent);outline-offset:2px}
+.mg-branch-actions{display:flex;justify-content:space-between;gap:12px;margin-top:28px}
+.mg-branch-actions button{border-radius:999px;padding:11px 18px;font:600 14px var(--font-thai);cursor:pointer}
+.mg-branch-back{border:1px solid var(--rs-line);background:#fff;color:var(--rs-ink)}
+.mg-branch-continue{border:1px solid var(--rs-accent);background:var(--rs-accent);color:#fff}
+.mg-branch-continue:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:480px){.mg-branch-dialog{padding:24px}.mg-branch-actions{flex-direction:column-reverse}.mg-branch-actions button{width:100%}}
 
 /* Executive Dashboard: เนื้อหาที่ยังคิดตามตัวกรองใหม่ไม่เสร็จ (useDeferredValue ใน DemoDash) — จางลงให้รู้ว่ากำลังคิด */
 #view-dash .dm-part.dm-stale{opacity:.55;transition:opacity .2s .15s}

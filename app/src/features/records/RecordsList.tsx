@@ -34,6 +34,7 @@ interface Row { r: TripRecord; locked: boolean }
 
 export default function RecordsList({ role, state }: { role: RoleKey; state: RecordsState }) {
   const { records, loading, sheetError, connected, reload } = state;
+  const readOnly = role === "manager";
   // "ข้อมูลเก่า" ในหน้านี้มาจากไฟล์ต้นทุน+รายได้ (เที่ยวที่จับคู่กับข้อมูลรายได้จริงได้)
   // ส่วนแถวที่พิมพ์ตรงในชีต (source "ใหม่") ยังมาจากชีตตามเดิม — ข้อมูลใหม่ทั้งหมดยังเชื่อมกับชีต
   const oldRecords = state.oldRecords;
@@ -103,6 +104,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
   const unsynced = scopedRecords.filter((r) => r.synced === false && roleAllDone(r));
 
   async function syncAll() {
+    if (readOnly) return;
     if (!unsynced.length) { setMsg("ไม่มีใบที่ยังไม่ได้ซิงก์"); return; }
     setBusy(true);
     setMsg(`กำลังส่ง ${unsynced.length} ใบ...`);
@@ -117,11 +119,13 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
   }
 
   function edit(r: TripRecord) {
+    if (readOnly) return;
     sessionStorage.setItem("editRecordId", r.id);
     location.hash = "#/entry";
   }
 
   async function del(r: TripRecord) {
+    if (readOnly) return;
     if (!confirm("ลบรายการนี้? (ลบเฉพาะในเครื่อง — แถวใน Google Sheet ต้องลบเองในชีต)")) return;
     await remove(r.id);
     setMsg(`ลบใบ ${r.docNo || "–"} ออกจากเครื่องแล้ว`);
@@ -129,6 +133,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
   }
 
   async function setPaid(r: TripRecord, bi: number, paid: boolean) {
+    if (readOnly) return;
     const bills = recBills(r).map((b, j) =>
       j === bi ? { ...b, paid, payDate: paid ? todayISO() : null } : b);
     const next = { ...r, bills, synced: false };
@@ -143,6 +148,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
 
   /** ล้างใบในเครื่องทั้งหมด — main:2692 ไม่แตะข้อมูลบน Google Sheet */
   async function clearAll() {
+    if (readOnly) return;
     if (!scopedRecords.length) return;
     if (!confirm("ล้างรายการในเครื่องทั้งหมด? (ไม่ลบข้อมูลใน Google Sheet)")) return;
     setBusy(true);
@@ -170,10 +176,12 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
             ))}
           </div>
           <button className="btn-ghost" type="button" onClick={reload} disabled={loading}>↻ รีเฟรช</button>
-          <button className="btn btn-green" type="button" onClick={syncAll} disabled={busy || !connected}>
-            ⬆ ซิงก์ขึ้น Google Sheet{unsynced.length ? ` (${unsynced.length})` : ""}
-          </button>
-          <button className="btn-ghost" type="button" onClick={clearAll} disabled={busy}>ล้างทั้งหมด</button>
+          {!readOnly && <>
+            <button className="btn btn-green" type="button" onClick={syncAll} disabled={busy || !connected}>
+              ⬆ ซิงก์ขึ้น Google Sheet{unsynced.length ? ` (${unsynced.length})` : ""}
+            </button>
+            <button className="btn-ghost" type="button" onClick={clearAll} disabled={busy}>ล้างทั้งหมด</button>
+          </>}
         </div>
       </div>
 
@@ -188,7 +196,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
               <th>วันที่</th><th>เส้นทาง</th><th>ประเภทรถ</th><th>ชนิดรถ</th>
               <th className="num">รายได้</th><th className="num">ต้นทุนรวม</th>
               <th className="num">สูญเปล่า</th><th className="num">กำไร/ขาดทุน</th>
-              <th>สถานะ</th><th>แก้ไข</th><th>เวลาบันทึก</th>
+              <th>สถานะ</th>{!readOnly && <th>แก้ไข</th>}<th>เวลาบันทึก</th>
             </tr></thead>
             <tbody>
               {shown.map(({ r, locked }, i) => {
@@ -248,7 +256,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                               title="กดเพื่อดูรายละเอียดลูกหนี้"
                               onClick={() => toggle(r.id)}>{st}</span>}
                       </td>
-                      <td>
+                      {!readOnly && <td>
                         {locked ? <span className="locknote">แก้ในชีต</span> : (
                           <span className="act">
                             <button className="btn-edit" type="button" title="แก้ไข" onClick={() => edit(r)}>
@@ -264,7 +272,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                             </button>
                           </span>
                         )}
-                      </td>
+                      </td>}
                       <td>
                         {old ? "–" : r._accountAt
                           ? <span title="เวลาที่ฝ่ายบัญชีบันทึก (ขั้นสุดท้ายของใบ)">{savedAt(r._accountAt)}</span>
@@ -273,7 +281,7 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
                     </tr>
                     {!locked && open.has(r.id) && (
                       <tr className="detail-row" key={`${r.id}-d`}>
-                        <td colSpan={15}><DetailBills r={r} onPay={setPaid} /></td>
+                        <td colSpan={readOnly ? 14 : 15}><DetailBills r={r} onPay={setPaid} readOnly={readOnly} /></td>
                       </tr>
                     )}
                   </Fragment>
@@ -302,9 +310,10 @@ export default function RecordsList({ role, state }: { role: RoleKey; state: Rec
 }
 
 /** แถวรายละเอียดลูกหนี้ของใบ — ตรงตาม buildDetailRow() v5:2497 */
-function DetailBills({ r, onPay }: {
+function DetailBills({ r, onPay, readOnly }: {
   r: TripRecord;
   onPay: (r: TripRecord, bi: number, paid: boolean) => void;
+  readOnly: boolean;
 }) {
   const bs = recBills(r);
   if (!bs.length) {
@@ -325,7 +334,7 @@ function DetailBills({ r, onPay }: {
           <thead><tr>
             <th>เลขที่บิล</th><th>ผู้ส่ง</th><th>ผู้รับ</th><th>ต้นทาง</th><th>ปลายทาง</th>
             <th className="num">จำนวน</th><th className="num">ราคารวม</th>
-            <th>ประเภทการชำระ</th><th>สถานะ / บันทึกการจ่าย</th>
+            <th>ประเภทการชำระ</th><th>{readOnly ? "สถานะ" : "สถานะ / บันทึกการจ่าย"}</th>
           </tr></thead>
           <tbody>
             {bs.map((b, bi) => {
@@ -346,10 +355,11 @@ function DetailBills({ r, onPay }: {
                         <span className="chip-ok">จ่ายแล้ว {thDateSafe(billPayDate(b, r))}</span>
                         {auto
                           ? <span style={{ fontSize: 11, color: "var(--ink-faint)", marginLeft: 6 }}>อัตโนมัติ (สดต้นทาง)</span>
-                          : <button className="btn-undo" type="button" onClick={() => onPay(r, bi, false)}>ยกเลิก</button>}
+                          : !readOnly && <button className="btn-undo" type="button" onClick={() => onPay(r, bi, false)}>ยกเลิก</button>}
                       </>
                     ) : (
-                      <button className="btn-mini" type="button" onClick={() => onPay(r, bi, true)}>บันทึกจ่าย</button>
+                      readOnly ? <span className="locknote">ยังไม่ชำระ</span>
+                        : <button className="btn-mini" type="button" onClick={() => onPay(r, bi, true)}>บันทึกจ่าย</button>
                     )}
                   </td>
                 </tr>

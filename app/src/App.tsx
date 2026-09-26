@@ -36,8 +36,8 @@ import { billIsPaid, recBills } from "./lib/record/payment";
 import { useRecords } from "./lib/store/useRecords";
 import { useActiveDataset } from "./lib/dataset";
 import { loadSessionRole, saveSessionRole } from "./lib/store/sessionRole";
-import { saveSessionBranch } from "./lib/store/sessionBranch";
-import BranchPick from "./features/dash-manager/BranchPick";
+import { loadSessionBranch, saveSessionBranch } from "./lib/store/sessionBranch";
+import BranchGate from "./features/dash-manager/BranchGate";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
 import { DEMO_PARTS, demoGo, useDemoNav } from "./lib/ui/demoNav";
@@ -118,10 +118,17 @@ export default function App() {
   // แต่จำไว้ระดับ "แท็บ" เพื่อให้รีโหลดแล้วไม่ต้องเลือกซ้ำ — sessionStorage ตายตอนปิดแท็บ ดีไซน์เดิมจึงยังอยู่
   // (จำเป็นเพราะ lazyPage รีโหลดหน้าเองได้เมื่อมี deploy ทับระหว่างเปิดค้าง)
   const [role, setRoleState] = useState<RoleKey | null>(loadSessionRole);
-  // สาขาของผู้จัดการเลือกพร้อมตำแหน่ง (Manager Dashboard) — เปลี่ยนหน้าที่ = ลืมทั้งคู่
-  const setRole = (r: RoleKey | null, branch: string | null = null): void => {
-    saveSessionBranch(r === "manager" ? branch : null);
+  // ผู้จัดการเลือกสาขาหลังเข้าหน้า Dashboard; เปลี่ยนหน้าที่แล้วลืมสาขาเดิม
+  const [managerBranch, setManagerBranch] = useState<string | null>(loadSessionBranch);
+  const setRole = (r: RoleKey | null): void => {
+    saveSessionBranch(null);
+    setManagerBranch(null);
+    if (r === "manager") setPage("dash-fleet");
     saveSessionRole(r); setRoleState(r);
+  };
+  const pickManagerBranch = (branch: string): void => {
+    saveSessionBranch(branch);
+    setManagerBranch(branch);
   };
   // true เฉพาะรอบแรกที่ตำแหน่งถูกกู้มาจากการรีโหลด — ใช้ตัดสินว่าจะอยู่หน้าเดิมหรือเด้งไปหน้าแรก
   const restoredRole = useRef(role !== null);
@@ -133,6 +140,7 @@ export default function App() {
   const pages = PAGES.filter((p) => allowed.includes(p.id));
 
   const readHash = (): string => {
+    if (role === "manager" && !managerBranch) return "dash-fleet";
     const h = location.hash.replace(/^#\/?/, "");
     // ปุ่ม "แก้ไข" ในรายการทั้งหมด/ใบที่ยังไม่ครบ ส่งมาที่ #/entry — ผู้ดูแลระบบไม่มีหน้านั้นแล้ว ให้ไปหน้ารวมแทน
     if (h === "entry" && !allowed.includes(h) && allowed.includes("entry-all")) return "entry-all";
@@ -147,7 +155,7 @@ export default function App() {
     addEventListener("hashchange", on);
     return () => removeEventListener("hashchange", on);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role]);
+  }, [role, managerBranch]);
 
   /* เลือกตำแหน่งแล้วเปิดหน้าแรกของตำแหน่งนั้นเสมอ — main:2241 showView(ROLE_VIEWS[ROLE][0])
      ยกเว้นรอบที่กู้ตำแหน่งมาจากการรีโหลด ให้กลับไปหน้าเดิมตาม hash (readHash กรองหน้าที่เข้าไม่ได้ทิ้งให้แล้ว) */
@@ -300,6 +308,9 @@ export default function App() {
           ข้อมูลสำรองในเครื่อง (localStorage)
         </p>
       </main>
+      {role === "manager" && !managerBranch && (
+        <BranchGate onPick={pickManagerBranch} onBack={() => setRole(null)} />
+      )}
     </>
   );
 }
@@ -308,11 +319,9 @@ export default function App() {
  * หน้าเลือกหน้าที่ — เต็มจอ ตามดีไซน์ Role Selection ของ main
  * ต้องเลือกการ์ดก่อนปุ่ม Continue จึงจะกดได้ และเลื่อนเลือกด้วยลูกศรได้
  */
-function RolePicker({ onPick }: { onPick: (k: RoleKey, branch?: string | null) => void }) {
+function RolePicker({ onPick }: { onPick: (k: RoleKey) => void }) {
   const [sel, setSel] = useState<RoleKey | null>(null);
-  // ผู้จัดการต้องเลือกสาขาก่อนกด Continue (Manager Dashboard ดูได้เฉพาะสาขาตัวเอง)
-  const [branch, setBranch] = useState("");
-  const ready = !!sel && (sel !== "manager" || !!branch);
+  const ready = !!sel;
 
   const onKey = (e: React.KeyboardEvent, i: number) => {
     const d = e.key === "ArrowDown" || e.key === "ArrowRight" ? 1
@@ -337,7 +346,7 @@ function RolePicker({ onPick }: { onPick: (k: RoleKey, branch?: string | null) =
             <button
               key={k} type="button" role="radio"
               aria-checked={sel === k}
-              className={"ropt rs-in" + (k === "admin" ? " wide" : "")}
+              className="ropt rs-in"
               style={{ "--i": i + 2 } as React.CSSProperties}
               onClick={() => setSel(k)}
               onKeyDown={(e) => onKey(e, i)}
@@ -352,14 +361,12 @@ function RolePicker({ onPick }: { onPick: (k: RoleKey, branch?: string | null) =
           ))}
         </div>
 
-        {sel === "manager" && <BranchPick value={branch} onChange={setBranch} />}
-
         <div className="rs-foot rs-in" style={{ "--i": ROLE_PICK.length + 2 } as React.CSSProperties}>
           <button
             type="button"
             className={"rs-cta" + (ready ? " on" : "")}
             disabled={!ready} aria-disabled={!ready}
-            onClick={() => sel && ready && onPick(sel, sel === "manager" ? branch : null)}
+            onClick={() => sel && onPick(sel)}
           >
             <span>{sel ? `Continue as ${ROLES[sel].en}` : "Continue"}</span>
             <span style={{ fontSize: 15 }}>→</span>
