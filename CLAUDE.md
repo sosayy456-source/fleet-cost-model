@@ -17,7 +17,7 @@ npm test -- -t "ชื่อเทส"                          # เฉพา�
 npx tsc -b --force        # เช็ค type อย่างเดียว ไม่ build
 ```
 
-ข้อมูลจริง: วาง `.xlsx` ใน `etl/data/revenue/` → plugin `autoEtl` ใน `vite.config.ts` รัน ETL ให้เองตอน dev (หน่วง 2 วิ, หา python จาก `etl/.venv` หรือ venv ของ Streamlit ก่อน `python` บน PATH) → plugin ส่งสถานะผ่าน HMR (`etl:status`) หน้าที่ใช้ `useDataset` ขึ้นแถบ "กำลังแปลง…" แล้ว `reload()` เองตอนเสร็จ (`lib/data/etlStatus.ts`) · แอปเลือกชุดข้อมูลเองตอนรัน (`lib/dataset.ts`: มี `data/real/manifest.json` ที่เป็น json จริง = real ไม่งั้น sample) `VITE_DATASET` ยังบังคับได้ · **Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์** ตรวจแค่ status ไม่ได้ ต้องดู content-type
+ข้อมูลจริง: วาง `.xlsx` ใน `etl/data/revenue/` → plugin `autoEtl` ใน `vite.config.ts` รัน ETL ให้เองตอน dev (หน่วง 2 วิ, หา python จาก `etl/.venv` หรือ venv ของ Streamlit ก่อน `python` บน PATH) → plugin ส่งสถานะผ่าน HMR (`etl:status`) หน้าที่ใช้ `useDataset` ขึ้นแถบ "กำลังแปลง…" แล้ว `reload()` เองตอนเสร็จ (`lib/data/etlStatus.ts`) · แอปเลือกชุดข้อมูลเองตอนรัน (`lib/dataset.ts`: มี `data/real/costrev/manifest.json` ที่เป็น json จริง = real ไม่งั้น sample — เดิมดู `data/real/manifest.json` ของ `build_json.py` ซึ่งเลิกรันอัตโนมัติแล้ว) `VITE_DATASET` ยังบังคับได้ · **Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์** ตรวจแค่ status ไม่ได้ ต้องดู content-type
 
 Windows PowerShell: ถ้า `npm.ps1 cannot be loaded` ให้ใช้ `npm.cmd run dev`
 
@@ -69,6 +69,22 @@ chokidar บน Windows เฝ้ารายไฟล์ด้วย `fs.watch`
 เที่ยววิ่งเปล่า · ปันส่วน · Demo) **กดหัวคอลัมน์วนสามจังหวะ: มากไปน้อย ▼ → น้อยไปมาก ▲ → ล้างกลับค่าเริ่มต้น**
 (เจ้าของงานสั่ง 22 ก.ย. 2569) · ทุกคอลัมน์เริ่มที่มากไปน้อยเสมอ ทั้งตัวเลขและข้อความ · ค่าตั้งต้นเก็บใน `useRef`
 เพราะทุกหน้าส่ง `initial` มาเป็น object literal ใหม่ทุก render ถ้าอ้างตรง ๆ จะเทียบไม่เจอว่ากลับถึงค่าเริ่มต้นแล้ว
+
+**แก้อาการข้อมูลจริงช้า/ค้าง/ล่ม 26 ก.ย. 2569** (แผนและผลวัด `docs/แผนแก้-ข้อมูลจริงช้า.md` — ทุกข้อไม่เปลี่ยนตัวเลข):
+· **`costrev/trips.json` เก็บเป็นคอลัมน์ + ตารางข้อความ** (`etl/src/tripcols.py` → `lib/data/tripCols.ts` แปลงกลับเป็น `Trip[]` ใน `useCostRev`)
+  หน้าจอไม่ต้องรู้ · รูปข้อมูลที่ encoder ไม่รู้จัก = ETL เขียนแบบแถวเหมือนเดิม แอปอ่านได้ทั้งสองแบบ · **เพิ่มคีย์ใน trip ได้เลย
+  แต่ค่าต้องเป็น ตัวเลข/null · bool · ข้อความ · list ข้อความ · dict ข้อความ→ตัวเลข · list ของ object คีย์ชุดเดียวกัน** ไม่งั้นถอยเป็นแถว (ไฟล์ใหญ่ 3 เท่า)
+  · ตัวแปลงสร้างแถวด้วย `new Function` (เร็วกว่าเติมทีละคอลัมน์ ~6 เท่า) ถอยวิธีช้าเมื่อโดน CSP · ตรวจว่าเท่าเดิม: คัดลอก `trips.json` เป็น
+  `trips.old.json` → รัน ETL → `node tools/verify-trips.mjs --dataset real` (พิมพ์แค่ PASS/FAIL + ชื่อฟิลด์ ไม่พิมพ์ค่า) → ลบ `trips.old.json`
+· **Executive Dashboard (`DemoDash`) ทุกส่วน/กล่อง PI ห่อ `memo`** — กล่อง PI แจ้งคะแนนขึ้นมาทีละกล่อง ถ้าไม่ memo ทั้ง 4 ส่วนวาดใหม่ทุกครั้ง ·
+  **props ที่ส่งเข้าส่วนต้องคงที่** (useMemo/state) · ตัวกรองที่เนื้อหาใช้คือ `fv = useDeferredValue(f)` (แถบตัวกรองใช้ `f`) ระหว่างคิดส่วนจาง `.dm-stale`
+· `old_records.json`/`old_debtors.json` โหลดเฉพาะหน้า `FILE_OLD_PAGES` ใน `App.tsx` (records · debtors · fleet-status) — หน้าใหม่ที่อ่าน
+  `state.oldRecords/oldDebtors/fileOld` ต้องเติมชื่อลงชุดนั้น ไม่งั้นได้ลิสต์ว่างเงียบ ๆ
+· ไฟล์ข้อมูล fetch แบบ `no-cache` (ถาม ETag ก่อน ไม่ได้ของเก่าค้าง) · `manifest.json` ยัง `no-store`
+· **ETL แคชแถวดิบของ .xlsx ใน `etl/.cache/sheets/`** (`src/sheetcache.py` ผ่าน `iter_sheet` — คีย์ ไฟล์+ขนาด+เวลาแก้ไข+รุ่น calamine)
+  `build_alloc` อ่านไฟล์รายได้อีก 3 รอบจากแคช · โฟลเดอร์เป็นข้อมูลดิบของลูกค้า ติด .gitignore ลบได้ทุกเมื่อ (ข้อมูลจริงหลายร้อย MB)
+· **plugin ไม่รัน `build_json.py` อัตโนมัติแล้ว** (ผลไม่มีหน้าไหนใช้ตั้งแต่ลบ Dashboard รายได้ · ไฟล์รายได้เปลี่ยนยังสั่ง costrev + alloc)
+  · ตัวเฝ้าไฟล์ดูแค่ รายชื่อ + ขนาด ไม่ดูเวลาแก้ไข (OneDrive/แอนตี้ไวรัสแตะเวลาไฟล์แล้วสั่งแปลงซ้ำทั้งชุด)
 
 **plugin `autoEtl` รัน ETL ทีละตัว ห้ามให้ `build_json.py` กับ `build_costrev.py` รันพร้อมกัน** — วางไฟล์ต้นทุน
 กับไฟล์รายได้ไล่ ๆ กันจะสั่งทั้งสองงาน ถ้ารันซ้อนกันหน่วยความจำจะบวกกันจนเครื่องหมด `busy`/`want`/`pump()`
