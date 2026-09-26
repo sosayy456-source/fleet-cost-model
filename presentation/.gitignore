@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.tsbuildinfo
+src/data/story.real.json
+src/assets/shots/real/
+tools/.cache/
+qa/
+clips/
+public/clips/

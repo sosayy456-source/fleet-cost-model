@@ -1,0 +1,10 @@
+.home { width:min(100%,calc((100svh - 190px) * 1.6)); margin:auto; }
+.caption { text-align:center; font-size:clamp(18px,1.2vw,24px); color:var(--muted); margin-top:16px; }
+.split { display:grid; grid-template-columns:34% 66%; align-items:center; flex:1; width:100%; min-height:0; }
+.visual { position:relative; width:100%; }
+.hidden { visibility:hidden; opacity:0; }
+.captions { position:absolute; top:100%; width:100%; margin-top:18px; text-align:center; font-size:20px; color:var(--accent); }
+.captions p { position:absolute; inset:0; visibility:hidden; }
+.roleIntro { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; background:var(--bg); z-index:3; gap:20px; }
+.roleIntro span { color:var(--accent); font-size:18px; }.roleIntro h2 { font-size:clamp(42px,5vw,80px); }.roleIntro p { color:var(--muted); font-size:24px; }
+@media(max-width:800px) { .split { grid-template-columns:34% 66%; }.captions { font-size:16px; } }

@@ -1,0 +1,1 @@
+.skip { position:fixed; top:10px; left:10px; z-index:100; transform:translateY(-150%); padding:12px; background:var(--card); color:var(--accent); border-radius:10px; }.skip:focus { transform:none; }

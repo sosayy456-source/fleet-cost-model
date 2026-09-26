@@ -1,0 +1,13 @@
+.top { position:fixed; z-index:20; top:0; left:0; width:34%; height:68px; display:flex; align-items:center; padding-left:3.5vw; background:var(--bg); border-bottom:1px solid var(--border); }
+.brand { color:var(--ink); font-weight:700; font-size:18px; text-decoration:none; white-space:nowrap; }
+.badges { position:fixed; bottom:16px; left:3.5vw; display:flex; gap:12px; font-size:14px; color:var(--muted); }
+.sample { color:var(--accent); }
+.dock { position:fixed; z-index:20; top:0; right:0; width:66%; height:68px; padding:9px 3.5vw 9px 12px; display:flex; align-items:center; justify-content:space-between; background:var(--bg); border-bottom:1px solid var(--border); gap:12px; }
+.scenes,.controls { display:flex; align-items:center; gap:8px; }
+.dock button { min-height:40px; min-width:40px; border:1px solid transparent; border-radius:30px; background:transparent; color:var(--muted); }
+.scenes button { padding:0 16px; font-size:16px; }.scenes button span { margin-right:8px; font-size:14px; }
+.scenes button[aria-current] { background:var(--pink); color:var(--accent); }
+.controls button { border-color:var(--border); font-size:18px; }.controls button[aria-pressed=true] { background:var(--pink); }
+.position { font-size:18px; margin-right:12px; font-variant-numeric:tabular-nums; }
+.track { position:absolute; bottom:0; left:0; right:0; height:2px; background:var(--border); }.track div { background:var(--accent); height:100%; transform-origin:left; }
+@media(max-width:1050px) { .scenes button { font-size:0; padding:0 10px; }.scenes button span { font-size:14px; margin:0; }.brand { font-size:15px; }.dock { padding-right:18px; }.controls { gap:4px; } }

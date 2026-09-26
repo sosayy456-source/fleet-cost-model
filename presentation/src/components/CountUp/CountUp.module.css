@@ -1,0 +1,1 @@
+.number { display: inline-block; font-family: var(--font-number); font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; letter-spacing: -.03em; }

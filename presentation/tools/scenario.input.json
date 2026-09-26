@@ -1,0 +1,11 @@
+{
+  "date": "2026-09-25",
+  "branch": "เชียงใหม่",
+  "origin": "เชียงใหม่",
+  "dest": "ตลาดไท",
+  "bills": [
+    { "sender": "ร้านตัวอย่าง ก", "receiver": "ร้านตัวอย่าง ข", "qty": 40, "weight": 800, "width": 40, "length": 60, "height": 50, "pricingType": "คิดตามหน่วย", "unitPrice": 85 },
+    { "sender": "ร้านตัวอย่าง ค", "receiver": "ร้านตัวอย่าง ง", "qty": 30, "weight": 600, "width": 40, "length": 60, "height": 40, "pricingType": "คิดตามน้ำหนัก", "unitPrice": 4 },
+    { "sender": "ร้านตัวอย่าง จ", "receiver": "ร้านตัวอย่าง ฉ", "qty": 20, "weight": 400, "width": 40, "length": 50, "height": 50, "pricingType": "คิดตามหน่วย", "unitPrice": 90 }
+  ]
+}
