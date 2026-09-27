@@ -4,7 +4,7 @@
  * ★ ข้อมูล = ไฟล์ต้นทุน (costrev · ชุด inProfitScope) + Load Factor จากไฟล์ LF จับคู่ด้วยเลขที่ใบรายการ
  *   ไม่ใช้ใบที่บันทึกใหม่ในโมเดล (เจ้าของงาน: หน้านี้ให้ผู้จัดการดูรายวัน/รายเดือนของสาขา)
  *   เที่ยววิ่งเปล่าไม่มีในไฟล์ LF → LF = 0% (ไม่ผ่านเกณฑ์) · เที่ยวอื่นที่จับคู่ไม่ได้ = "ไม่มี LF" ไม่นับเข้าสามสี
- * ★ ช่วงเวลา = วัน / เดือน / ไตรมาส ที่เลือก (ค่าตั้งต้น = ช่วงล่าสุดที่ไฟล์มีข้อมูล ไม่ใช่วันนี้ — ไฟล์เป็นข้อมูลย้อนหลัง)
+ * ★ ช่วงเวลา = วัน / เดือน / ไตรมาส / ปี ที่เลือก (ค่าตั้งต้น = ช่วงล่าสุดที่ไฟล์มีข้อมูล ไม่ใช่วันนี้ — ไฟล์เป็นข้อมูลย้อนหลัง)
  * ★ แท็บหน้างาน = เที่ยว "กำลังวิ่ง" ในช่วง = ช่วงวิ่ง [วันปล่อยรถ, วันที่คาดว่าถึง] ทับช่วงที่เลือก
  *   วันที่คาดว่าถึงใช้กฎเดียวกับสถานะกองรถ (lib/record/tripEta.ts): + max(1, ⌈ระยะทาง ÷ 500⌉) วัน ·
  *   ไม่รู้ระยะทาง = วิ่งแค่วันปล่อยรถ
@@ -22,8 +22,8 @@ import type { DebtorRow } from "../data/useDebtors";
 
 /* ---------------- ช่วงเวลา ---------------- */
 
-export type PeriodKind = "day" | "month" | "quarter";
-/** value: วัน "YYYY-MM-DD" · เดือน "YYYY-MM" · ไตรมาส "YYYY-Qn" */
+export type PeriodKind = "day" | "month" | "quarter" | "year";
+/** value: วัน "YYYY-MM-DD" · เดือน "YYYY-MM" · ไตรมาส "YYYY-Qn" · ปี "YYYY" */
 export interface MgrPeriod { kind: PeriodKind; value: string }
 export interface Range { start: string; end: string }
 
@@ -36,6 +36,7 @@ export function periodRange(p: MgrPeriod): Range {
     const [y, m] = p.value.split("-").map(Number);
     return { start: `${p.value}-01`, end: `${p.value}-${pad(lastDay(y!, m!))}` };
   }
+  if (p.kind === "year") return { start: `${p.value}-01-01`, end: `${p.value}-12-31` };
   const y = Number(p.value.slice(0, 4)), q = Number(p.value.slice(-1));
   const m1 = (q - 1) * 3 + 1, m3 = m1 + 2;
   return { start: `${y}-${pad(m1)}-01`, end: `${y}-${pad(m3)}-${pad(lastDay(y, m3))}` };
@@ -43,9 +44,9 @@ export function periodRange(p: MgrPeriod): Range {
 
 const quarterOf = (iso: string): string => `${iso.slice(0, 4)}-Q${Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1}`;
 
-/** ช่วงล่าสุดที่มีข้อมูล — วันสุดท้ายในไฟล์ / เดือนของวันนั้น / ไตรมาสของวันนั้น */
+/** ช่วงล่าสุดที่มีข้อมูล — วันสุดท้ายในไฟล์ / เดือน / ไตรมาส / ปีของวันนั้น */
 export function latestPeriod(kind: PeriodKind, maxDate: string): MgrPeriod {
-  return { kind, value: kind === "day" ? maxDate : kind === "month" ? maxDate.slice(0, 7) : quarterOf(maxDate) };
+  return { kind, value: kind === "day" ? maxDate : kind === "month" ? maxDate.slice(0, 7) : kind === "year" ? maxDate.slice(0, 4) : quarterOf(maxDate) };
 }
 
 const TH_MONTH = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
@@ -58,14 +59,19 @@ export function periodLabel(p: MgrPeriod): string {
     return `${Number(d)} ${TH_MONTH[Number(m) - 1]} ${be(y!)}`;
   }
   if (p.kind === "month") return `${TH_MONTH[Number(p.value.slice(5, 7)) - 1]} ${be(p.value.slice(0, 4))}`;
+  if (p.kind === "year") return `ปี ${be(p.value)}`;
   return `ไตรมาส ${p.value.slice(-1)}/${be(p.value.slice(0, 4))}`;
 }
 
-/** ตัวเลือกเดือน/ไตรมาสในช่วงข้อมูล ใหม่สุดขึ้นก่อน */
-export function periodOptions(kind: "month" | "quarter", minDate: string, maxDate: string): MgrPeriod[] {
+/** ตัวเลือกเดือน/ไตรมาส/ปีในช่วงข้อมูล ใหม่สุดขึ้นก่อน */
+export function periodOptions(kind: "month" | "quarter" | "year", minDate: string, maxDate: string): MgrPeriod[] {
   const out: MgrPeriod[] = [];
   let y = Number(minDate.slice(0, 4)), m = Number(minDate.slice(5, 7));
   const yEnd = Number(maxDate.slice(0, 4)), mEnd = Number(maxDate.slice(5, 7));
+  if (kind === "year") {
+    for (let year = yEnd; year >= y; year--) out.push({ kind, value: String(year) });
+    return out;
+  }
   const seen = new Set<string>();
   while (y < yEnd || (y === yEnd && m <= mEnd)) {
     const v = kind === "month" ? `${y}-${pad(m)}` : quarterOf(`${y}-${pad(m)}-01`);
