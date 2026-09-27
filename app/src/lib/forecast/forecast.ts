@@ -17,6 +17,7 @@
  *   ไม่ใช่เดือนปัจจุบัน เพราะไฟล์ข้อมูลเก่าตัดยอดไว้ที่เดือนหนึ่งแล้วไม่ขยับตามเวลา
  */
 import type { Trip } from "../data/useCostRev";
+import type { TripRecord } from "../../types/record";
 
 /** คีย์ของกลุ่มต้นทุนที่พยากรณ์ — ชุดเดียวกับที่แดชบอร์ดต้นทุนใช้ */
 export interface CostParts {
@@ -56,10 +57,28 @@ export interface ForecastResult {
 
 const EMPTY_PARTS: CostParts = { fuel: 0, allow: 0, fee: 0, repair: 0, dep: 0, rent: 0, waste: 0, other: 0 };
 
-const partsOf = (t: Trip): CostParts => ({
+/** แยกต้นทุนของเที่ยวเป็นกลุ่ม — ใช้ร่วมกับคำแนะนำของ Manager Dashboard (lib/manager/manager.ts) */
+export const partsOf = (t: Trip): CostParts => ({
   fuel: t.fuel, allow: t.allow, fee: t.fee, repair: t.repair, dep: t.dep, rent: t.rent, waste: t.waste,
   other: t.cost - t.fuel - t.allow - t.fee - t.repair - t.dep - t.rent - t.waste,
 });
+
+/**
+ * ต้นทุนจริงของใบที่บันทึกในโมเดล แยกกลุ่มเดียวกับฝั่งพยากรณ์ — ย้ายจาก features/records/TripDetailModal.tsx (27 ก.ย. 2569)
+ * ให้ Manager Dashboard ใช้ด้วย · ใบในโมเดลไม่มีช่องค่าเสื่อม/ค่าเช่าแยก (อยู่ในต้นทุนรวมของไฟล์เก่าเท่านั้น)
+ */
+export function recordParts(r: TripRecord): CostParts {
+  const fuel = Number(r.fuelSum) || 0;
+  const allow = Number(r.labor) || 0;
+  const fee = Number(r.fees) || 0;
+  const repair = Number(r.repTotal) || 0;
+  const waste = Number(r.waste) || 0;
+  const normal = Number(r.normal) || 0;
+  return {
+    fuel, allow, fee, repair, waste, dep: 0, rent: 0,
+    other: Math.round((normal - fuel - allow - fee - repair) * 100) / 100,
+  };
+}
 
 /** ค่าเริ่มต้นของจำนวนเดือนย้อนหลัง — สเปกเขียน "5 เดือนล่าสุด (ม.ค.-พ.ค.)" */
 export const DEFAULT_FORECAST_MONTHS = 5;

@@ -8,7 +8,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { fmt, SortTable, useSort, type Col } from "../common";
 
-export default function D3Table<T>({ title, unit, rows, cols, initial, rowKey, empty, search, placeholder, note, legend, children }: {
+export default function D3Table<T>({ title, unit, rows, cols, initial, rowKey, empty, search, placeholder, note, legend, actions, children }: {
   title: ReactNode;
   /** หน่วยนับแถว เช่น "คัน-เที่ยว" · "เส้นทาง" · "ชนิด" */
   unit: string;
@@ -21,6 +21,8 @@ export default function D3Table<T>({ title, unit, rows, cols, initial, rowKey, e
   note?: ReactNode;
   /** ป้ายสีที่มุมขวาของแถบท้าย — [สีจุด, ข้อความ] */
   legend?: [string, string][];
+  /** ปุ่มที่มุมขวาของหัวตาราง ก่อนช่องค้นหา เช่น ปุ่มสลับมิติ */
+  actions?: ReactNode;
   /** ของที่วางใต้กรอบตาราง เช่น หมายเหตุ */
   children?: ReactNode;
 }) {
@@ -42,8 +44,11 @@ export default function D3Table<T>({ title, unit, rows, cols, initial, rowKey, e
           {legend && <span className="d3-tt-legend">{legend.map(([c, l]) => <span key={l}><i style={{ background: c }} />{l}</span>)}</span>}
         </p>
       </div>
-      {search && <input type="search" className="d3-tt-search" placeholder={placeholder ?? "ค้นหา…"} value={q}
-        onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาในตาราง" />}
+      {(actions || search) && <div className="d3-tt-actions">
+        {actions}
+        {search && <input type="search" className="d3-tt-search" placeholder={placeholder ?? "ค้นหา…"} value={q}
+          onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาในตาราง" />}
+      </div>}
     </div>
     {note && <p className="dz-note d3-tt-note">{note}</p>}
     <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={rowKey}

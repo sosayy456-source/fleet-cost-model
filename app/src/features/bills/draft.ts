@@ -76,7 +76,7 @@ export function randomDraft(key: string = crypto.randomUUID()): Draft {
     width: String(c.width), length: String(c.length), height: String(c.height),
     payType: pick(PAY_TYPES),
     pricingType,
-    // คิดตามน้ำหนักเป็นบาท/กก. คิดตามหน่วยเป็นบาท/ชิ้น — มาจากค่าขนส่งต่อ กก. ตัวเดียวกัน ราคารวมจึงพอ ๆ กัน
-    unitPrice: String(pricingType === "คิดตามน้ำหนัก" ? c.perKg : c.perUnit),
+    // บาท/กก. · บาท/ชิ้น · บาท/ลบ.ม. — มาจากค่าขนส่งต่อ กก. ตัวเดียวกัน ราคารวมจึงพอ ๆ กัน
+    unitPrice: String(pricingType === "คิดตามน้ำหนัก" ? c.perKg : pricingType === "คิดตามปริมาตร" ? c.perM3 : c.perUnit),
   };
 }

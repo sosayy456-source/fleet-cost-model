@@ -16,7 +16,7 @@ import { BRANCHES, ORIGINS, destsFor } from "../../lib/refdata";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
 import { emptyDraft, n, problem, randomDraft } from "./draft";
 import type { Draft } from "./draft";
-import { SERVICE_GROUPS_V2, billTotalOf, billVolume } from "../../types/bill";
+import { SERVICE_GROUPS_V2, billTotalOf, billVolume, priceBaseOf } from "../../types/bill";
 import type { PendingBill } from "../../types/bill";
 import { newBillNos } from "../../lib/bill/number";
 import { nowStamp } from "../../lib/record/date";
@@ -31,7 +31,7 @@ const baht = (v: number): string => v.toLocaleString("th-TH", { maximumFractionD
 function derive(d: Draft) {
   const qty = n(d.qty), weight = n(d.weight);
   const volume = billVolume({ width: n(d.width), length: n(d.length), height: n(d.height), qty });
-  const total = billTotalOf({ pricingType: d.pricingType, weight, qty, unitPrice: n(d.unitPrice) });
+  const total = billTotalOf({ pricingType: d.pricingType, weight, qty, volume, unitPrice: n(d.unitPrice) });
   return { qty, weight, volume, total };
 }
 
@@ -237,7 +237,7 @@ export default function BillEntry() {
                     <select value={d.pricingType} onChange={(e) => set(i, { pricingType: e.target.value })}>
                       {PRICE_BASIS.map((p) => <option key={p} value={p}>{p}</option>)}
                     </select></div>
-                  <div className="f"><label>ราคาต่อหน่วย (บาท)</label>
+                  <div className="f"><label>ราคาต่อหน่วย ({priceBaseOf(d.pricingType).unit})</label>
                     <input type="number" min={0} step="any" value={d.unitPrice} placeholder="0"
                       onChange={(e) => set(i, { unitPrice: e.target.value })} /></div>
                 </div>
@@ -245,7 +245,7 @@ export default function BillEntry() {
                   <span>ปริมาตรรวม <b>{v.volume.toFixed(3)}</b> ลบ.ม.
                     <small> (กว้าง × ยาว × สูง ÷ 1,000,000 × จำนวน)</small></span>
                   <span>ราคารวม <b>{baht(v.total)}</b> บาท
-                    <small> ({d.pricingType === "คิดตามน้ำหนัก" ? "น้ำหนักรวม" : "จำนวน"} × ราคาต่อหน่วย)</small></span>
+                    <small> ({priceBaseOf(d.pricingType).label} × ราคาต่อหน่วย)</small></span>
                 </div>
                 {bad && <div className="bill-bad">⚠ {bad}</div>}
               </div>

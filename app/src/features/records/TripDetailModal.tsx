@@ -13,29 +13,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { thDateSafe } from "../../lib/record/date";
-import { forecastFor } from "../../lib/forecast/forecast";
+import { forecastFor, recordParts } from "../../lib/forecast/forecast";
 import { COST_PART_LABELS } from "../../lib/forecast/forecast";
-import type { CostParts, ForecastTable } from "../../lib/forecast/forecast";
+import type { ForecastTable } from "../../lib/forecast/forecast";
 import type { TripRecord } from "../../types/record";
 
 const baht = (v: number): string => Math.round(v).toLocaleString("th-TH");
 const signed = (v: number): string => (v > 0 ? "+" : v < 0 ? "−" : "") + baht(Math.abs(v));
-
-/** ต้นทุนจริงของใบ แยกตามกลุ่มเดียวกับฝั่งพยากรณ์ */
-function actualParts(r: TripRecord): CostParts {
-  const fuel = Number(r.fuelSum) || 0;
-  const allow = Number(r.labor) || 0;
-  const fee = Number(r.fees) || 0;
-  const repair = Number(r.repTotal) || 0;
-  const waste = Number(r.waste) || 0;
-  const normal = Number(r.normal) || 0;
-  return {
-    fuel, allow, fee, repair, waste,
-    // ใบที่กรอกในโมเดลไม่มีช่องค่าเสื่อม/ค่าเช่าแยก (อยู่ในต้นทุนรวมของไฟล์เก่าเท่านั้น)
-    dep: 0, rent: 0,
-    other: Math.round((normal - fuel - allow - fee - repair) * 100) / 100,
-  };
-}
 
 export default function TripDetailModal({ rec, table, onClose }: {
   rec: TripRecord; table: ForecastTable | null; onClose: () => void;
@@ -64,7 +48,7 @@ export default function TripDetailModal({ rec, table, onClose }: {
   }, [bills, cost]);
 
   const forecast = table ? forecastFor(table, rec.origin, rec.dest, rec.vehicle) : null;
-  const actual = actualParts(rec);
+  const actual = recordParts(rec);
   const diff = forecast ? cost - forecast.cost : null;
 
   return createPortal(

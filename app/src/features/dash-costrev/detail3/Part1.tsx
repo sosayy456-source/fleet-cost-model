@@ -10,8 +10,8 @@ import { DBar } from "../../../lib/chart/dcharts";
 import { D } from "../../../lib/chart/theme";
 import type { Trip } from "../../../lib/data/useCostRev";
 import {
-  companyVsPartner, CVP_LABEL, CVP_TIE_PCT, FLAG_TIMES, kindSides, metricOf, overview, routeKindMatrix, TOP_MIN_TRIPS,
-  type Cell, type CvpAdvice, type Metric, type VRow,
+  companyVsPartner, costFlagDetails, CVP_LABEL, CVP_TIE_PCT, FLAG_TIMES, kindSides, metricOf, overview, routeKindMatrix, TOP_MIN_TRIPS,
+  type Cell, type CvpAdvice, type FlagDetail, type FlagPart, type Metric, type VRow,
 } from "../../../lib/detail3/calc";
 import { thDateSafe } from "../../../lib/record/date";
 import { Hero, KC, Note, TableHead } from "../../dash-fleet/parts";
@@ -79,69 +79,97 @@ function KindChart({ rows }: { rows: VRow[] }) {
 
 /* ---------------- เส้นทาง × ชนิดรถ · Top 5 · Flag ---------------- */
 interface MRow { rt: string; n: number; cells: Record<string, Cell> }
-type Flag = ReturnType<typeof routeKindMatrix>["flagged"][number];
+type Flag = FlagDetail;
+
+/** ค่าของเกณฑ์หนึ่งในตารางเที่ยวที่ควร Flag — ติดเกณฑ์ = ตัวแดง + ⚠ + กี่เท่าของค่าเฉลี่ย */
+function FlagCell({ p, digits }: { p: FlagPart; digits: number }) {
+  if (p.v === null) return <span className="d3-muted" title="หารไม่ได้ (ไม่มีระยะทาง/น้ำหนัก) — ไม่นับเกณฑ์นี้">–</span>;
+  const title = p.avg !== null ? `ค่าเฉลี่ยชนิดรถ ${fmt(p.avg, digits)} · ${fmt(p.times ?? 0, 1)} เท่า` : undefined;
+  return p.flag
+    ? <span className="d3-flag" title={title}>{fmt(p.v, digits)} ⚠ <small>{fmt(p.times!, 1)}×</small></span>
+    : <span title={title}>{fmt(p.v, digits)}</span>;
+}
 
 function RouteKind({ rows }: { rows: VRow[] }) {
-  const m = useMemo(() => routeKindMatrix(rows), [rows]);
+  // มิติของตารางข้อ 2 + Top 5 ข้อ 3 (เจ้าของงานสั่ง 27 ก.ย. 2569 · ตั้งต้นต่อตัน-กม. แบบเดิม)
+  const [metric, setMetric] = useState<Metric>("tkm");
+  const unit = METRICS.find((x) => x.id === metric)!.unit;
+  const digits = metric === "trip" ? 0 : 2;
+  const m = useMemo(() => routeKindMatrix(rows, metric), [rows, metric]);
+  // เที่ยวที่ควร Flag: 3 เกณฑ์ชุดเดียวกับตารางชนิดรถของ Executive Dashboard (costFlagDetails · 27 ก.ย. 2569)
+  const flagged = useMemo(() => costFlagDetails(rows).filter((d) => d.any), [rows]);
   const cols = useMemo<Col<MRow>[]>(() => [
     { key: "rt", label: "เส้นทาง", get: (r) => r.rt, render: (r) => <b>{r.rt}</b> },
     { key: "n", label: "เที่ยว", get: (r) => r.n, num: true },
     ...m.kinds.map((vk): Col<MRow> => ({ key: `k:${vk}`, label: vk, num: true, get: (r) => r.cells[vk]?.avg ?? null,
       render: (r) => { const c = r.cells[vk]; return !c ? "–"
         : <span className={c.flag ? "d3-flag" : undefined} title={`${fmt(c.n)} เที่ยว · ${fmt(c.times, 1)} เท่าของค่าเฉลี่ย ${vk}`}>
-          {dec(c.avg)}{c.flag && " ⚠"}</span>; } })),
-  ], [m.kinds]);
+          {fmt(c.avg, digits)}{c.flag && " ⚠"}</span>; } })),
+  ], [m.kinds, digits]);
   const top5 = useMemo(() => m.cheapest.slice(0, 5).map((c) => ({ label: `${c.rt} · ${c.vk}`, v: c.avg })), [m.cheapest]);
+  const toggle = (
+    <div className="fl-toggle" role="group" aria-label="มิติของต้นทุน">
+      {METRICS.map((x) => <button key={x.id} type="button" className={metric === x.id ? "on" : ""}
+        aria-pressed={metric === x.id} onClick={() => setMetric(x.id)}>{x.label}</button>)}
+    </div>
+  );
+  const what = metric === "trip" ? "ต้นทุน/เที่ยว" : metric === "km" ? "ต้นทุน/กม." : "ต้นทุน/ตัน-กม.";
   const flagCols = useMemo<Col<Flag>[]>(() => [
     { key: "d", label: "วันที่", get: (f) => f.row.d, render: (f) => thDateSafe(f.row.d) },
     { key: "id", label: "เลขที่ใบรายการ", get: (f) => f.row.id, render: (f) => <span className="d3-tt-id">{f.row.id}</span> },
     { key: "rt", label: "เส้นทาง", get: (f) => f.row.rt },
     { key: "vk", label: "ชนิดรถ", get: (f) => f.row.vk, render: (f) => <span className="d3-tt-kind">{f.row.vk}</span> },
     { key: "pl", label: "ทะเบียน", get: (f) => f.row.pl || "–", render: (f) => <b>{f.row.pl || "–"}</b> },
+    { key: "km", label: "ระยะทาง (กม.)", get: (f) => f.row.km, num: true, render: (f) => (f.row.km ? fmt(f.row.km) : "–") },
     { key: "wt", label: "น้ำหนัก (ตัน)", get: (f) => f.row.wt, num: true, render: (f) => fmt(f.row.wt, 3) },
-    { key: "v", label: "ต้นทุน/ตัน-กม.", get: (f) => f.row.perTkm, num: true, render: (f) => dec(f.row.perTkm!) },
-    { key: "avg", label: "ค่าเฉลี่ยกลุ่ม", get: (f) => f.kindAvg, num: true, render: (f) => dec(f.kindAvg) },
-    { key: "times", label: "เท่าของค่าเฉลี่ย", get: (f) => f.times, num: true,
-      render: (f) => <span className="d3-tt-cov neg">{fmt(f.times, 1)}×</span> },
+    { key: "cTrip", label: "ต้นทุน/เที่ยว", get: (f) => f.trip.v, num: true, render: (f) => <FlagCell p={f.trip} digits={0} /> },
+    { key: "cKm", label: "ต้นทุน/กม.", get: (f) => f.km.v, num: true, render: (f) => <FlagCell p={f.km} digits={2} /> },
+    { key: "cTkm", label: "ต้นทุน/ตัน-กม.", get: (f) => f.tkm.v, num: true, render: (f) => <FlagCell p={f.tkm} digits={2} /> },
+    { key: "times", label: "สูงสุดกี่เท่า", get: (f) => f.maxTimes, num: true,
+      render: (f) => <span className="d3-tt-cov neg">{fmt(f.maxTimes, 1)}×</span> },
   ], []);
   const flaggedCells = useMemo(() => m.routes.reduce((s, r) => s + Object.values(r.cells).filter((c) => c.flag).length, 0), [m.routes]);
 
   return <>
-    <D3Table title="2. เส้นทาง กับการใช้งานรถ · ต้นทุน/ตัน-กม." unit="เส้นทาง" rows={m.routes} cols={cols}
-      initial={{ key: "n", dir: -1 }} rowKey={(r) => r.rt} empty="ไม่มีเที่ยวที่มีทั้งน้ำหนักและระยะทาง"
+    <D3Table title="2. เส้นทางกับการใช้งานรถ" unit="เส้นทาง" rows={m.routes} cols={cols} actions={toggle}
+      initial={{ key: "n", dir: -1 }} rowKey={(r) => r.rt}
+      empty={metric === "tkm" ? "ไม่มีเที่ยวที่มีทั้งน้ำหนักและระยะทาง" : metric === "km" ? "ไม่มีเที่ยวที่มีระยะทาง" : "ไม่มีเที่ยว"}
       search={(r) => [r.rt, ...Object.keys(r.cells)]} placeholder="ค้นหาเส้นทาง, ชนิดรถ…"
-      note={<>ค่าในช่อง = AVG(ต้นทุน/ตัน-กม. รายเที่ยว) ของเส้นทาง × ชนิดรถ ·
+      note={<>ค่าในช่อง = AVG({what} รายเที่ยว) ของเส้นทาง × ชนิดรถ ({unit}) ·
         สีแดง ⚠ = เกิน {FLAG_TIMES} เท่าของค่าเฉลี่ยชนิดรถเดียวกัน ควรตรวจสอบเพิ่มเติม</>}
       legend={[[NEG, `⚠ เกิน ${FLAG_TIMES} เท่าของค่าเฉลี่ยชนิดรถ`]]}>
-      <Note>ไม่นับ {fmt(m.excluded)} คัน-เที่ยวที่ไม่มีน้ำหนักหรือระยะทาง หรือต้นทุนของคันเป็น 0 ·
-        ค่าเฉลี่ยรายเที่ยวไวต่อเที่ยวที่บรรทุกน้อยมาก (docs/หลักข้อ3.md ข้อ 4)</Note>
+      {m.excluded > 0 && <Note>ไม่นับ {fmt(m.excluded)} คัน-เที่ยวที่{metric === "trip" ? "ต้นทุนของคันเป็น 0"
+        : metric === "km" ? "ไม่มีระยะทาง หรือต้นทุนของคันเป็น 0" : "ไม่มีน้ำหนักหรือระยะทาง หรือต้นทุนของคันเป็น 0"}{metric === "tkm" && " · ค่าเฉลี่ยรายเที่ยวไวต่อเที่ยวที่บรรทุกน้อยมาก (docs/หลักข้อ3.md ข้อ 4)"}</Note>}
     </D3Table>
 
     <div className="dz-row dz-2" style={{ marginTop: 14 }}>
       <div className="dz-cc">
-        <h4>3. เส้นทาง × ชนิดที่ต้นทุน/ตัน-กม. ถูกสุด (Top 5)</h4>
+        <h4>3. เส้นทาง × ชนิดที่{what}ถูกสุด (Top 5)</h4>
         {!top5.length ? <p className="dz-note">ไม่มีกลุ่มที่มีเที่ยวถึง {TOP_MIN_TRIPS} เที่ยว</p> :
           <div className="dz-box" style={{ height: barsHeight(top5.length, 46) }}>
-            <DBar data={top5} xKey="label" horiz suffix=" บาท/ตัน-กม." digits={2} valueTick={dec} showValues
-              series={[{ key: "v", label: "บาท/ตัน-กม.", color: D.emeraldLight }]} />
+            <DBar data={top5} xKey="label" horiz suffix={` ${unit}`} digits={digits} valueTick={(n) => fmt(n, digits)} showValues
+              series={[{ key: "v", label: unit, color: D.emeraldLight }]} />
           </div>}
         <Note>นับเฉพาะกลุ่มที่มีอย่างน้อย {TOP_MIN_TRIPS} เที่ยว · แยกรายคัน หางมีต้นทุนแค่ค่าเสื่อม + ค่าซ่อม จึงมักติดอันดับถูกสุด</Note>
       </div>
       <div className="dz-cc">
         <h4>จุดที่ควรตรวจสอบ</h4>
         <div className="dz-cards" style={{ marginTop: 10 }}>
-          <KC dot={D.rose} tone={m.flagged.length ? "bad" : undefined} l="เที่ยวที่ควร Flag" v={fmt(m.flagged.length)}
-            s={<>คัน-เที่ยว · ต้นทุน/ตัน-กม. เกิน {FLAG_TIMES} เท่าของค่าเฉลี่ยชนิดรถ</>} />
-          <KC dot={D.amber} l="ช่องที่ติด ⚠" v={fmt(flaggedCells)} s="ช่องเส้นทาง × ชนิดรถในตารางข้อ 2" />
+          <KC dot={D.rose} tone={flagged.length ? "bad" : undefined} l="เที่ยวที่ควร Flag" v={fmt(flagged.length)}
+            s={<>คัน-เที่ยว · ต้นทุน/เที่ยว, /กม. หรือ /ตัน-กม. อย่างน้อย 1 เกณฑ์เกิน {FLAG_TIMES} เท่าของค่าเฉลี่ยชนิดรถ</>} />
+          <KC dot={D.amber} l="ช่องที่ติด ⚠" v={fmt(flaggedCells)} s={`ช่องเส้นทาง × ชนิดรถในตารางข้อ 2 · ${what}`} />
         </div>
-        <Note>เป็นสัญญาณให้ไปตรวจสอบเพิ่มเติม ไม่ได้ชี้ว่าผิดพลาดเสมอ — ส่วนใหญ่เป็นเที่ยวที่บิลมีน้ำหนักน้อยมาก</Note>
+        <Note>เป็นสัญญาณให้ไปตรวจสอบเพิ่มเติม ไม่ได้ชี้ว่าผิดพลาดเสมอ — ส่วนใหญ่ติดเกณฑ์ต้นทุน/ตัน-กม. เพราะบิลมีน้ำหนักน้อยมาก ·
+          ช่องที่ติด ⚠ ในตารางข้อ 2 เทียบค่าเฉลี่ยของช่องกับชนิดรถ ตามมิติที่เลือกด้านบน</Note>
       </div>
     </div>
 
-    <D3Table title="เที่ยวที่ควร Flag ให้ผู้บริหารตรวจสอบ" unit="คัน-เที่ยว" rows={m.flagged} cols={flagCols}
-      initial={{ key: "times", dir: -1 }} rowKey={(f) => `${f.row.id}|${f.row.pl}`} empty="ไม่มีเที่ยวที่เกินเกณฑ์"
+    <D3Table title="เที่ยวที่ควร Flag ให้ผู้บริหารตรวจสอบ" unit="คัน-เที่ยว" rows={flagged} cols={flagCols}
+      initial={{ key: "times", dir: -1 }} rowKey={(f) => `${f.row.id}|${f.row.pl}|${f.row.vk}`} empty="ไม่มีเที่ยวที่เกินเกณฑ์"
       search={(f) => [f.row.pl, f.row.rt, f.row.vk, f.row.id]} placeholder="ค้นหาทะเบียน, เส้นทาง…"
-      legend={[[NEG, `เกิน ${FLAG_TIMES} เท่าของค่าเฉลี่ยชนิดรถ`]]} />
+      note={<>Flag 3 เกณฑ์ ชุดเดียวกับตารางต้นทุนแต่ละชนิดรถของ Executive Dashboard: ค่าของคันเกิน {FLAG_TIMES} เท่าของค่าเฉลี่ยรายคันของชนิดรถเดียวกัน ·
+        ต้นทุน/กม. ไม่นับคันที่ไม่มีระยะทาง · ต้นทุน/ตัน-กม. ไม่นับคันที่ไม่มีน้ำหนัก/ระยะทาง · ตามช่วงเวลาที่เลือกด้านบน</>}
+      legend={[[NEG, `⚠ เกิน ${FLAG_TIMES} เท่าของค่าเฉลี่ยชนิดรถ (ตัวเลข × = กี่เท่า)`]]} />
   </>;
 }
 

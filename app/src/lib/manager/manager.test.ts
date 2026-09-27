@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  billsInPeriod, debtSummary, latestPeriod, lfBand, lfSummary, onRoad, periodLabel, periodOptions, periodRange, releasedIn, runEnd,
+  byCustomer, debtSummary, latestPeriod, lfBand, outstandingAt, lfSummary, onRoad, periodLabel, periodOptions, periodRange, releasedIn, runEnd,
 } from "./manager";
 import type { MgrTrip } from "./manager";
 import type { DebtorRow } from "../data/useDebtors";
@@ -33,8 +33,8 @@ describe("เกณฑ์ Load Factor ของหน้านี้ ≥ 70 / 40
 });
 
 const trip = (d: string, km: number | null, lf: number | null = 80): MgrTrip => ({
-  id: d, br: "เชียงใหม่", d, eta: runEnd(d, km), o: "ก", de: "ข", lf, band: lf == null ? null : lfBand(lf),
-  rev: 0, cost: 0, profit: 0, empty: false,
+  id: d, br: "เชียงใหม่", d, eta: runEnd(d, km), o: "ก", de: "ข", vk: "รถ 6 ล้อ", lf, lfb: lf == null ? null : lfBand(lf),
+  margin: null, mb: null, band: lf == null ? null : lfBand(lf), advice: [], rev: 0, cost: 0, profit: 0, empty: false, src: "file", costEst: false,
 });
 
 describe("กำลังวิ่ง = [วันปล่อยรถ, วันที่คาดว่าถึง] ทับช่วงที่เลือก", () => {
@@ -51,7 +51,7 @@ describe("กำลังวิ่ง = [วันปล่อยรถ, วั�
   });
   it("นับสามสี + ไม่มี LF แยก", () => {
     expect(lfSummary([trip("2026-05-01", 1), trip("2026-05-01", 1, 50), trip("2026-05-01", 1, null)]))
-      .toEqual({ n: 3, g: 1, y: 1, r: 0, na: 1 });
+      .toEqual({ n: 3, g: 1, y: 1, r: 0, na: 1, noLf: 1 });
   });
 });
 
@@ -60,22 +60,39 @@ const bill = (issue: string, due: string, close: string | null, amount: number):
   days: null, over: null,
 });
 
-describe("ลูกหนี้ — บิลที่วางในช่วง สถานะ ณ วันสุดท้ายของช่วง", () => {
+describe("ลูกหนี้ — ยอดคงค้าง ณ วันสิ้นช่วง ไม่ว่าวางบิลเมื่อไหร่", () => {
   const may = periodRange({ kind: "month", value: "2026-05" });
   const rows = [
-    bill("2026-04-20", "2026-05-20", null, 999),        // วางก่อนช่วง — ไม่นับ
+    bill("2026-02-01", "2026-03-01", null, 50),         // วางก่อนช่วงนาน ค้าง 91 วัน → 61+
+    bill("2026-04-20", "2026-05-20", null, 999),        // วางก่อนช่วง ค้าง 11 วัน → 1–30 (เดิมไม่นับ)
     bill("2026-05-01", "2026-05-10", null, 100),        // ค้าง 21 วัน → 1–30
-    bill("2026-05-01", "2026-04-20", null, 200),        // ค้าง 41 วัน → 31+
+    bill("2026-05-01", "2026-04-20", null, 200),        // ค้าง 41 วัน → 31–60
     bill("2026-05-05", "2026-06-05", null, 300),        // ยังไม่ถึงกำหนด
-    bill("2026-05-02", "2026-05-10", "2026-05-15", 400), // ชำระแล้ว
+    bill("2026-05-02", "2026-05-10", "2026-05-15", 400), // ชำระในช่วง — ไม่ค้าง แต่นับเป็นเก็บเงินได้
+    bill("2026-03-01", "2026-03-31", "2026-04-10", 700), // ชำระก่อนช่วง — ไม่นับทั้งสองทาง
+    bill("2026-06-02", "2026-07-02", null, 900),        // วางหลังช่วง — ยังไม่มี
   ];
   it("สถานะและวันค้าง", () => {
-    const bs = billsInPeriod(rows, may);
-    expect(bs.map((b) => [b.status, b.overdue])).toEqual([["late30", 21], ["late31", 41], ["notdue", 0], ["paid", 0]]);
+    const bs = outstandingAt(rows, may.end);
+    expect(bs.map((b) => [b.amount, b.status, b.overdue])).toEqual([
+      [50, "late61", 91], [999, "late30", 11], [100, "late30", 21], [200, "late60", 41], [300, "notdue", 0],
+    ]);
   });
-  it("ยอดค้างรวมไม่รวมบิลที่ชำระแล้ว · DSO = ค้าง ÷ วางบิล × วัน", () => {
-    const s = debtSummary(billsInPeriod(rows, may), may);
-    expect(s).toMatchObject({ billed: 1000, outstanding: 600, late30: 100, late31: 200, days: 31 });
-    expect(s.dso).toBeCloseTo(600 / 1000 * 31);
+  it("อายุหนี้ · วางบิล/เก็บเงินในช่วง · DSO = คงค้าง ÷ วางบิลในช่วง × วัน", () => {
+    const s = debtSummary(outstandingAt(rows, may.end), rows, may);
+    expect(s).toMatchObject({ outstanding: 1649, notdue: 300, late30: 1099, late60: 200, late61: 50,
+      billed: 1000, billedN: 4, collected: 400, collectedN: 1, days: 31 });
+    expect(s.dso).toBeCloseTo(1649 / 1000 * 31);
+  });
+  it("ไม่มีบิลวางในช่วง = DSO หารไม่ได้", () => {
+    const jun = periodRange({ kind: "day", value: "2026-05-31" });
+    expect(debtSummary(outstandingAt(rows, jun.end), rows, jun).dso).toBeNull();
+  });
+  it("รวมรายลูกค้า", () => {
+    const b = outstandingAt(rows.map((r, i) => ({ ...r, cust: i < 2 ? "A" : "B" })), may.end);
+    expect(byCustomer(b)).toEqual([
+      { cust: "A", br: "เชียงใหม่", n: 2, amount: 1049, overdueAmt: 1049, maxOver: 91 },
+      { cust: "B", br: "เชียงใหม่", n: 3, amount: 600, overdueAmt: 300, maxOver: 41 },
+    ]);
   });
 });

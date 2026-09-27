@@ -65,8 +65,8 @@ export interface Cargo {
   kgEach: number; weight: number;
   /** ขนาดต่อชิ้น (ซม.) · ปริมาตรรวม (ลบ.ม.) */
   width: number; length: number; height: number; volume: number;
-  /** บาท/กก. (คิดตามน้ำหนัก) · บาท/ชิ้น (คิดตามหน่วย) — ราคารวมสองแบบออกมาใกล้กัน */
-  perKg: number; perUnit: number;
+  /** บาท/กก. (คิดตามน้ำหนัก) · บาท/ชิ้น (คิดตามหน่วย) · บาท/ลบ.ม. (คิดตามปริมาตร) — ราคารวมทุกแบบออกมาใกล้กัน */
+  perKg: number; perUnit: number; perM3: number;
 }
 
 /**
@@ -91,5 +91,6 @@ export function randomCargo(opts: { cold?: boolean; distKm?: number; targetKg?: 
     kind: kind.name, qty, kgEach, weight: kgEach * qty,
     width, length, height, volume: Math.round(m3Each * qty * 10_000) / 10_000,
     perKg, perUnit: round5(kgEach * perKg),
+    perM3: round5(kgEach * perKg / Math.max(m3Each, 0.0001)),
   };
 }

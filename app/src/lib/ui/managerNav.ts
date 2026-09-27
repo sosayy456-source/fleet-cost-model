@@ -1,9 +1,10 @@
 /** แท็บ Manager Dashboard ใช้ร่วมกันระหว่างเมนูซ้ายกับแถบแท็บในหน้า */
 import { useSyncExternalStore } from "react";
 
+// ชื่อแท็บ (เจ้าของงานเลือก 27 ก.ย. 2569 — เดิม "หน้างาน" / "การเงิน") · id เดิม
 export const MANAGER_TABS = [
-  { id: "ops", label: "หน้างาน" },
-  { id: "fin", label: "การเงิน" },
+  { id: "ops", label: "Fleet Operations" },
+  { id: "fin", label: "Profit & Collections" },
 ] as const;
 
 export type ManagerTabId = (typeof MANAGER_TABS)[number]["id"];
