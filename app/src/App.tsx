@@ -305,7 +305,7 @@ export default function App() {
               onSwitchRole: () => setRole(null),
             } : null}>
               <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด... <TruckLoader label={null} /></p></div>}>
-                {page === "dash-fleet" && <ManagerDash role={role} />}
+                {page === "dash-fleet" && <ManagerDash role={role} records={state.records} />}
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
                 {page === "exec-dash" && <CostRevDash />}
                 {page === "demo" && <DemoDash />}

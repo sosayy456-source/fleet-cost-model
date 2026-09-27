@@ -67,12 +67,21 @@ export interface PendingBill {
 export const billVolume = (b: Pick<PendingBill, "width" | "length" | "height" | "qty">): number =>
   Math.round((b.width * b.length * b.height) / 1_000_000 * b.qty * 10_000) / 10_000;
 
+/** ฐานที่คูณราคาต่อหน่วย ตามเกณฑ์คิดราคา + หน่วยของราคา (ใช้ทั้งสูตรและข้อความบนหน้าจอ) */
+export const PRICE_BASE: Record<string, { of: "weight" | "qty" | "volume"; label: string; unit: string }> = {
+  "คิดตามน้ำหนัก": { of: "weight", label: "น้ำหนักรวม", unit: "บาท/กก." },
+  "คิดตามหน่วย": { of: "qty", label: "จำนวน", unit: "บาท/ชิ้น" },
+  "คิดตามปริมาตร": { of: "volume", label: "ปริมาตรรวม", unit: "บาท/ลบ.ม." },
+};
+export const priceBaseOf = (pricingType: string) => PRICE_BASE[pricingType] ?? PRICE_BASE["คิดตามหน่วย"]!;
+
 /**
- * ราคารวมของบิล — เจ้าของงานเคาะ 22 ก.ย. 2569
- *   คิดตามน้ำหนัก = น้ำหนักรวม × ราคา/หน่วย · คิดตามหน่วย = จำนวน × ราคา/หน่วย
+ * ราคารวมของบิล — เจ้าของงานเคาะ 22 ก.ย. 2569 · เพิ่มคิดตามปริมาตร 27 ก.ย. 2569
+ *   คิดตามน้ำหนัก = น้ำหนักรวม (กก.) × ราคา/หน่วย · คิดตามหน่วย = จำนวน × ราคา/หน่วย ·
+ *   คิดตามปริมาตร = ปริมาตรรวม (ลบ.ม. = billVolume) × ราคา/หน่วย · เกณฑ์ที่ไม่รู้จัก = คิดตามหน่วย (แบบเดิม)
  */
-export const billTotalOf = (b: Pick<PendingBill, "pricingType" | "weight" | "qty" | "unitPrice">): number =>
-  Math.round((b.pricingType === "คิดตามน้ำหนัก" ? b.weight : b.qty) * b.unitPrice * 100) / 100;
+export const billTotalOf = (b: Pick<PendingBill, "pricingType" | "weight" | "qty" | "volume" | "unitPrice">): number =>
+  Math.round(b[priceBaseOf(b.pricingType).of] * b.unitPrice * 100) / 100;
 
 /** ฝั่งที่ต้องบรรทุกจริง — ใช้ค่าที่ "เต็มกว่า" ระหว่างน้ำหนักกับปริมาตรเทียบความจุรถ (สเปกฝ่ายจัดรถ) */
 export interface LoadNeed { weight: number; volume: number }

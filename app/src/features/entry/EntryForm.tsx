@@ -752,7 +752,7 @@ export default function EntryForm({ role, state }: { role: RoleKey; state: Recor
                     <option value="">เลือกประเภท</option>
                     {PAY_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
-                  <input type="number" min={0} step="any" placeholder="น้ำหนัก/จำนวน"
+                  <input type="number" min={0} step="any" placeholder="น้ำหนัก/จำนวน/ปริมาตร"
                     value={b.qty || ""} disabled={!zoneOpen("cs")}
                     onChange={(e) => setBill(i, { qty: parseFloat(e.target.value) || 0 })} />
                   <input type="number" min={0} step="any" placeholder="ราคาต่อหน่วย"

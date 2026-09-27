@@ -10,7 +10,8 @@ export const PAY_TYPES = ["เชื่อต้นทาง", "เชื่อ�
 export type PayType = (typeof PAY_TYPES)[number];
 
 /** เกณฑ์คิดราคาต่อบิล — PRICE_BASIS ของ main:1487 */
-export const PRICE_BASIS = ["คิดตามน้ำหนัก", "คิดตามหน่วย"] as const;
+/** เกณฑ์คิดราคาของบิล — "คิดตามปริมาตร" เพิ่ม 27 ก.ย. 2569 (เจ้าของงานสั่ง) · สูตรอยู่ที่ billTotalOf ใน types/bill.ts */
+export const PRICE_BASIS = ["คิดตามน้ำหนัก", "คิดตามหน่วย", "คิดตามปริมาตร"] as const;
 
 /** สดต้นทาง = เก็บเงินหน้างาน ถือว่าชำระแล้วทันทีที่เปิดบิล */
 export const CASH_ORIGIN: PayType = "สดต้นทาง";

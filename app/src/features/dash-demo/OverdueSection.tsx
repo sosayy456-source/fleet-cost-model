@@ -224,7 +224,7 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
 
       {/* 6 — การ์ดใหญ่ไล่สี 5 ใบ ตามลำดับในสเปก (ชุดสีเดียวกับการ์ดของส่วนที่ 1) */}
       <div className="dz-heroes dso-heroes">
-        <Hero kind="cust" l="จำนวนบิลทั้งหมด" v={fmt(kpi.all)} s={`ใบวางบิล · ${fmt(Math.round(kpi.allAmt))} บาท`} />
+        <Hero kind="cust" l={`บิลที่วางถึง ${thDateSafe(asOf)}`} v={fmt(kpi.all)} s={`ใบวางบิล · ${fmt(Math.round(kpi.allAmt))} บาท`} />
         <Hero kind="profit" l="ชำระแล้ว" v={fmt(kpi.paid)}
           vSub={kpi.all ? `(${pct(kpi.paid / kpi.all * 100, 0)})` : undefined}
           s={`ใบ · ${fmt(Math.round(kpi.paidAmt))} บาท`} />

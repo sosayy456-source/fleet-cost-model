@@ -2623,3 +2623,37 @@ text.num-fd{transform-box:fill-box}
 .lt-ghost .lt-cab,.lt-ghost .lt-cab-low{fill:var(--border-strong)}
 .lt-ghost .lt-door{stroke:var(--ink-faint)}
 .lt-ghost .lt-body,.lt-ghost .lt-tire,.lt-ghost .lt-hub{opacity:.75}
+
+/* Manager Dashboard › หน้างาน: สถานะรวม LF + Margin + คำแนะนำรายเที่ยว (27 ก.ย. 2569) */
+#view-dash .mg-lf.g{color:var(--green)}
+#view-dash .mg-lf.r{color:var(--red)}
+#view-dash .mg-band{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
+#view-dash .mg-band.g{background:#DDF3EA;color:#047857}
+#view-dash .mg-band.y{background:#FEF0D9;color:#B45309}
+#view-dash .mg-band.r{background:#FBE3E7;color:#BE123C}
+#view-dash .mg-band.na{background:var(--d-rail);color:var(--d-ink4)}
+#view-dash .mg-adv{margin:0;padding:0;list-style:none;min-width:260px;max-width:420px;white-space:normal;font-size:12.5px;line-height:1.45;color:var(--d-ink2)}
+#view-dash .mg-adv li+li{margin-top:3px}
+
+/* SortTable ที่มีแถวกรอง: แถวกรองอยู่เหนือชื่อคอลัมน์ และติดบนทั้งสองแถวเป็นก้อนเดียว (27 ก.ย. 2569)
+   — th รายช่อง top:0 ทั้งสองแถวจะซ้อนกัน แถวล่างบังชื่อคอลัมน์ */
+#view-dash .scroll-y thead.dz-sticky2{position:sticky;top:0;z-index:2;background:var(--d-card,#fff)}
+#view-dash .scroll-y thead.dz-sticky2 th{position:static}
+#view-dash .dz-frow th{padding:8px 6px 4px;border-bottom:none}
+
+/* Manager Dashboard › การเงิน: ลูกหนี้คงค้าง ณ สิ้นช่วง (27 ก.ย. 2569) — การ์ด 5 ใบใช้ .dso-heroes ชุดเดียวกับ Customer Performance · กระแสของช่วง · ตารางลูกค้ากดได้ */
+#view-dash .mg-flow{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:12px;font-size:13.5px;color:var(--d-ink4)}
+#view-dash .mg-flow b{color:var(--d-ink)}
+#view-dash .mg-click tbody tr{cursor:pointer}
+#view-dash .mg-click tbody tr:hover td{background:rgba(91,63,224,.05)}
+#view-dash .mg-click tbody tr.on td{background:rgba(91,63,224,.1)}
+#view-dash .mg-st.late60{color:#C2410C}
+#view-dash .mg-st.late61{color:var(--red)}
+#view-dash .mg-x{margin-left:6px;border:none;background:var(--d-rail);color:var(--d-ink3);border-radius:50%;width:20px;height:20px;
+  line-height:18px;padding:0;cursor:pointer;font:inherit;font-size:14px}
+
+/* Manager Dashboard: ป้ายใบที่บันทึกใหม่ / ต้นทุนพยากรณ์ (27 ก.ย. 2569) */
+#view-dash .mg-new,#view-dash .mg-est{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:11px;
+  font-weight:700;vertical-align:1px;white-space:nowrap}
+#view-dash .mg-new{background:#E3F0FA;color:#0369A1}
+#view-dash .mg-est{background:#FEF0D9;color:#B45309}

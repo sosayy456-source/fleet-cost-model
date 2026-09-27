@@ -189,13 +189,18 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, classNam
   rowProps?: (r: T, i: number) => React.HTMLAttributes<HTMLTableRowElement>;
   /** ความสูงสูงสุดของกล่องเลื่อน — ไม่ส่ง = ค่าตั้งต้นของ GrowBox (60vh) */
   maxHeight?: number | string;
-  /** แถวตัวกรองรายคอลัมน์ใต้หัวตาราง (Manager Dashboard) — คืนช่องกรองของคอลัมน์นั้น · ไม่ส่ง = ไม่มีแถวนี้ */
+  /**
+   * แถวตัวกรองรายคอลัมน์ **เหนือ** หัวตาราง (Manager Dashboard · ย้ายขึ้นบน 27 ก.ย. 2569 เจ้าของงานสั่ง) — คืนช่องกรองของคอลัมน์นั้น ·
+   * ไม่ส่ง = ไม่มีแถวนี้ · มีแถวนี้ = ติดบนทั้ง thead (สองแถว) ตอนเลื่อน ไม่ใช่รายช่อง ไม่งั้นแถวกรองทับชื่อคอลัมน์
+   */
   filterRow?: (c: Col<T>) => ReactNode;
 }) {
   return (
     <GrowBox rows={rows} maxHeight={maxHeight} render={(shown) => (
       <table className={"dz-tbl" + (className ? ` ${className}` : "")}>
-        <thead><tr>
+        <thead className={filterRow ? "dz-sticky2" : undefined}>
+        {filterRow && <tr className="dz-frow">{cols.map((c) => <th key={c.key}>{filterRow(c)}</th>)}</tr>}
+        <tr>
           {cols.map((c) => (
             <th key={c.key} className={c.num ? "n" : undefined} onClick={() => onSort(c.key)}
               style={{ cursor: "pointer", userSelect: "none" }}
@@ -207,7 +212,6 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, classNam
             </th>
           ))}
         </tr>
-        {filterRow && <tr className="dz-frow">{cols.map((c) => <th key={c.key}>{filterRow(c)}</th>)}</tr>}
         </thead>
         <tbody>
           {rows.length === 0 ? (
