@@ -15,12 +15,11 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import DashShell, { Meta } from "../../lib/ui/DashShell";
+import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import FilterBar from "../../lib/ui/FilterBar";
 import SourceTag from "../../lib/ui/SourceTag";
 import TruckLoader from "../../lib/ui/TruckLoader";
-import { useDashInk } from "../../lib/chart/dashfx";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { inProfitScope, useCostRev } from "../../lib/data/useCostRev";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
@@ -133,24 +132,18 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
     return clearManagerNav;
   }, []);
   useEffect(() => { setManagerActive(tab); }, [tab]);
-  const barRef = useRef<HTMLDivElement>(null);
-  useDashInk(barRef, `${tab}:${!!cr.data}`);
-  const tabs = (
-    <div className="dash-tabs" ref={barRef}>
-      <span className="dink" />
-      {MANAGER_TABS.map((t) => (
-        <button key={t.id} type="button" className={"dtab" + (tab === t.id ? " active" : "")}
-          onClick={() => setTab(t.id)}>{t.label}</button>
-      ))}
-    </div>
-  );
+  // หัวแคปซูล (เจ้าของงานสั่ง 28 ก.ย. 2569 · แบบเดียวกับ Executive Dashboard) — ตัวกรองอยู่ในแผงของปุ่มตัวกรอง
+  const tabs = MANAGER_TABS.map((t) => (
+    <button key={t.id} type="button" className={tab === t.id ? "on" : ""} aria-current={tab === t.id ? "true" : undefined}
+      onClick={() => setTab(t.id)}>{t.label}</button>
+  ));
 
   const m = cr.data?.manifest;
   const meta = m && (
     <Meta parts={[
       <>สาขา <b>{branch || (role === "manager" ? "รอเลือกสาขา" : "ทุกสาขา")}</b>{locked && " (สาขาของคุณ)"}</>,
       period ? periodLabel(period) : "",
-      <span className="dh-num">ข้อมูล {m.dateRange.min} → {m.dateRange.max}</span>,
+      <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
     ]} />
   );
 
@@ -177,8 +170,9 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
   return (
     <>
       <EtlBanner status={etlAll} />
-      <DashShell sample={m?.isSample} meta={meta || undefined} tabs={tabs}
-        onRefresh={cr.reload} loading={cr.loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่" floatingFilters>
+      <DashShell sample={m?.isSample} meta={meta || undefined}
+        onRefresh={cr.reload} loading={cr.loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่"
+        capsule={{ tabs, filters: true, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
         <FilterBar>
           <div className="ff">
             <label>ช่วงเวลา</label>

@@ -19,13 +19,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
+import type { LfData } from "../../lib/data/useLoadFactor";
 import { depreciation, vehicleRows } from "../../lib/detail3/calc";
 import { totalDamage } from "../../lib/damage/damage";
 import { INDEXES, METRICS, METRIC_MAX, TOTAL_MAX, metricResult, sumScores } from "../../lib/pi/score";
 import { routeMarginValues, serviceMarginValues } from "../../lib/pi/route";
 import { emptyResult } from "../../lib/pi/empty";
 import { DAMAGE_STATUS_LABEL, damageRef, damageResults, damageStatus } from "../../lib/pi/damage";
-import type { DamageStatus } from "../../lib/pi/damage";
+import type { DamageRef, DamageStatus } from "../../lib/pi/damage";
 import type { IndexDef, MetricKey, MetricResult } from "../../lib/pi/score";
 import type { Trip } from "../../lib/data/useCostRev";
 import { Hero } from "../dash-fleet/parts";
@@ -83,7 +84,7 @@ export function PiBox({ index, results, status, note }: {
   return (
     <section className={`pi-box t-${index.id}`}>
       <div className="pi-head">
-        <h4 className="pi-t">{index.title}</h4>
+        <h4 className="pi-t">{index.title} <small className="pi-bsc">{index.bsc}</small></h4>
         {status && <i className={`pi-st ${status}`} title="เกณฑ์ภายในที่ออกแบบสำหรับ PI (ไม่ใช่มาตรฐานสากล): ผ่านเกณฑ์ 15–20 · เฝ้าระวัง 10–<15 · ไม่ผ่านเกณฑ์ < 10">
           {DAMAGE_STATUS_LABEL[status]}</i>}
       </div>
@@ -114,12 +115,75 @@ const waitingOf = (index: IndexDef): MetricResult[] =>
  * Route & Service — %Margin รายเส้นทาง + 3 กลุ่มบริการ (lib/pi/route.ts) ชุดเดียวกับตาราง/การ์ดของ Profit Per Route
  * trips = เที่ยวที่กรองตามหน้าแล้ว · null = ไฟล์ต้นทุนยังไม่มี
  */
+export const routePiResults = (trips: Trip[] | null): MetricResult[] => [
+  metricResult("route", trips ? routeMarginValues(trips) : null),
+  metricResult("service", trips ? serviceMarginValues(trips) : null),
+];
 export function PiRoute({ trips }: { trips: Trip[] | null }) {
-  const results = useMemo(() => [
-    metricResult("route", trips ? routeMarginValues(trips) : null),
-    metricResult("service", trips ? serviceMarginValues(trips) : null),
-  ], [trips]);
-  return <PiBox index={INDEXES.route} results={results} />;
+  const results = useMemo(() => routePiResults(trips), [trips]);
+  return <PiRow index={INDEXES.route} results={results} />;
+}
+
+/** สูตรแทนค่าของตัวชี้วัดแบบนับสี — "(98 + 0.5×0) ÷ 114 × 10 = 8.6" */
+function formulaText(r: MetricResult): string | null {
+  const t = r.tally;
+  if (!t || !t.n || r.score == null) return null;
+  return `(${fmt(t.g)} + 0.5×${fmt(t.y)}) ÷ ${fmt(t.n)} × ${METRIC_MAX} = `;
+}
+
+/** คอลัมน์ของตัวชี้วัดหนึ่งตัวในกล่องแถวเดียว — คะแนน · แถบสี · จำนวนสี · ปุ่ม "รายละเอียด" กางวิธีคิด */
+function PiRowMetric({ r }: { r: MetricResult }) {
+  const [open, setOpen] = useState(false);
+  const def = METRICS[r.key];
+  const t = r.tally;
+  const f = formulaText(r);
+  return (
+    <div className={"pi-rm" + (r.score == null ? " na" : "")}>
+      <div className="pi-rm-h"><span>{def.label}</span><b>{subValue(r)}</b></div>
+      {t && t.n ? <>
+        <span className="pi-rm-stack" aria-hidden="true">
+          {BAND_TXT.map(([k]) => (t[k] ? <i key={k} className={k} style={{ flexGrow: t[k] }} /> : null))}
+        </span>
+        <span className="pi-rm-count">
+          {BAND_TXT.map(([k, name]) => <span key={k}><i className={`pi-dm-dot ${k}`} />{name} {fmt(t[k])}</span>)}
+          <span>จาก {fmt(t.n)} {def.unit}</span>
+        </span>
+      </> : <span className="pi-rm-count">{r.detail ?? (r.pending ? "ยังไม่มีเกณฑ์" : r.na ?? "ไม่มีรายการให้คิดตามตัวกรองที่เลือก")}</span>}
+      <button type="button" className="pi-rm-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        รายละเอียด <span aria-hidden="true">{open ? "⌃" : "⌄"}</span>
+      </button>
+      {open && (
+        <div className="pi-rm-detail">
+          <p>{def.measure} เกณฑ์: เขียว {def.criteria[0]}, เหลือง {def.criteria[1]}, แดง {def.criteria[2]}.
+            {r.basis && <> ({r.basis})</>}</p>
+          {f && <p>คะแนน = {f}<b>{sc(r.score!)}</b></p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * กล่อง PI แบบแถวเดียว (Route & Service ท้าย Profit Per Route · เจ้าของงานสั่ง 28 ก.ย. 2569):
+ * กล่องคะแนน x/20 สั้น ๆ ซ้าย + ตัวชี้วัดเรียงไปทางขวา คอลัมน์ละตัว · ปุ่ม "รายละเอียด" กางวิธีคิดคะแนน
+ * แจ้งผลขึ้นบรรทัดคะแนนรวมเหมือน PiBox (หมวดอื่นยังใช้ PiBox)
+ */
+export function PiRow({ index, results }: { index: IndexDef; results: MetricResult[] }) {
+  const report = useContext(PiReportCtx);
+  useEffect(() => { report?.(index.id, results); }, [report, index.id, results]);
+  const full = index.subs.length * METRIC_MAX;
+  const { score, max } = sumScores(results);
+  return (
+    <section className={`pi-box pi-row t-${index.id}`}>
+      <div className="pi-row-sc">
+        <h4 className="pi-t">{index.title} <small className="pi-bsc">{index.bsc}</small></h4>
+        <div className="pi-score"><b>{max ? sc(score) : "–"}</b><span>/{full}</span></div>
+        <Meter v={score} max={full} cls="pi-meter" />
+        {max > 0 && max < full && <em className="pi-row-part">คิดได้ {max} จาก {full}</em>}
+      </div>
+      {results.map((r) => <PiRowMetric key={r.key} r={r} />)}
+    </section>
+  );
 }
 
 /**
@@ -127,16 +191,18 @@ export function PiRoute({ trips }: { trips: Trip[] | null }) {
  *   trips = เที่ยวที่กรองตามหน้า · refTrips = ทุกเที่ยวในชุด (ชุดอ้างอิงคงที่ ไม่ตามตัวกรอง) · null = ไฟล์ต้นทุนยังไม่มี
  *   นับเฉพาะเที่ยวที่จับคู่บิลได้และไม่ใช่เที่ยววิ่งเปล่า ตัวหารเดียวกับแท็บ Damage
  */
+export const serviceRef = (refTrips: Trip[] | null): DamageRef | null =>
+  (refTrips ? damageRef(refTrips.filter((t) => t.m && !t.empty)) : null);
+export const servicePiResults = (trips: Trip[] | null, ref: DamageRef | null): MetricResult[] =>
+  (trips && ref ? damageResults(trips.filter((t) => t.m && !t.empty), ref)
+    : INDEXES.service.subs.map((key) => ({ key, pending: false, tally: null, score: null })));
 export function PiService({ trips, refTrips }: { trips: Trip[] | null; refTrips: Trip[] | null }) {
-  const ref = useMemo(() => (refTrips ? damageRef(refTrips.filter((t) => t.m && !t.empty)) : null), [refTrips]);
-  const results = useMemo<MetricResult[]>(
-    () => (trips && ref ? damageResults(trips.filter((t) => t.m && !t.empty), ref)
-      : INDEXES.service.subs.map((key) => ({ key, pending: false, tally: null, score: null }))),
-    [trips, ref]);
+  const ref = useMemo(() => serviceRef(refTrips), [refTrips]);
+  const results = useMemo(() => servicePiResults(trips, ref), [trips, ref]);
   const note = ref && (ref.p75Dr != null || ref.p75Dir != null)
-    ? `Score = MAX(0, 10 − 5 × KPI ÷ P75) · P75 จาก KPI รายเดือนของภาพรวมบริษัท 12 เดือนล่าสุด (${ref.from} ถึง ${ref.to} · ไม่ตามตัวกรอง):`
+    ? `นับสีรายเดือน: เขียว < P75 · เหลือง P75 ถึง < 2×P75 · แดง ≥ 2×P75 · P75 จาก KPI รายเดือนของภาพรวมบริษัท 12 เดือนล่าสุด (${ref.from} ถึง ${ref.to} · ไม่ตามตัวกรอง):`
       + ` Damage Rate ${ref.p75Dr == null ? "–" : `${ref.p75Dr.toFixed(3)}%`} · Damage Incidence Rate ${ref.p75Dir == null ? "–" : `${ref.p75Dir.toFixed(2)}%`}`
-      + ` · Incidence ต้องมีอย่างน้อย ${fmt(ref.minTrips)} เที่ยว · จุดสี: เขียว ≤ P75 · เหลือง < 2×P75 · แดง ≥ 2×P75`
+      + ` · เดือนที่มีเที่ยวน้อยกว่า ${fmt(ref.minTrips)} เที่ยวไม่นับใน Incidence`
     : undefined;
   return <PiBox index={INDEXES.service} results={results} status={damageStatus(results)} note={note} />;
 }
@@ -147,14 +213,15 @@ export function PiService({ trips, refTrips }: { trips: Trip[] | null; refTrips:
  *   ให้สีตามตัวกรองของหน้า**ยกเว้นกลุ่มบริการ** (เที่ยวเปล่าไม่มีกลุ่มบริการ เลือกแล้วเที่ยวเปล่าหายหมด = เขียวทุกเส้นทาง)
  *   P25/P75 ไม่ตามต้นทาง/ปลายทาง กติกาเดียวกับแท็บ Empty Trips
  */
+export const lfPiResult = (lf: LfData | null, f: DemoFilter): MetricResult =>
+  metricResult("lf", lf ? lf.trips.filter((t) => passLfDemo(t, f)).map((t) => t.lf) : null);
+export const emptyPiResult = (all: Trip[] | null, f: DemoFilter): MetricResult => (all
+  ? emptyResult(all.filter((t) => passDemo(t, { ...f, sg: "" })), all.filter((t) => passDemo(t, { ...f, o: "", de: "", sg: "" })))
+  : emptyResult(null, null));
 export function PiFleet({ f, all }: { f: DemoFilter; all: Trip[] | null }) {
   const { data: lf, error } = useLoadFactor();
-  const lfResult = useMemo(
-    () => metricResult("lf", error || !lf ? null : lf.trips.filter((t) => passLfDemo(t, f)).map((t) => t.lf)),
-    [lf, error, f]);
-  const empty = useMemo(() => (all
-    ? emptyResult(all.filter((t) => passDemo(t, { ...f, sg: "" })), all.filter((t) => passDemo(t, { ...f, o: "", de: "", sg: "" })))
-    : emptyResult(null, null)), [all, f]);
+  const lfResult = useMemo(() => lfPiResult(error ? null : lf, f), [lf, error, f]);
+  const empty = useMemo(() => emptyPiResult(all, f), [all, f]);
   const results = useMemo(() => [lfResult, empty], [lfResult, empty]);
   return <PiBox index={INDEXES.fleet} results={results} />;
 }
@@ -164,15 +231,16 @@ export function PiFleet({ f, all }: { f: DemoFilter; all: Trip[] | null }) {
  *   Cost per Ton-km = VRow.perTkm (คันที่ไม่มีน้ำหนัก/ระยะทางไม่นับ) · Coverage = Contribution ÷ ค่าเสื่อม ของ depreciation()
  *   (รถบริษัทที่มีค่าเสื่อมเท่านั้น) · trips null = ไฟล์ต้นทุนยังไม่มี
  */
+export function costPiResults(trips: Trip[] | null): MetricResult[] {
+  if (!trips) return [metricResult("tkm", null), metricResult("coverage", null)];
+  const rows = vehicleRows(trips);
+  return [
+    metricResult("tkm", rows.flatMap((r) => (r.perTkm == null ? [] : [r.perTkm]))),
+    metricResult("coverage", depreciation(rows).list.map((r) => r.coverage)),
+  ];
+}
 export function PiCost({ trips }: { trips: Trip[] | null }) {
-  const results = useMemo(() => {
-    if (!trips) return [metricResult("tkm", null), metricResult("coverage", null)];
-    const rows = vehicleRows(trips);
-    return [
-      metricResult("tkm", rows.flatMap((r) => (r.perTkm == null ? [] : [r.perTkm]))),
-      metricResult("coverage", depreciation(rows).list.map((r) => r.coverage)),
-    ];
-  }, [trips]);
+  const results = useMemo(() => costPiResults(trips), [trips]);
   return <PiBox index={INDEXES.cost} results={results} />;
 }
 
@@ -238,10 +306,8 @@ function MetricDetail({ r }: { r: MetricResult }) {
         <dt>วัดอะไร</dt><dd>{def.measure}</dd>
         <dt>ข้อมูล</dt><dd>{def.source}</dd>
         <dt>เกณฑ์</dt>
-        <dd>{def.criteria
-          ? <span className="pi-dm-crit">{def.criteria.map((c, i) => (
+        <dd><span className="pi-dm-crit">{def.criteria.map((c, i) => (
               <span key={i} className={`pi-dm-chip ${BAND_TXT[i]![0]}`}><i />{c}</span>))}</span>
-          : "คะแนนต่อเนื่อง MAX(0, 10 − 5 × KPI ÷ P75) — KPI 0 = 10 · เท่ากับ P75 = 5 · ถึง 2 × P75 = 0"}
           {r.basis && <span className="pi-dm-basis">{r.basis}</span>}
         </dd>
         <dt>คะแนน</dt>
@@ -300,7 +366,7 @@ function PiDetailModal({ groups, score, max, onClose }: {
             return (
               <section key={index.id} className={`pi-dm-ix t-${index.id}`}>
                 <div className="pi-dm-ixh">
-                  <h4>{index.title}</h4>
+                  <h4>{index.title} <small className="pi-bsc">{index.bsc}</small></h4>
                   <span><b>{s.max ? sc(s.score) : "–"}</b>/{full}{s.max > 0 && s.max < full && <em> (คิดได้ {s.max} จาก {full})</em>}</span>
                 </div>
                 {results.map((r) => <MetricDetail key={r.key} r={r} />)}

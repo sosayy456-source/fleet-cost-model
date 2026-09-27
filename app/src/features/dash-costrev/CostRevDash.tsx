@@ -1,7 +1,7 @@
 /**
  * Overall Dashboard (เดิมชื่อ Executive Dashboard — เปลี่ยน 25 ก.ย. 2569 · ชื่อ Executive Dashboard ย้ายไปเป็นของเมนู Demo)
  *   แดชบอร์ดต้นทุน+รายได้รายเที่ยว จากไฟล์ realalldata
- *   ชุด inProfitScope() = เที่ยวที่จับคู่เลขที่ใบรายการกับบิลรายได้ได้ (m)
+ *   ชุด inProfitScope() = เที่ยวที่จับคู่บิลรายได้ได้ หรือเที่ยวเปล่าที่มีต้นทุนแต่ไม่มีบิล
  *   ★ เมนู "Dashboard ค่าเดินทาง(ไม่ใช้)" (โหมด all = ทุกเที่ยวในไฟล์) ลบออกแล้ว 24 ก.ย. 2569 — ไม่มีโหมดอีก
  *
  * แท็บจากไฟล์ต้นทุน: การใช้ประโยชน์ของกองรถ · Damage Rate · เที่ยววิ่งเปล่า (docs/spec-เที่ยววิ่งเปล่า.md) · รายละเอียด ข้อ 3
@@ -19,10 +19,9 @@
  *
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { clearExecTab, peekExecTab } from "../../lib/ui/dashJump";
-import { useDashInk } from "../../lib/chart/dashfx";
-import DashShell, { Meta } from "../../lib/ui/DashShell";
+import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
@@ -60,14 +59,6 @@ export default function CostRevDash() {
     return clearOverallNav;
   }, []);
   useEffect(() => { setOverallActive(tab); }, [tab]);
-  const barRef = useRef<HTMLDivElement>(null);
-  const ready = !!data && !error;
-  useDashInk(barRef, `${tab}:${ready}`);
-  // แถบแท็บเลื่อนด้านข้างได้ (จอแคบ/แท็บเยอะ) — เปิดตรงแท็บท้าย ๆ จากหน้าอื่นแล้วแท็บต้องไม่ถูกบังอยู่นอกจอ
-  useEffect(() => {
-    const bar = barRef.current, btn = bar?.querySelector<HTMLElement>(".dtab.active");
-    if (bar && btn) bar.scrollTo({ left: btn.offsetLeft - (bar.clientWidth - btn.offsetWidth) / 2 });
-  }, [tab]);
 
   const trips = useMemo(() => {
     if (!data) return [];
@@ -80,26 +71,25 @@ export default function CostRevDash() {
   // บรรทัดที่มาของข้อมูลใต้หัวเรื่อง — ข้อความตามดีไซน์ 1A
   const meta = m && (
     <Meta parts={[
-        <><b>{fmt(trips.length)}</b> เที่ยวที่จับคู่กับข้อมูลรายได้ได้ จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์ · แท็บเที่ยววิ่งเปล่าแสดงทุกเที่ยวตามเดิม</>,
+        <><b>{fmt(trips.length)}</b> เที่ยวที่นับกำไร (จับคู่บิลได้ {fmt(m.matched)} + เที่ยวเปล่าที่จับคู่ไม่ได้ {fmt(trips.length - m.matched)}) จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์ · แท็บเที่ยววิ่งเปล่าแสดงทุกเที่ยวตามเดิม</>,
         `ข้อมูลรายได้ ${m.revenueFiles} ไฟล์`,
         <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
       ]} />);
 
-  const tabs = (
-    <div className="dash-tabs" ref={barRef}>
-      <span className="dink" />
-      {OVERALL_TABS.map((t) => (
-        <button key={t.id} type="button" className={"dtab" + (tab === t.id ? " active" : "")}
-          onClick={() => setTab(t.id)}>{t.label}</button>
-      ))}
-    </div>
-  );
+  // หัวแคปซูล (เจ้าของงานสั่ง 28 ก.ย. 2569 · แบบเดียวกับ Executive Dashboard) — แท็บใช้ชื่อย่อ ชื่อเต็มใน tooltip + หัวข้อแท็บ
+  const tabs = OVERALL_TABS.map((t) => (
+    <button key={t.id} type="button" className={tab === t.id ? "on" : ""} aria-current={tab === t.id ? "true" : undefined}
+      title={t.label} onClick={() => setTab(t.id)}>{t.short}</button>
+  ));
+  const tabLabel = OVERALL_TABS.find((t) => t.id === tab)?.label;
 
   return (
     <>
       <EtlBanner status={etlAll} />
       <DashShell title={title} sample={m?.isSample} meta={meta || undefined}
-        tabs={tabs} onRefresh={reload} loading={loading} refreshTitle={refreshTitle} floatingFilters>
+        onRefresh={reload} loading={loading} refreshTitle={refreshTitle}
+        capsule={{ tabs, filters: true, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
+        <h2 className="dm-part-h">{tabLabel}</h2>
         {STANDALONE.has(tab) ? (
           <>{tab === "lf" && <LoadFactorTab />}{tab === "tonkm" && <TonKmTab />}</>
         ) : error ? (

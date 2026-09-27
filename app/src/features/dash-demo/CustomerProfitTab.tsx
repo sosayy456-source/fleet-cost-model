@@ -29,8 +29,9 @@
  *   ณ "ข้อมูล ณ วันที่" เดียวกับส่วนที่ 2 (OverdueSection แจ้งวันที่ออกมาทาง onAsOf) · สูตรคะแนนอยู่ใน lib/pi/score.ts
  */
 import { useEffect, useMemo, useState } from "react";
-import { ageBills } from "../../lib/debtors/aging";
+import { collectionDays } from "../../lib/debtors/aging";
 import { INDEXES, metricResult } from "../../lib/pi/score";
+import type { MetricResult } from "../../lib/pi/score";
 import { PiBox } from "./PiIndex";
 import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
@@ -41,6 +42,7 @@ import { inPeriod, periodLabel as periodText } from "../../lib/filter/period";
 import type { Period } from "../../lib/filter/period";
 import type { AllocBill, AllocCustomer, AllocData } from "../../lib/data/useAlloc";
 import { useDebtors } from "../../lib/data/useDebtors";
+import type { DebtorData } from "../../lib/data/useDebtors";
 import SourceTag from "../../lib/ui/SourceTag";
 import { Hero, Note, Pane, searchStyle } from "../dash-fleet/parts";
 import { SortTable, fmt, marginTone, pct, signed, useSort } from "../dash-costrev/common";
@@ -111,19 +113,23 @@ export function rollupCustomers(data: AllocData, f: Period): CustRow[] {
   return [...acc.values()];
 }
 
+/** Customer Net Profit (รายลูกค้า) + DSO (รายบิล ณ asOf) — ใช้ทั้งกล่อง PI ของส่วนนี้และ Executive Summary */
+export function custPiResults(alloc: AllocData | null, debtors: DebtorData | null, asOf: string | null, f: DemoFilter): MetricResult[] {
+  const a = alloc?.custMonths ? alloc : null;
+  return [
+    metricResult("custProfit", a ? rollupCustomers(a, f).map((r) => r.m) : null),
+    // DSO = วันเก็บเงินเฉลี่ยรายลูกค้า (แก้ Performance Index.pdf 28 ก.ย. 2569 · เดิมวันที่จ่ายช้ารายบิล)
+    metricResult("dso", debtors && asOf ? collectionDays(debtors.rows.filter((r) => !f.br || r.br === f.br), asOf) : null),
+  ];
+}
+
 export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
   const alloc = useAlloc();
   const debtors = useDebtors();
   /** "ข้อมูล ณ วันที่" ที่ส่วน DSO เลือกอยู่ — คะแนน DSO ใช้วันเดียวกัน */
   const [asOf, setAsOf] = useState<string | null>(null);
-  const custPi = useMemo(() => {
-    const a = alloc.data?.custMonths ? alloc.data : null;
-    const d = debtors.data;
-    return [
-      metricResult("custProfit", a ? rollupCustomers(a, f).map((r) => r.m) : null),
-      metricResult("dso", d && asOf ? ageBills(d.rows.filter((r) => !f.br || r.br === f.br), asOf).map((x) => x.over) : null),
-    ];
-  }, [alloc.data, debtors.data, asOf, f.year, f.month, f.br]);
+  const custPi = useMemo(() => custPiResults(alloc.data, debtors.data, asOf, f),
+    [alloc.data, debtors.data, asOf, f.year, f.month, f.br]);
   // ETL ของสองชุดนี้แยกกัน (วางไฟล์คนละโฟลเดอร์) — รีเฟรชเฉพาะชุดที่เปลี่ยน
   const etlAlloc = useEtlStatus("alloc");
   const etlDebt = useEtlStatus("debtors");

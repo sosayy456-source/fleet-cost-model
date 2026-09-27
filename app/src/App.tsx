@@ -41,9 +41,6 @@ import { loadSessionBranch, saveSessionBranch } from "./lib/store/sessionBranch"
 import BranchGate from "./features/dash-manager/BranchGate";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
-import { DEMO_PARTS, demoGo, useDemoNav } from "./lib/ui/demoNav";
-import { OVERALL_TABS, overallGo, useOverallActive } from "./lib/ui/overallNav";
-import { MANAGER_TABS, managerGo, useManagerActive } from "./lib/ui/managerNav";
 import { clearReturnPoints, goBack, hasReturnPoint } from "./lib/ui/returnPoint";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
@@ -200,10 +197,6 @@ export default function App() {
   // main:3002 — นับบิลของใบใหม่ที่ยังไม่ได้ชำระ (ไม่รวมข้อมูลเก่าจากชีต)
   const debtCount = state.records.flatMap(recBills).filter((b) => !billIsPaid(b)).length;
 
-  // สถานะแท็บย่อยของแดชบอร์ด — hook ต้องอยู่ก่อน return ของหน้าเลือกตำแหน่ง
-  const demoNav = useDemoNav();
-  const overallActive = useOverallActive();
-  const managerActive = useManagerActive();
   if (!role) return <RolePicker onPick={setRole} />;
 
   const cur = pages.find((p) => p.id === page) ?? pages[0];
@@ -233,28 +226,8 @@ export default function App() {
               )}
             </button>
             );
-            if (p.id !== "demo" && p.id !== "exec-dash" && p.id !== "dash-fleet") return btn;
-            // แดชบอร์ดกางรายการย่อยเมื่อชี้เมาส์หรือโฟกัส · Overall และ Manager เลือกแท็บเดียวกับแถบในหน้า
-            return (
-              <div key={p.id} className="navgroup">
-                {btn}
-                <div className="navsub" role="group" aria-label={`แท็บของหน้า ${p.label}`}>
-                  {p.id === "demo" ? DEMO_PARTS.map((x) => (
-                    <button key={x.id} type="button"
-                      className={"navsubitem" + (page === "demo" && demoNav.active === x.id ? " active" : "")}
-                      onClick={() => { if (page !== "demo") goto("demo"); demoGo(x.id); }}>{x.label}</button>
-                  )) : p.id === "exec-dash" ? OVERALL_TABS.map((x) => (
-                    <button key={x.id} type="button"
-                      className={"navsubitem" + (page === "exec-dash" && overallActive === x.id ? " active" : "")}
-                      onClick={() => { overallGo(x.id); if (page !== "exec-dash") goto("exec-dash"); scrollTo({ top: 0 }); }}>{x.label}</button>
-                  )) : MANAGER_TABS.map((x) => (
-                    <button key={x.id} type="button"
-                      className={"navsubitem" + (page === "dash-fleet" && managerActive === x.id ? " active" : "")}
-                      onClick={() => { managerGo(x.id); if (page !== "dash-fleet") goto("dash-fleet"); scrollTo({ top: 0 }); }}>{x.label}</button>
-                  ))}
-                </div>
-              </div>
-            );
+            // แดชบอร์ดไม่กางรายการย่อยตอนชี้แล้ว — แท็บอยู่ในแคปซูลหัวหน้า (เจ้าของงานสั่ง 28 ก.ย. 2569)
+            return btn;
           })}
         </nav>
       </aside>

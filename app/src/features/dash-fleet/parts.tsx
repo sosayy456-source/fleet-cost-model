@@ -41,7 +41,7 @@ function Trend({ data }: { data: number[] }) {
  * onClick/active = การ์ดกดได้ (แท็บกำไรลูกค้าของ Demo ใช้กรองตาราง) — ไม่ส่ง = การ์ดธรรมดา
  * foot  = บรรทัดใต้ชิป s เช่น ยอดกำไรของกลุ่มนั้น (แท็บกำไรลูกค้าของ Demo) — ไม่ส่ง = ไม่มีบรรทัดนี้
  */
-export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot }: {
+export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, title }: {
   /** warn = เหลืองอำพัน (Manager Dashboard: เฝ้าระวัง / ค้าง 1–30 วัน) */
   kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc" | "warn";
   l: string; v: string; s?: ReactNode;
@@ -51,6 +51,8 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot }
   onClick?: () => void;
   active?: boolean;
   foot?: ReactNode;
+  /** tooltip ของทั้งการ์ด */
+  title?: string;
 }) {
   const cls = `dz-kc hero ${kind}` + (trend ? " has-trend" : "") + (onClick ? " clickable" : "") + (active ? " on" : "");
   const press = onClick ? {
@@ -59,7 +61,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot }
     "aria-pressed": !!active,
   } : {};
   return (
-    <div className={cls} {...press}>
+    <div className={cls} title={title} {...press}>
       <div className="hh">
         <div className="l">{l}</div>
         {unit && <span className="u">{unit}</span>}
@@ -91,7 +93,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot }
 }
 
 /** การ์ดตัวเลขธรรมดา — จุดสีหน้าป้ายมาจากตัวแปร --dot เหมือน main */
-export function KC({ l, v, s, dot, tone, small, bar, onClick, active }: {
+export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon }: {
   l: string; v: string; s?: ReactNode;
   dot?: string;
   tone?: "good" | "warn" | "bad";
@@ -102,6 +104,8 @@ export function KC({ l, v, s, dot, tone, small, bar, onClick, active }: {
   /** การ์ดกดได้ (หน้าสถานะกองรถใช้กรองตามสถานะ · 26 ก.ย. 2569) — ไม่ส่ง = การ์ดธรรมดา · active = กำลังกรองอยู่ */
   onClick?: () => void;
   active?: boolean;
+  /** ไอคอนมุมขวาบน แนวเดียวกับบรรทัดแรก (Executive Dashboard › Profit Per Route · 28 ก.ย. 2569) */
+  icon?: ReactNode;
 }) {
   const press = onClick ? {
     role: "button", tabIndex: 0, onClick, "aria-pressed": !!active,
@@ -110,7 +114,7 @@ export function KC({ l, v, s, dot, tone, small, bar, onClick, active }: {
   return (
     <div className={"dz-kc" + (tone ? ` t-${tone}` : "") + (onClick ? " clickable" : "") + (active ? " on" : "")}
       style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined} {...press}>
-      <div className="l">{dot && <i className="d" />}{l}</div>
+      <div className="l">{dot && <i className="d" />}{l}{icon && <span className="kc-ic" aria-hidden="true">{icon}</span>}</div>
       <div className="v" key={v} data-real={v} style={small ? { fontSize: 15.5 } : undefined}>{v}</div>
       {s && <div className="s">{s}</div>}
       {bar && <div className="kbar"><i style={{ background: bar }} /></div>}

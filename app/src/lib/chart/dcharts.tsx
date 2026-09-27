@@ -195,3 +195,35 @@ export function DDonut({ data, colors, suffix = " บาท", center }: {
     </div>
   );
 }
+
+/* ---------------- dWaterfall: รายได้ → ต้นทุนแต่ละก้อน → กำไร ---------------- */
+
+/** หนึ่งแท่ง — total = ยอดรวม (รายได้ · กำไร) ป้ายเป็นค่าตามจริง · ไม่งั้นเป็นก้อนต้นทุน ป้ายติดเครื่องหมายลบ */
+export interface WaterStep { label: string; value: number; total?: boolean; color: string }
+
+/**
+ * กราฟ รายได้ → ต้นทุนแต่ละก้อน → กำไร (Executive Summary) — ทุกแท่งตั้งจากฐาน สูงตามขนาดของค่า เต็มกว้างกล่อง
+ * (เจ้าของงานสั่ง 28 ก.ย. 2569 ตามภาพต้นแบบ — รุ่นแรกเป็นแท่งลอยแบบน้ำตก) · กำไรติดลบ = แท่งสูงเท่าขนาดขาดทุน ป้าย "−"
+ * value = บาท · fmtValue = ป้ายบนแท่ง/tooltip (ผู้เรียกกำหนดหน่วย เช่น ล้านบาท)
+ */
+export function DWaterfall({ steps, fmtValue }: { steps: WaterStep[]; fmtValue: (n: number) => string }) {
+  const t = useChartTheme();
+  const data = steps.map((s) => ({
+    label: s.label, h: Math.abs(s.value), lbl: s.total ? fmtValue(s.value) : fmtValue(-s.value), color: s.color,
+  }));
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <ComposedChart data={data} margin={{ top: 22, right: 0, left: 0, bottom: 0 }} barCategoryGap="4%">
+        <XAxis {...axisProps(t)} dataKey="label" interval={0} />
+        <YAxis hide domain={[0, "dataMax"]} />
+        <Tooltip {...tooltipProps(t)} formatter={(_v: unknown, _n: string, item: { payload?: { lbl: string } }) =>
+          [item.payload?.lbl ?? "", ""] as [string, string]} />
+        <Bar dataKey="h" radius={[6, 6, 0, 0]} {...anim}>
+          {data.map((d) => <Cell key={d.label} fill={d.color} />)}
+          <LabelList dataKey="lbl" position="top"
+            style={{ fontFamily: DFONT, fontSize: 12, fontWeight: 700, fill: t.ink2 }} />
+        </Bar>
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+}

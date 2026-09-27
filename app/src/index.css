@@ -2458,21 +2458,6 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .em-ytd{display:flex;flex-direction:column;gap:2px;line-height:1.45}
 #view-dash .em-ytd b{color:#fff;font-weight:700}
 
-/* แท็บย่อยของ Executive, Overall และ Manager Dashboard — กางใต้ปุ่มเมื่อชี้เมาส์หรือโฟกัส
-   พื้นสีเดียวกับแถบเมนู · ข้อความเยื้องตามไอคอนของเมนูหลัก */
-.navgroup{display:flex;flex-direction:column}
-.navsub{display:flex;flex-direction:column;overflow:hidden;max-height:0;opacity:0;
-  transition:max-height .22s var(--ease),opacity .15s var(--ease)}
-.navgroup:hover .navsub,.navgroup:has(:focus-visible) .navsub{max-height:320px;opacity:1}
-.navsubitem{display:block;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;
-  font-family:inherit;font-size:14.5px;color:var(--sidebar-text);padding:9px 16px 9px 46px;border-radius:10px;white-space:nowrap;
-  transition:color .15s var(--ease)}
-.navsubitem:hover,.navsubitem:focus-visible{color:var(--accent)}
-.navsubitem:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
-.navsubitem.active{color:var(--accent);font-weight:700}
-@media(min-width:721px){.navsubitem{padding-left:47px}}
-@media(max-width:720px){.navgroup{flex:none}.navsub{display:none}}
-@media (prefers-reduced-motion: reduce){.navsub{transition:none}}
 
 /* ---- Performance Index ท้ายแต่ละส่วนของหน้า Demo (features/dash-demo/PiIndex.tsx · 25 ก.ย. 2569) ----
    กล่องยาวพื้นไล่สีชุดเดียวกับการ์ดเด่น (Hero) หนึ่งสีต่อหมวด (.t-<id>) · หลอดคะแนนหมวด (.pi-meter) · ชิปรายตัวชี้วัด (.pi-sub)
@@ -3159,3 +3144,123 @@ html.theme-cherry .i3-donut-total b{font-size:34px;color:#2A0A10}
 .dp-split{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
 .dp-split h4{margin:0 0 6px;font-size:15px}
 .dp-split-box{overflow:auto;max-height:420px}
+
+/* ===== หัวแบบแคปซูลยาว (DashShell capsule · Executive Dashboard · เจ้าของงานสั่ง 28 ก.ย. 2569) =====
+   แคปซูลแถวเดียว = โลโก้ · หัวเรื่อง + ช่วงข้อมูล · แท็บ · ปุ่มตัวกรอง · รีเฟรช · เปลี่ยนหน้าที่ — ติดขอบบนตอนเลื่อน
+   บรรทัดที่มาของข้อมูล (.cap-meta) อยู่นอกแคปซูลข้างล่าง ป้ายข้อมูลตัวอย่างหน้าสุด
+   z-index 25 < แถบเมนูซ้าย (.sidebar 30) — เมนูกางตอนชี้ต้องทับแคปซูล ไม่ใช่ถูกบัง (เจ้าของงานแจ้ง 28 ก.ย. 2569) */
+.cap{position:sticky;top:10px;z-index:25;display:flex;align-items:center;gap:14px;padding:8px 10px 8px 12px;min-width:0;
+  background:#fff;border:1px solid rgba(26,23,20,.08);border-radius:999px;box-shadow:0 10px 30px -18px rgba(26,23,20,.35)}
+.cap-logo{width:44px;height:44px;flex:none;object-fit:contain}
+.cap-title{display:flex;flex-direction:column;min-width:0;flex:none;line-height:1.25}
+.cap-title b{font-size:17px;font-weight:800;color:#1A1714;white-space:nowrap}
+.cap-title small{font-size:13px;color:#6B6257;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cap-tabs{display:flex;gap:2px;flex:1;justify-content:safe center;min-width:0;overflow-x:auto;scrollbar-width:none}
+.cap-tabs::-webkit-scrollbar{display:none}
+.cap-tabs button{border:0;background:none;font:inherit;font-size:14px;color:#6B6257;padding:9px 13px;border-radius:999px;
+  white-space:nowrap;cursor:pointer;transition:background-color .18s,color .18s}
+.cap-tabs button:hover:not(.on){background:#F3EEE8;color:#1A1714}
+.cap-tabs button.on{background:var(--accent);color:#fff;font-weight:700}
+.cap-tools{display:flex;align-items:center;gap:8px;flex:none}
+.cap-filter{position:relative}
+#view-dash .cap-filter .dm-filter-toggle{width:40px;height:40px}
+#view-dash .cap-filter .dm-filter-panel{top:50px}
+.cap-icon{display:grid;place-items:center;width:40px;height:40px;border:1px solid rgba(26,23,20,.14);border-radius:50%;background:#fff;
+  color:#4A4238;font:inherit;font-size:18px;cursor:pointer}
+.cap-icon:hover:not(:disabled){background:#F3EEE8}
+.cap-icon:disabled{opacity:.6;cursor:default}
+.cap-icon.spin{animation:capSpin 1s linear infinite}
+@keyframes capSpin{to{transform:rotate(360deg)}}
+.cap-role{border:0;background:#1A1714;color:#F7F3ED;font:inherit;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.cap-role:hover{background:#332C25}
+.cap-tabs button:focus-visible,.cap-role:focus-visible,.cap-icon:focus-visible{outline:2px solid #4B2ED4;outline-offset:2px}
+.dh-meta.cap-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;margin:10px 0 18px;padding:0 14px;font-size:13.5px}
+.cap-meta .dh-sample{margin-right:10px;font-size:12.5px;padding:3px 10px 3px 8px}
+/* ส่วนของหน้าไม่หลบใต้แคปซูลตอนกดแท็บเลื่อนไปหา */
+#view-dash .cap~.dm-part{scroll-margin-top:84px}
+html.theme-cherry .cap{border-color:#E4CDD3;box-shadow:0 14px 36px -22px rgba(89,2,18,.45)}
+@media(max-width:1400px){.cap{flex-wrap:wrap;border-radius:30px}.cap-tabs{order:5;flex-basis:100%;justify-content:flex-start}.cap-tools{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){.cap-icon.spin{animation:none}}
+
+/* ===== Executive Dashboard › Profit Per Route 6 กล่อง (ปรับปรุงโมเดล2.pdf · 28 ก.ย. 2569) =====
+   แถวบน = การ์ดเด่น (กำไร · ตัน-กม. · รายได้+ต้นทุนสีอ่อน) · แถวสอง = กำไรเฉลี่ย 3 ใบพร้อมไอคอนมุมขวาบน */
+/* การ์ดกำไร: %Margin ซ้อนเหนือเส้นกำไรรายเดือนเต็มกว้างข้างล่าง (ไม่บีบเป็นแถวเดียวแบบการ์ดแรกทั่วไป) */
+#view-dash .dm-overview .dz-heroes > .dz-kc.hero.has-trend:first-child .hf{flex-direction:column;align-items:stretch;gap:8px}
+#view-dash .dm-overview .dz-heroes > .dz-kc.hero.has-trend:first-child .trend{width:100%;height:40px;margin-top:4px}
+#view-dash .dm-overview .dz-heroes > .dz-kc.hero .ft{font-size:13px;font-weight:400;margin-top:0}
+#view-dash .dm-margin{font-size:18px;font-weight:700;color:#fff;margin-right:6px}
+#view-dash .dz-kc.dm-duo{position:relative;display:flex;flex-direction:column;justify-content:center;gap:14px;
+  border-radius:18px;padding:22px 26px;background:var(--d-soft);border:1px solid var(--d-line)}
+#view-dash .dm-duo-r{display:flex;flex-direction:column;gap:2px}
+#view-dash .dm-duo-r .l{font-size:14px;color:var(--d-ink4)}
+#view-dash .dm-duo-r .v{font-size:30px;font-weight:700;line-height:1.15;color:var(--d-ink2);letter-spacing:-.01em}
+#view-dash .dm-duo-u{position:absolute;top:18px;right:20px;font-size:12px;padding:3px 9px;border-radius:999px;background:var(--d-rail);color:var(--d-ink3)}
+/* ไอคอนใหญ่ขึ้น (เจ้าของงานสั่ง 28 ก.ย. 2569) — วางลอยมุมขวาบนของการ์ด ไม่ดันความสูงบรรทัดแรก */
+#view-dash .dz-kc:has(> .l .kc-ic){position:relative;padding-right:84px}
+/* รูปสีเดียวตามสีจุดของการ์ด (--dot) บนกรอบมนสีเดียวกันแบบจาง */
+#view-dash .dz-kc .kc-ic{position:absolute;top:14px;right:16px;display:grid;place-items:center;width:60px;height:60px;border-radius:18px;
+  background:color-mix(in srgb,var(--dot, var(--d-ink3)) 10%,transparent);color:var(--dot, var(--d-ink3))}
+#view-dash .dz-kc .kc-ic svg{width:38px;height:38px;display:block}
+#view-dash .dm-avg .dz-kc .l{display:flex;align-items:center}
+html.theme-cherry #view-dash .dz-kc.dm-duo{background:var(--ch-blush);border-color:#E4CDD3}
+html.theme-cherry #view-dash .dm-duo-r .l{font-size:16px}
+html.theme-cherry #view-dash .dm-duo-r .v{font-size:34px}
+
+/* ===== กรอบของแต่ละส่วนใน Executive Dashboard (เจ้าของงานสั่ง 28 ก.ย. 2569) — แผ่นพื้นเข้มกว่าหน้าเล็กน้อย การ์ดขาวข้างในเด่นขึ้น ===== */
+#view-dash .dm-part{margin-top:22px;padding:26px 28px 30px;border-radius:26px;background:rgba(26,23,20,.035);border:1px solid rgba(26,23,20,.06)}
+html.theme-cherry #view-dash .dm-part{background:rgba(89,2,18,.045);border-color:rgba(89,2,18,.08)}
+@media(max-width:720px){#view-dash .dm-part{padding:18px 14px 20px;border-radius:18px}}
+
+/* ===== การ์ดกลุ่มบริการ + %เที่ยวที่ขาดทุน ท้าย Profit Per Route (เจ้าของงานสั่ง 28 ก.ย. 2569) =====
+   ทั่วไป น้ำตาลอ่อน · แช่เย็น ฟ้าอ่อน · แช่แข็ง ฟ้าเข้มขึ้น (พื้นอ่อน ตัวอักษรเข้ม) + ภาพประกอบขวา · ใบที่ 4 แดง
+   ต้องชนะกฎ .dm-sg.cN ของธีม cherry จึงใส่ .dm-sgs นำหน้า */
+.dm-sgs:has(> .sg-loss){grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1180px){.dm-sgs:has(> .sg-loss){grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.dm-sgs:has(> .sg-loss){grid-template-columns:1fr}}
+.dm-sgs .dm-sg{position:relative;overflow:hidden}
+.dm-sgs .dm-sg > .l,.dm-sgs .dm-sg > .v,.dm-sgs .dm-sg > .s{position:relative;z-index:1}
+.dm-sg-ic{position:absolute;right:16px;top:14px;width:54px;height:54px;opacity:.6;pointer-events:none}
+.dm-sg-ic svg{width:100%;height:100%}
+.dm-sgs .dm-sg.sg-gen,html.theme-cherry .dm-sgs .dm-sg.sg-gen{background:linear-gradient(135deg,#F6ECDD 0%,#EBD9BF 100%);color:#5A3F22}
+.dm-sgs .dm-sg.sg-chill,html.theme-cherry .dm-sgs .dm-sg.sg-chill{background:linear-gradient(135deg,#E6F3FB 0%,#CBE6F6 100%);color:#1D4E6E}
+.dm-sgs .dm-sg.sg-frozen,html.theme-cherry .dm-sgs .dm-sg.sg-frozen{background:linear-gradient(135deg,#B9DDF4 0%,#8EC4EA 100%);color:#0F3A5C}
+.dm-sgs .dm-sg.sg-gen .s,.dm-sgs .dm-sg.sg-chill .s,.dm-sgs .dm-sg.sg-frozen .s{background:rgba(255,255,255,.55)}
+.dm-sgs .dm-sg.sg-gen.open,.dm-sgs .dm-sg.sg-chill.open,.dm-sgs .dm-sg.sg-frozen.open{outline-color:currentColor}
+.dm-sgs .dm-sg.sg-loss,html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:linear-gradient(135deg,#C8384E 0%,#E0525F 100%);color:#fff}
+html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
+.dm-sgs .dm-sg.sg-loss:disabled{cursor:default;transform:none;box-shadow:none}
+
+/* ===== Performance Index แบบแถวเดียว (PiRow · Route & Service · 28 ก.ย. 2569) =====
+   กล่องคะแนน x/20 แคบซ้าย + ตัวชี้วัดคอลัมน์ละตัวทางขวา · "รายละเอียด" กางวิธีคิด */
+#view-dash .pi-box.pi-row{display:grid;grid-template-columns:minmax(170px,210px) repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+#view-dash .pi-row-sc{position:relative;z-index:1;padding-right:6px}
+#view-dash .pi-row-sc .pi-t{font-size:15px;line-height:1.3}
+#view-dash .pi-row-sc .pi-score b{font-size:40px}
+#view-dash .pi-row-part{display:inline-block;margin-top:8px;font-style:normal;font-size:12px;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.2)}
+#view-dash .pi-rm{position:relative;z-index:1;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.14);display:flex;flex-direction:column;gap:8px;min-width:0}
+#view-dash .pi-rm-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+#view-dash .pi-rm-h span{font-size:15px;font-weight:700;color:#fff}
+#view-dash .pi-rm-h b{font-family:var(--d-num);font-size:22px;font-weight:700;color:#fff;white-space:nowrap}
+#view-dash .pi-rm.na .pi-rm-h b{font-family:inherit;font-size:14px;color:rgba(255,255,255,.75)}
+#view-dash .pi-rm-stack{display:flex;height:8px;border-radius:999px;overflow:hidden;background:rgba(255,255,255,.25)}
+#view-dash .pi-rm-stack i.g{background:#34D399}
+#view-dash .pi-rm-stack i.y{background:#FBBF24}
+#view-dash .pi-rm-stack i.r{background:#FB7185}
+#view-dash .pi-rm-count{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;color:rgba(255,255,255,.88)}
+#view-dash .pi-rm-count .pi-dm-dot.g{color:#34D399}
+#view-dash .pi-rm-count .pi-dm-dot.y{color:#FBBF24}
+#view-dash .pi-rm-count .pi-dm-dot.r{color:#FB7185}
+#view-dash .pi-rm-more{align-self:flex-start;border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.12);color:#fff;
+  font:inherit;font-size:13px;padding:4px 12px;border-radius:999px;cursor:pointer}
+#view-dash .pi-rm-more:hover{background:rgba(255,255,255,.24)}
+#view-dash .pi-rm-more:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#view-dash .pi-rm-detail{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.94);color:var(--d-ink2);font-size:13px;line-height:1.6}
+#view-dash .pi-rm-detail p{margin:0}
+#view-dash .pi-rm-detail p + p{margin-top:4px}
+#view-dash .pi-rm-detail b{color:var(--d-ink)}
+@media(max-width:900px){#view-dash .pi-box.pi-row{grid-template-columns:1fr}}
+
+/* มุมมอง BSC ต่อท้ายชื่อหมวด PI (แก้ Performance Index.pdf · 28 ก.ย. 2569) */
+#view-dash .pi-bsc{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600;
+  vertical-align:2px;background:rgba(255,255,255,.2);color:inherit;opacity:.9;white-space:nowrap}
+#view-dash .pi-dm-ixh .pi-bsc{background:var(--d-rail)}

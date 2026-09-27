@@ -43,7 +43,7 @@ import { numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { ShortId } from "../../lib/custmap/ShortId";
 import { custCode } from "../../lib/custmap/custmap";
 import { monthSpan, thDateSafe, thMonthRange, thSlash } from "../../lib/record/date";
-import type { DebtorRow, DebtorState } from "../../lib/data/useDebtors";
+import type { DebtorManifest, DebtorRow, DebtorState } from "../../lib/data/useDebtors";
 import { Hero, Note, Pane } from "../dash-fleet/parts";
 import { SortTable, fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
@@ -110,6 +110,14 @@ function prevMonthISO(iso: string): string {
 /** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 24 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
 const DEFAULT_AS_OF = "2026-05-31";
 
+/**
+ * ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
+ * min = วันวางบิลแรกของชุดที่แสดง · Executive Summary ใช้ตัวเดียวกันคิดคะแนน DSO
+ */
+export function defaultAsOf(min: string | null, m: Pick<DebtorManifest, "refDate" | "asOf">): string {
+  return min && min <= DEFAULT_AS_OF ? DEFAULT_AS_OF : m.refDate ?? m.asOf;
+}
+
 /** onAsOf = แจ้ง "ข้อมูล ณ วันที่" ที่เลือกอยู่ออกไป — คะแนน DSO ของ Performance Index ใช้วันเดียวกับส่วนนี้ */
 export default function OverdueSection({ state, branch, onAsOf }: { state: DebtorState; branch: string; onAsOf?: (iso: string) => void }) {
   const { data, error } = state;
@@ -138,9 +146,7 @@ export default function OverdueSection({ state, branch, onAsOf }: { state: Debto
       </div>
     );
   }
-  // ค่าเริ่มต้นตามที่เจ้าของงานสั่ง — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
-  const fallback = data.manifest.refDate ?? data.manifest.asOf;
-  const start = range.min && range.min <= DEFAULT_AS_OF ? DEFAULT_AS_OF : fallback;
+  const start = defaultAsOf(range.min, data.manifest);
   return <OverdueBody rows={rows} refDate={start}
     range={range} isSample={data.manifest.isSample} onAsOf={onAsOf} />;
 }

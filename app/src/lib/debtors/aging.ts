@@ -30,3 +30,21 @@ export function ageBills(rows: DebtorRow[], asOf: string): Aged[] {
   }
   return out;
 }
+
+/**
+ * วันเก็บเงินเฉลี่ยรายลูกค้า ณ วันที่เลือก — คะแนน DSO ของ Performance Index ("แก้ Performance Index.pdf" 28 ก.ย. 2569)
+ * ต่อบิล: ชำระแล้ว = วันที่จบ − วันวางบิล · ยังไม่ชำระ = วันที่เลือก − วันวางบิล (ยังเก็บไม่ได้ก็นับวันที่รอไปเรื่อย ๆ)
+ * ต่อลูกค้า = ค่าเฉลี่ยของทุกบิลที่วางแล้ว ณ วันนั้น (เฉลี่ยตรง ๆ ไม่ถ่วงยอดเงิน) · ลูกค้า = รหัสลูกหนี้ (cust)
+ */
+export function collectionDays(rows: DebtorRow[], asOf: string): number[] {
+  const d0 = dayNum(asOf);
+  const acc = new Map<string, { sum: number; n: number }>();
+  for (const r of rows) {
+    if (r.issue > asOf) continue;
+    const end = r.close && r.close <= asOf ? dayNum(r.close) : d0;
+    const a = acc.get(r.cust) ?? { sum: 0, n: 0 };
+    a.sum += end - dayNum(r.issue); a.n++;
+    acc.set(r.cust, a);
+  }
+  return [...acc.values()].map((a) => a.sum / a.n);
+}

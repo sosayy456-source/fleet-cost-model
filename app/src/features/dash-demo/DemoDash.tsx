@@ -8,8 +8,8 @@
  *   ยกเว้นลูกหนี้ DSO (กำไรลูกค้า ส่วนที่ 2) ที่มี "ข้อมูล ณ วันที่" ของตัวเองเหมือนเดิม
  * ★ หัวหน้าเป็นของไฟล์ต้นทุน (costrev/) เสมอ ช่วงข้อมูล + ข้อจำกัดของไฟล์ลูกหนี้อยู่ที่หัวส่วน DSO
  *
- * ใช้ `costrev/trips.json` ชุด `inProfitScope()` = เที่ยวที่จับคู่เลขที่ใบรายการกับไฟล์รายได้ได้ (m)
- * รายได้และต้นทุนของเที่ยวในชุดนี้นับเฉพาะบิลที่เข้าลูกค้า · เที่ยวเปล่าที่จับคู่ไม่ได้อยู่ในแท็บเที่ยวเปล่า
+ * ใช้ `costrev/trips.json` ชุด `inProfitScope()` = เที่ยวที่จับคู่บิลได้ หรือเที่ยวเปล่า
+ * เที่ยวเปล่าที่จับคู่ไม่ได้มีรายได้ 0 และหักต้นทุนจากกำไรเที่ยว แต่ไม่ปันเข้ากำไรลูกค้า
  *
  * ส่วน "กำไรลูกค้า" **ไม่ใช้ trips เลย** — อ่านชุด alloc/ กับ debtors/ ของตัวเอง
  * จึงวาดเสมอแม้ไฟล์ต้นทุนจะหาย/ยังโหลดไม่เสร็จ (สามส่วนแรกขึ้นข้อความแทน)
@@ -19,9 +19,9 @@
  */
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import DashShell, { Meta } from "../../lib/ui/DashShell";
+import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
-import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
+import { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
 import { useDebtors } from "../../lib/data/useDebtors";
@@ -66,7 +66,6 @@ export default function DemoDash() {
   const etlAll = useEtlStatus("all");
   useAutoReloadOnEtl(etl, reload);
   const [f, setF] = useState<DemoFilter>(DEMO_F0);
-  const [showFloatingFilter, setShowFloatingFilter] = useState(false);
   const [floatingFilterOpen, setFloatingFilterOpen] = useState(false);
   const floatingButton = useRef<HTMLButtonElement>(null);
   const floatingPanel = useRef<HTMLDivElement>(null);
@@ -80,19 +79,6 @@ export default function DemoDash() {
   const set = (k: keyof DemoFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [active, setActive] = useState<PartId>("route");
   const pi = usePiReports();
-
-  // เมื่อแถบตัวกรองเดิมพ้นขอบบน ให้เปิดทางเข้าถึงตัวกรองจากมุมขวาบน
-  useEffect(() => {
-    const bar = document.querySelector("#view-dash .dh-bar");
-    if (!bar) return;
-    const observer = new IntersectionObserver(([entry]) => {
-      const show = !entry!.isIntersecting && entry!.boundingClientRect.bottom < 72;
-      setShowFloatingFilter(show);
-      if (!show) setFloatingFilterOpen(false);
-    }, { rootMargin: "-72px 0px 0px 0px" });
-    observer.observe(bar);
-    return () => observer.disconnect();
-  }, []);
 
   useEffect(() => {
     if (!floatingFilterOpen) return;
@@ -186,7 +172,7 @@ export default function DemoDash() {
   const piRef = m && !error ? all : null;
   const meta = m && (
     <Meta parts={[
-      <><b>{fmt(all.length)}</b> เที่ยวที่จับคู่กับข้อมูลรายได้ได้ จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์ · การ์ดเที่ยวเปล่าแสดงทุกเที่ยวตามเดิม</>,
+      <><b>{fmt(all.length)}</b> เที่ยวที่นับกำไร (จับคู่บิลได้ {fmt(m.matched)} + เที่ยวเปล่าที่จับคู่ไม่ได้ {fmt(all.length - m.matched)}) จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
       `ข้อมูลรายได้ ${m.revenueFiles} ไฟล์`,
       <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
     ]} />
@@ -231,14 +217,45 @@ export default function DemoDash() {
     <ClearFiltersBtn active={isFiltered(f, DEMO_F0)} onClick={() => setF(DEMO_F0)} />
   </>;
 
+  /** ปุ่มตัวกรองในแคปซูล + แผงตัวกรอง (ชุดเดียวกับแผงลอยเดิม) — จุดแดง = มีตัวกรองอยู่ */
+  const filterTool = (
+    <div className="cap-filter">
+      <button ref={floatingButton} type="button" className="dm-filter-toggle"
+        aria-label={floatingFilterOpen ? "ปิดตัวกรอง" : "เปิดตัวกรอง"}
+        aria-controls={floatingFilterOpen ? "dm-filter-panel" : undefined} aria-expanded={floatingFilterOpen}
+        onClick={() => setFloatingFilterOpen((open) => !open)}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
+        </svg>
+        {isFiltered(f, DEMO_F0) && <span className="dm-filter-dot" aria-hidden="true" />}
+      </button>
+      {floatingFilterOpen && <div id="dm-filter-panel" ref={floatingPanel} className="dm-filter-panel" role="region" aria-label="ตัวกรอง Executive Dashboard">
+        <div className="dm-filter-panel-head">
+          <h2>ตัวกรอง</h2>
+          <button type="button" aria-label="ปิดตัวกรอง" onClick={() => { setFloatingFilterOpen(false); floatingButton.current?.focus(); }}>✕</button>
+        </div>
+        <div className="dm-filter-fields">{renderFilters()}</div>
+      </div>}
+    </div>
+  );
+  /** แท็บ 4 ส่วนในแคปซูล = เลื่อนไปหาส่วน · ไฮไลต์ตามส่วนที่เลื่อนถึง (ชุดเดียวกับแท็บย่อยในเมนูซ้าย) */
+  const partTabs = PARTS.map((p) => (
+    <button key={p.id} type="button" className={active === p.id ? "on" : ""} aria-current={active === p.id ? "true" : undefined}
+      onClick={() => go(p.id)}>{p.label}</button>
+  ));
+
   return (
     <>
       <EtlBanner status={etlAll} />
+      {/* หัวแคปซูล (เจ้าของงานสั่ง 28 ก.ย. 2569): โลโก้ · Executive Dashboard + ช่วงข้อมูล · แท็บ 4 ส่วน · ปุ่มตัวกรอง
+          ตัวกรองอยู่ในแผงของปุ่มอย่างเดียว (เอากล่องตัวกรองในหัวออก) */}
       <DashShell sample={m?.isSample} meta={meta || undefined}
-        onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
-        <FilterBar>{renderFilters()}</FilterBar>
-
+        onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่"
+        capsule={{ tabs: partTabs, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined, tools: filterTool }}>
         <PiReportProvider value={pi.report}>
+          {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
+          {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
           {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
@@ -255,25 +272,6 @@ export default function DemoDash() {
           </>)}
         </PiReportProvider>
       </DashShell>
-      {showFloatingFilter && <div className="dm-floating-filter">
-        <button ref={floatingButton} type="button" className="dm-filter-toggle"
-          aria-label={floatingFilterOpen ? "ปิดตัวกรอง" : "เปิดตัวกรอง"}
-          aria-controls={floatingFilterOpen ? "dm-filter-panel" : undefined} aria-expanded={floatingFilterOpen}
-          onClick={() => setFloatingFilterOpen((open) => !open)}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
-          </svg>
-          {isFiltered(f, DEMO_F0) && <span className="dm-filter-dot" aria-hidden="true" />}
-        </button>
-        {floatingFilterOpen && <div id="dm-filter-panel" ref={floatingPanel} className="dm-filter-panel" role="region" aria-label="ตัวกรอง Executive Dashboard">
-          <div className="dm-filter-panel-head">
-            <h2>ตัวกรอง</h2>
-            <button type="button" aria-label="ปิดตัวกรอง" onClick={() => { setFloatingFilterOpen(false); floatingButton.current?.focus(); }}>✕</button>
-          </div>
-          <div className="dm-filter-fields">{renderFilters()}</div>
-        </div>}
-      </div>}
     </>
   );
 }

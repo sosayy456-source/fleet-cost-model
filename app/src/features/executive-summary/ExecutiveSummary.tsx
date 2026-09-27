@@ -25,6 +25,7 @@ import { EmptyMapSection } from "../dash-costrev/EmptyTab";
 import LoadFactorTab from "../dash-costrev/lf/LoadFactorTab";
 import CustomerProfitTab from "../dash-demo/CustomerProfitTab";
 import { useDashPage } from "../../lib/ui/dashContext";
+import SummaryTab from "./SummaryTab";
 import "./ExecutiveSummary.css";
 
 const TABS = [
@@ -74,17 +75,10 @@ function CostRevParts({ tab }: { tab: "route" | "fleet" }) {
   </>;
 }
 
-function TabContent({ tab }: { tab: TabId }) {
+function TabContent({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
   switch (tab) {
-    case "summary": return <>
-      <div className="es-grid es-grid-four">
-        <Metric label="กำไรสุทธิ" tone="good" /><Metric label="รายได้รวม" />
-        <Metric label="ต้นทุนรวม" /><Metric label="%Margin" />
-      </div>
-      <Panel title="คะแนนประสิทธิภาพรวม (Performance Index)" className="es-score" />
-      <Panel title="ประเด็นสำคัญ" className="es-insight" />
-      <Panel title="รายได้ → ต้นทุน → กำไร (ลบ.)" className="es-chart" />
-    </>;
+    // การ์ด 4 ใบ · คะแนน PI รวม · ประเด็นสำคัญ · กราฟน้ำตก (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569)
+    case "summary": return <SummaryTab onRecommend={() => onTab("recommendations")} />;
     case "route": return <CostRevParts tab="route" />;
     case "fleet": return <CostRevParts tab="fleet" />;
     // ทั้งส่วน Customer Performance ของ Executive Dashboard (กำไรลูกค้า + DSO) — ชุด alloc/ กับ debtors/ ของตัวเอง ไม่ใช้ไฟล์ต้นทุน
@@ -140,10 +134,10 @@ export default function ExecutiveSummary() {
         <label><span className="es-visually-hidden">กลุ่มบริการ</span><select disabled aria-label="กลุ่มบริการ"><option>ทุกกลุ่มบริการ</option></select></label>
       </div>
     </header>
-    <div className={tab === "route" || tab === "fleet" || tab === "customer" ? "es-page es-wide" : "es-page"}>
+    <div className={tab === "summary" || tab === "route" || tab === "fleet" || tab === "customer" ? "es-page es-wide" : "es-page"}>
       <section id="es-tab-content" className="es-content" role="tabpanel" aria-label={TABS.find((item) => item.id === tab)?.label}>
         <h2>{tab === "recommendations" ? "Recommendations & Financial Impact" : TABS.find((item) => item.id === tab)?.label}</h2>
-        <TabContent tab={tab} />
+        <TabContent tab={tab} onTab={setTab} />
       </section>
     </div>
   </>;

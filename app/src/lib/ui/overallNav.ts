@@ -1,13 +1,14 @@
 /** แท็บของ Overall Dashboard ใช้ร่วมกันระหว่างเมนูซ้ายกับแถบแท็บในหน้า */
 import { useSyncExternalStore } from "react";
 
+// short = ชื่อบนแคปซูลหัวหน้า (6 แท็บชื่อเต็มไม่พอแถวเดียว · เจ้าของงานเลือก 28 ก.ย. 2569) — ชื่อเต็มอยู่ที่ tooltip + หัวข้อของแท็บ
 export const OVERALL_TABS = [
-  { id: "fleet", label: "Vehicle Utilization" },
-  { id: "damage", label: "Damage Rate" },
-  { id: "empty", label: "Empty Trips" },
-  { id: "lf", label: "Inefficient Transportation Cost" },
-  { id: "tonkm", label: "Contribution Margin" },
-  { id: "detail3", label: "Vehicle Utilization Cost" },
+  { id: "fleet", label: "Vehicle Utilization", short: "Utilization" },
+  { id: "damage", label: "Damage Rate", short: "Damage Rate" },
+  { id: "empty", label: "Empty Trips", short: "Empty Trips" },
+  { id: "lf", label: "Inefficient Transportation Cost", short: "Inefficient Cost" },
+  { id: "tonkm", label: "Contribution Margin", short: "Contribution" },
+  { id: "detail3", label: "Vehicle Utilization Cost", short: "Utilization Cost" },
 ] as const;
 
 export type OverallTabId = (typeof OVERALL_TABS)[number]["id"];
