@@ -2,7 +2,7 @@
  * Manager Dashboard (เมนู id `dash-fleet` · เจ้าของงานส่งสเปก 26 ก.ย. 2569) — แทนเนื้อหาเดิมของ FleetDash ทั้งหน้า
  * (โค้ด FleetDash ยังอยู่ · สถานะกองรถของฝ่ายจัดรถไม่กระทบ) · สูตรทั้งหมดอยู่ใน lib/manager/manager.ts
  *
- *   ตัวกรองหัว: ช่วงเวลา รายวัน / รายเดือน / รายไตรมาส + เลือกค่า (ตั้งต้น = ช่วงล่าสุดที่ไฟล์มีข้อมูล) · สาขา
+ *   ตัวกรองหัว: ช่วงเวลา รายวัน / รายเดือน / รายไตรมาส / รายปี + เลือกค่า (ตั้งต้น = ช่วงล่าสุดที่ไฟล์มีข้อมูล) · สาขา
  *   สาขา: ผู้จัดการ = สาขาที่เลือกในหน้าต่างหลังเข้าหน้า (ล็อก) · ผู้ดูแลระบบ = ทุกสาขา (ตั้งต้น) หรือเลือกสาขาเดียว
  *         "ทุกสาขา" เท่านั้นที่มีตารางเปรียบเทียบรายสาขา (เจ้าของงานเลือกแบบตารางอย่างเดียว)
  *   แท็บหน้างาน: การ์ด 4 ใบ (เที่ยวทั้งหมด · ผ่าน · เฝ้าระวัง · ไม่ผ่าน ตาม Load Factor) + ตารางเที่ยวที่กำลังวิ่งในช่วง
@@ -35,10 +35,10 @@ import { Hero, Note } from "../dash-fleet/parts";
 import { SortTable, fmt, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { useColFilters } from "./colFilter";
+import { MANAGER_TABS, clearManagerNav, clearManagerPending, peekManagerPending, registerManagerNav, setManagerActive } from "../../lib/ui/managerNav";
+import type { ManagerTabId } from "../../lib/ui/managerNav";
 
-type Tab = "ops" | "fin";
-const TABS: { id: Tab; label: string }[] = [{ id: "ops", label: "หน้างาน" }, { id: "fin", label: "การเงิน" }];
-const KIND_LABEL: Record<PeriodKind, string> = { day: "รายวัน", month: "รายเดือน", quarter: "รายไตรมาส" };
+const KIND_LABEL: Record<PeriodKind, string> = { day: "รายวัน", month: "รายเดือน", quarter: "รายไตรมาส", year: "รายปี" };
 const ALL = "";
 
 const BAND_DOT: Record<string, string> = { g: "🟢", y: "🟡", r: "🔴", na: "⚪" };
@@ -87,13 +87,19 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
     [debtors.data, range, branch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- แท็บ ---------- */
-  const [tab, setTab] = useState<Tab>("ops");
+  const [tab, setTab] = useState<ManagerTabId>(() => peekManagerPending() ?? "ops");
+  useEffect(() => {
+    clearManagerPending();
+    registerManagerNav(setTab);
+    return clearManagerNav;
+  }, []);
+  useEffect(() => { setManagerActive(tab); }, [tab]);
   const barRef = useRef<HTMLDivElement>(null);
   useDashInk(barRef, `${tab}:${!!cr.data}`);
   const tabs = (
     <div className="dash-tabs" ref={barRef}>
       <span className="dink" />
-      {TABS.map((t) => (
+      {MANAGER_TABS.map((t) => (
         <button key={t.id} type="button" className={"dtab" + (tab === t.id ? " active" : "")}
           onClick={() => setTab(t.id)}>{t.label}</button>
       ))}
@@ -142,7 +148,7 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
             </div>
           ) : (
             <div className="ff">
-              <label>{kind === "month" ? "เดือน" : "ไตรมาส"}</label>
+              <label>{kind === "month" ? "เดือน" : kind === "quarter" ? "ไตรมาส" : "ปี"}</label>
               <select value={value} onChange={(e) => setValue(e.target.value)}>
                 {minDate && maxDate && periodOptions(kind, minDate, maxDate).map((p) => (
                   <option key={p.value} value={p.value}>{periodLabel(p)}</option>
