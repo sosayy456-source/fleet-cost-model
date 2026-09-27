@@ -10,6 +10,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Load, LoadStats } from "../../lib/dispatch/load";
 import type { Cap } from "../../lib/dispatch/loadSplit";
+import TruckPicture, { hasTruckPicture } from "./TruckPicture";
 
 interface Props {
   /** ข้อความหัวกล่องด้านขวา เช่น ทะเบียน · ชนิดรถ (ประเภท) */
@@ -22,7 +23,9 @@ interface Props {
   /** "คิดจากฝั่งน้ำหนัก" ฯลฯ — ว่าง = ไม่แสดง */
   basis: string;
   over: boolean;
-  children: ReactNode;
+  children?: ReactNode;
+  /** true = วาดแค่เวทีรูปรถ ไม่มีกรอบการ์ด/หัว/หลอด/ข้อความ (หน้าจัดรถแบบแผงขวา · 27 ก.ย. 2569) */
+  bare?: boolean;
 }
 
 const reducedMotion = (): boolean =>
@@ -35,7 +38,7 @@ const isFull = (pct: number): boolean => pct >= 95;
 /** รถยุบลงตามน้ำหนัก (หน่วยของ viewBox) — เหมือนไฟล์ต้นแบบ */
 const sinkOf = (pct: number): number => Math.min(100, pct) * 0.06;
 
-export default function LoadTruck({ hint, lf, head, tail, basis, over, children }: Props) {
+export default function LoadTruck({ hint, lf, head, tail, basis, over, children, bare }: Props) {
   const uid = useId().replace(/:/g, "");
   const [reduced] = useState(reducedMotion);
   const shownRef = useRef({ lf: 0, head: 0, tail: 0 });
@@ -117,13 +120,7 @@ export default function LoadTruck({ hint, lf, head, tail, basis, over, children 
   const x0 = hasTail ? -340 : 0;
   const barPct = Math.min(100, lf);
 
-  return (
-    <div className="card lt-card">
-      <div className="card-h">
-        <h2>สถานะการบรรทุก</h2>
-        <span className="hint">{hint}</span>
-      </div>
-
+  const stage = (
       <div className="lt-stage">
         <svg viewBox={`${x0} 0 ${600 - x0} 300`} className="lt-svg" role="img"
           aria-label={`Load Factor ${lf.toFixed(1)}%`}>
@@ -170,6 +167,17 @@ export default function LoadTruck({ hint, lf, head, tail, basis, over, children 
           {hasTail && wheel(4, -80)}
         </svg>
       </div>
+  );
+  if (bare) return stage;
+
+  return (
+    <div className="card lt-card">
+      <div className="card-h">
+        <h2>สถานะการบรรทุก</h2>
+        <span className="hint">{hint}</span>
+      </div>
+
+      {stage}
 
       <div className="lt-barhead"><span>หลอด Load Factor</span><span>{basis}</span></div>
       <div className="lt-bar"><i className={"lt-bar-fill" + tone(lf)} style={{ width: `${barPct}%` }} /></div>
@@ -183,52 +191,86 @@ const kg = (v: number): string => Math.round(v).toLocaleString("th-TH");
 const m3 = (v: number): string => v.toLocaleString("th-TH", { maximumFractionDigits: 3 });
 
 /**
- * กล่องสถานะการบรรทุกพร้อมข้อความสรุป/คำเตือน — ใช้ร่วมหน้า "จัดรถ" กับส่วน Fleet Coordinator ของ "บันทึกข้อมูลรวม"
- * (ย้ายข้อความมาจาก DispatchPage.tsx ให้สองหน้าเหมือนกันทุกตัวอักษร) · stats = null คือยังไม่ได้เลือกรถ
+ * แผงขวาของหน้าจัดรถ (เลย์เอาต์ตามภาพที่เจ้าของงานส่ง 27 ก.ย. 2569): หัว "จัดรถ" + Load Factor ตัวใหญ่ ·
+ * รูปรถ (LoadTruck bare) · มิเตอร์น้ำหนัก/ปริมาตร 2 ใบ · ข้อความสรุป/คำเตือนชุดเดิมทุกตัวอักษร
+ * stats = null คือยังไม่ได้เลือกรถ
  */
 export function LoadTruckPanel({ stats, load, headCap, tailCap, truckPlate, trailerPlate, kind, fleetType, trailerKind,
-  hasLoad, noTruckText, noLoadText, overText }: {
+  hasLoad, noTruckText, noLoadText, overText, title, sub, picker, pictureKind }: {
   stats: LoadStats | null; load: Load; headCap: Cap; tailCap: Cap | null;
   truckPlate: string; trailerPlate: string; kind: string; fleetType: string; trailerKind: string;
   /** มีของให้คิดแล้วหรือยัง (หน้าจัดรถ = ติ๊กบิลแล้ว) */
   hasLoad: boolean;
   noTruckText: string; noLoadText: string; overText: string;
+  /** หัวแผง เช่น "จัดรถ" · บรรทัดรอง (วันปล่อยรถ · จำนวนบิล · น้ำหนัก) */
+  title: string; sub: ReactNode;
+  /** ช่องเลือกรถ (ขั้นที่ 2) วางแนวยาวระหว่างหัวแผงกับรูปรถ (เจ้าของงานสั่ง 27 ก.ย. 2569) */
+  picker?: ReactNode;
+  /** ชนิดรถที่เลือกในช่อง (ยังไม่ต้องเลือกทะเบียน) — มีรูปของชนิดนั้น = ใช้รูป (TruckPicture) แทนรูปวาดเดิม
+   *  · มีหางพ่วงยังใช้รูปวาดเดิมเพราะวาดหัว + หางแยกตู้ได้ */
+  pictureKind?: string;
 }) {
   const over = !!stats && (stats.overWeight || stats.overVolume);
+  const lf = stats ? stats.loadFactor : 0;
+  const meter = (label: string, use: number, text: string) => (
+    <div className={"dp-meter" + (use > 1 ? " over" : "")}>
+      <div className="dp-meter-h"><b>{label}</b><span className="num-fd" key={use.toFixed(3)}>{(use * 100).toFixed(1)}%</span></div>
+      <div className="dp-meter-bar"><i style={{ width: `${Math.min(100, use * 100)}%` }} /></div>
+      <small>{text}</small>
+    </div>
+  );
   return (
-    <LoadTruck
-      hint={stats ? `${truckPlate} · ${kind} (${fleetType})${tailCap ? ` + หาง ${trailerPlate}` : ""}` : "ยังไม่ได้เลือกรถ"}
-      lf={stats ? stats.loadFactor : 0} head={stats?.head ?? 0} tail={stats?.tail ?? null}
-      basis={stats && hasLoad ? `คิดจากฝั่ง${stats.binding}` : ""}
-      over={over}>
-      {!stats ? (
-        <div className="lf">ยังไม่ได้เลือกรถ <small>— {noTruckText}</small></div>
-      ) : (
-        <>
-          <div className="lf">Load Factor <b>{stats.loadFactor.toFixed(1)}%</b>
-            <small> {over ? "เกินความจุรถ"
+    <div className="dp-stage">
+      <div className="dp-stage-h">
+        <div>
+          <h2>{title}</h2>
+          <div className="dp-stage-sub">{sub}</div>
+          <div className="dp-stage-truck">
+            {stats ? `${truckPlate} · ${kind} (${fleetType})${tailCap ? ` + หาง ${trailerPlate}` : ""}` : "ยังไม่ได้เลือกรถ"}
+          </div>
+        </div>
+        <div className={"dp-lf" + (over ? " over" : stats && lf >= 95 ? " full" : "")}>
+          <span>Load Factor{stats && hasLoad ? ` · คิดจากฝั่ง${stats.binding}` : ""}</span>
+          <b className="num-fd" key={lf.toFixed(1)}>{lf.toFixed(1)}%</b>
+        </div>
+      </div>
+
+      {picker && <div className="dp-pick">{picker}</div>}
+
+      {pictureKind && stats?.tail == null && hasTruckPicture(pictureKind)
+        ? <div className="lt-stage"><TruckPicture kind={pictureKind} lf={lf} /></div>
+        : <LoadTruck bare hint="" lf={lf} head={stats?.head ?? 0} tail={stats?.tail ?? null} basis="" over={over} />}
+
+      <div className="dp-meters">
+        {meter("น้ำหนัก", stats?.useWeight ?? 0, `${kg(load.weight)} / ${stats ? kg(stats.capKg) : "–"} กก.`)}
+        {meter("ปริมาตร", stats?.useVolume ?? 0, `${m3(load.volume)} / ${stats ? m3(stats.capM3) : "–"} ลบ.ม.`)}
+      </div>
+
+      <div className={"dispatch-load" + (over ? " over" : "")}>
+        {!stats ? (
+          <div className="lf">ยังไม่ได้เลือกรถ <small>— {noTruckText}</small></div>
+        ) : (
+          <>
+            <div className="lf"><small>{over ? "เกินความจุรถ"
               : !hasLoad ? noLoadText
               : stats.loadFactor >= 95 ? "เต็มคันพอดี"
               : `ยังว่างอยู่ ${(100 - stats.loadFactor).toFixed(1)}%`}{tailCap ? " · ความจุหัว + หางพ่วง" : ""}</small></div>
-          <div className="cap">
-            น้ำหนัก {kg(load.weight)} / {kg(stats.capKg)} กก. ({(stats.useWeight * 100).toFixed(1)}%) ·
-            ปริมาตร {m3(load.volume)} / {m3(stats.capM3)} ลบ.ม. ({(stats.useVolume * 100).toFixed(1)}%)
-          </div>
-          {tailCap && (
-            <div className="cap">
-              หัว {truckPlate} {kg(headCap.kg)} กก. / {m3(headCap.m3)} ลบ.ม. +
-              หาง {trailerPlate} {kg(tailCap.kg)} กก. / {m3(tailCap.m3)} ลบ.ม.
-            </div>
-          )}
-          {over && <div className="bill-bad">⚠ {overText}</div>}
-          {headCap.kg === 0 && headCap.m3 === 0 && (
-            <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของ "{kind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
-          )}
-          {tailCap && tailCap.kg === 0 && tailCap.m3 === 0 && (
-            <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของหาง "{trailerKind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
-          )}
-        </>
-      )}
-    </LoadTruck>
+            {tailCap && (
+              <div className="cap">
+                หัว {truckPlate} {kg(headCap.kg)} กก. / {m3(headCap.m3)} ลบ.ม. +
+                หาง {trailerPlate} {kg(tailCap.kg)} กก. / {m3(tailCap.m3)} ลบ.ม.
+              </div>
+            )}
+            {over && <div className="bill-bad">⚠ {overText}</div>}
+            {headCap.kg === 0 && headCap.m3 === 0 && (
+              <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของ "{kind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
+            )}
+            {tailCap && tailCap.kg === 0 && tailCap.m3 === 0 && (
+              <div className="bill-bad">⚠ ยังไม่มีสเปกความจุของหาง "{trailerKind}" ในระบบ — ตั้งค่าได้ที่หน้าการตั้งค่า</div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 }

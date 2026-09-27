@@ -4,13 +4,15 @@
  *   แท่ง VC/FC เต็ม 100% ป้ายในแท่ง FC เป็นลายทาง (ตามภาพที่เจ้าของงานส่ง 23 ก.ย. 2569) · ท้ายแถว = ต้นทุน/เที่ยว ·
  *   5.5 แยกตามเส้นทาง · 5.7 คำแนะนำ "ควรทำอย่างไรต่อ" (AdviceBoard แผงแยกตามโทน) · รายละเอียดทุกเที่ยว
  *
+ * ★ หลักคิดคุ้ม/ไม่คุ้ม (เจ้าของงานส่ง 27 ก.ย. 2569): coverage = (กำไร + ค่าเสื่อม) ÷ ค่าเสื่อม · ≥ 1 = คุ้ม —
+ *   การ์ดที่ 4 และคอลัมน์ "คุ้มค่าเสื่อม" ของตารางรายเที่ยวใช้เกณฑ์นี้ · แท่ง/คำแนะนำ/ตารางเส้นทางยังเทียบค่าเฉลี่ยรวม
  * ★ สเปกอ้างคอลัมน์ของ Excel ตัวอย่าง (G ค่าเสื่อม · L Contribution · M/N coverage · O % เทียบเฉลี่ย · P สถานะ ·
  *   Q VC · R FC) ที่ไม่ได้ให้นิยามมา — นิยามที่ใช้อยู่ที่ depreciation() ใน lib/detail3/calc.ts
  */
 import { useMemo } from "react";
 import { D } from "../../../lib/chart/theme";
 import {
-  DEP_LOW_PCT, DEP_STATUS_LABEL, DEP_WARN_PCT, depAdvice, depByKind, depByRoute, depreciation,
+  DEP_BREAKEVEN, DEP_LOW_PCT, DEP_STATUS_LABEL, DEP_WARN_PCT, depAdvice, depByKind, depByRoute, depreciation,
   type DepAdviceTone, type DepRow, type DepStatus, type VRow,
 } from "../../../lib/detail3/calc";
 import { thDateSafe } from "../../../lib/record/date";
@@ -39,10 +41,10 @@ export default function Part2({ rows }: { rows: VRow[] }) {
     <div className="dz-heroes">
       <Hero kind="cost" l="ค่าเสื่อมสะสมทั้งหมด" v={fmt(d.totalDep)} unit="บาท"
         s={<>{fmt(d.list.length)} เที่ยว จาก {fmt(kinds.length)} ชนิด (เฉพาะรถบริษัท)</>} />
-      <Hero kind="profit" l="Contribution เฉลี่ย/เที่ยว" v={fmt(d.avgContribution)} unit="บาท" s="รายได้ − ต้นทุนผันแปร" />
-      <Hero kind="svc" l="coverage เฉลี่ยรวม" v={fmt(d.avgCoverage, 2)} unit="เท่า" s="ΣContribution ÷ Σค่าเสื่อม" />
-      <Hero kind="loss" l="เที่ยวที่ต่ำกว่าค่าเฉลี่ยรวม" v={fmt(d.below)} vSub={`/ ${fmt(d.list.length)} เที่ยว`}
-        s="สถานะ ต่ำกว่าเฉลี่ยมาก + เฝ้าระวัง" />
+      <Hero kind="profit" l="กำไรก่อนหักค่าเสื่อม เฉลี่ย/เที่ยว" v={fmt(d.avgContribution)} unit="บาท" s="กำไร + ค่าเสื่อม" />
+      <Hero kind="svc" l="coverage เฉลี่ยรวม" v={fmt(d.avgCoverage, 2)} unit="เท่า" s="Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม" />
+      <Hero kind="loss" l="เที่ยวที่ไม่คุ้มค่าเสื่อม" v={fmt(d.notWorth)} vSub={`/ ${fmt(d.list.length)} เที่ยว`}
+        s={`coverage ต่ำกว่า ${fmt(DEP_BREAKEVEN, 2)} เท่า`} />
     </div>
 
     <KindBoard kinds={kinds} />
@@ -52,8 +54,9 @@ export default function Part2({ rows }: { rows: VRow[] }) {
     <AdviceBoard advice={advice} />
 
     <TripTable list={d.list} />
-    <Note>นิยาม: ต้นทุนผันแปร (VC) = ต้นทุนของคัน − ค่าเสื่อม · Contribution = รายได้ (ปันตามสัดส่วนต้นทุนของคัน) − VC ·
-      coverage = Contribution ÷ ค่าเสื่อม · coverage เฉลี่ยรวม = ΣContribution ÷ Σค่าเสื่อม ·
+    <Note>นิยาม: กำไร = รายได้ (ปันตามสัดส่วนต้นทุนของคัน) − ต้นทุนของคัน · กำไรก่อนหักค่าเสื่อม = กำไร + ค่าเสื่อม ·
+      coverage = กำไรก่อนหักค่าเสื่อม ÷ ค่าเสื่อม · ≥ {fmt(DEP_BREAKEVEN, 2)} = คุ้มค่าเสื่อม · coverage เฉลี่ยรวม = Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม ·
+      ต้นทุนผันแปร (VC) = ต้นทุนของคัน − ค่าเสื่อม ·
       สถานะรายเที่ยว: ต่ำกว่าค่าเฉลี่ยรวมเกิน {Math.abs(DEP_LOW_PCT)}% = ต่ำกว่าเฉลี่ยมาก · ต่ำกว่า 0–{Math.abs(DEP_LOW_PCT)}% = เฝ้าระวัง ·
       ไม่นับรถบริษัทที่ไม่มีค่าเสื่อม {fmt(d.noDep)} คัน-เที่ยว (หารไม่ได้)</Note>
   </>;
@@ -69,7 +72,7 @@ function KindBoard({ kinds }: { kinds: KindRow[] }) {
   const L = Math.max(neg, pos * 0.25, 1), R = Math.max(pos, neg * 0.25, 1);
   const zero = (L / (L + R)) * 100;
   return <div className="dz-cc" style={{ marginTop: 14 }}>
-    <h4>ชนิดรถไหนคุ้มค่าเสื่อม · โครงต้นทุนต่อเที่ยว</h4>
+    <h4>ความคุ้มค่าต้นทุนคงที่ (FC)</h4>
     <div className="fl-legend d3-kb-legend">
       <span><i style={{ background: D.emeraldLight }} />คุ้มค่าเสื่อมกว่าค่าเฉลี่ยรวม</span>
       <span><i style={{ background: D.rose }} />ต่ำกว่าค่าเฉลี่ยรวม</span>
@@ -193,7 +196,7 @@ function TripTable({ list }: { list: DepRow[] }) {
     { key: "rev", label: "รายได้ (บาท)", get: (r) => r.rev, num: true },
     { key: "vc", label: "VC", get: (r) => r.vc, num: true },
     { key: "dep", label: "ค่าเสื่อม", get: (r) => r.dep, num: true },
-    { key: "contribution", label: "Contribution", get: (r) => r.contribution, num: true,
+    { key: "contribution", label: "กำไรก่อนหักค่าเสื่อม", get: (r) => r.contribution, num: true,
       render: (r) => <b className={r.contribution < 0 ? "d3-tt-neg" : "d3-tt-pos"}>{signed(r.contribution)}</b> },
     { key: "coverage", label: "Coverage", get: (r) => r.coverage, num: true,
       render: (r) => <span className={`d3-tt-cov ${r.coverage < 0 ? "neg" : "pos"}`}>{times(r.coverage)}</span> },
@@ -201,6 +204,8 @@ function TripTable({ list }: { list: DepRow[] }) {
       render: (r) => <b className={r.vsAvg < 0 ? "d3-tt-neg" : "d3-tt-pos"}>{spct(r.vsAvg)}</b> },
     { key: "status", label: "สถานะ", get: (r) => r.status,
       render: (r) => <span className={`fu-pill ${STATUS_PILL[r.status]}`}>{DEP_STATUS_LABEL[r.status]}</span> },
+    { key: "worth", label: "คุ้มค่าเสื่อม", get: (r) => (r.worth ? 1 : 0),
+      render: (r) => r.worth ? <span className="fu-pill comp">คุ้ม</span> : <span className="fu-pill low">ไม่คุ้ม</span> },
   ], []);
   return <D3Table title="รายละเอียดทุกเที่ยวของบริษัท" unit="คัน-เที่ยว" rows={list} cols={cols} initial={{ key: "vsAvg", dir: 1 }}
     rowKey={(r) => `${r.id}|${r.pl}`} empty="ไม่มีข้อมูล" search={(r) => [r.pl, r.rt, r.vk, r.id]}

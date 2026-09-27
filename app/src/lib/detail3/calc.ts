@@ -174,6 +174,19 @@ export function companyVsPartner(rows: VRow[]) {
 }
 
 /* ================================ ส่วนที่ 2 · คุ้มค่าเสื่อม ================================ */
+/*
+ * หลักคิด (เจ้าของงานส่ง 27 ก.ย. 2569 · แทนการตัดสินด้วยการเทียบค่าเฉลี่ยรวม):
+ *   1. เฉพาะรถบริษัท (รถร่วมไม่มีค่าเสื่อม)   2. ค่าเสื่อมของคัน = vs[].d (Σ = รวมค่าเสื่อม ของใบ)
+ *   3. กำไรของคัน = รายได้ (ปันตามสัดส่วนต้นทุน) − ต้นทุนของคัน — หักต้นทุนทุกก้อนแล้ว ไม่ต้องแยกค่าซ่อม
+ *   4. กำไรก่อนหักค่าเสื่อม = กำไร + ค่าเสื่อม (add-back แบบ EBITDA)
+ *   5. coverage = กำไรก่อนหักค่าเสื่อม ÷ ค่าเสื่อม   6. ≥ 1 = คุ้มค่าเสื่อม · < 1 = ไม่คุ้ม
+ *   7. นับรายชนิดรถ: เที่ยวทั้งหมด · คุ้ม · ไม่คุ้ม · %
+ * ★ กำไรก่อนหักค่าเสื่อม = รายได้ − (ต้นทุน − ค่าเสื่อม) = `contribution` เดิมทุกสตางค์ — coverage จึงไม่เปลี่ยน
+ *   ที่เปลี่ยนคือเกณฑ์ตัดสิน (`worth`) · สถานะเทียบค่าเฉลี่ยรวม (`status`/`vsAvg`) ยังใช้กับแท่งเทียบเฉลี่ย/คำแนะนำ
+ */
+
+/** จุดคุ้มค่าเสื่อม — coverage ตั้งแต่ค่านี้ = คุ้ม */
+export const DEP_BREAKEVEN = 1;
 
 /** สถานะรายเที่ยวเทียบ coverage เฉลี่ยรวม — ต่ำกว่าเกณฑ์นี้ (%) = ต่ำกว่าเฉลี่ยมาก */
 export const DEP_LOW_PCT = -20;
@@ -183,10 +196,12 @@ export const DEP_STATUS_LABEL: Record<DepStatus, string> = { low: "ต่ำก�
 export interface DepRow extends VRow {
   /** ต้นทุนผันแปร = ต้นทุนของคัน − ค่าเสื่อม (VC) · ต้นทุนคงที่ = ค่าเสื่อม (FC) */
   vc: number;
-  /** Contribution = รายได้ − VC (เงินที่เหลือไว้จ่ายค่าเสื่อม) */
+  /** กำไรก่อนหักค่าเสื่อม = กำไร + ค่าเสื่อม = รายได้ − VC (เงินที่เหลือไว้จ่ายค่าเสื่อม) */
   contribution: number;
-  /** coverage = Contribution ÷ ค่าเสื่อม (เท่า) */
+  /** coverage = กำไรก่อนหักค่าเสื่อม ÷ ค่าเสื่อม (เท่า) */
   coverage: number;
+  /** คุ้มค่าเสื่อม = coverage ≥ DEP_BREAKEVEN */
+  worth: boolean;
   /** ต่างจาก coverage เฉลี่ยรวม (%) */
   vsAvg: number;
   status: DepStatus;
@@ -203,22 +218,30 @@ export function depreciation(rows: VRow[]) {
   const totalContribution = sum(base, (r) => r.rev - (r.cost - r.dep));
   const avgCoverage = totalDep ? totalContribution / totalDep : 0;
   const list: DepRow[] = base.map((r) => {
-    const vc = r.cost - r.dep, contribution = r.rev - vc, coverage = contribution / r.dep;
+    const profit = r.rev - r.cost, contribution = profit + r.dep, coverage = contribution / r.dep, vc = r.cost - r.dep;
     const vsAvg = avgCoverage > 0 ? (coverage - avgCoverage) / avgCoverage * 100 : 0;
     const status: DepStatus = vsAvg < DEP_LOW_PCT ? "low" : vsAvg < 0 ? "watch" : "ok";
-    return { ...r, vc, contribution, coverage, vsAvg, status };
+    return { ...r, vc, contribution, coverage, worth: coverage >= DEP_BREAKEVEN, vsAvg, status };
   });
   return { list, avgCoverage, totalDep, noDep: company.length - base.length,
     avgContribution: avg(list.map((r) => r.contribution)) ?? 0,
-    below: list.filter((r) => r.status !== "ok").length };
+    below: list.filter((r) => r.status !== "ok").length,
+    notWorth: list.filter((r) => !r.worth).length };
 }
 
-/** ชนิดรถไหนคุ้มค่าเสื่อม — เฉลี่ย % ต่างจากเส้นเฉลี่ยรวม (diverging bar) + VC/FC เฉลี่ยต่อเที่ยว */
+/**
+ * ชนิดรถไหนคุ้มค่าเสื่อม — เฉลี่ย % ต่างจากเส้นเฉลี่ยรวม (diverging bar) + VC/FC เฉลี่ยต่อเที่ยว
+ * + ขั้นที่ 7: นับเที่ยวคุ้ม/ไม่คุ้ม (`nWorth`/`worthPct`) · coverage ของชนิด = Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม
+ *   (วิธีเดียวกับ coverage เฉลี่ยรวม) · ชนิดคุ้มค่าเสื่อม = coverage ของชนิด ≥ 1
+ */
 export function depByKind(list: DepRow[]) {
   return [...bucket(list, (r) => r.vk)].map(([vk, l]) => {
     const vc = avg(l.map((r) => r.vc))!, fc = avg(l.map((r) => r.dep))!;
+    const depSum = sum(l, (r) => r.dep), coverage = depSum ? sum(l, (r) => r.contribution) / depSum : 0;
+    const nWorth = l.filter((r) => r.worth).length;
     return { vk, n: l.length, vsAvg: avg(l.map((r) => r.vsAvg))!, vc, fc, total: vc + fc,
-      vcShare: vc + fc > 0 ? vc / (vc + fc) * 100 : 0 };
+      vcShare: vc + fc > 0 ? vc / (vc + fc) * 100 : 0,
+      coverage, worth: coverage >= DEP_BREAKEVEN, nWorth, worthPct: nWorth / l.length * 100 };
   }).sort((a, b) => b.vsAvg - a.vsAvg);
 }
 
