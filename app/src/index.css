@@ -2614,3 +2614,12 @@ text.num-fd{transform-box:fill-box}
 
 /* หัวตาราง D3Table: ปุ่มสลับมิติ + ช่องค้นหา ด้านขวา (ตาราง "2. เส้นทางกับการใช้งานรถ" · 27 ก.ย. 2569) */
 #view-dash .d3-tt-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+
+/* รูปรถสถานะการบรรทุกตามชนิดรถ (LoadTruck.tsx · 27 ก.ย. 2569): ล้อคู่ · เครื่องทำความเย็นตู้เย็น · ตัวเลขตู้เตี้ย · รถเทายังไม่เลือกชนิด */
+.lt-dual{fill:none;stroke:rgba(255,255,255,.16);stroke-width:3}
+.lt-reefer{fill:var(--ink-muted)}
+.lt-reefer-vent{fill:none;stroke:var(--border);stroke-width:3;stroke-linecap:round}
+.lt-pct.sm{font-size:24px}
+.lt-ghost .lt-cab,.lt-ghost .lt-cab-low{fill:var(--border-strong)}
+.lt-ghost .lt-door{stroke:var(--ink-faint)}
+.lt-ghost .lt-body,.lt-ghost .lt-tire,.lt-ghost .lt-hub{opacity:.75}

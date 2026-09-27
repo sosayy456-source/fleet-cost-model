@@ -369,7 +369,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
 
       <LoadTruckPanel stats={stats} load={sum} headCap={headCap} tailCap={tailCap}
         truckPlate={truck?.plate ?? ""} trailerPlate={trailer?.plate ?? ""} kind={kind} fleetType={hp.fleetType}
-        trailerKind={tp.vehicle} hasLoad={chosen.length > 0}
+        trailerKind={tp.vehicle} shapeKind={hp.vehicle} hasLoad={chosen.length > 0}
         noTruckText="เลือกประเภทรถ ชนิดรถ และทะเบียนในขั้นที่ 2" noLoadText="ยังไม่ได้เลือกบิล"
         overText="เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้" />
       </div>
