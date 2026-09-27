@@ -5,6 +5,12 @@
     ภาระงาน = น้ำหนักที่ใช้คิด (ตันเทียบเท่า) × ระยะทาง (กม.)
     ต้นทุนจัดสรร = ต้นทุนเที่ยว × (ภาระงานของรายการ ÷ ภาระงานรวมทั้งเที่ยว)
 
+★ Conversion Factor มาจากรถที่วิ่งจริง (เจ้าของงานสั่ง 27 ก.ย. 2569 — เดิมตายตัว 167 กก./ลบ.ม. = VOL_TON 0.167)
+    CF (กก./ลบ.ม.) = ความจุน้ำหนักรวม ÷ ความจุปริมาตรรวม ของทุกคันในใบ (conversion_factor · หา CF ของใบที่ src/capacity.py)
+    น้ำหนักเทียบเท่า = MAX(น้ำหนักจริง, ปริมาตร × CF) · ห้ามใส่ CF ตายตัวในโค้ด ผู้เรียกต้องส่ง CF ของเที่ยวเข้ามาเสมอ
+★ ปัดเศษ: คิดสัดส่วนด้วยทศนิยมเต็ม แล้วปัดต้นทุนจัดสรรรายการละสตางค์ ส่วนต่างที่เหลือให้รายการที่ต้นทุนมากสุด
+  (รายการแรกถ้าเท่ากัน) → Σ ต้นทุนจัดสรรทั้งเที่ยว = ต้นทุนเที่ยวพอดี · round_allocs
+
 ไฟล์นี้ไม่อ่านไฟล์และไม่ใช้ pandas — รับ Item แล้วคืนผลลัพธ์ เพื่อให้ทดสอบตัวเลข
 ตามตัวอย่างในเอกสารได้ตรง ๆ ส่วนการแปลงชื่อคอลัมน์ไทยเป็น Item อยู่ที่ตัวเรียกใช้
 
@@ -30,7 +36,6 @@ import re
 import statistics
 from dataclasses import dataclass, field
 
-VOL_TON = 0.167          # ตัน/CBM (= 167 กก./ลบ.ม.)
 DIM_MAX = 1000.0         # ซม. — ด้านที่ยาวกว่านี้ถือว่ากรอกผิด (พบ ยาว 6,080 ซม.)
 
 #: ประเภทใบรายการที่ **ตัดออกจากโมเดลทั้งระบบ** (เจ้าของงานสั่ง 20 ก.ย. 2569)
@@ -151,7 +156,8 @@ class Item:
     dist: float | None = None
     dist_source: str = ""
     cbm: float = 0.0
-    basis: float = 0.0
+    cf: float = 0.0          # Conversion Factor ของเที่ยว (กก./ลบ.ม.) ที่ใช้คิด basis
+    basis: float = 0.0       # น้ำหนักเทียบเท่า (ตัน)
     basis_cond: int = 0
     workload: float = 0.0
     share: float | None = None
@@ -204,19 +210,44 @@ def volume_cbm(it: Item) -> float:
     return 0.0
 
 
-def basis_of(weight_kg: float, cbm: float, qty: float) -> tuple[float, int]:
-    """น้ำหนักที่ใช้คิด B (ตันเทียบเท่า) + เลขเงื่อนไข 1-4 (ข้อ 5 ขั้นที่ 3)
+def conversion_factor(cap_kg: float | None, cap_m3: float | None) -> float | None:
+    """Conversion Factor (กก./ลบ.ม.) = ความจุน้ำหนัก ÷ ความจุปริมาตร ของรถที่วิ่งเที่ยวนั้น
+    None = ข้อมูลรถไม่พอ (ความจุต้อง > 0 ทั้งคู่ — กันหารศูนย์)"""
+    if cap_kg is None or cap_m3 is None or cap_kg <= 0 or cap_m3 <= 0:
+        return None
+    return cap_kg / cap_m3
 
-    ★ กรณี "ปริมาตรอย่างเดียว" ต้องคูณ 0.167 ด้วย (ข้อ 10.1) ไม่งั้นรายการกลุ่มนี้
-      อยู่คนละหน่วยกับรายการอื่นในเที่ยวเดียวกัน แล้วรับต้นทุนมากเกินราว 6 เท่า
+
+def basis_of(weight_kg: float, cbm: float, qty: float, cf: float) -> tuple[float, int]:
+    """น้ำหนักเทียบเท่า B (ตัน) + เลขเงื่อนไข 1-4 (ข้อ 5 ขั้นที่ 3)
+    = MAX(น้ำหนักจริง, ปริมาตร × CF) · cf = Conversion Factor ของรถในเที่ยวนั้น (กก./ลบ.ม.)
+
+    ★ กรณี "ปริมาตรอย่างเดียว" ต้องคูณ CF ด้วย (ข้อ 10.1) ไม่งั้นรายการกลุ่มนี้
+      อยู่คนละหน่วยกับรายการอื่นในเที่ยวเดียวกัน · ค่าติดลบ/0 ถือว่าไม่มีข้อมูลด้านนั้น
     """
+    if not cf or cf <= 0:
+        raise ValueError("Conversion Factor ต้องมากกว่า 0 — ต้องคำนวณจากความจุรถของเที่ยวนั้น")
+    vol_t = cbm * cf / 1000
     if weight_kg > 0 and cbm > 0:
-        return max(weight_kg / 1000, cbm * VOL_TON), 1
+        return max(weight_kg / 1000, vol_t), 1
     if weight_kg > 0:
         return weight_kg / 1000, 2
     if cbm > 0:
-        return cbm * VOL_TON, 3
+        return vol_t, 3
     return qty, 4
+
+
+def round_allocs(values: list[float], total: float) -> list[float]:
+    """ปัดต้นทุนจัดสรรรายการละสตางค์ แล้วให้ผลรวมเท่ากับต้นทุนเที่ยวพอดี
+    ส่วนต่างจากการปัดไปอยู่ที่รายการที่ต้นทุนมากสุด (รายการแรกถ้าเท่ากัน) — build_alloc.py ใช้กติกาเดียวกัน
+    ★ เทียบกับต้นทุนเที่ยวตัวจริง ไม่ใช่ที่ปัดสตางค์แล้ว — ไฟล์ต้นทุนบางใบมีเศษต่ำกว่าสตางค์ ถ้าปัดก่อน
+      ยอดรวมทั้งไฟล์จะคลาดจาก "ต้นทุนที่ปันได้" (ชุดตัวอย่าง 0.58 บาท)"""
+    r = [round(v, 2) for v in values]
+    diff = round(total - sum(r), 9)
+    if diff and r:
+        i = max(range(len(values)), key=lambda k: values[k])
+        r[i] = round(r[i] + diff, 9)
+    return r
 
 
 W_WORKLOAD = "ภาระงาน"
@@ -308,24 +339,29 @@ def exclusion_of(it: Item, trip_type: str = "") -> str:
 
 
 def allocate_trip(items: list[Item], trip_cost: float | None,
-                  routes: dict[str, dict[str, float]], trip_type: str = "") -> TripResult:
+                  routes: dict[str, dict[str, float]], trip_type: str = "", *, cf: float) -> TripResult:
     """
     ปันต้นทุนของหนึ่งเที่ยวลงทุกรายการในเที่ยวนั้น (ข้อ 5 ทั้ง 6 ขั้น)
+    cf = Conversion Factor ของรถที่วิ่งเที่ยวนั้น (กก./ลบ.ม.) — ต้องมาจากความจุรถ ห้ามใส่ค่าตายตัว
 
     trip_cost = None (หาเลขที่ใบรายการในรายงานค่าเดินทางไม่เจอ หรือช่องต้นทุนไม่ใช่ตัวเลข)
     → คำนวณระยะทาง/ปริมาตร/ภาระงานให้ครบ แต่ share/alloc/profit เป็น None
       (ข้อ 8: แถวยังอยู่ ไม่ถูกตัดทิ้ง แค่ขึ้นว่าข้อมูลไม่เชื่อมกัน)
+    trip_cost ติดลบ = ValueError (ต้นทุนเที่ยวต้องไม่ติดลบ — build_alloc.py กันไว้ก่อนเรียก)
     """
+    if trip_cost is not None and trip_cost < 0:
+        raise ValueError("ต้นทุนเที่ยวติดลบ — ปันไม่ได้")
     doc = items[0].doc if items else ""
     res = TripResult(doc=doc, cost=trip_cost, items=items)
     if not items:
         return res
 
-    # ขั้นที่ 1-3 · ระยะทาง → ปริมาตร → น้ำหนักที่ใช้คิด
+    # ขั้นที่ 1-3 · ระยะทาง → ปริมาตร → น้ำหนักเทียบเท่า (CF ของรถในเที่ยว)
     for it in items:
         it.dist, it.dist_source = lookup_distance(routes, it.origin, it.dest)
         it.cbm = volume_cbm(it)
-        it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty)
+        it.cf = cf
+        it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty, cf)
         it.excluded = exclusion_of(it, trip_type)
 
     # ระยะทางที่หาไม่เจอ → ค่ากลางของรายการอื่นในเที่ยวเดียวกัน → ทั้งเที่ยวไม่มีเลยใช้ 1
@@ -354,12 +390,15 @@ def allocate_trip(items: list[Item], trip_cost: float | None,
     )
     if not normal:
         res.weights_from = W_REVENUE            # ทั้งเที่ยวเป็นรายการผิดปกติ = ปันตามรายได้ทั้งเที่ยว
-    for it in items:
-        if trip_cost is None:
+    if trip_cost is None:
+        for it in items:
             it.share = it.alloc = it.profit = None
-            continue
+        return res
+    for it in items:
         it.share = share_in_trip(it, total, res.weights_from, f, rev_all)
-        it.alloc = trip_cost * it.share
+    # ปัดรายการละสตางค์ ส่วนต่างให้รายการที่มากสุด → Σ = ต้นทุนเที่ยวพอดี
+    for it, a in zip(items, round_allocs([trip_cost * it.share for it in items], trip_cost)):
+        it.alloc = a
         it.profit = it.revenue - it.alloc        # ขั้นที่ 6
         if it.excluded:
             res.unallocated += it.alloc

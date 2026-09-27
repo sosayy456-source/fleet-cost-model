@@ -16,6 +16,8 @@
  *
  * กล่องสรุปแสดง กำไร · รายได้ (รวมทุกบิล) · ต้นทุนพยากรณ์ — กรอบเขียวเมื่อกำไร แดงเมื่อขาดทุน
  * (ต้นทุนพยากรณ์ = ค่าเฉลี่ยข้อมูลเก่า N เดือนล่าสุด ตามเส้นทาง × ชนิดรถ ดู lib/forecast/)
+ * ต้นทุนพยากรณ์แยกรายบิล (27 ก.ย. 2569 เจ้าของงานสั่ง) = ปันต้นทุนพยากรณ์ของเที่ยวเข้าบิลที่ติ๊ก ด้วยสูตรเดียวกับ ETL ปันส่วน
+ *   (lib/alloc/tripAlloc.ts · CF จากความจุหัว + หางที่เลือก) — แสดงอย่างเดียว ไม่บันทึกลงใบ
  *
  * ★ การจัดรถต้องไม่ค้างครึ่งทาง (แก้ 23 ก.ย. 2569 — เดิมสร้างใบในเครื่องแล้วพังตอนส่งชีต
  *   บิลยังรอจัดรถ กดซ้ำได้ใบซ้ำ คนขับเห็นงานเกิน) กันไว้สามชั้น:
@@ -38,6 +40,9 @@ import type { VehiclePick } from "./VehiclePick";
 import { useBills } from "../../lib/store/bills";
 import { loadCostRev } from "../../lib/data/useCostRev";
 import { COST_PART_LABELS, buildForecast, forecastFor } from "../../lib/forecast/forecast";
+import { allocateTrip, conversionFactor } from "../../lib/alloc/tripAlloc";
+import type { AllocResult } from "../../lib/alloc/tripAlloc";
+import { pendingAllocItems } from "../../lib/alloc/recordAlloc";
 import type { ForecastResult, ForecastTable } from "../../lib/forecast/forecast";
 import { newDocNo } from "../../lib/bill/number";
 import { genId, nowStamp, thDateSafe, todayISO } from "../../lib/record/date";
@@ -50,6 +55,7 @@ import GrowBox from "../../lib/ui/GrowBox";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey } from "../../types/record";
+import type { PendingBill } from "../../types/bill";
 import { randomDispatch } from "./randomDispatch";
 
 const baht = (v: number): string => Math.round(v).toLocaleString("th-TH");
@@ -152,6 +158,10 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   const forecast: ForecastResult | null = fc && origin && dest && kind
     ? forecastFor(fc, origin, dest, kind) : null;
   const profit = forecast ? sum.revenue - forecast.cost : null;
+  /** ปันต้นทุนพยากรณ์เข้าบิลที่ติ๊ก — CF จากความจุรวมหัว + หาง (ตัวเดียวกับ Load Factor) */
+  const billSplit = useMemo<AllocResult | null>(() => (forecast && chosen.length && truck
+    ? allocateTrip(pendingAllocItems(chosen), forecast.cost, conversionFactor(capKg, capM3)) : null),
+  [forecast, chosen, truck, capKg, capM3]);
 
   const blocked = !bills.connected ? "ยังไม่ได้เชื่อม Google Sheet — จัดรถได้เมื่อเชื่อมแล้วเท่านั้น"
     : !chosen.length ? "ยังไม่ได้เลือกบิล"
@@ -467,9 +477,70 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
             </div>
             </div>
           </div>
+          {billSplit && <BillSplit res={billSplit} bills={chosen} />}
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * ต้นทุนพยากรณ์แยกรายบิล — ปันด้วย Metric = MAX(น้ำหนัก, ปริมาตร × CF) × ระยะทางของบิล (lib/alloc/tripAlloc.ts)
+ * ตัวเลขเป็นพยากรณ์ของบิลที่ติ๊กอยู่ เปลี่ยนตามบิล/รถที่เลือก ไม่บันทึกลงใบ
+ */
+function BillSplit({ res, bills }: { res: AllocResult; bills: PendingBill[] }) {
+  const n = (v: number, d = 0) => v.toLocaleString("th-TH", { minimumFractionDigits: d, maximumFractionDigits: d });
+  return (
+    <div className="dp-split">
+      <h4>ต้นทุนพยากรณ์แยกรายบิล</h4>
+      {res.error ? <div className="banner">{res.error}</div> : <>
+        <p className="price-note" style={{ margin: "0 0 8px" }}>
+          Conversion Factor = ความจุน้ำหนัก ÷ ความจุปริมาตร ของรถหัว + หาง = <b>{n(res.cf ?? 0, 2)} กก./ลบ.ม.</b> ·
+          น้ำหนักเทียบเท่า = MAX(น้ำหนัก, ปริมาตร × CF) · Metric = น้ำหนักเทียบเท่า × ระยะทางของบิล ·
+          ต้นทุนบิล = ต้นทุนพยากรณ์ × Metric ÷ Metric รวม · บิลที่น้ำหนัก/ขนาดเชื่อไม่ได้ปันตามรายได้
+        </p>
+        <div className="dp-split-box">
+          <table className="tbl ta-tbl">
+            <thead><tr>
+              <th>เลขที่บิล</th><th>ผู้ส่ง → ผู้รับ</th><th>เส้นทาง</th>
+              <th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th><th className="n">ระยะทาง (กม.)</th>
+              <th className="n">น้ำหนักเทียบเท่า (กก.)</th><th className="n">Metric (กก.-กม.)</th><th className="n">สัดส่วน</th>
+              <th className="n">ต้นทุนพยากรณ์</th><th className="n">รายได้</th><th className="n">กำไรประมาณการ</th>
+            </tr></thead>
+            <tbody>{res.rows.map((r, i) => {
+              const b = bills[i]!;
+              const p = r.revenue - r.cost;
+              return (
+                <tr key={b.id}>
+                  <td><b>{b.no || "–"}</b></td>
+                  <td>{b.sender || "–"} → {b.receiver || "–"}</td>
+                  <td>{b.origin || "–"}–{b.dest || "–"}</td>
+                  <td className="n">{n(r.weightKg)}</td>
+                  <td className="n">{n(r.volumeM3, 3)}</td>
+                  <td className="n" title={r.distSource}>{n(r.dist)}{r.distSource !== "ตารางระยะทาง" && " *"}</td>
+                  <td className="n">{r.byRevenue ? <span title={r.flag}>ตามรายได้</span> : n(r.eqKg, 1)}</td>
+                  <td className="n">{r.byRevenue ? "–" : n(r.metric)}</td>
+                  <td className="n">{n(r.share * 100, 2)}%</td>
+                  <td className="n"><b>{n(r.cost, 2)}</b></td>
+                  <td className="n">{n(r.revenue, 2)}</td>
+                  <td className="n" style={{ fontWeight: 700, color: p < 0 ? "var(--red)" : "var(--green)" }}>
+                    {p < 0 ? "−" : "+"}{n(Math.abs(p), 2)}</td>
+                </tr>
+              );
+            })}</tbody>
+            <tfoot><tr>
+              <td colSpan={7}>รวม</td>
+              <td className="n"><b>{n(res.totalMetric)}</b></td>
+              <td className="n"><b>{n(res.rows.reduce((s, r) => s + r.share, 0) * 100, 2)}%</b></td>
+              <td className="n"><b>{n(res.rows.reduce((s, r) => s + r.cost, 0), 2)}</b></td>
+              <td className="n"><b>{n(res.rows.reduce((s, r) => s + r.revenue, 0), 2)}</b></td>
+              <td className="n"><b>{n(res.rows.reduce((s, r) => s + r.revenue - r.cost, 0), 2)}</b></td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <p className="price-note" style={{ marginTop: 6 }}>* = ไม่มีระยะทางในตาราง ใช้ค่ากลางของบิลอื่นในเที่ยว</p>
+      </>}
+    </div>
   );
 }
 

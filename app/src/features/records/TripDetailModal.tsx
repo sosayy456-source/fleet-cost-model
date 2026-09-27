@@ -2,9 +2,11 @@
  * ป็อบอัพรายละเอียดเที่ยว — กดที่แถวในหน้า "รายการทั้งหมด" (สเปก Role Accounting 22 ก.ย. 2569)
  *
  * สองมุมมอง สลับด้วยปุ่มที่หัวป็อบอัพ:
- *   1. รายการบิล        ทุกบิลของเที่ยวนั้น พร้อมกำไร / รายได้ / ต้นทุนที่จัดสรร
- *                       ต้นทุนจัดสรรของบิล = ต้นทุนทั้งเที่ยว × สัดส่วนรายได้ของบิลนั้น
- *                       (บิลที่รายได้รวมเป็น 0 ทั้งใบ → หารเท่ากันทุกบิล เพื่อไม่ให้ตกหล่น)
+ *   1. รายการบิล        ทุกบิลของเที่ยวนั้น พร้อมกำไร / รายได้ / ต้นทุนที่จัดสรร + ที่มาของต้นทุน (breakdown)
+ *                       ★ 27 ก.ย. 2569 (เจ้าของงานสั่ง) ปันตามการใช้ทรัพยากรรถ แทนสัดส่วนรายได้ — สูตรใน lib/alloc/tripAlloc.ts
+ *                       (ชุดเดียวกับ ETL ปันส่วนของ Customer Performance): CF จากความจุรถหัว + หาง ·
+ *                       น้ำหนักเทียบเท่า = MAX(น้ำหนัก, ปริมาตร × CF) · Metric = × ระยะทางของบิล · ปันตามสัดส่วน Metric
+ *                       น้ำหนัก/ปริมาตรมาจากบิลที่ CS กรอก (useBills) — บิลที่หาต้นฉบับไม่เจอปันตามรายได้
  *   2. ต้นทุนจริงเทียบพยากรณ์  แยกตามกลุ่มต้นทุน พร้อมผลต่างรายกลุ่ม
  *                       พยากรณ์มาจากค่าเฉลี่ยข้อมูลเก่า N เดือนล่าสุด (lib/forecast/)
  *
@@ -14,11 +16,16 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { thDateSafe } from "../../lib/record/date";
 import { forecastFor, recordParts } from "../../lib/forecast/forecast";
+import { allocateTrip } from "../../lib/alloc/tripAlloc";
+import { recordAllocItems, recordCapacity } from "../../lib/alloc/recordAlloc";
+import { useBills } from "../../lib/store/bills";
+import { useOverrides } from "../../lib/store/overrides";
 import { COST_PART_LABELS } from "../../lib/forecast/forecast";
 import type { ForecastTable } from "../../lib/forecast/forecast";
 import type { TripRecord } from "../../types/record";
 
 const baht = (v: number): string => Math.round(v).toLocaleString("th-TH");
+const num = (v: number, d = 0): string => v.toLocaleString("th-TH", { minimumFractionDigits: d, maximumFractionDigits: d });
 const signed = (v: number): string => (v > 0 ? "+" : v < 0 ? "−" : "") + baht(Math.abs(v));
 
 export default function TripDetailModal({ rec, table, onClose }: {
@@ -35,17 +42,16 @@ export default function TripDetailModal({ rec, table, onClose }: {
   const bills = rec.bills ?? [];
   const cost = Number(r0(rec.normal)) + Number(r0(rec.waste));
   const revenue = Number(r0(rec.revenue));
+  const pending = useBills();
+  const [ovr] = useOverrides();
 
-  /** ปันต้นทุนทั้งเที่ยวเข้าบิลตามสัดส่วนรายได้ — รายได้รวมเป็น 0 ให้หารเท่ากัน */
-  const rows = useMemo(() => {
-    const totals = bills.map((b) => Number(b.total) || 0);
-    const sum = totals.reduce((s, v) => s + v, 0);
-    return bills.map((b, i) => {
-      const share = sum > 0 ? (totals[i] ?? 0) / sum : bills.length ? 1 / bills.length : 0;
-      const alloc = Math.round(cost * share * 100) / 100;
-      return { b, rev: totals[i] ?? 0, alloc, profit: (totals[i] ?? 0) - alloc };
-    });
-  }, [bills, cost]);
+  /** ปันต้นทุนทั้งเที่ยวเข้าบิลตามการใช้ทรัพยากรรถ (lib/alloc/tripAlloc.ts) */
+  const cap = useMemo(() => recordCapacity(rec, ovr.vehicleSpecs), [rec, ovr.vehicleSpecs]);
+  const alloc = useMemo(() => {
+    const { items, unmatched } = recordAllocItems(rec, pending.bills);
+    return { ...allocateTrip(items, cost, cap.cf), unmatched };
+  }, [rec, pending.bills, cost, cap.cf]);
+  const rows = useMemo(() => alloc.rows.map((r, i) => ({ b: bills[i]!, r, profit: r.revenue - r.cost })), [alloc.rows, bills]);
 
   const forecast = table ? forecastFor(table, rec.origin, rec.dest, rec.vehicle) : null;
   const actual = recordParts(rec);
@@ -77,38 +83,62 @@ export default function TripDetailModal({ rec, table, onClose }: {
 
         <div className="sm-list">
           {view === "bills" ? (
-            <table className="tbl">
-              <thead><tr>
-                <th>เลขที่บิล</th><th>ประเภทสินค้า</th><th>ผู้ส่ง → ผู้รับ</th><th>เส้นทาง</th>
-                <th className="n">จำนวน</th><th className="n">รายได้</th>
-                <th className="n">ต้นทุนที่จัดสรร</th><th className="n">กำไร</th>
-              </tr></thead>
-              <tbody>
-                {rows.length === 0 ? (
-                  <tr><td colSpan={8} style={{ textAlign: "center", padding: 16, color: "var(--ink-faint)" }}>
-                    ใบนี้ยังไม่มีบิล</td></tr>
-                ) : rows.map(({ b, rev, alloc, profit }, i) => (
-                  <tr key={`${b.no}-${i}`}>
-                    <td><b>{b.no || "–"}</b></td>
-                    <td>{b.goodsType || "–"}</td>
-                    <td>{b.sender || "–"} → {b.receiver || "–"}</td>
-                    <td>{b.origin || "–"}–{b.dest || "–"}</td>
-                    <td className="n">{baht(Number(b.qty) || 0)}</td>
-                    <td className="n">{baht(rev)}</td>
-                    <td className="n">{baht(alloc)}</td>
-                    <td className="n" style={{ fontWeight: 700, color: profit < 0 ? "var(--red)" : "var(--green)" }}>
-                      {signed(profit)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot><tr>
-                <td colSpan={5}>รวม</td>
-                <td className="n"><b>{baht(rows.reduce((s, x) => s + x.rev, 0))}</b></td>
-                <td className="n"><b>{baht(rows.reduce((s, x) => s + x.alloc, 0))}</b></td>
-                <td className="n"><b>{signed(rows.reduce((s, x) => s + x.profit, 0))}</b></td>
-              </tr></tfoot>
-            </table>
+            <>
+              <p className="price-note" style={{ margin: "0 0 10px" }}>
+                ปันต้นทุนตามการใช้ทรัพยากรรถ · Conversion Factor ={" "}
+                {cap.cf == null
+                  ? <b style={{ color: "var(--red)" }}>คิดไม่ได้ ({cap.missing.length ? `ไม่มีความจุของ ${cap.missing.join(", ")}` : "ไม่ระบุชนิดรถ"})</b>
+                  : <><b>{num(cap.capKg)} กก. ÷ {num(cap.capM3, 2)} ลบ.ม. = {num(cap.cf, 2)} กก./ลบ.ม.</b> ({cap.kinds.join(" + ")})</>}
+                {" "}· น้ำหนักเทียบเท่า = MAX(น้ำหนัก, ปริมาตร × CF) · Metric = น้ำหนักเทียบเท่า × ระยะทาง
+                {alloc.unmatched > 0 && <> · <b>{alloc.unmatched}</b> บิลหาน้ำหนัก/ปริมาตรที่ CS กรอกไม่เจอ ปันตามรายได้</>}
+              </p>
+              {alloc.error ? (
+                <div className="banner" style={{ marginBottom: 10 }}>{alloc.error}</div>
+              ) : (
+                <table className="tbl ta-tbl">
+                  <thead><tr>
+                    <th>เลขที่บิล</th><th>ผู้ส่ง → ผู้รับ</th><th>เส้นทาง</th>
+                    <th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th><th className="n">ระยะทาง (กม.)</th>
+                    <th className="n">CF</th><th className="n">น้ำหนักเทียบเท่า (กก.)</th><th className="n">Metric (กก.-กม.)</th>
+                    <th className="n">สัดส่วน</th><th className="n">ต้นทุนที่จัดสรร</th><th className="n">รายได้</th><th className="n">กำไร</th>
+                  </tr></thead>
+                  <tbody>
+                    {rows.map(({ b, r, profit }, i) => (
+                      <tr key={`${b.no}-${i}`}>
+                        <td><b>{b.no || "–"}</b></td>
+                        <td>{b.sender || "–"} → {b.receiver || "–"}</td>
+                        <td>{b.origin || "–"}–{b.dest || "–"}</td>
+                        <td className="n">{num(r.weightKg)}</td>
+                        <td className="n">{num(r.volumeM3, 3)}</td>
+                        <td className="n" title={r.distSource}>{num(r.dist)}{r.distSource !== "ตารางระยะทาง" && " *"}</td>
+                        <td className="n">{num(r.cf, 2)}</td>
+                        <td className="n">{r.byRevenue ? <span title={r.flag}>ตามรายได้</span> : num(r.eqKg, 1)}</td>
+                        <td className="n">{r.byRevenue ? "–" : num(r.metric)}</td>
+                        <td className="n">{num(r.share * 100, 2)}%</td>
+                        <td className="n"><b>{num(r.cost, 2)}</b></td>
+                        <td className="n">{num(r.revenue, 2)}</td>
+                        <td className="n" style={{ fontWeight: 700, color: profit < 0 ? "var(--red)" : "var(--green)" }}>
+                          {signed(profit)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot><tr>
+                    <td colSpan={8}>รวม</td>
+                    <td className="n"><b>{num(alloc.totalMetric)}</b></td>
+                    <td className="n"><b>{num(rows.reduce((s, x) => s + x.r.share, 0) * 100, 2)}%</b></td>
+                    <td className="n"><b>{num(rows.reduce((s, x) => s + x.r.cost, 0), 2)}</b></td>
+                    <td className="n"><b>{num(rows.reduce((s, x) => s + x.r.revenue, 0), 2)}</b></td>
+                    <td className="n"><b>{signed(rows.reduce((s, x) => s + x.profit, 0))}</b></td>
+                  </tr></tfoot>
+                </table>
+              )}
+              <p className="price-note" style={{ marginTop: 8 }}>
+                ต้นทุนที่จัดสรร = ต้นทุนเที่ยว × Metric ของบิล ÷ Metric รวม · ปัดสตางค์แล้วส่วนต่างอยู่ที่บิลที่ต้นทุนมากสุด ยอดรวมจึงเท่าต้นทุนเที่ยวพอดี ·
+                ระยะทาง = ต้นทาง → ปลายทางของบิลตามตารางมาตรฐาน (* = หาไม่เจอ ใช้ค่ากลางของบิลอื่นในเที่ยว) ·
+                บิลที่น้ำหนัก/ขนาดเชื่อไม่ได้ปันตามรายได้แยกก้อน
+              </p>
+            </>
           ) : (
             <>
               <div className={"dispatch-result " + (diff == null ? "" : diff <= 0 ? "good" : "bad")}>

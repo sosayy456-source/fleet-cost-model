@@ -8,6 +8,10 @@
     → สัดส่วน 0.02676345 · ต้นทุนจัดสรร 292.26 · กำไร 137.74
 
 ระยะทางใช้ refdata/routes.json ของแอปจริง (394 คู่ ณ 24 ก.ย. 2569) ไม่ได้ hardcode ตัวเลขในเทสต์
+
+★ 27 ก.ย. 2569 Conversion Factor มาจากความจุรถของเที่ยว (ไม่มี 0.167 ตายตัวในโค้ดแล้ว) — ตัวอย่างข้อ 7.1 ของเอกสาร
+  คิดด้วย 167 กก./ลบ.ม. เทสต์ชุดเดิมจึงส่ง DOC_CF = 167 เข้าไปเหมือน "รถคันหนึ่งที่ CF = 167" เพื่อเทียบตัวเลขเอกสารได้ตรง
+  เทสต์ของสูตรใหม่ (CF จากรถ · ตัวอย่าง A/B/C · ปัดเศษ) อยู่ใน test_alloc_cf.py
 """
 from __future__ import annotations
 
@@ -17,6 +21,9 @@ from pathlib import Path
 import pytest
 
 from src.alloc import FLAG_NO_SIZE, FLAG_OVERSIZE
+
+#: CF ที่ตัวอย่างในเอกสาร Cost Allocation Spec ใช้ (0.167 ตัน/ลบ.ม.) — ส่งเข้าเหมือนความจุรถคันหนึ่ง
+DOC_CF = 167.0
 
 from src.alloc import (
     DIST_EXACT,
@@ -64,7 +71,7 @@ def test_ปริมาตรจากชื่อสินค้า():
 def test_น้ำหนักที่ใช้คิดและเงื่อนไขที่ใช้():
     it = cabbage()
     it.cbm = volume_cbm(it)
-    b, cond = basis_of(it.weight, it.cbm, it.qty)
+    b, cond = basis_of(it.weight, it.cbm, it.qty, DOC_CF)
     assert cond == 1                       # น้ำหนัก+ปริมาตร (MAX)
     assert b == pytest.approx(0.16)        # max(0.16, 0.6336 × 0.167 = 0.1058)
 
@@ -78,7 +85,7 @@ def test_ภาระงานและต้นทุนจัดสรรต�
                  weight=other_workload / 720 * 1000, qty=1.0, revenue=0.0)
 
     it = cabbage()
-    res = allocate_trip([it, other], TRIP_COST, ROUTES)
+    res = allocate_trip([it, other], TRIP_COST, ROUTES, cf=DOC_CF)
 
     assert it.dist == 720.0
     assert it.workload == pytest.approx(115.2)
@@ -100,12 +107,12 @@ class TestระยะทางTests:
     def test_ไม่มีในตารางใช้ค่ากลางของเที่ยว(self):  # noqa: N802
         a = Item(doc="T", bill="b1", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=1000, qty=1)
         b = Item(doc="T", bill="b2", origin="ดาวอังคาร", dest="ดาวพฤหัส", weight=1000, qty=1)
-        allocate_trip([a, b], 100.0, ROUTES)
+        allocate_trip([a, b], 100.0, ROUTES, cf=DOC_CF)
         assert b.dist == 720.0 and b.dist_source == DIST_MEDIAN
 
     def test_ทั้งเที่ยวไม่มีระยะทางใช้หนึ่ง(self):  # noqa: N802
         a = Item(doc="T", bill="b1", origin="ดาวอังคาร", dest="ดาวพฤหัส", weight=1000, qty=1)
-        allocate_trip([a], 100.0, ROUTES)
+        allocate_trip([a], 100.0, ROUTES, cf=DOC_CF)
         assert a.dist == 1.0 and a.dist_source == DIST_FALLBACK
 
 
@@ -125,15 +132,15 @@ class Testปริมาตร:
 
 class Testเงื่อนไขน้ำหนัก:
     def test_น้ำหนักอย่างเดียว(self):  # noqa: N802
-        assert basis_of(2500, 0, 3) == (2.5, 2)
+        assert basis_of(2500, 0, 3, DOC_CF) == (2.5, 2)
 
     def test_ปริมาตรอย่างเดียวต้องคูณศูนย์จุดหนึ่งหกเจ็ด(self):  # noqa: N802
         # ข้อ 10.1 — โค้ดเดิมไม่คูณ ทำให้รายการกลุ่มนี้รับต้นทุนเกินราว 6 เท่า
-        b, cond = basis_of(0, 10, 3)
+        b, cond = basis_of(0, 10, 3, DOC_CF)
         assert cond == 3 and b == pytest.approx(1.67)
 
     def test_ไม่มีทั้งน้ำหนักและปริมาตรใช้จำนวนหน่วย(self):  # noqa: N802
-        assert basis_of(0, 0, 7) == (7, 4)
+        assert basis_of(0, 0, 7, DOC_CF) == (7, 4)
 
 
 class Testตัวถ่วงสำรอง:
@@ -142,14 +149,14 @@ class Testตัวถ่วงสำรอง:
     def test_ภาระงานศูนย์ถอยไปใช้ราคารวม(self):  # noqa: N802
         a = Item(doc="T", bill="b1", origin="x", dest="y", revenue=300)
         b = Item(doc="T", bill="b2", origin="x", dest="y", revenue=100)
-        res = allocate_trip([a, b], 400.0, ROUTES)
+        res = allocate_trip([a, b], 400.0, ROUTES, cf=DOC_CF)
         assert res.weights_from == "ราคารวม"
         assert (a.alloc, b.alloc) == (300.0, 100.0)
 
     def test_ราคารวมศูนย์ถอยไปใช้จำนวน(self):  # noqa: N802
         a = Item(doc="T", bill="b1", qty=0)
         b = Item(doc="T", bill="b2", qty=0)
-        res = allocate_trip([a, b], 500.0, ROUTES)
+        res = allocate_trip([a, b], 500.0, ROUTES, cf=DOC_CF)
         assert res.weights_from == "หารเท่ากัน"
         assert a.alloc == b.alloc == 250.0
 
@@ -157,7 +164,7 @@ class Testตัวถ่วงสำรอง:
 class Testข้อมูลไม่เชื่อมกัน:
     def test_ไม่มีต้นทุนเที่ยวแถวยังอยู่แต่ไม่มียอด(self):  # noqa: N802
         it = cabbage()
-        res = allocate_trip([it], None, ROUTES)
+        res = allocate_trip([it], None, ROUTES, cf=DOC_CF)
         assert res.cost is None
         assert it.workload == pytest.approx(115.2)      # คำนวณภาระงานให้ครบ
         assert it.share is None and it.alloc is None and it.profit is None
@@ -199,7 +206,7 @@ class Testรายการที่ตัดออก:
                  weight=8000, qty=1, revenue=5000, goods="ผักสด")
         b = Item(doc="T", bill="b2", origin="เชียงใหม่", dest="ปากคลองตลาด",
                  weight=2000, qty=1, revenue=100, goods="บิลเคลียร์")
-        res = allocate_trip([a, b], 10000.0, ROUTES)
+        res = allocate_trip([a, b], 10000.0, ROUTES, cf=DOC_CF)
         assert b.excluded == "บิลเคลียร์" and a.excluded == ""
         assert a.alloc == pytest.approx(8000.0)          # ไม่ถูกบวกส่วนของบิลเคลียร์ทับ
         assert res.allocated == pytest.approx(8000.0)
@@ -209,7 +216,7 @@ class Testรายการที่ตัดออก:
     def test_รถว่างไปสาขาตัดทั้งเที่ยว(self):  # noqa: N802
         """ยังรับต้นทุนของตัวเองแต่ไม่ปันเข้าลูกค้า — เจ้าของงานยืนยันให้คงไว้ 20 ก.ย. 2569"""
         a = Item(doc="T", bill="b1", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=100, qty=1)
-        res = allocate_trip([a], 3000.0, ROUTES, trip_type="รถว่างไปสาขา")
+        res = allocate_trip([a], 3000.0, ROUTES, trip_type="รถว่างไปสาขา", cf=DOC_CF)
         assert a.excluded == "รถว่างไปสาขา"
         assert res.allocated == 0.0 and res.unallocated == pytest.approx(3000.0)
 
@@ -239,7 +246,7 @@ def test_ติดธงข้อมูลที่ต้องตรวจส�
     def mk(**kw):
         it = Item(doc="1", bill="1", **kw)
         it.cbm = volume_cbm(it)
-        it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty)
+        it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty, DOC_CF)
         return it
 
     assert data_flag(mk(qty=3, name="ของสด แป้ง")) == FLAG_NO_SIZE                      # นับชิ้นเป็นตัน
@@ -262,7 +269,7 @@ class Testรายการผิดปกติปันตามรายไ�
 
     def test_ขนาดเกินจริงรับตามสัดส่วนรายได้(self):  # noqa: N802
         tire, a, b = self._trip()
-        res = allocate_trip([tire, a, b], 5000.0, ROUTES)
+        res = allocate_trip([tire, a, b], 5000.0, ROUTES, cf=DOC_CF)
         assert tire.flag == FLAG_OVERSIZE
         assert res.by_revenue == pytest.approx(200 / 5000)
         assert tire.alloc == pytest.approx(5000 * 200 / 5000)                 # 200 บาท ไม่ใช่เกือบทั้งเที่ยว
@@ -274,7 +281,7 @@ class Testรายการผิดปกติปันตามรายไ�
     def test_ไม่มีน้ำหนักขนาดไม่ถูกนับชิ้นเป็นตัน(self):  # noqa: N802
         flour = Item(doc="T", bill="b1", origin="เชียงใหม่", dest="ปากคลองตลาด", qty=3, revenue=210)
         fish = Item(doc="T", bill="b2", origin="เชียงใหม่", dest="ปากคลองตลาด", weight=540, qty=9, revenue=990)
-        allocate_trip([flour, fish], 1200.0, ROUTES)
+        allocate_trip([flour, fish], 1200.0, ROUTES, cf=DOC_CF)
         assert flour.flag == FLAG_NO_SIZE
         assert flour.alloc == pytest.approx(210.0)       # ตามรายได้ — เดิม 3 ชิ้น = 3 ตัน รับ 85%
         assert fish.alloc == pytest.approx(990.0)
@@ -283,6 +290,6 @@ class Testรายการผิดปกติปันตามรายไ�
         tire, a, b = self._trip()
         for it in (tire, a, b):
             it.revenue = 0
-        res = allocate_trip([tire, a, b], 5000.0, ROUTES)
+        res = allocate_trip([tire, a, b], 5000.0, ROUTES, cf=DOC_CF)
         assert res.by_revenue == 0
         assert tire.alloc > a.alloc                      # ยังใช้ภาระงาน (ไม่มีรายได้ให้แยกก้อน)

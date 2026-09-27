@@ -3147,3 +3147,11 @@ html.theme-cherry .i3-panel-head span{font-size:14.5px}
 html.theme-cherry .i3-group-head b{font-size:16px}
 html.theme-cherry .i3-group-head span,html.theme-cherry .i3-legend,html.theme-cherry .i3-verdict{font-size:13.5px}
 html.theme-cherry .i3-donut-total b{font-size:34px;color:#2A0A10}
+
+/* ป็อบอัพรายละเอียดเที่ยว: ตาราง breakdown การปันต้นทุนเข้าบิล (27 ก.ย. 2569) — คอลัมน์เยอะ ตัวเล็กลงเล็กน้อย */
+.ta-tbl th,.ta-tbl td{font-size:12.5px;white-space:nowrap}
+
+/* หน้าจัดรถ: ต้นทุนพยากรณ์แยกรายบิล ใต้ขั้นที่ 3 (27 ก.ย. 2569) — เลื่อนในกล่องเมื่อบิลเยอะ */
+.dp-split{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.dp-split h4{margin:0 0 6px;font-size:15px}
+.dp-split-box{overflow:auto;max-height:420px}

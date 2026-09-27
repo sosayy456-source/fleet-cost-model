@@ -95,6 +95,12 @@ export interface AllocCustMonth {
 /** บิลรายใบ (bills.json) — มีเฉพาะลูกค้าที่ติด Top 10 ของช่วงเวลาใดช่วงหนึ่ง */
 export interface AllocBill {
   ci: number; bill: string; date: string; doc: string; route: string; revenue: number; cost: number;
+  /**
+   * ที่มาของต้นทุนบิล (ETL 27 ก.ย. 2569 · null = ไฟล์รุ่นก่อน): น้ำหนัก กก. · ปริมาตร ลบ.ม. · ระยะทาง กม. ·
+   * Conversion Factor กก./ลบ.ม. · น้ำหนักเทียบเท่า กก. · Metric กก.-กม. · % ของต้นทุนเที่ยว · ต้นทุนส่วนที่ปันตามรายได้
+   */
+  weight: number | null; cbm: number | null; km: number | null; cf: number | null;
+  eqKg: number | null; metric: number | null; share: number | null; byRevenue: number | null;
 }
 
 /** "ปี|เดือน" → ดัชนีลูกค้า Top 10 กำไรสูงสุด (gain) / ขาดทุนมากสุด (loss) เป็นบาท ที่ ETL คัดไว้ */
@@ -133,6 +139,8 @@ interface CustMonthColumns {
 }
 interface BillColumns {
   ci: number[]; bill: string[]; date: string[]; doc: string[]; route: string[]; revenue: number[]; cost: number[];
+  weight?: number[]; cbm?: number[]; km?: number[]; cf?: number[]; eqKg?: number[]; metric?: number[];
+  share?: number[]; byRevenue?: number[];
 }
 
 const BASE = import.meta.env.BASE_URL;
@@ -210,6 +218,9 @@ function toBills(c: BillColumns | null): AllocBill[] | null {
     out.push({
       ci: c.ci[i] ?? 0, bill: c.bill[i] ?? "", date: c.date[i] ?? "", doc: c.doc[i] ?? "",
       route: c.route[i] ?? "", revenue: c.revenue[i] ?? 0, cost: c.cost[i] ?? 0,
+      weight: c.weight?.[i] ?? null, cbm: c.cbm?.[i] ?? null, km: c.km?.[i] ?? null, cf: c.cf?.[i] ?? null,
+      eqKg: c.eqKg?.[i] ?? null, metric: c.metric?.[i] ?? null, share: c.share?.[i] ?? null,
+      byRevenue: c.byRevenue?.[i] ?? null,
     });
   }
   return out;

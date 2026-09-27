@@ -44,6 +44,12 @@
     แล้วไปโชว์เป็น "ต้นทุนที่ไม่ปันเข้าลูกค้า")
 
 ★ เลขที่ใบรายการ/เลขที่บิลเทียบเป็นสตริงเสมอ txt() ตัด .0 ที่ calamine ใส่มาให้
+
+★ 27 ก.ย. 2569 (เจ้าของงานสั่ง) Conversion Factor ต่อใบ = ความจุรถทุกคันในใบ (ชนิดรถ · ชนิดทะเบียนคันที่2 · ชนิดทะเบียนพ่วง
+  ในไฟล์ต้นทุน × vehicles.json · src/capacity.py) แทน 167 กก./ลบ.ม. ตายตัว · หาไม่เจอ = ค่ากลางของตารางรถ (นับใน manifest.cf)
+  · ต้นทุนเที่ยวติดลบไม่ปัน (นับใน manifest.trips.negativeCost) · ปัดต้นทุนรายการละสตางค์แล้วเกลี่ยส่วนต่างให้รายการที่มากสุดของเที่ยว
+  (กติกาเดียวกับ round_allocs) → Σ ของทุกเที่ยว = ต้นทุนเที่ยวพอดี (manifest.rounding) · รอบสามใส่ส่วนต่างเดียวกันให้บิลใบนั้น
+  · bills.json มีคอลัมน์ breakdown ให้ตรวจที่มาของต้นทุนบิล (น้ำหนัก · ปริมาตร · ระยะทาง · CF · น้ำหนักเทียบเท่า · Metric · %)
 """
 from __future__ import annotations
 
@@ -57,6 +63,7 @@ from datetime import datetime
 from pathlib import Path
 
 from build_costrev import find_header_row, iter_sheet, parse_date, utf8_stdout, xlsx_files
+from src.capacity import CF_MEDIAN, Capacity
 from src.custcodes import resolve_codes
 from src.progress import report, span
 from src.alloc import (
@@ -84,6 +91,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
 ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
+VEHICLES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "vehicles.json"
+#: คอลัมน์ชนิดรถของทุกคันในใบ (คันที่ 1 · คันที่ 2 · พ่วง) — ชุดเดียวกับ VEHICLE_SLOTS ของ build_costrev.py
+COL_KINDS = ("ชนิดรถ", "ชนิดทะเบียนคันที่2", "ชนิดทะเบียนพ่วง")
 
 SAMPLE_COST = HERE / "sample_data" / "ExampleCost.xlsx"   # เปลี่ยนชื่อไฟล์ 22 ก.ย. 2569
 SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
@@ -212,6 +222,23 @@ class Rollup:
             b[5] += it.revenue
             b[6 + FLAGS.index(flag)] += 1
             self.flag_items[flag] += 1
+
+    def adjust(self, dest: tuple, diff: float) -> None:
+        """ใส่ส่วนต่างจากการปัดเศษของเที่ยวให้รายการที่มากสุด — dest = ปลายทางของรายการนั้นตอน add()
+        (เหตุผลที่ตัด, ฝ่าย, รหัสลูกค้า, เดือน) · บิลถูกยกขึ้นเป็นลูกค้าไปแล้วจึงปรับที่ระดับลูกค้า/เดือนตรง ๆ"""
+        excluded, side, code, month = dest
+        if excluded:
+            self.excluded_cost[excluded] += diff
+            return
+        self.allocated += diff
+        if not code:
+            return
+        if month:
+            m = self.months[month]
+            m[1] += diff; m[2] -= diff
+        for c in (self.cust[(side, code)], self.cust_mo[(side, code, month)]):
+            c[2] += diff
+            c[3] -= diff
 
     def flush_file(self) -> int:
         """ปิดไฟล์: ยกบิลที่สะสมไว้ขึ้นเป็นลูกค้า แล้วล้างถังของไฟล์นั้น"""
@@ -372,6 +399,15 @@ class Rollup:
             "route": [b[4] for b in bills],
             "revenue": [round(b[5], 2) for b in bills],
             "cost": [round(b[6], 2) for b in bills],
+            # breakdown ให้ตรวจที่มา (27 ก.ย. 2569) — ผลรวมของรายการสินค้าในบิล
+            "weight": [round(b[7], 2) for b in bills],      # น้ำหนักจริง กก.
+            "cbm": [round(b[8], 4) for b in bills],         # ปริมาตร ลบ.ม.
+            "km": [round(b[9], 1) for b in bills],          # ระยะทางของบิล (ต้นทาง → ปลายทางของบิล)
+            "cf": [round(b[10], 2) for b in bills],         # Conversion Factor ของเที่ยว กก./ลบ.ม.
+            "eqKg": [round(b[11], 2) for b in bills],       # น้ำหนักเทียบเท่า กก. = Σ MAX(น้ำหนัก, ปริมาตร × CF)
+            "metric": [round(b[12], 1) for b in bills],     # กก.-กม. = Σ น้ำหนักเทียบเท่า × ระยะทาง
+            "share": [round(b[13] * 100, 4) for b in bills],  # % ของต้นทุนเที่ยว
+            "byRevenue": [round(b[14], 2) for b in bills],  # ส่วนของต้นทุนที่ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้)
         }
         manifest["byRevenue"] = {
             "share": REVIEW_SHARE,
@@ -403,14 +439,15 @@ class Rollup:
 
 
 # ================================================================ ต้นทุนรายเที่ยว
-def load_trips(cost_files: list[Path]) -> tuple[dict[str, float], dict[str, str], int]:
-    """คืน (ต้นทุนต่อเที่ยว, ประเภทใบรายการต่อเที่ยว, จำนวนแถวที่ช่องต้นทุนไม่ใช่ตัวเลข)
+def load_trips(cost_files: list[Path]) -> tuple[dict[str, float], dict[str, str], int, dict[str, list[str]]]:
+    """คืน (ต้นทุนต่อเที่ยว, ประเภทใบรายการต่อเที่ยว, จำนวนแถวที่ช่องต้นทุนไม่ใช่ตัวเลข, ชนิดรถทุกคันต่อเที่ยว)
 
     เลขที่ใบรายการซ้ำหลายแถว/หลายไฟล์ → รวมต้นทุนเข้าด้วยกัน (เอกสารข้อ 2.2)
     ช่องต้นทุนไม่ใช่ตัวเลข (เช่น "-") → ไม่นับเป็น 0 แต่ถือว่าข้อมูลไม่เชื่อมกัน (ข้อ 10.7)
     """
     cost: dict[str, float] = defaultdict(float)
     ttype: dict[str, str] = {}
+    kinds: dict[str, list[str]] = defaultdict(list)
     bad = 0
     for ci, path in enumerate(cost_files):
         span(0, 5, ci, len(cost_files), f"อ่านไฟล์ต้นทุน {ci + 1}/{len(cost_files)}")
@@ -433,13 +470,18 @@ def load_trips(cost_files: list[Path]) -> tuple[dict[str, float], dict[str, str]
             t = txt(g(r, COL_TTYPE))
             if t:
                 ttype[doc] = t
+            # ชนิดรถของทุกคันในใบ ("-" = ไม่มีคันนั้น) — แถวซ้ำของใบเดียวกันไม่นับคันซ้ำ
+            for kc in COL_KINDS:
+                k = txt(g(r, kc))
+                if k and k != "-" and k not in kinds[doc]:
+                    kinds[doc].append(k)
             raw = g(r, COL_COST)
             if not is_number(raw):
                 bad += 1
                 continue
             cost[doc] += num(raw)
         print(f"  {path.name}: {rows:,} แถว")
-    return dict(cost), ttype, bad
+    return dict(cost), ttype, bad, dict(kinds)
 
 
 # ================================================================ ไฟล์บิลดิบ
@@ -491,13 +533,14 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
         yield it
 
 
-def measure(it: Item, routes: dict[str, dict[str, float]]) -> None:
-    """เติมระยะทาง/ปริมาตร/น้ำหนักที่ใช้คิด (ข้อ 5 ขั้นที่ 1-3)
+def measure(it: Item, routes: dict[str, dict[str, float]], cf: float) -> None:
+    """เติมระยะทาง/ปริมาตร/น้ำหนักเทียบเท่า (ข้อ 5 ขั้นที่ 1-3) · cf = Conversion Factor ของเที่ยวนั้น
     ระยะทางที่หาไม่เจอยังเป็น None — ต้องรู้ค่ากลางของทั้งเที่ยวก่อนจึงเติมได้
     """
     it.dist, it.dist_source = lookup_distance(routes, it.origin, it.dest)
     it.cbm = volume_cbm(it)
-    it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty)
+    it.cf = cf
+    it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty, cf)
     it.flag = data_flag(it)
 
 
@@ -554,8 +597,28 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
       ระหว่างรอบสอง ซึ่งกับข้อมูลจริงคือบิล ~2 ล้านใบ
     """
     print("อ่านรายงานค่าเดินทาง")
-    trip_cost, ttype, bad_cost = load_trips(cost_files)
-    print(f"  เที่ยวที่มีต้นทุน {len(trip_cost):,} · แถวที่ช่องต้นทุนไม่ใช่ตัวเลข {bad_cost:,}")
+    trip_cost, ttype, bad_cost, kinds = load_trips(cost_files)
+    # ต้นทุนเที่ยวต้องไม่ติดลบ — ใบที่รวมแล้วติดลบไม่ปัน (นับเป็นข้อมูลไม่เชื่อมกันเหมือนหาต้นทุนไม่เจอ)
+    negative = sorted(d for d, c in trip_cost.items() if c < 0)
+    for d in negative:
+        del trip_cost[d]
+    print(f"  เที่ยวที่มีต้นทุน {len(trip_cost):,} · แถวที่ช่องต้นทุนไม่ใช่ตัวเลข {bad_cost:,} · ต้นทุนติดลบ {len(negative):,}")
+
+    # Conversion Factor ต่อใบ จากความจุรถทุกคันในใบ
+    cap = Capacity(VEHICLES_JSON)
+    if cap.median_cf is None:
+        sys.exit(f"ตารางรถ {VEHICLES_JSON} ไม่มีชนิดไหนที่มีความจุครบ — คิด Conversion Factor ไม่ได้")
+    cfs: dict[str, float] = {}
+    cf_src: Counter[str] = Counter()
+    unknown_kinds: Counter[str] = Counter()
+    for d in trip_cost:
+        cf, src, unknown = cap.trip_cf(kinds.get(d, []))
+        cfs[d] = cf
+        cf_src[src] += 1
+        unknown_kinds.update(unknown)
+    print(f"  Conversion Factor: {dict(cf_src)} · ค่ากลางของตารางรถ {cap.median_cf:,.2f} กก./ลบ.ม.")
+    if unknown_kinds:
+        print("  [!] ชนิดรถที่ไม่มีความจุในตาราง: " + " · ".join(f"{k} {n:,}" for k, n in unknown_kinds.most_common(10)))
 
     print("รอบแรก: อ่านไฟล์บิลเพื่อหาตัวหารของแต่ละเที่ยว")
     acc: dict[str, TripAcc] = {}
@@ -569,7 +632,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
             docs_in_bills.add(it.doc)
             if it.doc not in trip_cost:
                 continue
-            measure(it, routes)
+            measure(it, routes, cfs[it.doc])
             acc.setdefault(it.doc, TripAcc()).add(it)
         if n:
             bill_files.append(path)
@@ -585,6 +648,9 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
 
     print("รอบสอง: ปันต้นทุนแล้วยุบเป็นระดับลูกค้า")
     roll = Rollup()
+    # ปัดเศษ: รายการละสตางค์ · จำ Σ ที่ปัดแล้วกับรายการที่มากสุดของแต่ละเที่ยว (รายการแรกถ้าเท่ากัน = round_allocs)
+    rounded_sum: dict[str, float] = defaultdict(float)
+    biggest: dict[str, tuple[float, tuple[int, int], tuple]] = {}
     for fi, path in enumerate(rev_files):
         span(45, 75, fi, len(rev_files), f"รอบ 2/3 ปันต้นทุน · ไฟล์บิล {fi + 1}/{len(rev_files)}")
         n = 0
@@ -594,15 +660,32 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
             if cost is None:
                 roll.add(it, None, "")
                 continue
-            measure(it, routes)
+            measure(it, routes, cfs[it.doc])
             if it.dist is None:
                 it.dist = fill_km[it.doc]
                 it.dist_source = DIST_MEDIAN if from_median[it.doc] else DIST_FALLBACK
             it.workload = it.basis * it.dist
-            share = share_in_trip(it, *divisor[it.doc])
-            roll.add(it, cost * share, exclusion_of(it, ttype.get(it.doc, "")))
+            raw = cost * share_in_trip(it, *divisor[it.doc])
+            alloc = round(raw, 2)
+            excluded = exclusion_of(it, ttype.get(it.doc, ""))
+            roll.add(it, alloc, excluded)
+            rounded_sum[it.doc] += alloc
+            b = biggest.get(it.doc)
+            if b is None or raw > b[0]:
+                side, code = payer_of(it) if not excluded else ("", "")
+                biggest[it.doc] = (raw, (fi, n), (excluded, side, code, it.month))
         bills = roll.flush_file()
         print(f"  {path.name}: บิลที่ปันได้ {bills:,}")
+
+    # เกลี่ยส่วนต่างจากการปัดเศษ → Σ ต้นทุนจัดสรรของทุกเที่ยว = ต้นทุนเที่ยว (ปัดสตางค์) พอดี
+    adj: dict[tuple[int, int], float] = {}
+    for d, (_raw, pos, dest) in biggest.items():
+        diff = round(trip_cost[d] - rounded_sum[d], 9)       # เทียบต้นทุนตัวจริง (ดู round_allocs)
+        if diff:
+            roll.adjust(dest, diff)
+            adj[pos] = diff
+    off = sum(1 for d in biggest if abs(trip_cost[d] - rounded_sum[d] - adj.get(biggest[d][1], 0)) > 1e-6)
+    print(f"  ปัดเศษ: เกลี่ยส่วนต่าง {len(adj):,} เที่ยว · เที่ยวที่ยอดรวมยังไม่ตรง {off:,}")
 
     report(75, "จัดอันดับ Top 10")
     print("จัดอันดับ Top 10 อัตรากำไรต่อช่วงเวลา")
@@ -615,7 +698,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
     print(f"  ช่วงเวลา {len(top):,} ชุด · ลูกค้าที่ติดอันดับ {len(wanted):,} ราย")
 
     print("รอบสาม: เก็บบิลรายใบของลูกค้าที่ติดอันดับ")
-    bills = collect_bills(rev_files, routes, trip_cost, ttype, divisor, fill_km, from_median, wanted)
+    bills = collect_bills(rev_files, routes, trip_cost, ttype, divisor, fill_km, from_median, wanted, cfs, adj)
     print(f"  บิลที่เก็บ {len(bills):,} ใบ")
 
     matched = sorted(docs_in_bills & set(trip_cost))
@@ -627,6 +710,19 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
             "inCostReport": len(trip_cost),
             "inBills": len(docs_in_bills),
             "matched": len(matched),
+            "negativeCost": len(negative),
+        },
+        # Conversion Factor ต่อใบ = ความจุรถในใบ (27 ก.ย. 2569) · ค่ากลางใช้กับใบที่หาความจุไม่เจอ
+        "cf": {
+            "rule": "ความจุน้ำหนักรวม ÷ ความจุปริมาตรรวม ของทุกคันในใบ (vehicles.json)",
+            "source": dict(cf_src.most_common()),
+            "median": round(cap.median_cf, 4),
+            "unknownKinds": dict(unknown_kinds.most_common()),
+        },
+        "rounding": {
+            "rule": "ปัดรายการละสตางค์ ส่วนต่างให้รายการที่มากสุดของเที่ยว",
+            "tripsAdjusted": len(adj),
+            "tripsOff": off,
         },
         "cost": {
             "inCostReport": round(sum(trip_cost.values()), 2),
@@ -641,35 +737,49 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
 def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
                   trip_cost: dict[str, float], ttype: dict[str, str],
                   divisor: dict[str, tuple[float, str, float, float]], fill_km: dict[str, float],
-                  from_median: dict[str, bool], wanted: dict[CustKey, int]) -> list[list]:
-    """บิลรายใบของลูกค้าใน wanted — ปันต้นทุนซ้ำด้วยตัวหารชุดเดียวกับรอบสอง ผลจึงเท่ากันทุกสตางค์
+                  from_median: dict[str, bool], wanted: dict[CustKey, int],
+                  cfs: dict[str, float], adj: dict[tuple[int, int], float]) -> list[list]:
+    """บิลรายใบของลูกค้าใน wanted — ปันต้นทุนซ้ำด้วยตัวหาร/CF/ส่วนต่างปัดเศษชุดเดียวกับรอบสอง ผลจึงเท่ากันทุกสตางค์
 
-    คืน [ci, เลขที่บิล, วันที่, เลขที่ใบรายการ, เส้นทาง, รายได้, ต้นทุนจัดสรร] ต่อบิล
-    เส้นทาง/วันที่/ใบรายการเอาจากรายการแรกของบิล (บิลหนึ่งใบอยู่ในเที่ยวเดียวและมีวันที่เดียว)
+    คืน [ci, เลขที่บิล, วันที่, เลขที่ใบรายการ, เส้นทาง, รายได้, ต้นทุนจัดสรร,
+         น้ำหนัก กก., ปริมาตร ลบ.ม., ระยะทาง, CF, น้ำหนักเทียบเท่า กก., Metric กก.-กม., สัดส่วน, ต้นทุนส่วนที่ปันตามรายได้] ต่อบิล
+    เส้นทาง/วันที่/ใบรายการ/ระยะทางเอาจากรายการแรกของบิล (บิลหนึ่งใบอยู่ในเที่ยวเดียวและมีวันที่เดียว)
     """
     acc: dict[str, list] = {}
     for fi, path in enumerate(rev_files):
         span(77, 95, fi, len(rev_files), f"รอบ 3/3 เก็บบิลลูกค้าที่ติดอันดับ · ไฟล์บิล {fi + 1}/{len(rev_files)}")
+        n = 0
         for it in item_reader(path):
+            n += 1
             cost = trip_cost.get(it.doc)
             if cost is None or exclusion_of(it, ttype.get(it.doc, "")):
                 continue
             ci = wanted.get(payer_of(it))
             if ci is None:
                 continue
-            measure(it, routes)
+            measure(it, routes, cfs[it.doc])
             if it.dist is None:
                 it.dist = fill_km[it.doc]
                 it.dist_source = DIST_MEDIAN if from_median[it.doc] else DIST_FALLBACK
             it.workload = it.basis * it.dist
             share = share_in_trip(it, *divisor[it.doc])
+            alloc = round(cost * share, 2) + adj.get((fi, n), 0.0)
+            by_rev = alloc if (it.flag and divisor[it.doc][2]) else 0.0
             b = acc.get(it.bill)
             if b is None:
                 route = f"{it.origin}→{it.dest}" if it.origin and it.dest else it.origin or it.dest or "(ไม่ระบุ)"
-                acc[it.bill] = [ci, it.bill, it.date, it.doc, route, it.revenue, cost * share]
+                acc[it.bill] = [ci, it.bill, it.date, it.doc, route, it.revenue, alloc,
+                                max(it.weight, 0.0), it.cbm, it.dist, it.cf, it.basis * 1000, it.workload * 1000,
+                                share, by_rev]
             else:
                 b[5] += it.revenue
-                b[6] += cost * share
+                b[6] += alloc
+                b[7] += max(it.weight, 0.0)
+                b[8] += it.cbm
+                b[11] += it.basis * 1000
+                b[12] += it.workload * 1000
+                b[13] += share
+                b[14] += by_rev
     return list(acc.values())
 
 

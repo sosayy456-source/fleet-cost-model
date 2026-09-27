@@ -241,14 +241,21 @@ td.name input{min-width:150px}
 
   <div class="card">
     <h2>รายการบิลในเที่ยวนี้</h2>
-    <p class="hint">ภาระงาน = ค่าที่มากกว่าระหว่าง (น้ำหนัก กก. ÷ 1000) × ระยะทาง และ (ปริมาตร CBM × 0.167) × ระยะทาง</p>
+    <p class="hint">ปันต้นทุนตามการใช้ทรัพยากรรถ — Metric = MAX(น้ำหนัก, ปริมาตร × CF) × ระยะทาง · CF คิดจากความจุของรถคันที่วิ่งจริง</p>
+
+    <div class="trip-row" style="margin-top:14px">
+      <div class="trip-input"><label>ความจุน้ำหนักรถ หัว + หาง (กก.)</label><input type="number" id="capKg" value="24000" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>ความจุปริมาตรรถ หัว + หาง (ลบ.ม.)</label><input type="number" id="capM3" value="79" min="0" oninput="calc()"></div>
+      <div class="trip-input"><label>Conversion Factor (กก./ลบ.ม.)</label><input type="text" id="cfDisplay" value="" readonly></div>
+    </div>
 
     <div class="diagram-box">
       <div class="diagram-title">หลักการและเกณฑ์การคำนวณภาระงาน (Workload)</div>
       <ul class="detail-list">
-        <li><b>แปลงน้ำหนัก:</b> (น้ำหนัก กก. ÷ 1000) × ระยะทาง (กม.)</li>
-        <li><b>แปลงปริมาตร:</b> (ปริมาตร CBM × 0.167) × ระยะทาง (กม.)</li>
-        <li>นำค่าทั้งสองมาเปรียบเทียบกัน แล้วเลือกค่าที่มากกว่ามาใช้เป็นสัดส่วนภาระงาน (Workload) ของแต่ละบิล เพื่อใช้ในการกระจายต้นทุนรวมต่อไป</li>
+        <li><b>Conversion Factor (CF):</b> ความจุน้ำหนักรถ (กก.) ÷ ความจุปริมาตรรถ (ลบ.ม.) — รถคนละแบบได้ CF คนละค่า ไม่ใช้ค่าตายตัว</li>
+        <li><b>น้ำหนักเทียบเท่า:</b> MAX(น้ำหนัก กก., ปริมาตร ลบ.ม. × CF) — สินค้าหนักใช้น้ำหนักจริง สินค้าเบาแต่กินที่ใช้ปริมาตรแปลงเป็นน้ำหนัก</li>
+        <li><b>Metric:</b> น้ำหนักเทียบเท่า × ระยะทาง (กม.) · <b>ต้นทุนบิล</b> = ต้นทุนเที่ยว × Metric ของบิล ÷ Metric รวมทุกบิล</li>
+        <li>ปัดต้นทุนบิลละสตางค์ แล้วให้ส่วนต่างอยู่ที่บิลที่ต้นทุนมากสุด ยอดรวมทุกบิลจึงเท่าต้นทุนเที่ยวพอดี</li>
         <li><b>กรณีพิเศษ:</b> หากไม่บันทึกน้ำหนัก/ปริมาตร หรือมีค่าผิดปกติ จะใช้สัดส่วนรายได้แทน</li>
       </ul>
     </div>
@@ -258,7 +265,7 @@ td.name input{min-width:150px}
         <thead>
           <tr>
             <th>ลูกค้า / บิล</th><th>น้ำหนัก (กก.)</th><th>ปริมาตร (CBM)</th><th>ระยะทาง (กม.)</th><th>รายได้ (บาท)</th>
-            <th>ภาระงาน</th><th>ต้นทุนบิล</th><th>กำไร/ขาดทุน</th><th></th>
+            <th>น้ำหนักเทียบเท่า (กก.)</th><th>Metric (กก.-กม.)</th><th>สัดส่วน</th><th>ต้นทุนบิล</th><th>กำไร/ขาดทุน</th><th></th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -266,6 +273,7 @@ td.name input{min-width:150px}
     </div>
     <button class="addbtn" onclick="addRow()">+ เพิ่มบิล</button>
     <p class="err" id="errMsg">กรอกน้ำหนักหรือปริมาตรอย่างน้อยหนึ่งอย่าง และระยะทางมากกว่า 0 ในทุกบิล</p>
+    <p class="err" id="capErr">กรอกความจุน้ำหนักและความจุปริมาตรของรถให้มากกว่า 0 — คิด Conversion Factor ไม่ได้</p>
   </div>
 
   <div class="card result">
@@ -314,7 +322,9 @@ function addRow(name, weight, volume, distance, revenue){
     '<td><input type="number" min="0" value="'+(volume??0)+'" oninput="calc()"></td>'+
     '<td><input type="number" min="0" value="'+(distance??0)+'" oninput="calc()"></td>'+
     '<td><input type="number" min="0" value="'+(revenue??0)+'" oninput="calc()"></td>'+
+    '<td class="num" data-f="eq">–</td>'+
     '<td class="num" data-f="wl">–</td>'+
+    '<td class="num" data-f="share">–</td>'+
     '<td class="num" data-f="cost">–</td>'+
     '<td class="num" data-f="profit">–</td>'+
     '<td><button class="rowbtn" aria-label="ลบบิลนี้" onclick="delRow(this)">✕</button></td>';
@@ -360,8 +370,28 @@ function calcTripCost(){
   return total;
 }
 
+function fmt2(n){
+  return new Intl.NumberFormat('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+}
+
+/* ปัดบิลละสตางค์ ส่วนต่างให้บิลที่มากสุด (บิลแรกถ้าเท่ากัน) → รวมแล้วเท่าต้นทุนเที่ยวพอดี */
+function roundAllocs(values, total){
+  const r = values.map(v => Math.round(v * 100) / 100);
+  const diff = Math.round((total - r.reduce((a, v) => a + v, 0)) * 1e9) / 1e9;
+  if(diff && r.length){
+    let i = 0;
+    values.forEach((v, k) => { if(v > values[i]) i = k; });
+    r[i] = Math.round((r[i] + diff) * 1e9) / 1e9;
+  }
+  return r;
+}
+
 function calc(){
   const tripCost = calcTripCost();
+  const capKg = num('capKg'), capM3 = num('capM3');
+  const cf = capKg > 0 && capM3 > 0 ? capKg / capM3 : null;
+  document.getElementById('cfDisplay').value = cf == null ? 'คิดไม่ได้' : fmt2(cf) + ' กก./ลบ.ม.';
+  document.getElementById('capErr').style.display = cf == null ? 'block' : 'none';
   const trs = [...document.getElementById('rows').children];
   let totalWorkload = 0, hasInvalid = false;
   const data = trs.map(tr=>{
@@ -370,28 +400,32 @@ function calc(){
     const volume = parseFloat(vEl.value) || 0;
     const distance = parseFloat(dEl.value) || 0;
     const revenue = parseFloat(rEl.value) || 0;
-    if(distance <= 0 || (weight <= 0 && volume <= 0)) hasInvalid = true;
-    const wl = Math.max((weight/1000)*distance, (volume*0.167)*distance);
+    if(distance <= 0 || (weight <= 0 && volume <= 0) || weight < 0 || volume < 0) hasInvalid = true;
+    const eq = cf == null ? 0 : Math.max(weight, volume * cf);
+    const wl = eq * Math.max(distance, 0);
     totalWorkload += wl;
-    return {tr, wl, revenue};
+    return {tr, eq, wl, revenue};
   });
   document.getElementById('errMsg').style.display = hasInvalid ? 'block' : 'none';
 
+  const shares = data.map(d => totalWorkload > 0 ? d.wl / totalWorkload : 0);
+  const costs = totalWorkload > 0 ? roundAllocs(shares.map(x => x * tripCost), tripCost) : data.map(() => 0);
   let sumRevenue = 0, sumCost = 0, lossCount = 0;
-  data.forEach(d=>{
-    const share = totalWorkload > 0 ? d.wl / totalWorkload : 0;
-    const cost = share * tripCost;
+  data.forEach((d, i)=>{
+    const cost = costs[i];
     const profit = d.revenue - cost;
     sumRevenue += d.revenue; sumCost += cost;
     if(profit < 0) lossCount++;
-    d.tr.querySelector('[data-f=wl]').textContent = fmt(d.wl);
-    d.tr.querySelector('[data-f=cost]').textContent = fmt(cost);
+    d.tr.querySelector('[data-f=eq]').textContent = cf == null ? '–' : fmt(d.eq);
+    d.tr.querySelector('[data-f=wl]').textContent = cf == null ? '–' : fmt(d.wl);
+    d.tr.querySelector('[data-f=share]').textContent = totalWorkload > 0 ? fmt2(shares[i] * 100) + '%' : '–';
+    d.tr.querySelector('[data-f=cost]').textContent = fmt2(cost);
     const pf = d.tr.querySelector('[data-f=profit]');
     pf.innerHTML = '<span class="pill '+(profit>=0?'profit':'loss')+'">'+(profit>=0?'+':'')+fmt(profit)+' บาท</span>';
   });
 
   document.getElementById('sumRevenue').textContent = fmt(sumRevenue)+' บาท';
-  document.getElementById('sumCost').textContent = fmt(sumCost)+' บาท';
+  document.getElementById('sumCost').textContent = fmt2(sumCost)+' บาท';
   const profitEl = document.getElementById('sumProfit');
   const totalProfit = sumRevenue - sumCost;
   profitEl.textContent = (totalProfit>=0?'+':'')+fmt(totalProfit)+' บาท';
