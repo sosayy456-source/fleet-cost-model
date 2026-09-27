@@ -53,7 +53,8 @@ const linkProps = (go: () => void, label: string) => ({
  *   trips     = กรองครบทุกตัว → ส่วนที่ 2 (ค่าเสื่อม) และ 3 (ภาพรวมกองรถ)
  *   costTrips = กรองทุกตัว **ยกเว้นปี** → ส่วนที่ 1 ต้องมีปีก่อนหน้าไว้เทียบ · year = ปีที่เลือก ("" = ปีล่าสุด)
  */
-export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; costTrips: Trip[]; year: string }) {
+/** hideFleet = ไม่วาดส่วนที่ 3 (ภาพรวมกองรถ) — เมนู Executive Summary ใช้แค่ส่วนที่ 1–2 (27 ก.ย. 2569) */
+export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips: Trip[]; costTrips: Trip[]; year: string; hideFleet?: boolean }) {
   const top = useRef<HTMLElement>(null);
   const rows = useMemo(() => vehicleRows(trips), [trips]);
   // ส่วนที่ 1: ค้นหาเส้นทาง · เลือกชนิดรถหลายชนิด · เฉพาะเที่ยวที่ถูก Flag
@@ -174,7 +175,7 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
         ป้ายท้ายแถวใช้ coverage ของชนิดรถ (Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม) · ต้นทุน/ค่าเสื่อมแยกรายคัน (หัว/หางนับแยก)</p>
     </Section>
 
-    <Section tone="blue" title="ภาพรวมการใช้ประโยชน์กองรถ"
+    {!hideFleet && <Section tone="blue" title="ภาพรวมการใช้ประโยชน์กองรถ"
       sub="การใช้รถตามกลุ่มบริการและประเภทรถ">
       <div className="i3-fleet">
         <div className="i3-panel i3-link" {...linkProps(toFleet, "Vehicle Utilization")}>
@@ -216,7 +217,7 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
       </div>
       <p className="i3-note">ใบที่มีรถหลายประเภท (เช่น หัวรถบริษัท + หางรถร่วม) นับในทุกประเภทที่มี ยอดรวมโดนัทจึงมากกว่าจำนวนเที่ยว</p>
       <button type="button" className="i3-back" onClick={() => scrollToTop(top)}>กลับไปส่วนที่ 1 ↑</button>
-    </Section>
+    </Section>}
   </div>;
 }
 

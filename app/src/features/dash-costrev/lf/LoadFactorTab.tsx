@@ -43,11 +43,15 @@ const F0: Filter = { ...PERIOD_ALL, ft: "" };
 const pctOf = (x: number, d = 0): string => pct(x * 100, d);
 const baht = (n: number): string => fmt(Math.round(n));
 
-export default function LoadFactorTab() {
+/**
+ * summary = โหมดของเมนู Executive Summary (แท็บ Fleet Utilization & Cost · 27 ก.ย. 2569): วาดเฉพาะกราฟ
+ * "LF เฉลี่ยรายเดือน เทียบแต่ละปี" + ส่วน "ต้นทุนที่จมเกิดจากตรงไหน" (ไม่มีแถบตัวกรอง — ทุกเที่ยว) · แก้ที่นี่ได้ทั้งสองหน้า
+ */
+export default function LoadFactorTab({ summary }: { summary?: boolean } = {}) {
   const { data, error, reload } = useLoadFactor();
   const etl = useEtlStatus("loadfactor");
   useAutoReloadOnEtl(etl, reload);
-  useShellSource(lfShellSource(data?.manifest));
+  useShellSource(summary ? null : lfShellSource(data?.manifest));
   return (
     <>
       {/* แถบสถานะ ETL อยู่ที่หัว Overall Dashboard (สถานะรวมทุกงาน) */}
@@ -62,13 +66,13 @@ export default function LoadFactorTab() {
       ) : !data ? (
         <div className="card"><p className="muted">กำลังโหลดข้อมูล Load Factor... <TruckLoader label={null} /></p></div>
       ) : (
-        <Body trips={data.trips} isSample={data.manifest.isSample} files={data.manifest.sourceFiles} />
+        <Body trips={data.trips} isSample={data.manifest.isSample} files={data.manifest.sourceFiles} summary={summary} />
       )}
     </>
   );
 }
 
-function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; files: string[] }) {
+function Body({ trips, isSample, files, summary }: { trips: LfTrip[]; isSample: boolean; files: string[]; summary?: boolean }) {
   const [f, setF] = useState<Filter>(F0);
   const set = (k: keyof Filter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   /** ตัวกรองจากการกดข้ามส่วน — null = ไม่กรอง · กดซ้ำ = ยกเลิก */
@@ -115,6 +119,33 @@ function Body({ trips, isSample, files }: { trips: LfTrip[]; isSample: boolean; 
     rt && { k: "เส้นทาง", v: rt, clear: () => setRt(null) },
   ].filter(Boolean) as { k: string; v: string; clear: () => void }[];
   const periodLabel = periodText(f);
+
+  if (summary) return (
+    <Pane deps={[scope]}>
+      {chips.length > 0 && <div className="lf-chips">
+        <span>กำลังดูเฉพาะ:</span>
+        {chips.map((c) => (
+          <span key={c.k} className="lf-chip">{c.k}: {c.v}
+            <button type="button" onClick={c.clear} aria-label={`ล้างตัวกรอง${c.k}`}>×</button></span>
+        ))}
+      </div>}
+      <div className="dz-cc">
+        <h4>LF เฉลี่ยรายเดือน เทียบแต่ละปี</h4>
+        <div className="dz-box">
+          <DLine data={trendData} xKey="mo" suffix="%" digits={1}
+            series={tr.years.map((y, i) => ({ key: String(y.year), label: `พ.ศ. ${y.year + 543}`, color: YEAR_COLORS[i % YEAR_COLORS.length]! }))} />
+        </div>
+        <Note>เทียบเดือนเดียวกันของแต่ละปีเพื่อตัดผลของฤดูกาล · ตามชนิดรถ/เส้นทางที่กดในส่วนข้างล่าง</Note>
+      </div>
+      <div className="dz-t" style={{ marginTop: 22 }}>ต้นทุนที่จมเกิดจากตรงไหน</div>
+      <Note>เรียงจากมากไปน้อย · กดแถวเพื่อกรองกราฟและอีกฝั่ง กดซ้ำเพื่อยกเลิก · {isSample ? "ข้อมูลตัวอย่าง" : "ข้อมูลจริง"} ทุกเที่ยวในไฟล์ Load Factor</Note>
+      <div className="dz-row dz-11" style={{ marginTop: 10 }}>
+        <RankPanel title="แยกตามชนิดรถ" unit="ชนิดรถ" rank={rankVk} picked={vk} onPick={(n) => setVk((p) => (p === n ? null : n))} />
+        <RankPanel title="แยกตามเส้นทาง" unit="เส้นทาง" rank={rankRt} picked={rt} onPick={(n) => setRt((p) => (p === n ? null : n))} />
+      </div>
+      <Note>เส้นประ = จุดที่รวมกันได้ 80% ของต้นทุนที่จม กลุ่มที่อยู่เหนือเส้นคือกลุ่มที่ควรแก้ก่อน · ตัวเลขใต้ชื่อคือจำนวนเที่ยวและ LF เฉลี่ยเทียบเป้า</Note>
+    </Pane>
+  );
 
   return (
     <>
