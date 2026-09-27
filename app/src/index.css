@@ -2879,3 +2879,150 @@ text.num-fd{transform-box:fill-box}
   font-weight:700;vertical-align:1px;white-space:nowrap}
 #view-dash .mg-new{background:#E3F0FA;color:#0369A1}
 #view-dash .mg-est{background:#FEF0D9;color:#B45309}
+
+/* ======================================================================================
+   ธีม "cherry" ของแดชบอร์ดทั้งหมด (เจ้าของงานส่งชุดสี + ตัวอย่าง "การแสดงผล.pdf" 27 ก.ย. 2569 · lib/ui/dashTheme.ts)
+   ชุดสี: #BF939F ม่วงหม่น · #E4CDD3 · #EBE0E6 ชมพูอ่อน · #C86253 ส้มอิฐ · #DDA39F · #590212 เบอร์กันดี
+   การ์ดเด่นตาม PDF (เจ้าของงานยืนยัน 27 ก.ย. 2569): **กำไร = เขียว · รายได้ = แชมเปญทอง (ตัวเข้ม) · ต้นทุน = มุกม่วงอ่อน (ตัวเข้ม)**
+   ลูกค้า = เบอร์กันดี · ขาดทุน = ชมพูกุหลาบเข้ม · พื้นมุกชมพู · หัวข้อแถบแชมเปญซ้าย
+   ตัวอักษรใหญ่ขึ้น ~15–20% ให้อ่านง่าย · ทุกกฎครอบด้วย html.theme-cherry (main.tsx ใส่คลาส) —
+   ถอดคลาส/ตั้ง localStorage dashTheme=classic = กลับสีเดิมทั้งหมด (กฎข้างบนไม่ถูกแก้)
+   ====================================================================================== */
+html.theme-cherry{--accent:#590212;--accent-hover:#3F0110;--accent-tint:#F6ECEF;--accent-tint-2:#EBE0E6;--accent-line:#E4CDD3}
+html.theme-cherry body:has(#view-dash.active){background:linear-gradient(180deg,#F8F1F2 0%,#F3E9EC 100%) fixed}
+html.theme-cherry #view-dash{
+  --d-bg:#F6EEF0; --d-card:#FFFFFF; --d-soft:#FBF6F7; --d-rail:#EBE0E6;
+  --d-line:rgba(89,2,18,.09); --d-line2:rgba(89,2,18,.13); --d-div:rgba(89,2,18,.1);
+  --d-row:#F3E8EC; --d-hover:rgba(89,2,18,.3);
+  --d-ink:#2A0A10; --d-ink2:#5A3A40; --d-ink3:#7A5A60; --d-ink4:#7A5A60; --d-ink5:#7A5A60;
+  --d-indigo:#590212; --d-emerald-d:#1B7A60; --d-amber-d:#A8472F; --d-rose-d:#B23A2E;
+  --ch-gold:linear-gradient(135deg,#9A7A3E 0%,#B8955A 55%,#CFAF7A 100%);
+  --ch-champ:linear-gradient(135deg,#F7EEDD 0%,#EDDDBE 55%,#D9B98A 100%);
+  --ch-pearl:linear-gradient(135deg,#F7F2F6 0%,#E9E0EA 55%,#D6CAD9 100%);
+  --ch-rose:linear-gradient(135deg,#9E2C42 0%,#BF4458 55%,#D9707E 100%);
+  --ch-green:linear-gradient(135deg,#0C5A45 0%,#1B7A60 55%,#34A07F 100%);
+  --ch-burgundy:linear-gradient(135deg,#7A1A2E 0%,#5E0718 50%,#3F0110 100%);
+  --ch-brick:linear-gradient(135deg,#8E2A20 0%,#B0473A 55%,#C86253 100%);
+  --ch-mauve:linear-gradient(135deg,#6E3F4C 0%,#8E5A68 55%,#A87583 100%);
+  --ch-blush:linear-gradient(135deg,#FBF4F6 0%,#EBE0E6 55%,#E4CDD3 100%);
+  --lf-used:linear-gradient(90deg,#590212,#8E2A3E); --lf-idle:linear-gradient(90deg,#B0473A,#C86253); --lf-used-c:#590212;
+}
+
+/* ---- หัวแดชบอร์ด + แท็บ + ตัวกรอง ---- */
+html.theme-cherry .dh{background:#FBF6F7;border-color:#E4CDD3;border-top:6px solid #590212;box-shadow:0 24px 60px -34px rgba(89,2,18,.35)}
+html.theme-cherry .dh h1{color:#590212;font-size:44px}
+html.theme-cherry .dh-meta{font-size:15.5px;color:#7A5A60}
+html.theme-cherry .dh-meta b{color:#2A0A10}
+html.theme-cherry .dh-role{background:#EBE0E6}
+html.theme-cherry .dh-role span{font-size:15px;color:#5A3A40}
+html.theme-cherry .dh-role button{background:#590212;color:#FBF6F7;font-size:15px}
+html.theme-cherry .dh-role button:hover{background:#3F0110}
+html.theme-cherry .dh-refresh{font-size:15px;color:#5A3A40;border-color:#E4CDD3}
+html.theme-cherry .dh .dash-tabs{background:#EBE0E6}
+html.theme-cherry .dh .dtab{font-size:16.5px;color:#7A5A60}
+html.theme-cherry .dh .dtab.active,html.theme-cherry .dh .dtab:hover{color:#590212}
+html.theme-cherry .dh .dash-tabs .dink{box-shadow:0 2px 8px -2px rgba(89,2,18,.3)}
+html.theme-cherry .dh-filters .ff{border-color:#E4CDD3;padding:9px 13px}
+html.theme-cherry .dh-filters .ff:focus-within{border-color:#590212}
+html.theme-cherry .dh-filters label{font-size:13.5px;color:#7A5A60}
+html.theme-cherry .dh-filters select,html.theme-cherry .dh-filters input{font-size:15.5px;color:#2A0A10}
+html.theme-cherry .dh-clear{font-size:15px;color:#7A5A60}
+
+/* ---- การ์ดเด่น: สีตามความหมาย + ตัวเลขใหญ่ ---- */
+html.theme-cherry #view-dash .dz-kc.hero .l{font-size:16px}
+html.theme-cherry #view-dash .dz-kc.hero .u{font-size:13.5px}
+html.theme-cherry #view-dash .dz-kc.hero .v{font-size:46px}
+html.theme-cherry #view-dash .dz-heroes > .dz-kc.hero:first-child .v{font-size:60px}
+html.theme-cherry #view-dash .dz-heroes.cp-heroes > .dz-kc.hero:first-child .v{font-size:46px}
+html.theme-cherry #view-dash .dz-kc.hero .hf .s,html.theme-cherry #view-dash .dz-kc.hero .s{font-size:15px}
+html.theme-cherry #view-dash .dz-kc.hero .vs{font-size:18px}
+html.theme-cherry #view-dash .dz-kc.hero.profit{background:var(--ch-green);box-shadow:0 18px 36px -22px rgba(12,90,69,.75)}
+html.theme-cherry #view-dash .dz-kc.hero.cust{background:var(--ch-burgundy);box-shadow:0 18px 36px -22px rgba(89,2,18,.75)}
+html.theme-cherry #view-dash .dz-kc.hero.loss{background:var(--ch-rose);box-shadow:0 18px 36px -22px rgba(158,44,66,.7)}
+html.theme-cherry #view-dash .dz-kc.hero.fleet{background:var(--ch-mauve)}
+html.theme-cherry #view-dash .dz-kc.hero.svc{background:var(--ch-brick)}
+html.theme-cherry #view-dash .dz-kc.hero.warn{background:linear-gradient(135deg,#9A5F14 0%,#B8762A 55%,#D9A04A 100%)}
+/* รายได้ = แชมเปญ · ต้นทุน = มุกม่วง — การ์ดสีอ่อน ตัวอักษรเข้ม (แบบ PDF) */
+html.theme-cherry #view-dash .dz-kc.hero.rev{background:var(--ch-champ);box-shadow:inset 0 0 0 1px #E6D3B0,0 18px 36px -24px rgba(154,122,62,.6)}
+html.theme-cherry #view-dash .dz-kc.hero.cost{background:var(--ch-pearl);box-shadow:inset 0 0 0 1px #DCD0DE,0 18px 36px -24px rgba(90,70,95,.45)}
+html.theme-cherry #view-dash .dz-kc.hero.rev :is(.l,.v,.vs,.ft){color:#4A3318}
+html.theme-cherry #view-dash .dz-kc.hero.rev :is(.s,.hf .s){color:#7A5C36}
+html.theme-cherry #view-dash .dz-kc.hero.rev .u{background:rgba(74,51,24,.1);color:#4A3318}
+html.theme-cherry #view-dash .dz-kc.hero.rev .trend polyline{stroke:rgba(74,51,24,.4)}
+html.theme-cherry #view-dash .dz-kc.hero.cost :is(.l,.v,.vs,.ft){color:#3A2B3C}
+html.theme-cherry #view-dash .dz-kc.hero.cost :is(.s,.hf .s){color:#6A5A6C}
+html.theme-cherry #view-dash .dz-kc.hero.cost .u{background:rgba(58,43,60,.1);color:#3A2B3C}
+html.theme-cherry #view-dash .dz-kc.hero.cost .trend polyline{stroke:rgba(58,43,60,.4)}
+
+/* ---- การ์ดรอง ---- */
+html.theme-cherry #view-dash .dz-kc:not(.hero){border-color:#EBDDE2;background:#FFFFFF}
+html.theme-cherry #view-dash .dz-kc:not(.hero) .l{font-size:16px;color:#7A5A60}
+html.theme-cherry #view-dash .dz-kc:not(.hero) .v{font-size:36px;color:#2A0A10}
+html.theme-cherry #view-dash .dz-kc:not(.hero) .s{font-size:15px;color:#7A5A60}
+
+/* ---- หัวข้อส่วน (แถบทองซ้ายแบบตัวอย่าง) · การ์ดกราฟ/ตาราง ---- */
+html.theme-cherry #view-dash .dm-part-h{font-size:28px;color:#590212;padding-left:14px;border-left:4px solid #C9A77A}
+html.theme-cherry #view-dash .dm-part-h::after{background:#E4CDD3}
+html.theme-cherry #view-dash .dz-t{font-size:22px;color:#590212;padding-left:12px;border-left:4px solid #C9A77A}
+html.theme-cherry #view-dash .dz-t::after{background:#E4CDD3}
+html.theme-cherry #view-dash .dz-cc{border-color:#EBDDE2;box-shadow:0 10px 30px -24px rgba(89,2,18,.35)}
+html.theme-cherry #view-dash .dz-cc h4{font-size:20px;color:#2A0A10}
+html.theme-cherry #view-dash .dz-tbl{font-size:16px}
+html.theme-cherry #view-dash .dz-tbl th{font-size:14.5px;color:#7A5A60}
+html.theme-cherry #view-dash .dz-note{font-size:14.5px;color:#7A5A60}
+
+/* ---- การ์ดอัตรากำไร 3 กลุ่มบริการ ---- */
+html.theme-cherry .dm-sg.c1{background:var(--ch-burgundy)}
+html.theme-cherry .dm-sg.c2{background:var(--ch-brick)}
+html.theme-cherry .dm-sg.c3{background:var(--ch-mauve)}
+html.theme-cherry .dm-sg .l{font-size:16.5px}
+html.theme-cherry .dm-sg .v{font-size:46px}
+html.theme-cherry .dm-sg .s{font-size:14.5px}
+
+/* ---- Vehicle Utilization Cost (หัวส่วน/หัวตาราง) ---- */
+html.theme-cherry .i3-h.violet{background:var(--ch-burgundy);box-shadow:0 14px 30px -16px rgba(89,2,18,.55)}
+html.theme-cherry .i3-h.green{background:var(--ch-green);box-shadow:0 14px 30px -16px rgba(12,90,69,.55)}
+html.theme-cherry .i3-h.blue{background:var(--ch-mauve);box-shadow:0 14px 30px -16px rgba(110,63,76,.55)}
+html.theme-cherry .i3-sec:nth-child(1) .i3-tbl thead tr{background:var(--ch-burgundy)}
+html.theme-cherry .i3-sec:nth-child(2) .i3-tbl thead tr{background:var(--ch-green)}
+
+/* ---- การ์ดแผนที่/จัดอันดับเส้นทาง ---- */
+html.theme-cherry .rp-ico.green{background:var(--ch-green);box-shadow:0 6px 14px -6px rgba(12,90,69,.7)}
+html.theme-cherry .rp-ico.violet{background:var(--ch-burgundy);box-shadow:0 6px 14px -6px rgba(89,2,18,.7)}
+html.theme-cherry .rp-ico.red{background:var(--ch-brick);box-shadow:0 6px 14px -6px rgba(176,71,58,.7)}
+html.theme-cherry .rp-tbl tbody tr.on td{background:#F8EEF1;box-shadow:inset 0 1px 0 #E4CDD3,inset 0 -1px 0 #E4CDD3}
+html.theme-cherry .rp-tbl tbody tr.on td:first-child{box-shadow:inset 1px 1px 0 #E4CDD3,inset 0 -1px 0 #E4CDD3}
+html.theme-cherry .rp-tbl tbody tr.on td:last-child{box-shadow:inset -1px 1px 0 #E4CDD3,inset 0 -1px 0 #E4CDD3}
+html.theme-cherry .rp-tbl tbody tr.on .rp-rank{background:var(--ch-green)}
+
+/* ---- Performance Index: กล่องเบอร์กันดี + แถบทอง (แบบตัวอย่าง) ---- */
+html.theme-cherry #view-dash .pi-box.t-route,html.theme-cherry #view-dash .pi-box.t-fleet,
+html.theme-cherry #view-dash .pi-box.t-cost,html.theme-cherry #view-dash .pi-box.t-cust,
+html.theme-cherry #view-dash .pi-box.t-service,html.theme-cherry #view-dash .pi-total{background:var(--ch-burgundy)}
+html.theme-cherry #view-dash .pi-meter i,html.theme-cherry #view-dash .pi-bar i{background:linear-gradient(90deg,#E6CD8C,#F3E6C4)}
+html.theme-cherry #view-dash .pi-t{font-size:19px}
+html.theme-cherry #view-dash .pi-score b{font-size:52px;color:#F3E6C4}
+
+/* ---- Executive Summary (หัว/แท็บของหน้าเอง) ---- */
+html.theme-cherry .es-header{background:#FFFFFF;border-color:#E4CDD3}
+html.theme-cherry .es-brand{font-size:20px;color:#590212}
+html.theme-cherry .es-tabs button{font-size:17px}
+html.theme-cherry .es-tabs button.active{background:#590212}
+html.theme-cherry .es-filterbar{background:#FBF6F7}
+html.theme-cherry .es-content h2{font-size:30px;color:#590212;padding-left:14px;border-left:5px solid #C9A77A}
+html.theme-cherry .es-sub{font-size:24px;color:#590212;padding-left:12px;border-left:4px solid #C9A77A}
+
+/* ---- Vehicle Utilization Cost › ภาพรวมการใช้ประโยชน์กองรถ (แผงกลุ่มบริการ + โดนัท · สีรถอยู่ที่ FT ใน Item3Tab.tsx) ---- */
+html.theme-cherry .i3-panel{background:#FFFFFF;border-color:#EBDDE2}
+html.theme-cherry .i3-donut-panel{background:#FFFFFF;border-color:#EBDDE2}
+html.theme-cherry .i3-panel.i3-link:hover{border-color:#DDA39F;box-shadow:0 14px 30px -22px rgba(89,2,18,.45)}
+html.theme-cherry .i3-link tr:focus-visible,html.theme-cherry .i3-panel.i3-link:focus-visible{outline-color:#DDA39F}
+html.theme-cherry .i3-group{background:#F8EFF2;border-color:#F1E3E8}
+html.theme-cherry .i3-stack{background:#EBE0E6}
+html.theme-cherry .i3-verdict.comp{background:#F1DDE2;color:#590212}
+html.theme-cherry .i3-verdict.part{background:#EFE4E9;color:#6E3F4C}
+html.theme-cherry .i3-panel-head b{font-size:18px}
+html.theme-cherry .i3-panel-head span{font-size:14.5px}
+html.theme-cherry .i3-group-head b{font-size:16px}
+html.theme-cherry .i3-group-head span,html.theme-cherry .i3-legend,html.theme-cherry .i3-verdict{font-size:13.5px}
+html.theme-cherry .i3-donut-total b{font-size:34px;color:#2A0A10}

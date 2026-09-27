@@ -15,8 +15,10 @@ export const DFONT = "'LINE Seed Sans TH', 'Noto Sans Thai', system-ui, sans-ser
 /** ระยะและจังหวะแอนิเมชัน — main: animation:{duration:950,easing:"easeOutQuart"} */
 export const DUR = 950;
 
-/** สีตามชื่อที่ main เรียกใช้ตรง ๆ ในแต่ละกราฟ */
-export const D = {
+import { CHERRY, IS_CHERRY } from "../ui/dashTheme";
+
+/** สีตามชื่อที่ main เรียกใช้ตรง ๆ ในแต่ละกราฟ (ธีม classic) */
+const D_CLASSIC = {
   indigo: "#4F46E5",
   indigoDeep: "#3730A3",
   violet: "#7C3AED",
@@ -30,8 +32,31 @@ export const D = {
   orange: "#EA580C",
   slate: "#94A3B8",
   slateDeep: "#475569",
-  mint: ["#BBF7D0", "#6EE7B7", "#34D399"],
-} as const;
+  mint: ["#BBF7D0", "#6EE7B7", "#34D399"] as [string, string, string],
+};
+
+/**
+ * ธีม cherry (เจ้าของงานส่ง 27 ก.ย. 2569 · lib/ui/dashTheme.ts) — ชื่อคีย์เดิม ค่าสีใหม่ ทุกกราฟเปลี่ยนตามโดยไม่ต้องแก้ทีละไฟล์
+ * indigo = รายได้ → **แชมเปญทอง** · emerald = กำไร → **เขียว** (ตาม PDF) · rose = ต้นทุน/ขาดทุน → ส้มอิฐ · violet → เบอร์กันดี · teal → ม่วงหม่น
+ */
+const D_CHERRY: typeof D_CLASSIC = {
+  indigo: CHERRY.gold,
+  indigoDeep: CHERRY.goldDeep,
+  violet: CHERRY.burgundy,
+  rose: CHERRY.brick,
+  emerald: CHERRY.greenDeep,
+  emeraldLight: CHERRY.green,
+  amber: "#D9A04A",
+  pink: CHERRY.plum,
+  teal: CHERRY.mauve,
+  cyan: CHERRY.rose,
+  orange: "#A8472F",
+  slate: "#B7A6AC",
+  slateDeep: "#6B4A52",
+  mint: ["#CDEBDD", "#8FD0B3", "#34A07F"],
+};
+
+export const D = IS_CHERRY ? D_CHERRY : D_CLASSIC;
 
 export interface ChartTheme {
   dark: boolean;
@@ -49,7 +74,7 @@ export interface ChartTheme {
   amber: string; teal: string; orange: string; navy: string;
 }
 
-const DASH: ChartTheme = {
+const DASH_CLASSIC: ChartTheme = {
   dark: false,
   categorical: [D.indigo, D.rose, D.emerald],
   sequential: ["#E0E7FF", "#C7D2FE", "#A5B4FC", "#818CF8", "#6366F1", "#4F46E5", "#3730A3"],
@@ -65,7 +90,18 @@ const DASH: ChartTheme = {
   amber: D.amber, teal: D.teal, orange: D.orange, navy: D.indigo,
 };
 
-/** แดชบอร์ดของ main มีธีมเดียว ไม่มีโหมดมืด จึงคืนค่าคงที่ */
+const DASH: ChartTheme = IS_CHERRY ? {
+  ...DASH_CLASSIC,
+  categorical: [D.indigo, D.rose, D.emerald],
+  sequential: ["#F6ECEF", "#EBD5DB", "#DDB3BE", "#C98E9E", "#A8667A", "#80344D", "#590212"],
+  status: { good: D.emeraldLight, warning: D.amber, serious: D.orange, critical: D.rose },
+  grid: "#F1E6EA", axis: "#E4CDD3",
+  ink: "#2A0A10", ink2: "#5A3A40", inkMuted: "#7A5A60", tooltipBg: "#3A0712",
+  indigo: D.indigo, violet: D.violet, rose: D.rose, emerald: D.emeraldLight,
+  amber: D.amber, teal: D.teal, orange: D.orange, navy: D.violet,
+} : DASH_CLASSIC;
+
+/** แดชบอร์ดของ main มีธีมเดียว ไม่มีโหมดมืด จึงคืนค่าคงที่ (ธีมสีเลือกตอนโหลดหน้า — lib/ui/dashTheme.ts) */
 export function useChartTheme(): ChartTheme {
   return DASH;
 }

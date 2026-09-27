@@ -12,6 +12,7 @@ import { fmt, pct } from "../dash-costrev/common";
 import RouteMap, { type MapRoute } from "./RouteMap";
 import { fixedOf, otherOf, semiOf, variableOf } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
+import { CHERRY, IS_CHERRY } from "../../lib/ui/dashTheme";
 
 /**
  * กลุ่มต้นทุนตามเอกสาร "การจัดประเภทต้นทุนสำหรับ Dashboard" (ชุดเดียวกับแท็บต้นทุนของ Executive Dashboard)
@@ -23,10 +24,15 @@ interface CostPart { label: string; color: string; of: (t: Trip) => number; subs
  * สีตามดีไซน์ที่เจ้าของงานส่ง 24 ก.ย. 2569 (แผนที่ + จัดอันดับ + รายละเอียดต้นทุน) — กำไรเขียว · ผันแปรดำ ·
  * กึ่งผันแปรส้มทอง · คงที่เทา · ก้อนย่อยของผันแปรเป็นสี่เหลี่ยมโปร่ง (.rp-cl li.sub) จึงไม่ต้องมีสีของตัวเอง
  */
-export const RP = { profit: "#0f7a55", loss: "#c8384e", variable: "#4f46e5", semi: "#f59e0b", fixed: "#475569",
-  rent: "#6f8fae", other: "#9aa0a6", waste: "#d9707f",
-  // ก้อนย่อยของผันแปร — แต่ละก้อนมีสีของตัวเองตามภาพที่เจ้าของงานส่ง 24 ก.ย. 2569 (รอบสอง)
-  fuel: "#4f46e5", allow: "#9333ea", fee: "#0f9488" };
+export const RP = IS_CHERRY
+  // ธีม cherry (27 ก.ย. 2569): กำไร = เขียว (ตาม PDF) · ขาดทุน = ส้มอิฐเข้ม · ก้อนต้นทุนไล่โทนชุดสีของเจ้าของงาน
+  ? { profit: CHERRY.green, loss: "#B23A2E", variable: CHERRY.burgundy, semi: "#D9A04A", fixed: "#6B4A52",
+      rent: CHERRY.mauve, other: "#B7A6AC", waste: CHERRY.brick,
+      fuel: CHERRY.burgundy, allow: CHERRY.plum, fee: CHERRY.rose }
+  : { profit: "#0f7a55", loss: "#c8384e", variable: "#4f46e5", semi: "#f59e0b", fixed: "#475569",
+      rent: "#6f8fae", other: "#9aa0a6", waste: "#d9707f",
+      // ก้อนย่อยของผันแปร — แต่ละก้อนมีสีของตัวเองตามภาพที่เจ้าของงานส่ง 24 ก.ย. 2569 (รอบสอง)
+      fuel: "#4f46e5", allow: "#9333ea", fee: "#0f9488" };
 const COST_TREE: { group: string; parts: CostPart[] }[] = [
   { group: "ต้นทุนปกติ", parts: [
     { label: "ผันแปร", color: RP.variable, of: variableOf, subs: [

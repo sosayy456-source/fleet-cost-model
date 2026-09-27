@@ -26,9 +26,14 @@ import { fleetSlices, fleetTypeShare, serviceFleetMix } from "../../lib/fleetcom
 import { openExecTab } from "../../lib/ui/dashJump";
 import { fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
+import { CHERRY, IS_CHERRY } from "../../lib/ui/dashTheme";
 
-/** สีประเภทรถตาม handoff — [สีหลัก, สีอ่อนของโดนัท, ป้ายสั้น] */
-const FT: Record<string, [string, string, string]> = {
+/** สีประเภทรถตาม handoff — [สีหลัก, สีอ่อนของโดนัท, ป้ายสั้น] · ธีม cherry ตาม "การแสดงผล.pdf": บริษัท เบอร์กันดี · ร่วม ม่วงหม่น · นอกพิเศษ ส้มอิฐ */
+const FT: Record<string, [string, string, string]> = IS_CHERRY ? {
+  "รถบริษัท": [CHERRY.burgundy, CHERRY.blush, "บริษัท"],
+  "รถร่วม": [CHERRY.mauve, CHERRY.mist, "ร่วม"],
+  "รถร่วมนอกพิเศษ": [CHERRY.brick, CHERRY.rose, "ร่วมนอกพิเศษ"],
+} : {
   "รถบริษัท": ["#5B3FE0", "#A898F5", "บริษัท"],
   "รถร่วม": ["#0C9A7E", "#7FD9C4", "ร่วม"],
   "รถร่วมนอกพิเศษ": ["#F29A1F", "#FBD08A", "ร่วมนอกพิเศษ"],
@@ -199,7 +204,7 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
           <div className="i3-panel-head"><b>สัดส่วนการใช้รถแต่ละประเภท</b><span>รวม {fmt(typeTotal)} เที่ยว ในช่วงเวลาที่เลือก</span></div>
           <div className="i3-donut">
             <svg viewBox="0 0 180 180" role="img" aria-label={types.map((t) => `${t.key} ${pct(t.share, 0)}`).join(" · ")}>
-              <circle cx="90" cy="90" r="70" fill="none" stroke="#F2F0F6" strokeWidth="22" />
+              <circle cx="90" cy="90" r="70" fill="none" stroke={IS_CHERRY ? CHERRY.mist : "#F2F0F6"} strokeWidth="22" />
               {/* สีทึบตามป้ายด้านล่าง ไม่ไล่เฉด (เจ้าของงานสั่ง 24 ก.ย. 2569) */}
               <g transform="rotate(-90 90 90)">{donut.map((s) =>
                 <circle key={s.key} cx="90" cy="90" r="70" fill="none" stroke={ftOf(s.key)[0]} strokeWidth="22"
