@@ -324,7 +324,7 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
           <h4>ลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด</h4>
           <div className="dso2-revline">รายได้รวม {thSlash(revFrom)} – {thSlash(asOf)} <b>{fmt(Math.round(revTotal))}</b> บาท
             <span>· ฐานของ % ต่อรายได้ทุกแถว</span></div>
-          <div className="dso2-rank th"><span>#</span><span>ลูกหนี้</span><span>ยอดเงินจ่ายช้า (บาท)</span><span>% ต่อรายได้</span></div>
+          <div className="dso2-rank th"><span>ลำดับ</span><span>ลูกหนี้</span><span>ยอดเงินจ่ายช้า (บาท)</span><span>% ต่อรายได้</span></div>
           {topCust.length ? <GrowBox rows={topCust} maxHeight={VISIBLE_ROWS * RANK_ROW_PX} render={(shown) => shown.map((c, i) => (
             <div key={c.cust} className="dso2-rank">
               <span className="dso2-rk">{i + 1}</span>

@@ -2739,7 +2739,7 @@ text.num-fd{transform-box:fill-box}
 .dso2-ring-n{font-size:9.5px;font-weight:400}
 .dso2-leg b{text-align:right;font-family:var(--d-num)}
 .dso2-leg em{text-align:right;font-style:normal;color:var(--d-ink5);font-family:var(--d-num)}
-.dso2-rank{display:grid;grid-template-columns:28px minmax(90px,120px) minmax(0,1fr) 72px;gap:10px;align-items:center;padding:0;height:50px;box-sizing:border-box;
+.dso2-rank{display:grid;grid-template-columns:40px minmax(90px,120px) minmax(0,1fr) 72px;gap:10px;align-items:center;padding:0;height:50px;box-sizing:border-box;
   font-size:14px;color:var(--d-ink);border-bottom:1px solid var(--d-line)}
 .dso2-rank.th{font-size:12.5px;color:var(--d-ink5);height:auto;padding:0 12px 8px 0}
 .dso2-block>.scroll .dso2-rank{padding-right:12px}
