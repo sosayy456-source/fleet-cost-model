@@ -32,6 +32,7 @@ import { useRoster } from "../../lib/store/roster";
 import { loadStats } from "../../lib/dispatch/load";
 import { onRouteOf, stopsFor, useEnRoute } from "../../lib/route/enRoute";
 import { LoadTruckPanel } from "./LoadTruck";
+import { DEFAULT_PICTURE_KIND } from "./TruckPicture";
 import { P0, VehiclePickFields, roleKind } from "./VehiclePick";
 import type { VehiclePick } from "./VehiclePick";
 import { useBills } from "../../lib/store/bills";
@@ -49,7 +50,6 @@ import GrowBox from "../../lib/ui/GrowBox";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey } from "../../types/record";
-import { randomDispatch } from "./randomDispatch";
 
 const baht = (v: number): string => Math.round(v).toLocaleString("th-TH");
 const num3 = (v: number): string => v.toLocaleString("th-TH", { maximumFractionDigits: 3 });
@@ -116,6 +116,9 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   /* ---------- รถหัว — เลือก ประเภท → ชนิด → ทะเบียน (แทนกล่องค้นหารถเดิม · เจ้าของงานสั่ง 24 ก.ย. 2569) ---------- */
   const [hp, setHp] = useState<VehiclePick>(P0);
   const [tp, setTp] = useState<VehiclePick>(P0);
+  /** ช่องหางพ่วงซ่อนไว้จนกว่าจะกด "+ เพิ่มหางพ่วง" (เจ้าของงานขอ 27 ก.ย. 2569 — เดิมโชว์ตลอดแล้วเกะกะ) */
+  const [trailerOpen, setTrailerOpen] = useState(false);
+  const closeTrailer = () => { setTp(P0); setTrailerOpen(false); };
   /** รถที่เป็นหัวได้ — ตัดคันที่เป็นหางล้วน และคันที่เลือกเป็นหางอยู่ */
   const heads = useMemo(() => usable.filter((v) => roleKind(v, false) && v.plate !== tp.plate), [usable, tp.plate]);
   const truck = heads.find((v) => v.plate === hp.plate) ?? null;
@@ -162,19 +165,6 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
-  const fillRandom = () => {
-    const choice = randomDispatch(waiting.filter((b) => b.synced !== false), roster, ovr);
-    if (!choice) {
-      setMsg({ text: "ยังไม่มีบิลรอจัดรถที่จับคู่กับรถซึ่งบรรทุกได้ไม่เกิน 85%", tone: "warn" });
-      return;
-    }
-    setF(F0);
-    setPicked(new Set(choice.bills.map((b) => b.id)));
-    setHp(choice.vehicle);
-    setTp(P0);
-    setReleaseDate(choice.bills[0]!.date > todayISO() ? choice.bills[0]!.date : todayISO());
-    setMsg({ text: `สุ่มเลือก ${choice.bills.length} บิล · รถ ${choice.vehicle.plate} · Load Factor ${Math.round(choice.loadFactor)}% — ตรวจแล้วกดยืนยันการจัดรถ`, tone: "ok" });
-  };
   const allShown = rows.length > 0 && rows.every((b) => picked.has(b.id));
 
   async function confirmDispatch() {
@@ -237,7 +227,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     }
     state.reload();
     setPicked(new Set());
-    setTp(P0);
+    closeTrailer();
     const done = `จัดรถแล้ว — ใบรายการ ${docNo} · ${chosen.length} บิล · ${truck.plate}${trailer ? ` + หาง ${trailer.plate}` : ""}`;
     setMsg(billsOnSheet
       ? { text: done, tone: "ok" }
@@ -279,200 +269,214 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         </div>
       )}
 
-      {/* ขั้นที่ 1 แบ่งสองฝั่ง: ซ้าย = บิลที่รอจัดรถ · ขวา = สถานะการบรรทุก (รูปรถ + หลอด Load Factor) */}
-      <div className="dispatch-top">
-      <div className="card">
-        <div className="card-h">
-          <span className="step">1</span><h2>บิลที่รอจัดรถ</h2>
-          <span className="hint">{rows.length} บิล{rows.length !== waiting.length ? ` จากทั้งหมด ${waiting.length}` : ""} · ติ๊กเลือกบิลที่จะไปด้วยกัน</span>
-        </div>
-
-        {/* ★ ใช้ dh-filters ไม่ใช่ dz-filters — สไตล์ของ dz-* ประกาศใต้ #view-dash เท่านั้น
-            หน้านี้เป็นหน้าฟอร์ม ถ้าใช้ dz-filters ช่องกรองจะกลายเป็น select เปล่าไม่มีกรอบ */}
-        <div className="dh-filters">
-          <div className="ff"><label>วันที่รับสินค้า</label>
-            <select value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })}>
-              <option value="">ทุกวัน</option>
-              {uniq(waiting.map((b) => b.date)).map((d) => <option key={d} value={d}>{thDateSafe(d)}</option>)}
-            </select></div>
-          <div className="ff"><label>สาขา</label>
-            <select value={f.branch} onChange={(e) => setF({ ...f, branch: e.target.value })}>
-              <option value="">ทุกสาขา</option>
-              {uniq(waiting.map((b) => b.branch)).map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></div>
-          <div className="ff"><label>ต้นทาง</label>
-            <select value={f.origin} onChange={(e) => setF({ ...f, origin: e.target.value })}>
-              <option value="">ทุกต้นทาง</option>
-              {uniq(waiting.map((b) => b.origin)).map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></div>
-          <div className="ff"><label>ปลายทาง</label>
-            <select value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })}>
-              <option value="">ทุกปลายทาง</option>
-              {uniq(waiting.map((b) => b.dest)).map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></div>
-          <div className="ff"><label>ประเภทสินค้า</label>
-            <select value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })}>
-              <option value="">ทุกกลุ่มบริการ</option>
-              {uniq(waiting.map((b) => b.serviceGroup)).map((x) => <option key={x} value={x}>{x}</option>)}
-            </select></div>
-          <button type="button" className="dh-clear" onClick={() => setF(F0)}>↺ ล้างตัวกรอง</button>
-        </div>
-
-        {anchor && (
-          <div className="dispatch-lock">
-            แสดงเฉพาะบิลที่ไปทางเดียวกับ <b>{anchor.origin} → {anchor.dest}</b>
-            {anchorStops.length ? <> · ปลายทางระหว่างทาง: {anchorStops.join(" · ")}</> : <> · ไม่มีจุดระหว่างทาง</>}
-            <span> — เอาติ๊กออกทุกบิลเพื่อดูบิลทั้งหมด</span>
+      {/* เลย์เอาต์หน้าจัดรถ (เจ้าของงานสั่ง 27 ก.ย. 2569 รอบสอง) — ช่องกรอก/ตัวกรอง/ตรรกะเหมือนเดิมทุกตัว
+            แถว 1  ขั้นที่ 1 ตัวกรองบิล แนวยาวเต็มหน้า
+            แถว 2  ซ้าย = ตารางบิล · ขวา = สถานะการบรรทุก: หัว + Load Factor → ขั้นที่ 2 เลือกรถแนวยาว → รูปรถ → มิเตอร์
+            แถว 3  การ์ดสรุป 6 ช่อง
+            แถว 4  ขั้นที่ 3 ต้นทุนพยากรณ์ + ปุ่มยืนยัน (ล่างสุด) */}
+      {/* ทั้งหน้ารวมอยู่ในกรอบขาวกรอบเดียว (เจ้าของงานสั่ง 27 ก.ย. 2569) — ส่วนย่อยข้างในไม่มีกรอบ คั่นด้วยเส้น */}
+      <div className="card dp-shell">
+        <div className="card dp-filtercard">
+          <div className="dp-step-h"><span className="step">1</span><h3>เลือกบิล</h3>
+            <span className="hint">{rows.length} บิล{rows.length !== waiting.length ? ` จาก ${waiting.length}` : ""}</span></div>
+          {/* ★ ใช้ dh-filters ไม่ใช่ dz-filters — สไตล์ของ dz-* ประกาศใต้ #view-dash เท่านั้น
+              หน้านี้เป็นหน้าฟอร์ม ถ้าใช้ dz-filters ช่องกรองจะกลายเป็น select เปล่าไม่มีกรอบ */}
+          <div className="dh-filters dp-filterbar">
+            <div className="ff"><label>วันที่รับสินค้า</label>
+              <select value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })}>
+                <option value="">ทุกวัน</option>
+                {uniq(waiting.map((b) => b.date)).map((d) => <option key={d} value={d}>{thDateSafe(d)}</option>)}
+              </select></div>
+            <div className="ff"><label>สาขา</label>
+              <select value={f.branch} onChange={(e) => setF({ ...f, branch: e.target.value })}>
+                <option value="">ทุกสาขา</option>
+                {uniq(waiting.map((b) => b.branch)).map((x) => <option key={x} value={x}>{x}</option>)}
+              </select></div>
+            <div className="ff"><label>ต้นทาง</label>
+              <select value={f.origin} onChange={(e) => setF({ ...f, origin: e.target.value })}>
+                <option value="">ทุกต้นทาง</option>
+                {uniq(waiting.map((b) => b.origin)).map((x) => <option key={x} value={x}>{x}</option>)}
+              </select></div>
+            <div className="ff"><label>ปลายทาง</label>
+              <select value={f.dest} onChange={(e) => setF({ ...f, dest: e.target.value })}>
+                <option value="">ทุกปลายทาง</option>
+                {uniq(waiting.map((b) => b.dest)).map((x) => <option key={x} value={x}>{x}</option>)}
+              </select></div>
+            <div className="ff"><label>ประเภทสินค้า</label>
+              <select value={f.group} onChange={(e) => setF({ ...f, group: e.target.value })}>
+                <option value="">ทุกกลุ่มบริการ</option>
+                {uniq(waiting.map((b) => b.serviceGroup)).map((x) => <option key={x} value={x}>{x}</option>)}
+              </select></div>
+            <button type="button" className="dh-clear" onClick={() => setF(F0)}>↺ ล้างตัวกรอง</button>
           </div>
-        )}
+        </div>
 
-        {bills.loading ? <p className="muted">กำลังโหลดบิล… <TruckLoader label={null} /></p>
-          : rows.length === 0 ? <p className="muted">ไม่มีบิลที่รอจัดรถตามตัวกรองที่เลือก</p>
-          : (
-            <GrowBox rows={rows} render={(shown) => (
-              <table className="tbl dispatch-tbl">
-                <thead><tr>
-                  {/* เลือกทั้งหมดได้หลังติ๊กบิลแรกแล้วเท่านั้น — ก่อนนั้นจะได้บิลทุกเส้นทางปนกัน */}
-                  <th>{anchor && <input type="checkbox" checked={allShown} title="เลือกทุกบิลที่ไปทางเดียวกัน"
-                    onChange={() => setPicked((s) => {
-                      const next = new Set(s);
-                      if (allShown) rows.forEach((b) => next.delete(b.id));
-                      else rows.forEach((b) => next.add(b.id));
-                      return next;
-                    })} />}</th>
-                  <th>วันที่บิล</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>ต้นทาง</th><th>ปลายทาง</th>
-                  <th>กลุ่มบริการ</th><th className="n">จำนวน (ชิ้น)</th><th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th>
-                  <th className="n">ราคารวม</th>
-                </tr></thead>
-                <tbody>
-                  {shown.map((b) => (
-                    <tr key={b.id} className={picked.has(b.id) ? "on" : undefined} onClick={() => toggle(b.id)}>
-                      <td><input type="checkbox" checked={picked.has(b.id)} onChange={() => toggle(b.id)}
-                        onClick={(e) => e.stopPropagation()} /></td>
-                      <td>{thDateSafe(b.date)}</td>
-                      <td><b>{b.no}</b></td>
-                      <td>{b.sender} → {b.receiver}</td>
-                      <td>{b.origin}</td>
-                      <td>{b.dest}</td>
-                      <td>{b.serviceGroup}</td>
-                      <td className="n">{num3(b.qty)}</td>
-                      <td className="n">{baht(b.weight)}</td>
-                      <td className="n">{num3(b.volume)}</td>
-                      <td className="n">{baht(b.total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )} />
+        <div className="dp-row">
+            <div className="card dp-bills">
+              <div className="card-h">
+                <h2>บิลที่รอจัดรถ</h2>
+                <span className="hint">{rows.length} บิล{rows.length !== waiting.length ? ` จากทั้งหมด ${waiting.length}` : ""} · ติ๊กเลือกบิลที่จะไปด้วยกัน</span>
+              </div>
+
+          {anchor && (
+            <div className="dispatch-lock">
+              แสดงเฉพาะบิลที่ไปทางเดียวกับ <b>{anchor.origin} → {anchor.dest}</b>
+              {anchorStops.length ? <> · ปลายทางระหว่างทาง: {anchorStops.join(" · ")}</> : <> · ไม่มีจุดระหว่างทาง</>}
+              <span> — เอาติ๊กออกทุกบิลเพื่อดูบิลทั้งหมด</span>
+            </div>
           )}
-      </div>
 
-      <LoadTruckPanel stats={stats} load={sum} headCap={headCap} tailCap={tailCap}
-        truckPlate={truck?.plate ?? ""} trailerPlate={trailer?.plate ?? ""} kind={kind} fleetType={hp.fleetType}
-        trailerKind={tp.vehicle} shapeKind={hp.vehicle} hasLoad={chosen.length > 0}
-        noTruckText="เลือกประเภทรถ ชนิดรถ และทะเบียนในขั้นที่ 2" noLoadText="ยังไม่ได้เลือกบิล"
-        overText="เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้" />
-      </div>
-
-      <div className="card">
-        <div className="card-h">
-          <span className="step">2</span><h2>เลือกรถและยืนยัน</h2>
-          <span className="hint">เลือกได้เฉพาะทะเบียนที่สถานะ "ใช้งาน" ({usable.length} คัน)</span>
-        </div>
-
-        <div className="bill-grid">
-          <VehiclePickFields pick={hp} setPick={setHp} pool={heads} trailer={false}
-            kindNames={ACTIVE_VEHICLE_NAMES} anyKind="ทุกชนิดรถ" plateLabel="ทะเบียนรถ"
-            noneLabel={(n) => (n ? `เลือกทะเบียน (${n} คัน)` : "ไม่พบรถตามที่เลือก")} />
-          <div className="f"><label>วันปล่อยรถ</label>
-            <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} /></div>
-        </div>
-
-        <div className="dispatch-trailer">
-          <div className="dispatch-trailer-h">
-            หางพ่วง (ทะเบียนรถคันที่ 2)
-            {(tp.fleetType || tp.vehicle || tp.plate) && (
-              <button type="button" className="dh-clear" onClick={() => setTp(P0)}>✕ ไม่มีหางพ่วง</button>
+          {bills.loading ? <p className="muted">กำลังโหลดบิล… <TruckLoader label={null} /></p>
+            : rows.length === 0 ? <p className="muted">ไม่มีบิลที่รอจัดรถตามตัวกรองที่เลือก</p>
+            : (
+              <GrowBox rows={rows} maxHeight="none" render={(shown) => (
+                <table className="tbl dispatch-tbl">
+                  <thead><tr>
+                    {/* เลือกทั้งหมดได้หลังติ๊กบิลแรกแล้วเท่านั้น — ก่อนนั้นจะได้บิลทุกเส้นทางปนกัน */}
+                    <th>{anchor && <input type="checkbox" checked={allShown} title="เลือกทุกบิลที่ไปทางเดียวกัน"
+                      onChange={() => setPicked((s) => {
+                        const next = new Set(s);
+                        if (allShown) rows.forEach((b) => next.delete(b.id));
+                        else rows.forEach((b) => next.add(b.id));
+                        return next;
+                      })} />}</th>
+                    <th>วันที่บิล</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>ต้นทาง</th><th>ปลายทาง</th>
+                    <th>กลุ่มบริการ</th><th className="n">จำนวน (ชิ้น)</th><th className="n">น้ำหนัก (กก.)</th><th className="n">ปริมาตร (ลบ.ม.)</th>
+                    <th className="n">ราคารวม</th>
+                  </tr></thead>
+                  <tbody>
+                    {shown.map((b) => (
+                      <tr key={b.id} className={picked.has(b.id) ? "on" : undefined} onClick={() => toggle(b.id)}>
+                        <td><input type="checkbox" checked={picked.has(b.id)} onChange={() => toggle(b.id)}
+                          onClick={(e) => e.stopPropagation()} /></td>
+                        <td>{thDateSafe(b.date)}</td>
+                        <td><b>{b.no}</b></td>
+                        <td>{b.sender} → {b.receiver}</td>
+                        <td>{b.origin}</td>
+                        <td>{b.dest}</td>
+                        <td>{b.serviceGroup}</td>
+                        <td className="n">{num3(b.qty)}</td>
+                        <td className="n">{baht(b.weight)}</td>
+                        <td className="n">{num3(b.volume)}</td>
+                        <td className="n">{baht(b.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )} />
             )}
+            </div>
+
+          <div className="dp-right">
+            <LoadTruckPanel stats={stats} load={sum} headCap={headCap} tailCap={tailCap}
+              truckPlate={truck?.plate ?? ""} trailerPlate={trailer?.plate ?? ""} kind={kind} fleetType={hp.fleetType}
+              trailerKind={tp.vehicle} hasLoad={chosen.length > 0}
+              noTruckText="เลือกประเภทรถ ชนิดรถ และทะเบียนในขั้นที่ 2" noLoadText="ยังไม่ได้เลือกบิล"
+              overText="เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้"
+              title={origin && dest ? `${origin} → ${dest}` : "สถานะการบรรทุก"}
+              sub={<>{releaseDate ? thDateSafe(releaseDate) : "ยังไม่ได้เลือกวันปล่อยรถ"} · {sum.bills} บิล จาก {waiting.length} ·
+                {" "}{baht(sum.weight)} กก.</>}
+              pictureKind={hp.vehicle || DEFAULT_PICTURE_KIND}
+            picker={<>
+              <div className="dp-step-h"><span className="step">2</span><h3>เลือกรถ</h3>
+                <span className="hint">สถานะ "ใช้งาน" {usable.length} คัน</span></div>
+              <div className="bill-grid dp-grid4">
+                <VehiclePickFields pick={hp} setPick={setHp} pool={heads} trailer={false}
+                  kindNames={ACTIVE_VEHICLE_NAMES} anyKind="ทุกชนิดรถ" plateLabel="ทะเบียนรถ"
+                  noneLabel={(n) => (n ? `เลือกทะเบียน (${n} คัน)` : "ไม่พบรถตามที่เลือก")} />
+                <div className="f"><label>วันปล่อยรถ</label>
+                  <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} /></div>
+              </div>
+              {!trailerOpen ? (
+                <button type="button" className="dp-add-trailer" onClick={() => setTrailerOpen(true)}>
+                  <span>+</span> เพิ่มหางพ่วง (ทะเบียนรถคันที่ 2)
+                </button>
+              ) : (
+                <div className="dispatch-trailer">
+                  <div className="dispatch-trailer-h">
+                    หางพ่วง (ทะเบียนรถคันที่ 2)
+                    <button type="button" className="dh-clear" onClick={closeTrailer}>✕ ไม่มีหางพ่วง</button>
+                  </div>
+                  <div className="bill-grid dp-grid4">
+                    <VehiclePickFields pick={tp} setPick={setTp} pool={trailersAll} trailer
+                      kindNames={TRAILER_VEHICLE_NAMES} anyKind="ทุกชนิดหาง" plateLabel="ทะเบียนหางพ่วง"
+                      noneLabel={(n) => (n ? `ไม่มีหางพ่วง (มีให้เลือก ${n} คัน)` : "ไม่พบหางตามที่เลือก")} />
+                  </div>
+                </div>
+              )}
+              </>} />
+
           </div>
-          <div className="bill-grid">
-            <VehiclePickFields pick={tp} setPick={setTp} pool={trailersAll} trailer
-              kindNames={TRAILER_VEHICLE_NAMES} anyKind="ทุกชนิดหาง" plateLabel="ทะเบียนหางพ่วง"
-              noneLabel={(n) => (n ? `ไม่มีหางพ่วง (มีให้เลือก ${n} คัน)` : "ไม่พบหางตามที่เลือก")} />
-            {/* ช่องเปล่าแทน "วันปล่อยรถ" ของแถวหัว — ให้กริดมี 4 ช่องเท่ากัน ความกว้างช่องจึงตรงกับแถวบน */}
-            <div aria-hidden="true" />
+        </div>
+
+            <div className="dispatch-sum">
+              <div><span>จำนวนบิล</span><b>{sum.bills}</b></div>
+              <div><span>จำนวนลูกค้า</span><b>{sum.customers}</b></div>
+              <div><span>จำนวนสินค้า</span><b>{num3(sum.qty)} <small>ชิ้น</small></b></div>
+              <div><span>น้ำหนักรวม</span><b>{baht(sum.weight)} <small>กก.</small></b></div>
+              <div><span>ปริมาตรรวม</span><b>{num3(sum.volume)} <small>ลบ.ม.</small></b></div>
+              <div><span>รายได้รวม</span><b>{baht(sum.revenue)} <small>บาท</small></b></div>
+            </div>
+
+        <div className="card dp-final">
+          <div className="dp-step-h"><span className="step">3</span><h3>ต้นทุนพยากรณ์</h3></div>
+          <div className="dp-final-grid">
+            <div className="dp-final-cost">
+              <div className="dp-cost">
+                <b>{forecast ? baht(forecast.cost) : "—"} <small>บาท</small></b>
+                <span>รายได้ {baht(sum.revenue)}</span>
+              </div>
+              {forecast && forecast.n > 0 && <ForecastParts fc={forecast} />}
+              <div className={"dp-profit " + (profit == null ? "" : profit >= 0 ? "good" : "bad")}>
+                <span>กำไรประมาณการ</span>
+                <b>{profit == null ? "—" : `${profit < 0 ? "−" : ""}${baht(Math.abs(profit))} บาท`}</b>
+              </div>
+              <div className="price-note">
+                {forecast
+                  ? <>ต้นทุนพยากรณ์จากค่าเฉลี่ยข้อมูลเก่า <b>{forecast.n}</b> เที่ยว ({forecast.note}) ·
+                      ช่วง {forecast.from} – {forecast.to} · ตั้งจำนวนเดือนได้ที่หน้าการตั้งค่า</>
+                  : "เลือกบิลและรถให้ครบเพื่อคำนวณต้นทุนพยากรณ์ (ใช้ค่าเฉลี่ยข้อมูลเก่าตามเส้นทางและชนิดรถ)"}
+                {mixedRoute && <> · <b>บิลที่เลือกมีหลายเส้นทาง</b> — ใบรายการจะใช้ {origin}–{dest} เป็นเส้นทางหลัก</>}
+              </div>
+            </div>
+            <div className="dp-final-act">
+            {msg && <div className={"save-msg " + msg.tone}>{msg.text}</div>}
+            <div className="dp-confirm">
+              {busy ? <TruckLoader label="กำลังสร้างใบรายการ…" /> : blocked && <span className="muted">{blocked}</span>}
+              <button type="button" className="btn btn-save" disabled={!!blocked || busy} onClick={confirmDispatch}>
+                ยืนยันการจัดรถ
+              </button>
+            </div>
+            </div>
           </div>
-        </div>
-
-        <div className="dispatch-sum">
-          <div><span>จำนวนบิล</span><b>{sum.bills}</b></div>
-          <div><span>จำนวนลูกค้า</span><b>{sum.customers}</b></div>
-          <div><span>จำนวนสินค้า</span><b>{num3(sum.qty)} <small>ชิ้น</small></b></div>
-          <div><span>น้ำหนักรวม</span><b>{baht(sum.weight)} <small>กก.</small></b></div>
-          <div><span>ปริมาตรรวม</span><b>{num3(sum.volume)} <small>ลบ.ม.</small></b></div>
-          <div><span>รายได้รวม</span><b>{baht(sum.revenue)} <small>บาท</small></b></div>
-        </div>
-
-        {/* กล่องสรุปผล — แทนกล่องต้นทุนเดิม ใช้ต้นทุนพยากรณ์จากข้อมูลเก่า */}
-        <div className={"dispatch-result " + (profit == null ? "" : profit >= 0 ? "good" : "bad")}>
-          <div className="box"><span>กำไร (ประมาณการ)</span>
-            <b>{profit == null ? "—" : `${baht(profit)} บาท`}</b></div>
-          <div className="box"><span>รายได้ (รวมทุกบิล)</span><b>{baht(sum.revenue)} บาท</b></div>
-          <div className="box"><span>ต้นทุนพยากรณ์</span>
-            <b>{forecast ? `${baht(forecast.cost)} บาท` : "—"}</b></div>
-        </div>
-        {forecast && forecast.n > 0 && <ForecastParts fc={forecast} />}
-        <div className="price-note">
-          {forecast
-            ? <>ต้นทุนพยากรณ์จากค่าเฉลี่ยข้อมูลเก่า <b>{forecast.n}</b> เที่ยว ({forecast.note}) ·
-                ช่วง {forecast.from} – {forecast.to} · ตั้งจำนวนเดือนได้ที่หน้าการตั้งค่า</>
-            : "เลือกบิลและรถให้ครบเพื่อคำนวณต้นทุนพยากรณ์ (ใช้ค่าเฉลี่ยข้อมูลเก่าตามเส้นทางและชนิดรถ)"}
-          {mixedRoute && <> · <b>บิลที่เลือกมีหลายเส้นทาง</b> — ใบรายการจะใช้ {origin}–{dest} เป็นเส้นทางหลัก</>}
-        </div>
-
-        {msg && <div className={"save-msg " + msg.tone}>{msg.text}</div>}
-
-        <div className="bill-actions">
-          {busy ? <TruckLoader label="กำลังสร้างใบรายการ…" /> : blocked && <span className="muted">{blocked}</span>}
-          {role === "admin" && <button type="button" className="btn-ghost" onClick={fillRandom}
-            disabled={busy || bills.loading || waiting.length === 0} title="สุ่มบิลรอจัดรถและเลือกรถที่บรรทุกได้ โดยยังไม่บันทึก">
-            🎲 สุ่มข้อมูล
-          </button>}
-          <button type="button" className="btn btn-save" disabled={!!blocked || busy} onClick={confirmDispatch}>
-            ยืนยันการจัดรถ
-          </button>
         </div>
       </div>
     </>
   );
 }
 
+/** สีท่อนของแถบต้นทุนพยากรณ์ — ไล่โทนสีหลักของโมเดลตามภาพที่เจ้าของงานส่ง */
+const PART_COLORS = ["var(--accent)", "#B0506A", "#D98BA0", "#E8B7C4", "#C9A27E", "#8E7F87", "#CFC6CB", "#E6DFE2"];
+
 /**
  * รายละเอียดต้นทุนพยากรณ์แยกตามกลุ่มต้นทุน (เฉลี่ยต่อเที่ยว) — ชื่อกลุ่มมาจาก COST_PART_LABELS
- * ชุดเดียวกับป็อบอัพ "จริงเทียบพยากรณ์" ของฝ่ายบัญชี
+ * ชุดเดียวกับป็อบอัพ "จริงเทียบพยากรณ์" ของฝ่ายบัญชี · แถบซ้อน + รายการสองคอลัมน์ (แถบซ้ายของหน้าจัดรถ)
  * "อื่น ๆ" = ต้นทุนรวมหักกลุ่มที่แยกได้ จึงติดลบได้ — แถบวาดเฉพาะค่าบวก
  */
 function ForecastParts({ fc }: { fc: ForecastResult }) {
   const rows = COST_PART_LABELS
-    .map(({ key, label }) => ({ key, label, v: fc.parts[key] }))
+    .map(({ key, label }, i) => ({ key, label, v: fc.parts[key], c: PART_COLORS[i % PART_COLORS.length]! }))
     .filter((r) => Math.abs(r.v) >= 0.5);
-  const max = Math.max(1, ...rows.map((r) => r.v));
+  const pos = rows.reduce((s, r) => s + Math.max(0, r.v), 0) || 1;
   const share = (v: number): string => (fc.cost ? `${(v / fc.cost * 100).toFixed(0)}%` : "–");
   return (
-    <div className="fc-parts">
-      <div className="fc-h">รายละเอียดต้นทุนพยากรณ์<span>เฉลี่ยต่อเที่ยว · แยกตามกลุ่มต้นทุน</span></div>
-      {rows.map((r) => (
-        <div key={r.key} className="fc-row">
-          <span className="k">{r.label}</span>
-          <span className="bar"><i style={{ width: `${Math.max(0, r.v) / max * 100}%` }} /></span>
-          <b>{r.v < 0 ? "−" : ""}{baht(Math.abs(r.v))}</b>
-          <small>{share(r.v)}</small>
-        </div>
-      ))}
-      <div className="fc-row total">
-        <span className="k">รวมต้นทุนพยากรณ์</span><span />
-        <b>{baht(fc.cost)}</b><small>100%</small>
-      </div>
+    <div className="dp-parts">
+      <div className="dp-parts-bar">{rows.filter((r) => r.v > 0).map((r) =>
+        <i key={r.key} title={`${r.label} ${baht(r.v)} บาท (${share(r.v)})`} style={{ width: `${r.v / pos * 100}%`, background: r.c }} />)}</div>
+      <ul className="dp-parts-list">{rows.map((r) => (
+        <li key={r.key} title={share(r.v)}><i style={{ background: r.c }} /><span>{r.label}</span>
+          <b>{r.v < 0 ? "−" : ""}{baht(Math.abs(r.v))}</b></li>
+      ))}</ul>
     </div>
   );
 }

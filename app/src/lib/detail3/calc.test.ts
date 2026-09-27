@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../data/useCostRev";
-import { companyVsPartner, depByRoute, depreciation, kindSides, kindYearCost, overview, routeKindMatrix, vehicleRows } from "./calc";
+import { companyVsPartner, depByKind, depByRoute, depreciation, kindSides, kindYearCost, overview, routeKindMatrix, vehicleRows } from "./calc";
 
 const trip = (c: Partial<Trip> = {}): Trip => ({
   id: "1", d: "2025-01-05", mo: "2025-01", y: 2025, rt: "ก-ข", pl: "หัว", vk: "รถ 10 ล้อ", ft: "รถบริษัท",
@@ -57,6 +57,16 @@ describe("รายละเอียด ข้อ 3", () => {
     expect(d.list[0]).toMatchObject({ vc: 900, contribution: 200, coverage: 2, status: "low" });
     expect(d.list[1]!.status).toBe("ok");
     expect(depByRoute(d.list, d.avgCoverage)[0]).toMatchObject({ n: 2, coverage: 3, below: false });
+  });
+  it("คุ้มค่าเสื่อม: coverage = (กำไร + ค่าเสื่อม) ÷ ค่าเสื่อม · ≥ 1 = คุ้ม · นับรายชนิดรถ", () => {
+    // กำไร +100 → (100 + 100) ÷ 100 = 2 คุ้ม · กำไร −100 → 0 ไม่คุ้ม · กำไร 0 → พอดี 1 นับว่าคุ้ม
+    const rows = vehicleRows([trip({ rev: 1100, cost: 1000, dep: 100 }), trip({ id: "2", rev: 900, cost: 1000, dep: 100 }),
+      trip({ id: "3", rev: 1000, cost: 1000, dep: 100 })]);
+    const d = depreciation(rows);
+    expect(d.list.map((r) => [r.coverage, r.worth])).toEqual([[2, true], [0, false], [1, true]]);
+    expect(d.notWorth).toBe(1);
+    expect(depByKind(d.list)[0]).toMatchObject({ n: 3, nWorth: 2, coverage: 1, worth: true });
+    expect(depByKind(d.list)[0]!.worthPct).toBeCloseTo(200 / 3);
   });
   it("ต้นทุนชนิดรถปีล่าสุด เทียบบาท/ตัน-กม. ปีก่อน · ชนิดที่ปีก่อนไม่มี = null", () => {
     const rows = vehicleRows([trip({ y: 2024, cost: 1000 }), trip({ id: "2", y: 2025, cost: 1200 }),

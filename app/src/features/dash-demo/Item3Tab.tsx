@@ -2,7 +2,8 @@
  * แท็บ "ข้อ 3" ของเมนู Demo — สเปก ข้อ3ส่วนDEMO.pdf · ดีไซน์ตาม handoff "Fleet Report v3" (เจ้าของงานส่ง 24 ก.ย. 2569)
  *
  *   1. ต้นทุนขนส่งแต่ละชนิดรถ ปีล่าสุด + % เปลี่ยนแปลงบาท/ตัน-กม. จากปีก่อน → "รายละเอียด ข้อ 3" ส่วนที่ 1
- *   2. รถบริษัทชนิดไหนคุ้มค่าเสื่อมที่แบกไว้ (ทุกชนิด + แท่ง diverging)      → "รายละเอียด ข้อ 3" ส่วนที่ 2
+ *   2. ความคุ้มค่าเสื่อม ยานพาหนะ (ตัวเลขสรุป + แท่งสัดส่วนเที่ยวคุ้ม/ไม่คุ้มรายชนิด
+ *      เกณฑ์ coverage ≥ 1 · ภาพที่เจ้าของงานส่ง 27 ก.ย. 2569 แทนแท่ง diverging เทียบค่าเฉลี่ยรวม) → "รายละเอียด ข้อ 3" ส่วนที่ 2
  *   3. ภาพรวมการใช้ประโยชน์กองรถ (กลุ่มบริการ × ประเภทรถ + โดนัท)             → "การใช้ประโยชน์ของกองรถ"
  *
  * ★ ดีไซน์: การ์ดส่วนเรียงแนวตั้ง · หัวข้อเป็นป้ายไล่สี (ม่วง/เขียว/ฟ้า) · หัวตารางไล่สีเดียวกับหัวข้อ ·
@@ -20,7 +21,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import type { Trip } from "../../lib/data/useCostRev";
-import { FLAG_TIMES, depByKind, depreciation, kindCostTable, vehicleRows } from "../../lib/detail3/calc";
+import { DEP_BREAKEVEN, FLAG_TIMES, depByKind, depreciation, kindCostTable, vehicleRows } from "../../lib/detail3/calc";
 import { fleetSlices, fleetTypeShare, serviceFleetMix } from "../../lib/fleetcompare/utilization";
 import { openExecTab } from "../../lib/ui/dashJump";
 import { fmt, pct, useSort } from "../dash-costrev/common";
@@ -76,6 +77,7 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
   const costSort = useSort(cost.list, costCols, { key: "n", dir: -1 });
   const dep = useMemo(() => depreciation(rows), [rows]);
   const depKinds = useMemo(() => depByKind(dep.list), [dep.list]);
+  const worthPct = dep.list.length ? (dep.list.length - dep.notWorth) / dep.list.length * 100 : 0;
   const slices = useMemo(() => fleetSlices(trips), [trips]);
   const mix = useMemo(() => serviceFleetMix(slices), [slices]);
   const types = useMemo(() => fleetTypeShare(slices), [slices]);
@@ -85,8 +87,6 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
     const ms = costTrips.filter((t) => t.y === cost.year).map((t) => Number(t.mo.slice(5, 7))).filter((m) => m >= 1 && m <= 12);
     return ms.length ? `${MONTHS[Math.min(...ms) - 1]}–${MONTHS[Math.max(...ms) - 1]}` : "";
   }, [costTrips, cost.year]);
-  // แท่ง diverging: ฝั่งลบกว้าง 18% ของช่อง สเกลตามค่าลบสุด · ฝั่งบวกใช้ที่เหลือ สเกลตามค่าบวกสุด
-  const maxPos = Math.max(0, ...depKinds.map((k) => k.vsAvg)), maxNeg = Math.max(0, ...depKinds.map((k) => -k.vsAvg));
   const donut = useMemo(() => {
     let acc = 0;
     return types.map((t) => {
@@ -140,25 +140,38 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
         ต้นทุนแยกรายคัน (หัว/หางคิดแยก) บาท/ตัน-กม. ของหางจึงต่ำกว่าหัวมาก</p>
     </Section>
 
-    <Section tone="green" title="รถบริษัทชนิดไหนคุ้มค่าเสื่อมที่แบกไว้"
-      sub="เทียบเฉพาะรถบริษัท (รถร่วมไม่มีค่าเสื่อมเป็นของตัวเอง)">
-      {!depKinds.length ? <p className="i3-note">ไม่มีเที่ยวของรถบริษัทที่มีค่าเสื่อม</p> : <div className="i3-tbl-wrap"><table className="i3-tbl">
-        <thead><tr>
-          <th>ชนิดรถ</th><th className="n">ค่าเสื่อมเฉลี่ย/เที่ยว</th><th className="i3-divcol">เทียบค่าเฉลี่ยรวม</th><th className="n">คุ้มค่าเสื่อม</th>
-        </tr></thead>
-        <tbody className="i3-link">{depKinds.map((k) => <tr key={k.vk} {...linkProps(toPart2, "Vehicle Utilization Cost (คุ้มค่าเสื่อม)")}>
-          <td><Kind name={k.vk} n={k.n} /></td>
-          <td className="n i3-bold">฿{fmt(k.fc)}</td>
-          <td><div className="i3-div" title={`${k.vsAvg >= 0 ? "+" : "−"}${pct(Math.abs(k.vsAvg))} เทียบ coverage เฉลี่ยรวม`}>
-            <div className="i3-div-neg"><i style={{ width: k.vsAvg < 0 && maxNeg ? `${-k.vsAvg / maxNeg * 100}%` : 0 }} /></div>
-            <span className="i3-div-zero" />
-            <div className="i3-div-pos"><i style={{ width: k.vsAvg > 0 && maxPos ? `${k.vsAvg / maxPos * 100}%` : 0 }} /></div>
-          </div></td>
-          <td className="n"><span className={`i3-pill dot ${k.vsAvg >= 0 ? "good" : "bad"}`}>
-            <i />{k.vsAvg >= 0 ? "คุ้มทุน +" : "ต่ำกว่าทุน −"}{pct(Math.abs(k.vsAvg))}</span></td>
-        </tr>)}</tbody>
-      </table></div>}
-      <p className="i3-note">คุ้มค่าเสื่อม = coverage ของชนิดรถ (Contribution ÷ ค่าเสื่อม) เทียบ coverage เฉลี่ยรวม {fmt(dep.avgCoverage, 2)} เท่า</p>
+    <Section tone="green" title="ความคุ้มค่าเสื่อม ยานพาหนะ"
+      sub="สัดส่วนเที่ยววิ่งที่คุ้มค่าเสื่อมเทียบกับไม่คุ้มค่าเสื่อม แยกตามชนิดรถ · เฉพาะรถบริษัท (รถร่วมไม่มีค่าเสื่อมเป็นของตัวเอง)">
+      {!depKinds.length ? <p className="i3-note">ไม่มีเที่ยวของรถบริษัทที่มีค่าเสื่อม</p> : <>
+        <div className="i3-stats i3-link" {...linkProps(toPart2, "Vehicle Utilization Cost (คุ้มค่าเสื่อม)")}>
+          <div><span>เที่ยวทั้งหมดในช่วงที่เลือก</span><b>{fmt(dep.list.length)} <small>เที่ยว</small></b></div>
+          <div><span>เที่ยวที่คุ้มค่าเสื่อม</span><b className="good">{pct(worthPct)}</b>
+            <small>{fmt(dep.list.length - dep.notWorth)} เที่ยว</small></div>
+          <div><span>เที่ยวที่ไม่คุ้มค่าเสื่อม</span><b className="bad">{pct(100 - worthPct)}</b>
+            <small>{fmt(dep.notWorth)} เที่ยว</small></div>
+          <div><span>ค่าเสื่อมรวม</span><b>฿{fmt(dep.totalDep)}</b><small>{fmt(depKinds.length)} ชนิดรถ</small></div>
+        </div>
+        <div className="i3-tbl-wrap"><table className="i3-tbl">
+          <thead><tr>
+            <th>ชนิดรถ</th><th className="n">ค่าเสื่อมเฉลี่ย/เที่ยว</th>
+            <th className="i3-divcol">สัดส่วนเที่ยวคุ้ม / ไม่คุ้มค่าเสื่อม</th><th className="n">คุ้มค่าเสื่อม</th>
+          </tr></thead>
+          <tbody className="i3-link">{depKinds.map((k) => <tr key={k.vk} {...linkProps(toPart2, "Vehicle Utilization Cost (คุ้มค่าเสื่อม)")}>
+            <td><Kind name={k.vk} n={k.n} /></td>
+            <td className="n i3-bold">฿{fmt(k.fc)}</td>
+            <td><div className="i3-worth" title={`คุ้ม ${fmt(k.nWorth)} · ไม่คุ้ม ${fmt(k.n - k.nWorth)} เที่ยว`}>
+              <div className="i3-worth-bar"><i className="ok" style={{ width: `${k.worthPct}%` }} /><i className="no" style={{ width: `${100 - k.worthPct}%` }} /></div>
+              <div className="i3-worth-lbl"><span className="good">คุ้ม {pct(k.worthPct)}</span><span className="bad">ไม่คุ้ม {pct(100 - k.worthPct)}</span></div>
+            </div></td>
+            <td className="n"><div className="i3-worth-verdict">
+              <span className={`i3-pill dot ${k.worth ? "good" : "bad"}`}><i />{k.worth ? "คุ้มทุน" : "ไม่คุ้มทุน"}</span>
+              <small>coverage {fmt(k.coverage, 2)} เท่า</small>
+            </div></td>
+          </tr>)}</tbody>
+        </table></div>
+      </>}
+      <p className="i3-note">เกณฑ์: coverage = (กำไร + ค่าเสื่อม) ÷ ค่าเสื่อม ของแต่ละเที่ยว · ≥ {fmt(DEP_BREAKEVEN, 2)} = คุ้มค่าเสื่อม ·
+        ป้ายท้ายแถวใช้ coverage ของชนิดรถ (Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม) · ต้นทุน/ค่าเสื่อมแยกรายคัน (หัว/หางนับแยก)</p>
     </Section>
 
     <Section tone="blue" title="ภาพรวมการใช้ประโยชน์กองรถ"
