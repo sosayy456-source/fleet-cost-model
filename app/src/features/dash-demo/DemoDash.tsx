@@ -68,6 +68,10 @@ export default function DemoDash() {
   const etlAll = useEtlStatus("all");
   useAutoReloadOnEtl(etl, reload);
   const [f, setF] = useState<DemoFilter>(DEMO_F0);
+  const [showFloatingFilter, setShowFloatingFilter] = useState(false);
+  const [floatingFilterOpen, setFloatingFilterOpen] = useState(false);
+  const floatingButton = useRef<HTMLButtonElement>(null);
+  const floatingPanel = useRef<HTMLDivElement>(null);
   /**
    * ตัวกรองที่เนื้อหาใช้ — ตามหลัง f (ที่แถบตัวกรองโชว์) ด้วย useDeferredValue
    * เลือกตัวกรองแล้วช่องเลือกเปลี่ยนทันที ส่วนการคิดทั้งหน้าใหม่ทำเบื้องหลังแบบแบ่งช่วง (React หยุดให้เบราว์เซอร์
@@ -79,11 +83,51 @@ export default function DemoDash() {
   const [active, setActive] = useState<PartId>("route");
   const pi = usePiReports();
 
+  // เมื่อแถบตัวกรองเดิมพ้นขอบบน ให้เปิดทางเข้าถึงตัวกรองจากมุมขวาบน
+  useEffect(() => {
+    const bar = document.querySelector("#view-dash .dh-bar");
+    if (!bar) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      const show = !entry!.isIntersecting && entry!.boundingClientRect.bottom < 72;
+      setShowFloatingFilter(show);
+      if (!show) setFloatingFilterOpen(false);
+    }, { rootMargin: "-72px 0px 0px 0px" });
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!floatingFilterOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!floatingPanel.current?.contains(target) && !floatingButton.current?.contains(target)) {
+        setFloatingFilterOpen(false);
+      }
+    };
+    const closeEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setFloatingFilterOpen(false); floatingButton.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeEscape);
+    floatingPanel.current?.querySelector("select")?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeEscape);
+    };
+  }, [floatingFilterOpen]);
+
   const all = useMemo(() => (data ? data.trips.filter(inProfitScope) : []), [data]);
   const branches = useMemo(() => duniq([
     ...all.map((t) => t.br),
     ...(debtors.data?.rows ?? []).map((r) => r.br),
   ]), [all, debtors.data]);
+  const filterOptions = useMemo(() => ({
+    origins: duniq(all.map((t) => t.o)),
+    dests: duniq(all.map((t) => t.de)),
+    fleetTypes: duniq(all.map((t) => t.ft)),
+    vehicles: duniq(all.map((t) => t.vk)),
+    services: duniq(all.map((t) => t.sg || "ไม่ระบุ")),
+  }), [all]);
   const branchTrips = useMemo(() => all.filter((t) => !fv.br || t.br === fv.br), [all, fv.br]);
   const emptyN = useMemo(() => all.filter((t) => t.empty).length, [all]);
   const trips = useMemo(() => all.filter((t) => passDemo(t, fv)), [all, fv]);
@@ -174,22 +218,24 @@ export default function DemoDash() {
     </section>
   );
 
+  const renderFilters = () => <>
+    <PeriodFF trips={all} value={f} onChange={setF} />
+    <ListFF label="สาขา" all="ทุกสาขา" value={f.br} onChange={set("br")} opts={branches} />
+    <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={filterOptions.origins} />
+    <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={filterOptions.dests} />
+    <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={filterOptions.fleetTypes} />
+    <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")} opts={filterOptions.vehicles} />
+    <ListFF label="กลุ่มบริการ" all="ทุกกลุ่มบริการ" value={f.sg} onChange={set("sg")}
+      opts={filterOptions.services} />
+    <ClearFiltersBtn active={isFiltered(f, DEMO_F0)} onClick={() => setF(DEMO_F0)} />
+  </>;
+
   return (
     <>
       <EtlBanner status={etlAll} />
       <DashShell sample={m?.isSample} meta={meta || undefined}
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่">
-        <FilterBar>
-          <PeriodFF trips={all} value={f} onChange={setF} />
-          <ListFF label="สาขา" all="ทุกสาขา" value={f.br} onChange={set("br")} opts={branches} />
-          <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={duniq(all.map((t) => t.o))} />
-          <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={duniq(all.map((t) => t.de))} />
-          <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={duniq(all.map((t) => t.ft))} />
-          <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")} opts={duniq(all.map((t) => t.vk))} />
-          <ListFF label="กลุ่มบริการ" all="ทุกกลุ่มบริการ" value={f.sg} onChange={set("sg")}
-            opts={duniq(all.map((t) => t.sg || "ไม่ระบุ"))} />
-          <ClearFiltersBtn active={isFiltered(f, DEMO_F0)} onClick={() => setF(DEMO_F0)} />
-        </FilterBar>
+        <FilterBar>{renderFilters()}</FilterBar>
 
         <PiReportProvider value={pi.report}>
           {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} /></>)}
@@ -208,6 +254,25 @@ export default function DemoDash() {
           </>)}
         </PiReportProvider>
       </DashShell>
+      {showFloatingFilter && <div className="dm-floating-filter">
+        <button ref={floatingButton} type="button" className="dm-filter-toggle"
+          aria-label={floatingFilterOpen ? "ปิดตัวกรอง" : "เปิดตัวกรอง"}
+          aria-controls={floatingFilterOpen ? "dm-filter-panel" : undefined} aria-expanded={floatingFilterOpen}
+          onClick={() => setFloatingFilterOpen((open) => !open)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
+          </svg>
+          {isFiltered(f, DEMO_F0) && <span className="dm-filter-dot" aria-hidden="true" />}
+        </button>
+        {floatingFilterOpen && <div id="dm-filter-panel" ref={floatingPanel} className="dm-filter-panel" role="region" aria-label="ตัวกรอง Executive Dashboard">
+          <div className="dm-filter-panel-head">
+            <h2>ตัวกรอง</h2>
+            <button type="button" aria-label="ปิดตัวกรอง" onClick={() => { setFloatingFilterOpen(false); floatingButton.current?.focus(); }}>✕</button>
+          </div>
+          <div className="dm-filter-fields">{renderFilters()}</div>
+        </div>}
+      </div>}
     </>
   );
 }

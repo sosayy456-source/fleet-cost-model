@@ -7,10 +7,10 @@
  * ต้องครอบทั้งหัวและเนื้อหา เพราะตัวกรองอยู่ในแท็บ (ลูกของ children) แต่ไปแสดงที่หัว
  * สถานะโหลด/พัง/ไม่มีข้อมูลก็ใช้โครงนี้ ปุ่มรีเฟรชกับ "เปลี่ยนหน้าที่" จึงกดได้ตลอด
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import RefreshBtn from "./RefreshBtn";
-import { FilterSlotContext, ShellSampleContext, ShellSourceContext, useDashPage } from "./dashContext";
+import { FilterSlotContext, FloatingFilterSlotContext, ShellSampleContext, ShellSourceContext, useDashPage } from "./dashContext";
 import type { ShellSource } from "./dashContext";
 
 export interface DashShellProps {
@@ -25,22 +25,72 @@ export interface DashShellProps {
   tabs?: ReactNode;
   /** ใช้แทนหัวเรื่องจาก App (เช่นหน้าเดียวกันที่มีสองโหมด) */
   title?: string;
+  /** มีแผงตัวกรองลอยเมื่อเลื่อนตัวกรองในหัวพ้นจอ */
+  floatingFilters?: boolean;
   children?: ReactNode;
 }
 
 export default function DashShell({
-  sample, meta, onRefresh, loading, refreshTitle, tabs, title, children,
+  sample, meta, onRefresh, loading, refreshTitle, tabs, title, floatingFilters = false, children,
 }: DashShellProps) {
   const page = useDashPage();
   // callback ref → state เพื่อให้ FilterBar ในเนื้อหา re-render แล้ว portal ได้หลังกล่องถูกสร้าง
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  const [floatingSlot, setFloatingSlot] = useState<HTMLElement | null>(null);
+  const [showFloatingFilter, setShowFloatingFilter] = useState(false);
+  const [floatingFilterOpen, setFloatingFilterOpen] = useState(false);
+  const [hasFloatingFilters, setHasFloatingFilters] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
+  const floatingButton = useRef<HTMLButtonElement>(null);
+  const floatingPanel = useRef<HTMLDivElement>(null);
   // แท็บที่อ่านชุดข้อมูลของตัวเองทับป้าย/บรรทัดที่มาได้ (useShellSource ใน dashContext.ts)
   const [src, setSrc] = useState<ShellSource | null>(null);
   const isSample = src ? src.sample : sample;
   const metaNode = src ? <Meta parts={src.parts} /> : meta;
 
+  useEffect(() => {
+    if (!floatingFilters || !barRef.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      const show = !entry!.isIntersecting && entry!.boundingClientRect.bottom < 72;
+      setShowFloatingFilter(show);
+      if (!show) setFloatingFilterOpen(false);
+    }, { rootMargin: "-72px 0px 0px 0px" });
+    observer.observe(barRef.current);
+    return () => observer.disconnect();
+  }, [floatingFilters]);
+
+  useEffect(() => {
+    if (!floatingSlot) return;
+    const update = () => setHasFloatingFilters(floatingSlot.childElementCount > 0);
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(floatingSlot, { childList: true });
+    return () => observer.disconnect();
+  }, [floatingSlot]);
+
+  useEffect(() => {
+    if (!floatingFilterOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!floatingPanel.current?.contains(target) && !floatingButton.current?.contains(target)) {
+        setFloatingFilterOpen(false);
+      }
+    };
+    const closeEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setFloatingFilterOpen(false); floatingButton.current?.focus(); }
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeEscape);
+    floatingSlot?.querySelector<HTMLElement>("select, input")?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeEscape);
+    };
+  }, [floatingFilterOpen, floatingSlot]);
+
   return (
     <FilterSlotContext.Provider value={slot}>
+    <FloatingFilterSlotContext.Provider value={floatingFilters ? floatingSlot : null}>
     <ShellSourceContext.Provider value={setSrc}>
     <ShellSampleContext.Provider value={isSample}>
       <header className="dh">
@@ -64,14 +114,34 @@ export default function DashShell({
             )}
           </div>
         </div>
-        <div className="dh-bar">
+        <div className="dh-bar" ref={barRef}>
           {tabs}
           <div className="dh-filters" ref={setSlot} />
         </div>
       </header>
+      {floatingFilters && <div className="dm-floating-filter">
+        {showFloatingFilter && hasFloatingFilters && <button ref={floatingButton} type="button" className="dm-filter-toggle"
+          aria-label={floatingFilterOpen ? "ปิดตัวกรอง" : "เปิดตัวกรอง"}
+          aria-controls={floatingFilterOpen ? "dh-filter-panel" : undefined} aria-expanded={floatingFilterOpen}
+          onClick={() => setFloatingFilterOpen((open) => !open)}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 5h18l-7 8v5l-4 2v-7L3 5Z" />
+          </svg>
+        </button>}
+        <div id="dh-filter-panel" ref={floatingPanel} className="dm-filter-panel" role="region"
+          aria-label="ตัวกรองแดชบอร์ด" hidden={!floatingFilterOpen || !showFloatingFilter || !hasFloatingFilters}>
+          <div className="dm-filter-panel-head">
+            <h2>ตัวกรอง</h2>
+            <button type="button" aria-label="ปิดตัวกรอง" onClick={() => { setFloatingFilterOpen(false); floatingButton.current?.focus(); }}>✕</button>
+          </div>
+          <div className="dm-filter-fields" ref={setFloatingSlot} />
+        </div>
+      </div>}
       {children}
     </ShellSampleContext.Provider>
     </ShellSourceContext.Provider>
+    </FloatingFilterSlotContext.Provider>
     </FilterSlotContext.Provider>
   );
 }

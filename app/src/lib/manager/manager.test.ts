@@ -1,22 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
-  billsInPeriod, debtSummary, lfBand, lfSummary, onRoad, periodLabel, periodOptions, periodRange, releasedIn, runEnd,
+  billsInPeriod, debtSummary, latestPeriod, lfBand, lfSummary, onRoad, periodLabel, periodOptions, periodRange, releasedIn, runEnd,
 } from "./manager";
 import type { MgrTrip } from "./manager";
 import type { DebtorRow } from "../data/useDebtors";
 
-describe("ช่วงเวลา รายวัน / รายเดือน / รายไตรมาส", () => {
+describe("ช่วงเวลา รายวัน / รายเดือน / รายไตรมาส / รายปี", () => {
   it("ขอบเขตของแต่ละแบบ", () => {
     expect(periodRange({ kind: "day", value: "2026-05-31" })).toEqual({ start: "2026-05-31", end: "2026-05-31" });
     expect(periodRange({ kind: "month", value: "2024-02" })).toEqual({ start: "2024-02-01", end: "2024-02-29" });
     expect(periodRange({ kind: "quarter", value: "2026-Q2" })).toEqual({ start: "2026-04-01", end: "2026-06-30" });
+    expect(periodRange({ kind: "year", value: "2026" })).toEqual({ start: "2026-01-01", end: "2026-12-31" });
   });
   it("ป้ายภาษาไทย ปี พ.ศ.", () => {
     expect(periodLabel({ kind: "day", value: "2026-05-31" })).toBe("31 พฤษภาคม 2569");
     expect(periodLabel({ kind: "quarter", value: "2026-Q2" })).toBe("ไตรมาส 2/2569");
+    expect(periodLabel({ kind: "year", value: "2026" })).toBe("ปี 2569");
   });
   it("ตัวเลือกไตรมาสไม่ซ้ำ ใหม่สุดก่อน", () => {
     expect(periodOptions("quarter", "2025-11-03", "2026-05-31").map((p) => p.value)).toEqual(["2026-Q2", "2026-Q1", "2025-Q4"]);
+  });
+  it("รายปีเลือกได้ทุกปีในช่วงข้อมูล และเริ่มที่ปีล่าสุด", () => {
+    expect(periodOptions("year", "2024-11-03", "2026-05-31").map((p) => p.value)).toEqual(["2026", "2025", "2024"]);
+    expect(latestPeriod("year", "2026-05-31")).toEqual({ kind: "year", value: "2026" });
   });
 });
 

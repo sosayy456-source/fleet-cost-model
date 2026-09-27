@@ -35,18 +35,10 @@ import LoadFactorTab from "./lf/LoadFactorTab";
 import TonKmTab from "./tonkm/TonKmTab";
 import Detail3Tab from "./detail3/Detail3Tab";
 import TruckLoader from "../../lib/ui/TruckLoader";
+import { OVERALL_TABS, clearOverallNav, clearOverallPending, peekOverallPending, registerOverallNav, setOverallActive } from "../../lib/ui/overallNav";
+import type { OverallTabId } from "../../lib/ui/overallNav";
 
-const TABS = [
-  // ชื่อแท็บเปลี่ยนเป็นภาษาอังกฤษ 25 ก.ย. 2569 (เจ้าของงานสั่ง) — id เดิม · ชื่อไทยเดิมอยู่ท้ายบรรทัด
-  { id: "fleet", label: "Vehicle Utilization" },            // การใช้ประโยชน์ของกองรถ
-  { id: "damage", label: "Damage Rate" },
-  { id: "empty", label: "Empty Trips" },                    // เที่ยววิ่งเปล่า
-  { id: "lf", label: "Inefficient Transportation Cost" },  // ต้นทุนที่จมกับที่ว่าง
-  { id: "tonkm", label: "Contribution Margin" },            // กำไรส่วนเกิน/ตัน-กม.
-  // สเปก ข้อ3.pdf (23 ก.ย. 2569) — ใช้ trips ชุดเดียวกับแท็บอื่น (ตัน-กม. คิดได้เฉพาะเที่ยวที่มีน้ำหนัก wt จากบิล)
-  { id: "detail3", label: "Vehicle Utilization Cost" },     // รายละเอียด ข้อ 3
-] as const;
-type TabId = (typeof TABS)[number]["id"];
+type TabId = OverallTabId;
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
 const STANDALONE: ReadonlySet<TabId> = new Set<TabId>(["lf", "tonkm"]);
 
@@ -59,10 +51,16 @@ export default function CostRevDash() {
   useAutoReloadOnEtl(etl, reload);
   // แท็บที่หน้าอื่นสั่งให้เปิด (lib/ui/dashJump.ts) — รับเฉพาะชื่อแท็บที่มีจริง
   const [tab, setTab] = useState<TabId>(() => {
-    const want = peekExecTab();
-    return TABS.some((t) => t.id === want) ? (want as TabId) : "fleet";
+    const want = peekOverallPending() ?? peekExecTab();
+    return OVERALL_TABS.some((t) => t.id === want) ? (want as TabId) : "fleet";
   });
-  useEffect(() => { clearExecTab(); }, []);
+  useEffect(() => {
+    clearExecTab();
+    clearOverallPending();
+    registerOverallNav(setTab);
+    return clearOverallNav;
+  }, []);
+  useEffect(() => { setOverallActive(tab); }, [tab]);
   const barRef = useRef<HTMLDivElement>(null);
   const ready = !!data && !error;
   useDashInk(barRef, `${tab}:${ready}`);
@@ -92,7 +90,7 @@ export default function CostRevDash() {
   const tabs = (
     <div className="dash-tabs" ref={barRef}>
       <span className="dink" />
-      {TABS.map((t) => (
+      {OVERALL_TABS.map((t) => (
         <button key={t.id} type="button" className={"dtab" + (tab === t.id ? " active" : "")}
           onClick={() => setTab(t.id)}>{t.label}</button>
       ))}
@@ -103,7 +101,7 @@ export default function CostRevDash() {
     <>
       <EtlBanner status={etlAll} />
       <DashShell title={title} sample={m?.isSample} meta={meta || undefined}
-        tabs={tabs} onRefresh={reload} loading={loading} refreshTitle={refreshTitle}>
+        tabs={tabs} onRefresh={reload} loading={loading} refreshTitle={refreshTitle} floatingFilters>
         {STANDALONE.has(tab) ? (
           <>{tab === "lf" && <LoadFactorTab />}{tab === "tonkm" && <TonKmTab />}</>
         ) : error ? (

@@ -1,7 +1,7 @@
 """แปลงไฟล์ลูกหนี้ (ใบวางบิล) เป็น JSON ให้แท็บ "Dashboard ลูกหนี้"
 
     python etl/build_debtors.py --dataset sample
-        etl/sample_data/ExampleDebtors.xlsx
+        etl/sample_data/ExampleDebtors_Randomed.xlsx  (สุ่มล้วน สร้างด้วย gen_sample_debtors.py)
     python etl/build_debtors.py --dataset real
         etl/data/debtors/*.xlsx
 
@@ -86,7 +86,8 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 OUT_ROOT = ROOT / "app" / "public" / "data"
 
-SAMPLE_FILE = HERE / "sample_data" / "ExampleDebtors.xlsx"
+# ★ ชุดสุ่มล้วนจาก gen_sample_debtors.py (commit ได้) — ไม่ใช่ ExampleDebtors.xlsx เดิมที่ถอดจากรายงานจริง
+SAMPLE_FILE = HERE / "sample_data" / "ExampleDebtors_Randomed.xlsx"
 REAL_DIR = HERE / "data" / "debtors"
 CUSTMAP_BIN = ROOT / "app" / "public" / "custmap.bin"
 # ขนาดระเบียนของ custmap.bin — ลำดับการเดาต้องตรงกับ headCount() ฝั่งแอป (32 ก่อน แล้ว 6)

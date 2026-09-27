@@ -50,6 +50,7 @@ import GrowBox from "../../lib/ui/GrowBox";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import type { RecordsState } from "../../lib/store/useRecords";
 import type { RoleKey } from "../../types/record";
+import { randomDispatch } from "./randomDispatch";
 
 const baht = (v: number): string => Math.round(v).toLocaleString("th-TH");
 const num3 = (v: number): string => v.toLocaleString("th-TH", { maximumFractionDigits: 3 });
@@ -165,6 +166,19 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  const fillRandom = () => {
+    const choice = randomDispatch(waiting.filter((b) => b.synced !== false), roster, ovr);
+    if (!choice) {
+      setMsg({ text: "ยังไม่มีบิลรอจัดรถที่จับคู่กับรถซึ่งบรรทุกได้ไม่เกิน 85%", tone: "warn" });
+      return;
+    }
+    setF(F0);
+    setPicked(new Set(choice.bills.map((b) => b.id)));
+    setHp(choice.vehicle);
+    closeTrailer();
+    setReleaseDate(choice.bills[0]!.date > todayISO() ? choice.bills[0]!.date : todayISO());
+    setMsg({ text: `สุ่มเลือก ${choice.bills.length} บิล · รถ ${choice.vehicle.plate} · Load Factor ${Math.round(choice.loadFactor)}% — ตรวจแล้วกดยืนยันการจัดรถ`, tone: "ok" });
+  };
   const allShown = rows.length > 0 && rows.every((b) => picked.has(b.id));
 
   async function confirmDispatch() {
@@ -443,6 +457,10 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
             {msg && <div className={"save-msg " + msg.tone}>{msg.text}</div>}
             <div className="dp-confirm">
               {busy ? <TruckLoader label="กำลังสร้างใบรายการ…" /> : blocked && <span className="muted">{blocked}</span>}
+              {role === "admin" && <button type="button" className="btn-ghost" onClick={fillRandom}
+                disabled={busy || bills.loading || waiting.length === 0} title="สุ่มบิลรอจัดรถและเลือกรถที่บรรทุกได้ โดยยังไม่บันทึก">
+                🎲 สุ่มข้อมูล
+              </button>}
               <button type="button" className="btn btn-save" disabled={!!blocked || busy} onClick={confirmDispatch}>
                 ยืนยันการจัดรถ
               </button>

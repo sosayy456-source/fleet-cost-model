@@ -27,6 +27,7 @@ const FleetStatus = lazyPage(() => import("./features/dash-fleet/FleetDash")
   .then((m) => ({ default: m.FleetStatusPage })));
 const CostRevDash = lazyPage(() => import("./features/dash-costrev/CostRevDash"));
 const DemoDash = lazyPage(() => import("./features/dash-demo/DemoDash"));
+const ExecutiveSummary = lazyPage(() => import("./features/executive-summary/ExecutiveSummary"));
 // Manager Dashboard (เมนู dash-fleet) แทนเนื้อหา FleetDash ทั้งหน้า 26 ก.ย. 2569 — FleetDash ยังใช้ที่สถานะกองรถ
 const ManagerDash = lazyPage(() => import("./features/dash-manager/ManagerDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
@@ -41,6 +42,8 @@ import BranchGate from "./features/dash-manager/BranchGate";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
 import { DEMO_PARTS, demoGo, useDemoNav } from "./lib/ui/demoNav";
+import { OVERALL_TABS, overallGo, useOverallActive } from "./lib/ui/overallNav";
+import { MANAGER_TABS, managerGo, useManagerActive } from "./lib/ui/managerNav";
 import { clearReturnPoints, goBack, hasReturnPoint } from "./lib/ui/returnPoint";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
@@ -74,6 +77,7 @@ interface PageDef {
 }
 
 const PAGES: PageDef[] = [
+  { id: "executive-summary", view: "dash", label: "Executive Summary", icon: I.dash, h1: "Executive Summary" },
   // ★ เมนู Demo เดิม — ย้ายขึ้นบนสุดและเปลี่ยนชื่อเป็น "Executive Dashboard" (เจ้าของงานสั่ง 25 ก.ย. 2569)
   //   id ยังเป็น "demo" (hash #/demo · demoNav) · เห็นเฉพาะผู้ดูแลระบบเหมือนเดิม (เจ้าของงานเลือก)
   //   ไอคอนเดียวกับ Dashboard อื่น (I.dash · เจ้าของงานสั่ง 25 ก.ย. 2569 — เดิม I.chart)
@@ -196,8 +200,10 @@ export default function App() {
   // main:3002 — นับบิลของใบใหม่ที่ยังไม่ได้ชำระ (ไม่รวมข้อมูลเก่าจากชีต)
   const debtCount = state.records.flatMap(recBills).filter((b) => !billIsPaid(b)).length;
 
-  // แท็บย่อยของเมนู Demo — hook ต้องอยู่ก่อน return ของหน้าเลือกตำแหน่ง
+  // สถานะแท็บย่อยของแดชบอร์ด — hook ต้องอยู่ก่อน return ของหน้าเลือกตำแหน่ง
   const demoNav = useDemoNav();
+  const overallActive = useOverallActive();
+  const managerActive = useManagerActive();
   if (!role) return <RolePicker onPick={setRole} />;
 
   const cur = pages.find((p) => p.id === page) ?? pages[0];
@@ -227,16 +233,24 @@ export default function App() {
               )}
             </button>
             );
-            if (p.id !== "demo") return btn;
-            // Demo: ชี้เมาส์/โฟกัส = แท็บย่อย 4 ส่วนกางใต้ปุ่ม (lib/ui/demoNav.ts) · กด = เปิดหน้า Demo แล้วเลื่อนไปส่วนนั้น
+            if (p.id !== "demo" && p.id !== "exec-dash" && p.id !== "dash-fleet") return btn;
+            // แดชบอร์ดกางรายการย่อยเมื่อชี้เมาส์หรือโฟกัส · Overall และ Manager เลือกแท็บเดียวกับแถบในหน้า
             return (
               <div key={p.id} className="navgroup">
                 {btn}
-                <div className="navsub" role="group" aria-label="ส่วนของหน้า Executive Dashboard">
-                  {DEMO_PARTS.map((x) => (
+                <div className="navsub" role="group" aria-label={`แท็บของหน้า ${p.label}`}>
+                  {p.id === "demo" ? DEMO_PARTS.map((x) => (
                     <button key={x.id} type="button"
                       className={"navsubitem" + (page === "demo" && demoNav.active === x.id ? " active" : "")}
                       onClick={() => { if (page !== "demo") goto("demo"); demoGo(x.id); }}>{x.label}</button>
+                  )) : p.id === "exec-dash" ? OVERALL_TABS.map((x) => (
+                    <button key={x.id} type="button"
+                      className={"navsubitem" + (page === "exec-dash" && overallActive === x.id ? " active" : "")}
+                      onClick={() => { overallGo(x.id); if (page !== "exec-dash") goto("exec-dash"); scrollTo({ top: 0 }); }}>{x.label}</button>
+                  )) : MANAGER_TABS.map((x) => (
+                    <button key={x.id} type="button"
+                      className={"navsubitem" + (page === "dash-fleet" && managerActive === x.id ? " active" : "")}
+                      onClick={() => { managerGo(x.id); if (page !== "dash-fleet") goto("dash-fleet"); scrollTo({ top: 0 }); }}>{x.label}</button>
                   ))}
                 </div>
               </div>
@@ -295,6 +309,7 @@ export default function App() {
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
                 {page === "exec-dash" && <CostRevDash />}
                 {page === "demo" && <DemoDash />}
+                {page === "executive-summary" && <ExecutiveSummary />}
               </Suspense>
             </DashPageContext.Provider>
             {page === "driver" && <DriverJobs state={state} role={role} />}

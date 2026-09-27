@@ -2454,17 +2454,17 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .em-ytd{display:flex;flex-direction:column;gap:2px;line-height:1.45}
 #view-dash .em-ytd b{color:#fff;font-weight:700}
 
-/* แท็บย่อยของเมนู Demo (App.tsx .navgroup · lib/ui/demoNav.ts · เจ้าของงานสั่ง 24 ก.ย. 2569)
-   ชี้เมาส์ที่ Demo = กางลงมาใต้ปุ่มเลย ไม่ต้องคลิก · พื้นชมพูเดียวกับแถบเมนู ไม่มีกล่องขาว ·
-   ข้อความเยื้องให้ตรงกับคำว่า "Demo" (ขอบซ้ายปุ่ม 16 + ไอคอน 18 + ช่องว่าง 12 = 46px) */
+/* แท็บย่อยของ Executive, Overall และ Manager Dashboard — กางใต้ปุ่มเมื่อชี้เมาส์หรือโฟกัส
+   พื้นสีเดียวกับแถบเมนู · ข้อความเยื้องตามไอคอนของเมนูหลัก */
 .navgroup{display:flex;flex-direction:column}
 .navsub{display:flex;flex-direction:column;overflow:hidden;max-height:0;opacity:0;
   transition:max-height .22s var(--ease),opacity .15s var(--ease)}
-.navgroup:hover .navsub,.navgroup:has(:focus-visible) .navsub{max-height:220px;opacity:1}
+.navgroup:hover .navsub,.navgroup:has(:focus-visible) .navsub{max-height:320px;opacity:1}
 .navsubitem{display:block;width:100%;text-align:left;border:none;background:transparent;cursor:pointer;
   font-family:inherit;font-size:14.5px;color:var(--sidebar-text);padding:9px 16px 9px 46px;border-radius:10px;white-space:nowrap;
   transition:color .15s var(--ease)}
-.navsubitem:hover,.navsubitem:focus-visible{color:var(--accent);outline:none}
+.navsubitem:hover,.navsubitem:focus-visible{color:var(--accent)}
+.navsubitem:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .navsubitem.active{color:var(--accent);font-weight:700}
 @media(min-width:721px){.navsubitem{padding-left:47px}}
 @media(max-width:720px){.navgroup{flex:none}.navsub{display:none}}
@@ -2627,6 +2627,34 @@ html.rp-returning .app{visibility:hidden}
 @media(max-width:480px){.mg-branch-dialog{padding:24px}.mg-branch-actions{flex-direction:column-reverse}.mg-branch-actions button{width:100%}}
 
 /* Executive Dashboard: เนื้อหาที่ยังคิดตามตัวกรองใหม่ไม่เสร็จ (useDeferredValue ใน DemoDash) — จางลงให้รู้ว่ากำลังคิด */
+#view-dash .dm-floating-filter{position:fixed;top:18px;right:20px;z-index:40}
+#view-dash .dm-filter-toggle{position:relative;display:grid;place-items:center;width:46px;height:46px;
+  border:1px solid var(--d-line2);border-radius:14px;background:#fff;color:var(--d-ink2);
+  box-shadow:0 8px 24px rgba(23,22,26,.14);cursor:pointer;transition:background .18s,color .18s,transform .18s}
+#view-dash .dm-filter-toggle:hover,#view-dash .dm-filter-toggle[aria-expanded="true"]{background:var(--d-ink);color:#fff}
+#view-dash .dm-filter-toggle:active{transform:scale(.96)}
+#view-dash .dm-filter-toggle:focus-visible,#view-dash .dm-filter-panel button:focus-visible,
+#view-dash .dm-filter-panel select:focus-visible,#view-dash .dm-filter-panel input:focus-visible{outline:3px solid var(--d-indigo);outline-offset:2px}
+#view-dash .dm-filter-toggle svg{width:22px;height:22px}
+#view-dash .dm-filter-dot{position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--d-rose);border:1px solid #fff}
+#view-dash .dm-filter-panel{position:absolute;top:56px;right:0;width:min(420px,calc(100vw - 32px));
+  max-height:calc(100dvh - 82px);overflow-y:auto;padding:18px;background:#fff;border:1px solid var(--d-line2);
+  border-radius:18px;box-shadow:0 20px 56px rgba(23,22,26,.2)}
+#view-dash .dm-filter-panel[hidden]{display:none}
+#view-dash .dm-filter-panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+#view-dash .dm-filter-panel-head h2{margin:0;font-size:18px;color:var(--d-ink)}
+#view-dash .dm-filter-panel-head button{width:32px;height:32px;border:0;border-radius:9px;background:var(--d-rail);color:var(--d-ink2);cursor:pointer}
+#view-dash .dm-filter-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#view-dash .dm-filter-fields .ff{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:0}
+#view-dash .dm-filter-fields label{font-size:12px;color:var(--d-ink3)}
+#view-dash .dm-filter-fields select,#view-dash .dm-filter-fields input{width:100%;min-height:39px;padding:7px 10px;border:1px solid var(--d-line2);
+  border-radius:9px;background:#fff;color:var(--d-ink);font:inherit;font-size:14px;cursor:pointer}
+#view-dash .dm-filter-fields select:disabled{background:var(--d-soft);color:var(--d-ink5);cursor:not-allowed}
+#view-dash .dm-filter-fields .mg-lock b{min-height:39px;display:flex;align-items:center;padding:7px 10px;
+  border:1px solid var(--d-line2);border-radius:9px;background:var(--d-soft)}
+#view-dash .dm-filter-fields .dh-clear{grid-column:1/-1;justify-self:start;padding:5px 0}
+@media(max-width:560px){#view-dash .dm-floating-filter{top:12px;right:12px}}
+@media(prefers-reduced-motion:reduce){#view-dash .dm-filter-toggle{transition:none}}
 #view-dash .dm-part.dm-stale{opacity:.55;transition:opacity .2s .15s}
 /* ตัวเลขทั้งโมเดล: fade-down (นุ่ม) แทนการนับขึ้นจาก 0 (เจ้าของงานสั่ง 26 ก.ย. 2569)
    การ์ดแดชบอร์ดใส่คลาสผ่าน useNumFade() · ตัวเลขในรูปรถหน้าจัดรถใส่ตรง ๆ + key */

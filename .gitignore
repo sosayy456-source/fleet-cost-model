@@ -43,6 +43,8 @@ node_modules/
 # ── React app ──────────────────────────────────────────
 app/node_modules/
 app/dist/
+# สำเนาเว็บที่ build พร้อมข้อมูลจริง (npm run build:real) — ห้ามขึ้น repo
+app/dist-real/
 # ข้อมูลจริงที่ ETL สร้าง ห้ามขึ้น repo (GitHub Pages เป็นเว็บสาธารณะ)
 app/public/data/real/
 # ไฟล์เดิมที่เก็บไว้เทียบตอนตรวจ (app/tools/verify-trips.mjs) — ลบหลังตรวจเสร็จ
@@ -72,10 +74,8 @@ etl/**/__pycache__/
 #   (รหัสลูกหนี้ hash แล้วก็จริง แต่ที่เหลือเป็นของจริง) — เจ้าของข้อมูลสั่งกันไว้ 17 ก.ย. 2569
 etl/sample_data/ExampleDebtors.xlsx
 
-# ★ ชุดลูกหนี้ที่ ETL สร้างจากไฟล์ข้างบน — เหตุผลเดียวกัน ห้ามขึ้น repo public
-#   ต่างจาก sample/ ที่เหลือซึ่งมาจากไฟล์บิลที่ anonymize แล้ว (bill_*_Randomed.xlsx)
-#   คนที่ clone ไปต้องวางไฟล์ลูกหนี้เองแล้วรัน etl/build_debtors.py --dataset sample
-app/public/data/sample/debtors/
+#   ETL เลิกใช้ไฟล์นี้แล้ว (27 ก.ย. 2569) — ชุดตัวอย่างลูกหนี้ = ExampleDebtors_Randomed.xlsx ที่สุ่มล้วน
+#   (etl/gen_sample_debtors.py) จึง commit ได้ทั้งไฟล์สุ่มและ app/public/data/sample/debtors/
 
 # โฟลเดอร์ชั่วคราวของเครื่องมือช่วยงาน (ไลบรารี pip · รูปที่แปลงจาก PDF · สคริปต์ทดสอบครั้งเดียว)
 # ไม่ใช่ของโปรเจกต์ และเป็นไบนารีหลายสิบ MB ที่จะอยู่ในประวัติ git ถาวรถ้าเผลอ commit

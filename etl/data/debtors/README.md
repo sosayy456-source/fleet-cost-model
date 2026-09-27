@@ -30,8 +30,8 @@
 
 ไฟล์ในโฟลเดอร์นี้ไม่ขึ้น repo (`.gitignore` กัน `etl/data/*` ไว้แล้ว ยกเว้น README)
 
-**ชุดตัวอย่างก็ไม่ขึ้น repo เหมือนกัน** — `etl/sample_data/ExampleDebtors.xlsx` กับ
-`app/public/data/sample/debtors/` ติด `.gitignore` เพราะถอดมาจากรายงานจริง
-มียอดเงิน วันที่ และชื่อสาขาของจริง (ต่างจากไฟล์บิลตัวอย่างที่ anonymize มาแล้ว)
-คนที่ clone ไปจึงต้องมีไฟล์ของตัวเอง แล้วรัน `python etl/build_debtors.py --dataset real`
-— ถ้ายังไม่มี แท็บ "Dashboard ลูกหนี้" จะขึ้นข้อความบอกวิธีสร้างไฟล์ให้เอง
+**ชุดตัวอย่าง** = ข้อมูลสุ่มล้วนที่ไม่ได้มาจากไฟล์จริง — `python etl/gen_sample_debtors.py` สร้าง
+`etl/sample_data/ExampleDebtors_Randomed.xlsx` แล้ว `python etl/build_debtors.py --dataset sample`
+ผลใน `app/public/data/sample/debtors/` commit ขึ้น repo เพื่อให้ส่วน DSO แสดงบน GitHub Pages
+(ลบโฟลเดอร์ผลเดิมก่อนสร้างใหม่ เพราะ ETL อ่าน `codes.json` เดิมกลับมาใช้ต่อ) ·
+`etl/sample_data/ExampleDebtors.xlsx` รุ่นเก่าถอดจากรายงานจริง ยังติด `.gitignore` และ ETL ไม่อ่านแล้ว

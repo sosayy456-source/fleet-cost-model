@@ -11,6 +11,9 @@ cd app
 npm ci                    # lockfile commit ไว้แล้ว ใช้ ci ไม่ใช่ install
 npm run dev               # → http://localhost:5173/fleet-cost-model/  (ต้องมี path ย่อยด้วย)
 npm run build             # tsc -b แล้วค่อย vite build
+npm run serve             # build แล้วเปิด preview → http://localhost:4173/fleet-cost-model/  แก้โค้ดแล้วหน้าไม่เปลี่ยนจนกว่าจะรันใหม่ (ไม่มี autoEtl)
+npm run build:real        # สำเนาเว็บ + ข้อมูลจริงแยกไว้ที่ dist-real/ (ติด .gitignore) · ไม่มี real/costrev/manifest.json = ไม่ build
+npm run serve:real        # เปิด dist-real/ → http://localhost:4174/fleet-cost-model/  ไม่เปลี่ยนตามโค้ด/ETL จนกว่าจะ build:real ใหม่
 npm test                  # vitest run — 20 ตัว
 npm test -- src/lib/cost/computeCost.test.ts     # เฉพาะไฟล์เดียว
 npm test -- -t "ชื่อเทส"                          # เฉพาะเคสเดียว
@@ -429,7 +432,7 @@ Ton×Kms = `wt` × `km` · ต้นทุน/Ton×Kms = `cost` ÷ Ton×Kms · �
   `OverdueSection.tsx` · เจ้าของงานสั่ง 24 ก.ย. 2569) ถ้าไฟล์เริ่มหลังวันนั้นถอยไปใช้ `refDate` → `asOf` · **สถานะคำนวณในแอป**จากวันที่ที่เลือก
   (วางบิล ≤ วัน · ชำระ = จบ ≤ วัน · ค้าง = ครบกำหนด < วัน · ยังไม่ถึง = ที่เหลือ) ตรวจแล้วเท่าชีตสรุป ณ 01/03/2569 ทุกช่อง ·
   คอลัมน์วิเคราะห์ 17 คอลัมน์ในไฟล์ **ไม่อ่าน** · ป็อบอัพรายลูกค้า: เกินกำหนด = มากสุด (เฉลี่ยในวงเล็บ) · เครดิต = ค่าที่พบบ่อยสุด ·
-  ชุดตัวอย่างของ debtors ไม่มีใน repo (ดู README ในโฟลเดอร์) บน Pages ส่วนนี้จึงขึ้นข้อความบอกวิธีสร้างไฟล์แทน
+  **ชุดตัวอย่างของ debtors = ข้อมูลสุ่มล้วน** (`etl/gen_sample_debtors.py` → `etl/sample_data/ExampleDebtors_Randomed.xlsx` → `build_debtors.py --dataset sample` · 27 ก.ย. 2569 ให้ส่วน DSO ขึ้นบน Pages) commit ทั้งไฟล์สุ่มและ `public/data/sample/debtors/` · `ExampleDebtors.xlsx` เดิมถอดจากรายงานจริง ยังติด .gitignore และ ETL ไม่อ่านแล้ว · **สร้างชุดใหม่ต้องลบ `sample/debtors/` ก่อน** เพราะ `assign_codes` อ่าน `codes.json` เดิมกลับมาใช้ต่อ
 · **23 ก.ย. 2569** เจ้าของงานให้**คงส่วนที่ 1 ไว้แบบเดิมทั้งหมด** (การ์ดนับคน + กราฟ 8 ช่วง %Margin + ตารางใต้กราฟ)
   — ลองทั้งการ์ดยอดเงิน/กราฟ 3 แท่งตามสเปกรุ่นแก้ และกราฟ 3 แท่งนับคนแล้ว เจ้าของงานเลือกกลับเป็น 8 ช่วงทั้งสองรอบ
   ห้ามเปลี่ยนอีกโดยไม่ถาม · **24 ก.ย. 2569 เพิ่มยอดเงินใต้ชิปของการ์ด 3 ใบ** (`Hero foot`) = กำไรสุทธิของกลุ่มนั้น
