@@ -13,13 +13,18 @@
  * ★ ใช้ชุดเดียวกับแท็บปลายทาง (จับคู่รายได้ได้ + เที่ยววิ่งเปล่า · 24 ก.ย. 2569) ตัวเลขจึงตรงกับหน้าที่ลิงก์ไปเมื่อไม่กรอง
  * ★ สูตรทั้งหมดมาจาก lib/detail3/calc.ts กับ lib/fleetcompare/utilization.ts — ห้ามคิดเองในไฟล์นี้
  * ★ การเลื่อนไปส่วนที่ 1/2 ส่ง anchor ผ่าน openExecTab(tab, anchor) (lib/ui/dashJump.ts)
+ * ★ ส่วนที่ 1 (27 ก.ย. 2569 · เจ้าของงานสั่ง): ช่องต้นทาง + ปลายทาง (พิมพ์หรือเลือกจากรายการ · datalist ขึ้นรายการแนะนำตามที่พิมพ์) ·
+ *   ดรอปดาวน์ชนิดรถ (ติ๊กได้หลายชนิด) ต่อขวาของช่องปลายทาง (KindDropdown · 27 ก.ย. 2569 — แทนชิปใต้ช่องค้นหา) · เลือกชนิดรถได้หลายชนิด · ติ๊ก "เฉพาะเที่ยวที่ถูก Flag" ·
+ *   คอลัมน์ ชนิดรถ · เที่ยว · บาท/เที่ยว · บาท/กม. · บาท/ตัน-กม. · % เปลี่ยนแปลง เรียงได้สามจังหวะ (useSort) ·
+ *   ⚠ แดง + จำนวนคันที่ติด Flag ของเกณฑ์นั้น (kindCostTable/costFlags ใน lib/detail3/calc.ts — เกิน 2 เท่าของค่าเฉลี่ยรายคันของชนิดรถ)
  */
-import { useMemo, useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import type { Trip } from "../../lib/data/useCostRev";
-import { depByKind, depreciation, kindYearCost, vehicleRows } from "../../lib/detail3/calc";
+import { FLAG_TIMES, depByKind, depreciation, kindCostTable, vehicleRows } from "../../lib/detail3/calc";
 import { fleetSlices, fleetTypeShare, serviceFleetMix } from "../../lib/fleetcompare/utilization";
 import { openExecTab } from "../../lib/ui/dashJump";
-import { fmt, pct } from "../dash-costrev/common";
+import { fmt, pct, useSort } from "../dash-costrev/common";
+import type { Col } from "../dash-costrev/common";
 
 /** สีประเภทรถตาม handoff — [สีหลัก, สีอ่อนของโดนัท, ป้ายสั้น] */
 const FT: Record<string, [string, string, string]> = {
@@ -50,7 +55,25 @@ const linkProps = (go: () => void, label: string) => ({
 export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; costTrips: Trip[]; year: string }) {
   const top = useRef<HTMLElement>(null);
   const rows = useMemo(() => vehicleRows(trips), [trips]);
-  const cost = useMemo(() => kindYearCost(vehicleRows(costTrips), year ? Number(year) : undefined), [costTrips, year]);
+  // ส่วนที่ 1: ค้นหาเส้นทาง · เลือกชนิดรถหลายชนิด · เฉพาะเที่ยวที่ถูก Flag
+  const [origin, setOrigin] = useState("");
+  const [dest, setDest] = useState("");
+  const [kindSel, setKindSel] = useState<Set<string>>(() => new Set());
+  const [flaggedOnly, setFlaggedOnly] = useState(false);
+  const costRows = useMemo(() => vehicleRows(costTrips), [costTrips]);
+  const cost = useMemo(
+    () => kindCostTable(costRows, year ? Number(year) : undefined, { origin, dest, kinds: kindSel, flaggedOnly }),
+    [costRows, year, origin, dest, kindSel, flaggedOnly]);
+  type KindRow = (typeof cost.list)[number];
+  const costCols = useMemo<Col<KindRow>[]>(() => [
+    { key: "vk", label: "ชนิดรถ", get: (k) => k.vk },
+    { key: "n", label: "เที่ยว", get: (k) => k.n, num: true },
+    { key: "perTrip", label: "บาท/เที่ยว", get: (k) => k.perTrip, num: true },
+    { key: "perKm", label: "บาท/กม.", get: (k) => k.perKm ?? -Infinity, num: true },
+    { key: "perTkm", label: "บาท/ตัน-กม.", get: (k) => k.perTkm ?? -Infinity, num: true },
+    { key: "change", label: "% เปลี่ยนแปลงจากปีก่อน", get: (k) => k.change ?? -Infinity, num: true },
+  ], []);
+  const costSort = useSort(cost.list, costCols, { key: "n", dir: -1 });
   const dep = useMemo(() => depreciation(rows), [rows]);
   const depKinds = useMemo(() => depByKind(dep.list), [dep.list]);
   const slices = useMemo(() => fleetSlices(trips), [trips]);
@@ -76,22 +99,43 @@ export default function Item3Tab({ trips, costTrips, year }: { trips: Trip[]; co
   return <div className="i3-page">
     <Section ref={top} tone="violet" title="ต้นทุนขนส่งแต่ละชนิดรถ"
       sub={cost.year ? `ปี ${be(cost.year)}${span && ` (${span})`} เทียบปี ${be(cost.prev!)} · รวมรถบริษัทและรถร่วม` : "ยังไม่มีข้อมูล"}>
+      <div className="i3-tools">
+        <PlaceInput label="ต้นทาง" value={origin} onChange={setOrigin} opts={cost.origins} />
+        <span className="i3-arrow" aria-hidden="true">→</span>
+        <PlaceInput label="ปลายทาง" value={dest} onChange={setDest} opts={cost.dests} />
+        <KindDropdown all={cost.kinds} sel={kindSel} onChange={setKindSel} />
+        <label className="i3-check">
+          <input type="checkbox" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)} />
+          แสดงเฉพาะเที่ยวที่ถูก Flag <span className="i3-flag">⚠ {fmt(cost.flagged)}</span>
+        </label>
+      </div>
+
       <div className="i3-tbl-wrap"><table className="i3-tbl">
         <thead><tr>
-          <th>ชนิดรถ</th><th className="n">บาท/เที่ยว</th><th className="n">บาท/กม.</th>
-          <th className="n">บาท/ตัน-กม.</th><th className="n">% เปลี่ยนแปลงจากปีก่อน</th>
+          {costCols.map((c) => (
+            <th key={c.key} className={c.num ? "n i3-sort" : "i3-sort"} onClick={() => costSort.toggle(c.key)}
+              title="กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อกลับลำดับเดิม">
+              {c.label}<span className={costSort.sort.key === c.key ? "on" : ""}>
+                {costSort.sort.key === c.key ? (costSort.sort.dir === 1 ? "▲" : "▼") : "▲▼"}</span>
+            </th>
+          ))}
         </tr></thead>
-        <tbody className="i3-link">{cost.list.map((k) => <tr key={k.vk} {...linkProps(toPart1, "Vehicle Utilization Cost (ต้นทุนขนส่ง)")}>
-          <td><Kind name={k.vk} n={k.n} /></td>
-          <td className="n i3-strong">{fmt(k.perTrip)}</td>
-          <td className="n i3-soft">{money(k.perKm)}</td>
-          <td className="n i3-soft">{money(k.perTkm)}</td>
+        <tbody className="i3-link">{!costSort.sorted.length && <tr><td colSpan={costCols.length} className="i3-empty">
+          {flaggedOnly ? "ไม่มีเที่ยวที่ถูก Flag ตามที่ค้นหา" : "ไม่มีเที่ยวตามที่ค้นหา"}</td></tr>}
+        {costSort.sorted.map((k) => <tr key={k.vk} {...linkProps(toPart1, "Vehicle Utilization Cost (ต้นทุนขนส่ง)")}>
+          <td><b className="i3-kname">{k.vk}</b></td>
+          <td className="n">{fmt(k.n)}</td>
+          <td className="n i3-strong">{fmt(k.perTrip)}<FlagMark n={k.fTrip} what="ต้นทุน/เที่ยว" /></td>
+          <td className="n i3-soft">{money(k.perKm)}<FlagMark n={k.fKm} what="ต้นทุน/กม." /></td>
+          <td className="n i3-soft">{money(k.perTkm)}<FlagMark n={k.fTkm} what="ต้นทุน/ตัน-กม." /></td>
           <td className="n">{k.change === null
             ? <span className="i3-pill none" title={k.perTkm === null ? "ปีนี้หารไม่ได้ (ไม่มีน้ำหนัก/ระยะทาง)" : "ปีก่อนไม่มีชนิดนี้"}>ไม่มีข้อมูลเทียบ</span>
             : <span className={`i3-pill ${k.change >= 0 ? "bad" : "good"}`}>{k.change >= 0 ? "▲" : "▼"} {pct(Math.abs(k.change))}</span>}</td>
         </tr>)}</tbody>
       </table></div>
-      <p className="i3-note">% เปลี่ยนแปลง = (บาท/ตัน-กม. ปีนี้ − บาท/ตัน-กม. ปีก่อน) ÷ บาท/ตัน-กม. ปีก่อน ·
+      <p className="i3-note"><b className="bad">⚠ n</b> = จำนวนเที่ยว (รายคัน) ที่ค่านั้นเกิน {FLAG_TIMES} เท่าของค่าเฉลี่ยรายคันของชนิดรถเดียวกันในปีนี้ ·
+        ต้นทุน/กม. ไม่นับคันที่ไม่มีระยะทาง · ค่าเฉลี่ยคิดจากทั้งปีตามตัวกรองของหน้า ไม่เปลี่ยนตามช่องค้นหา ·
+        % เปลี่ยนแปลง = (บาท/ตัน-กม. ปีนี้ − บาท/ตัน-กม. ปีก่อน) ÷ บาท/ตัน-กม. ปีก่อน (ปีก่อนตามช่องต้นทาง/ปลายทาง/ชนิดรถ) ·
         <b className="bad"> ▲ แดง = ต้นทุนสูงขึ้น</b> · <b className="good">▼ เขียว = ถูกลง</b> ·
         ต้นทุนแยกรายคัน (หัว/หางคิดแยก) บาท/ตัน-กม. ของหางจึงต่ำกว่าหัวมาก</p>
     </Section>
@@ -172,6 +216,57 @@ function Section({ ref, tone, title, sub, children }: {
     </header>
     {children}
   </section>;
+}
+
+/**
+ * ช่องต้นทาง/ปลายทาง — พิมพ์เองได้ · กดแล้วเลือกจากรายการได้ · พิมพ์แล้วรายการแนะนำกรองตามตัวอักษร (datalist ของเบราว์เซอร์)
+ * กรองแบบ "มีคำนี้" จึงพิมพ์บางส่วนก็ได้ · ปุ่ม × ล้างช่อง
+ */
+function PlaceInput({ label, value, onChange, opts }: {
+  label: string; value: string; onChange: (v: string) => void; opts: string[];
+}) {
+  const id = `i3-${label === "ต้นทาง" ? "o" : "de"}-list`;
+  return (
+    <span className="i3-place">
+      <input type="text" list={id} value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={`${label} (พิมพ์หรือเลือก)`} aria-label={label} autoComplete="off" />
+      {value && <button type="button" className="i3-clear" onClick={() => onChange("")} aria-label={`ล้าง${label}`}>×</button>}
+      <datalist id={id}>{opts.map((o) => <option key={o} value={o} />)}</datalist>
+    </span>
+  );
+}
+
+/** ⚠ แดง + จำนวนเที่ยวที่ติด Flag ของเกณฑ์นั้น — ไม่มี = ไม่แสดง */
+function FlagMark({ n, what }: { n: number; what: string }) {
+  if (!n) return null;
+  return <span className="i3-flag" title={`${fmt(n)} เที่ยว ${what} เกิน ${FLAG_TIMES} เท่าของค่าเฉลี่ยชนิดรถ`}> ⚠ {fmt(n)}</span>;
+}
+
+/**
+ * ดรอปดาวน์ชนิดรถ ต่อขวาของช่องปลายทาง (เจ้าของงานสั่ง 27 ก.ย. 2569 — แทนชิปใต้ช่องค้นหา)
+ * ติ๊กได้หลายชนิด · ไม่ติ๊กเลย = ทุกชนิดรถ · กดข้างนอก/Esc = ปิด
+ */
+function KindDropdown({ all, sel, onChange }: { all: string[]; sel: Set<string>; onChange: (s: Set<string>) => void }) {
+  const box = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: PointerEvent) => { if (box.current && !box.current.contains(e.target as Node)) box.current.open = false; };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  const toggle = (k: string) => { const n = new Set(sel); if (n.has(k)) n.delete(k); else n.add(k); onChange(n); };
+  const label = !sel.size ? "ทุกชนิดรถ" : sel.size === 1 ? [...sel][0] : `ชนิดรถ ${sel.size} ชนิด`;
+  return (
+    <details ref={box} className="i3-kinds"
+      onKeyDown={(e) => { if (e.key === "Escape" && box.current) { box.current.open = false; box.current.querySelector("summary")?.focus(); } }}>
+      <summary title="เลือกชนิดรถ (ติ๊กได้หลายชนิด)">{label}</summary>
+      <div className="i3-kinds-list">
+        <button type="button" className="i3-kinds-all" onClick={() => onChange(new Set())} disabled={!sel.size}>ล้าง (ทุกชนิดรถ)</button>
+        {all.map((k) => (
+          <label key={k}><input type="checkbox" checked={sel.has(k)} onChange={() => toggle(k)} />{k}</label>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 function Kind({ name, n }: { name: string; n: number }) {

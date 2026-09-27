@@ -2537,3 +2537,52 @@ text.num-fd{transform-box:fill-box}
 .map-zoom button:disabled{opacity:.4;cursor:default}
 .map-zoom button:focus-visible{outline:2px solid #0F8F76;outline-offset:1px}
 .map-zoom svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---- Executive Dashboard › Vehicle Utilization Cost ส่วนที่ 1: เครื่องมือกรอง + ⚠ Flag (Item3Tab.tsx · 27 ก.ย. 2569) ---- */
+#view-dash .i3-tools{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 12px}
+#view-dash .i3-search{flex:1 1 220px;max-width:320px;padding:8px 12px;border:1px solid rgba(26,23,20,.16);border-radius:10px;
+  font:inherit;font-size:14px;background:#fff}
+#view-dash .i3-search:focus{outline:none;border-color:#5B3FE0}
+#view-dash .i3-check{display:inline-flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+#view-dash .i3-flag{color:#D6263D;font-weight:700;white-space:nowrap}
+#view-dash .i3-sort{cursor:pointer;user-select:none;white-space:nowrap}
+#view-dash .i3-sort span{margin-left:4px;font-size:11px;opacity:.35}
+#view-dash .i3-sort span.on{opacity:1}
+#view-dash .i3-kname{font-weight:700}
+#view-dash .i3-empty{text-align:center;padding:18px;color:rgba(26,23,20,.5)}
+
+/* ช่องต้นทาง/ปลายทางของตารางต้นทุนแต่ละชนิดรถ (แทนช่องค้นหาเส้นทาง · 27 ก.ย. 2569) */
+#view-dash .i3-place{position:relative;flex:0 1 240px;display:inline-flex}
+#view-dash .i3-place input{width:100%;padding:8px 28px 8px 12px;border:1px solid rgba(26,23,20,.16);border-radius:10px;
+  font:inherit;font-size:14px;background:#fff}
+#view-dash .i3-place input:focus{outline:none;border-color:#5B3FE0}
+#view-dash .i3-clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;
+  font-size:16px;line-height:1;color:rgba(26,23,20,.45);cursor:pointer;padding:2px 4px}
+#view-dash .i3-clear:hover{color:#1A1714}
+#view-dash .i3-arrow{color:rgba(26,23,20,.45);font-family:"Noto Sans Thai",sans-serif}
+
+
+/* ตาราง "เที่ยวที่ควร Flag" ของ Overall Dashboard 3 เกณฑ์ (Part1.tsx FlagCell · 27 ก.ย. 2569) */
+#view-dash .d3-flag small{font-size:11px;font-weight:700;opacity:.85}
+#view-dash .d3-muted{color:rgba(26,23,20,.4)}
+
+/* ดรอปดาวน์ชนิดรถต่อขวาของช่องปลายทาง (KindDropdown ใน Item3Tab.tsx · 27 ก.ย. 2569 — แทนชิป) */
+#view-dash .i3-kinds{position:relative}
+#view-dash .i3-kinds summary{list-style:none;cursor:pointer;padding:8px 30px 8px 12px;border:1px solid rgba(26,23,20,.16);
+  border-radius:10px;background:#fff;font-size:14px;min-width:160px;position:relative;white-space:nowrap}
+#view-dash .i3-kinds summary::-webkit-details-marker{display:none}
+#view-dash .i3-kinds summary::after{content:"";position:absolute;right:12px;top:50%;width:7px;height:7px;margin-top:-5px;
+  border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.6}
+#view-dash .i3-kinds[open] summary{border-color:#5B3FE0}
+#view-dash .i3-kinds-list{position:absolute;z-index:20;top:calc(100% + 6px);left:0;min-width:230px;max-height:340px;overflow:auto;
+  padding:6px;background:#fff;border:1px solid rgba(26,23,20,.12);border-radius:12px;box-shadow:0 12px 28px rgba(27,27,31,.14)}
+#view-dash .i3-kinds-list label{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:14px;cursor:pointer}
+#view-dash .i3-kinds-list label:hover{background:rgba(91,63,224,.07)}
+#view-dash .i3-kinds-all{width:100%;text-align:left;border:none;background:none;padding:7px 10px;font:inherit;font-size:13px;
+  color:#5B3FE0;cursor:pointer;border-radius:8px}
+#view-dash .i3-kinds-all:disabled{color:rgba(26,23,20,.35);cursor:default}
+/* การ์ดแต่ละส่วนมีแอนิเมชัน (transform) จึงซ้อนชั้นตามลำดับ — การ์ดถัดไปวาดทับรายการดรอปดาวน์ ยกการ์ดที่เปิดอยู่ขึ้นบน */
+#view-dash .i3-sec:has(.i3-kinds[open]){position:relative;z-index:5}
+
+/* หัวตาราง D3Table: ปุ่มสลับมิติ + ช่องค้นหา ด้านขวา (ตาราง "2. เส้นทางกับการใช้งานรถ" · 27 ก.ย. 2569) */
+#view-dash .d3-tt-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}

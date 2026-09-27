@@ -20,6 +20,8 @@ import { sideOf, type Side } from "../fleetcompare/compare";
 
 export interface VRow {
   id: string; d: string; y: number; rt: string;
+  /** จุดขึ้น · จุดลง ของใบ ("" = ไม่มี) — ช่องค้นหาต้นทาง/ปลายทางของตารางต้นทุนแต่ละชนิดรถ */
+  o: string; de: string;
   pl: string; vk: string; ft: string; side: Side;
   /** ต้นทุน · ค่าเสื่อม · รายได้ (ปันตามสัดส่วนต้นทุน) ของคันนี้ */
   cost: number; dep: number; rev: number;
@@ -44,7 +46,7 @@ export function vehicleRows(trips: Trip[]): VRow[] {
       const cost = cSum > 0 ? v.c : i === 0 ? t.cost : 0;
       const rev = cSum > 0 ? t.rev * v.c / cSum : i === 0 ? t.rev : 0;
       const dep = hasD ? v.d! : i === 0 ? t.dep : 0;
-      return { id: t.id, d: t.d, y: t.y, rt: t.rt || UNKNOWN_RT, pl: v.pl, vk: v.vk || UNKNOWN_VK, ft: v.ft,
+      return { id: t.id, d: t.d, y: t.y, rt: t.rt || UNKNOWN_RT, o: t.o ?? "", de: t.de ?? "", pl: v.pl, vk: v.vk || UNKNOWN_VK, ft: v.ft,
         side: sideOf(v), cost, dep, rev, km, wt, tkm, perTkm: tkm > 0 && cost > 0 ? cost / tkm : null };
     });
   });
@@ -128,21 +130,121 @@ export interface Cell { n: number; avg: number; flag: boolean; times: number }
  * ตารางเส้นทาง × ชนิดรถ = AVG(ต้นทุน/ตัน-กม. รายเที่ยว) · ค่าเฉลี่ยของชนิดรถ (kindAvg) ใช้เป็นเส้นแบ่ง Flag
  * ช่องที่ค่าเฉลี่ยเกิน FLAG_TIMES × ค่าเฉลี่ยชนิดรถ ติดธง · รายเที่ยวที่เกินเกณฑ์เดียวกันอยู่ใน `flagged`
  */
-export function routeKindMatrix(rows: VRow[]) {
-  const ok = rows.filter((r) => r.perTkm !== null);
+/* ---------- ตาราง "ต้นทุนแต่ละชนิดรถ" ของ Executive Dashboard (Demo › Vehicle Utilization Cost · 27 ก.ย. 2569) ---------- */
+
+/** ต้นทุน/กม. ของคัน — ระยะทาง 0/ว่างหารไม่ได้ (null) ไม่นับทั้งค่ารายเที่ยวและค่าเฉลี่ยกลุ่ม */
+export const perKmOf = (r: VRow): number | null => (r.km > 0 ? r.cost / r.km : null);
+
+/** เกณฑ์ Flag ที่คันนั้นติด — ต้นทุน/เที่ยว · ต้นทุน/กม. · ต้นทุน/ตัน-กม. */
+export interface CostFlags { trip: boolean; km: boolean; tkm: boolean }
+export const anyFlag = (f: CostFlags | undefined): boolean => !!f && (f.trip || f.km || f.tkm);
+
+/**
+ * Flag 3 เกณฑ์ (เจ้าของงานสั่ง 27 ก.ย. 2569) — ระดับ **รายคันในใบ** (VRow · หัว/หางแยกกัน · เจ้าของงานเลือก)
+ * ค่าของคันเกิน FLAG_TIMES เท่าของ **ค่าเฉลี่ยรายคัน (AVG) ของชนิดรถเดียวกัน** ในชุดที่ส่งมา:
+ *   trip = ต้นทุนของคัน · km = ต้นทุน ÷ ระยะทาง (ตัดระยะทาง 0/ว่างก่อน) · tkm = VRow.perTkm (ตัดคันที่หารไม่ได้)
+ * ผู้เรียกส่งชุดตามตัวกรองของหน้า **ไม่ใช่ชุดหลังช่องค้นหา** (เจ้าของงานเลือก — ค้นหาแล้ว Flag ต้องไม่ขยับ)
+ */
+export function costFlags(rows: VRow[]): Map<VRow, CostFlags> {
+  return new Map(costFlagDetails(rows).map((d) => [d.row, { trip: d.trip.flag, km: d.km.flag, tkm: d.tkm.flag }]));
+}
+
+/** ค่าหนึ่งเกณฑ์ของคันหนึ่ง — v = ค่าของคัน · avg = ค่าเฉลี่ยชนิดรถ · times = v ÷ avg (null = หารไม่ได้/ไม่นับ) */
+export interface FlagPart { v: number | null; avg: number | null; times: number | null; flag: boolean }
+export interface FlagDetail { row: VRow; trip: FlagPart; km: FlagPart; tkm: FlagPart; any: boolean; maxTimes: number }
+
+/**
+ * รายละเอียด Flag 3 เกณฑ์ของทุกคัน — ตัวเดียวกับ costFlags() (ใช้ทั้งตารางชนิดรถของ Executive Dashboard และ
+ * ตาราง "เที่ยวที่ควร Flag ให้ผู้บริหารตรวจสอบ" ของ Overall Dashboard · เจ้าของงานให้สองหน้าตรงกัน 27 ก.ย. 2569)
+ */
+export function costFlagDetails(rows: VRow[]): FlagDetail[] {
+  const out: FlagDetail[] = [];
+  for (const list of bucket(rows, (r) => r.vk).values()) {
+    const aTrip = avg(list.map((r) => r.cost));
+    const aKm = avg(list.flatMap((r) => { const v = perKmOf(r); return v === null ? [] : [v]; }));
+    const aTkm = avg(list.flatMap((r) => (r.perTkm === null ? [] : [r.perTkm])));
+    const part = (v: number | null, a: number | null): FlagPart => {
+      const times = v !== null && a !== null && a > 0 ? v / a : null;
+      return { v, avg: a, times, flag: times !== null && times > FLAG_TIMES };
+    };
+    for (const r of list) {
+      const trip = part(r.cost, aTrip), km = part(perKmOf(r), aKm), tkm = part(r.perTkm, aTkm);
+      const hit = [trip, km, tkm].filter((p) => p.flag);
+      out.push({ row: r, trip, km, tkm, any: hit.length > 0, maxTimes: Math.max(0, ...hit.map((p) => p.times!)) });
+    }
+  }
+  return out;
+}
+
+export interface KindCostQuery {
+  /** ต้นทาง · ปลายทาง (มีคำนี้ — พิมพ์บางส่วนหรือเลือกชื่อเต็มก็ได้) · ว่าง = ทุกจุด */
+  origin?: string; dest?: string;
+  /** ชนิดรถที่เลือก — ว่าง = ทุกชนิด */
+  kinds?: ReadonlySet<string>;
+  /** เฉพาะคันที่ติด Flag อย่างน้อย 1 ใน 3 เกณฑ์ */
+  flaggedOnly?: boolean;
+}
+
+/**
+ * ตารางชนิดรถ = kindYearCost + ตัวกรอง + จำนวนคันที่ติด Flag แต่ละเกณฑ์
+ *   ค่าในตารางยังเป็น SUM ÷ SUM ของชนิดรถเหมือนเดิม · Flag คิดจากปีที่เลือกทั้งชุด (ก่อนค้นหา)
+ *   % เปลี่ยนแปลง: ปีก่อนกรองตามช่องค้นหาเส้นทาง + ชนิดรถ **แต่ไม่ตามติ๊ก Flag** (เจ้าของงานเลือก — Flag เป็นของปีนี้)
+ */
+export function kindCostTable(rows: VRow[], pick: number | undefined, q: KindCostQuery) {
+  const year = pick ?? (rows.reduce((m, r) => (r.y > m ? r.y : m), 0) || null);
+  const prev = year ? year - 1 : null;
+  const cur = rows.filter((r) => r.y === year);
+  const flags = costFlags(cur);
+  const oq = (q.origin ?? "").trim().toLowerCase(), dq = (q.dest ?? "").trim().toLowerCase();
+  const pass = (r: VRow): boolean => (!oq || r.o.toLowerCase().includes(oq)) && (!dq || r.de.toLowerCase().includes(dq))
+    && (!q.kinds?.size || q.kinds.has(r.vk));
+  const shown = cur.filter((r) => pass(r) && (!q.flaggedOnly || anyFlag(flags.get(r))));
+  const prevBy = new Map([...bucket(rows.filter((r) => r.y === prev && pass(r)), (r) => r.vk)]
+    .map(([vk, l]) => [vk, sideStat(l)!]));
+  const list = [...bucket(shown, (r) => r.vk)].map(([vk, l]) => {
+    const s = sideStat(l)!, p = prevBy.get(vk)?.perTkm ?? null;
+    const fl = l.map((r) => flags.get(r));
+    return { vk, n: s.n, perTrip: s.perTrip, perKm: s.perKm, perTkm: s.perTkm, prevPerTkm: p,
+      change: s.perTkm !== null && p ? (s.perTkm - p) / p * 100 : null,
+      fTrip: fl.filter((f) => f?.trip).length, fKm: fl.filter((f) => f?.km).length, fTkm: fl.filter((f) => f?.tkm).length };
+  }).sort((a, b) => b.n - a.n || a.vk.localeCompare(b.vk, "th"));
+  const kinds = [...new Set(cur.map((r) => r.vk))].sort((a, b) => a.localeCompare(b, "th"));
+  const uniq = (xs: string[]) => [...new Set(xs.filter(Boolean))].sort((a, b) => a.localeCompare(b, "th"));
+  // ตัวเลือกของช่องต้นทาง/ปลายทาง = จุดที่มีในปีที่เลือก · ปลายทางตามต้นทางที่พิมพ์อยู่ (และกลับกัน)
+  const origins = uniq(cur.filter((r) => !dq || r.de.toLowerCase().includes(dq)).map((r) => r.o));
+  const dests = uniq(cur.filter((r) => !oq || r.o.toLowerCase().includes(oq)).map((r) => r.de));
+  return { year, prev, list, kinds, origins, dests, flagged: cur.filter((r) => anyFlag(flags.get(r))).length };
+}
+
+/**
+ * ค่าของคันตามมิติ — trip = ต้นทุนของคัน · km = ต้นทุน ÷ ระยะทาง (ไม่มีระยะทาง = null) · tkm = perTkm
+ * ต้นทุนของคันเป็น 0 = null ทุกมิติ (กติกาเดียวกับ perTkm — หางบางคันในไฟล์ไม่มีต้นทุนเลย ปล่อยไว้จะเป็น "ถูกสุด" ใน Top 5)
+ */
+export const rowMetric = (r: VRow, m: Metric): number | null =>
+  r.cost <= 0 ? null : m === "trip" ? r.cost : m === "km" ? perKmOf(r) : r.perTkm;
+
+/**
+ * ตาราง "2. เส้นทางกับการใช้งานรถ" (เส้นทาง × ชนิดรถ) + Top 5 ถูกสุด ตามมิติที่เลือก (ต่อเที่ยว / ต่อกม. / ต่อตัน-กม. ·
+ * เจ้าของงานสั่ง 27 ก.ย. 2569 · ตั้งต้นต่อตัน-กม. แบบเดิม) — ค่าในช่อง = AVG ค่ารายคันของมิตินั้น ·
+ * ⚠ = ค่าเฉลี่ยของช่อง > FLAG_TIMES เท่าของค่าเฉลี่ยชนิดรถ (หลักเดิมของตารางนี้ เจ้าของงานเลือก) · คันที่หารไม่ได้ไม่นับ
+ * (ต่อกม. ตัดระยะทาง 0/ว่าง · ต่อตัน-กม. ตัดน้ำหนัก/ระยะทาง 0 หรือต้นทุนคัน 0)
+ */
+export function routeKindMatrix(rows: VRow[], metric: Metric = "tkm") {
+  const val = (r: VRow): number => rowMetric(r, metric)!;
+  const ok = rows.filter((r) => rowMetric(r, metric) !== null);
   const kindAvg = new Map<string, number>();
-  for (const [vk, list] of bucket(ok, (r) => r.vk)) kindAvg.set(vk, avg(list.map((r) => r.perTkm!))!);
+  for (const [vk, list] of bucket(ok, (r) => r.vk)) kindAvg.set(vk, avg(list.map(val))!);
   const kinds = [...bucket(ok, (r) => r.vk)].sort((a, b) => b[1].length - a[1].length).map(([vk]) => vk);
   const routes = [...bucket(ok, (r) => r.rt)].map(([rt, list]) => {
     const cells: Record<string, Cell> = {};
     for (const [vk, l] of bucket(list, (r) => r.vk)) {
-      const a = avg(l.map((r) => r.perTkm!))!, k = kindAvg.get(vk)!;
+      const a = avg(l.map(val))!, k = kindAvg.get(vk)!;
       const times = k > 0 ? a / k : 0;
       cells[vk] = { n: l.length, avg: a, flag: times > FLAG_TIMES, times };
     }
     return { rt, n: list.length, cells };
   });
-  const flagged = ok.map((r) => ({ row: r, kindAvg: kindAvg.get(r.vk)!, times: r.perTkm! / kindAvg.get(r.vk)! }))
+  const flagged = ok.map((r) => ({ row: r, kindAvg: kindAvg.get(r.vk)!, times: val(r) / kindAvg.get(r.vk)! }))
     .filter((f) => f.kindAvg > 0 && f.times > FLAG_TIMES)
     .sort((a, b) => b.times - a.times);
   const cheapest = routes.flatMap((r) => Object.entries(r.cells).map(([vk, c]) => ({ rt: r.rt, vk, ...c })))
