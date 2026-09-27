@@ -10,6 +10,8 @@
  *   แท็บการเงิน: การ์ด 3 ใบ (กำไร · รายได้ · ต้นทุน ของเที่ยวที่ปล่อยรถในช่วง) + ลูกหนี้คงค้าง ณ สิ้นช่วง
  *              (การ์ด 5 ใบ + วางบิล/เก็บเงินในช่วง + ตารางลูกค้า + ตารางบิล · 27 ก.ย. 2569)
  *   ตารางทุกตัวเรียงได้ทุกคอลัมน์ (useSort) + แถวกรองรายคอลัมน์ (colFilter.tsx) · ช่องค้นหาเลขที่ใบ/บิล/ลูกค้าอยู่ในแถวกรอง
+ *   กล่อง "ต้องจัดการ" บนสุด (27 ก.ย. 2569): นับจากสองแท็บ กดแล้วพาไปตารางพร้อมตัวกรอง (focus → แท็บลูกล้าง onFocusDone) ·
+ *   แถบสรุปปัญหาเหนือตารางเที่ยว (issue ของ tripAdvice) · ลูกหนี้กรอง "เกิน 30 วัน" / "ครบกำหนดใน 7 วัน" ได้
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -29,9 +31,9 @@ import { thDateSafe } from "../../lib/record/date";
 import { loadSessionBranch } from "../../lib/store/sessionBranch";
 import {
   BAND_LABEL, DEBT_STATUS_LABEL, buildTrips, fileSrc, recordSrc, byBranch, byCustomer, debtSummary, finSummary, latestPeriod, outstandingAt,
-  BENCH_MIN, OVER_BAHT, OVER_PCT, lfSummary, onRoad, periodLabel, periodOptions, periodRange, releasedIn,
+  BENCH_MIN, DUE_SOON_DAYS, OVER_BAHT, OVER_PCT, dueSoon, issueCounts, issueLabel, lfSummary, managerTodo, onRoad, periodLabel, periodOptions, periodRange, releasedIn,
 } from "../../lib/manager/manager";
-import type { DebtCust, DebtStatus, MgrBill, MgrPeriod, MgrTrip, PeriodKind } from "../../lib/manager/manager";
+import type { DebtCust, DebtStatus, IssueKey, MgrBill, MgrPeriod, MgrTrip, PeriodKind, Todo } from "../../lib/manager/manager";
 import { branchOf } from "../../lib/manager/manager";
 import type { DebtorRow } from "../../lib/data/useDebtors";
 import type { RoleKey, TripRecord } from "../../types/record";
@@ -115,11 +117,19 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
     () => (debtors.data ? debtors.data.rows.filter((r) => inBranch({ br: branchOf(r.br) })) : []),
     [debtors.data, branch]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ลูกหนี้คงค้าง ณ สิ้นช่วง — ใช้ทั้งแท็บ Profit & Collections และกล่อง "ต้องจัดการ"
+  const open = useMemo(() => (range ? outstandingAt(debtRows, range.end) : []), [debtRows, range]);
+  const todo = useMemo(() => managerTodo(running, open), [running, open]);
+
   /* ---------- แท็บ ---------- */
-  const [tab, setTab] = useState<ManagerTabId>(() => peekManagerPending() ?? "ops");
+  const [tab, setTabRaw] = useState<ManagerTabId>(() => peekManagerPending() ?? "ops");
+  // กดรายการในกล่อง "ต้องจัดการ" = เปิดแท็บ + ตั้งตัวกรองของตาราง · แท็บลูกใช้แล้วล้าง (ไม่ค้างไปตอนกลับมาแท็บเดิม)
+  const [focus, setFocus] = useState<Focus | null>(null);
+  const setTab = (t: ManagerTabId) => { setFocus(null); setTabRaw(t); };
+  const go = (f: Focus) => { setTabRaw(f.tab); setFocus(f); };
   useEffect(() => {
     clearManagerPending();
-    registerManagerNav(setTab);
+    registerManagerNav((t) => { setFocus(null); setTabRaw(t); });
     return clearManagerNav;
   }, []);
   useEffect(() => { setManagerActive(tab); }, [tab]);
@@ -150,11 +160,18 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
     <div className="card"><div className="banner">{cr.error}</div></div>
   ) : !cr.data || !range || !period ? (
     <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>
-  ) : tab === "ops" ? (
-    <OpsTab trips={running} compare={!branch} lfSample={lf.data?.manifest.isSample} lfMissing={!!lf.error} />
   ) : (
-    <FinTab trips={released} debtRows={debtRows} range={range} period={period} compare={!branch}
-      debtSample={debtors.data?.manifest.isSample} debtError={debtors.error} />
+    <>
+      <TodoBox todo={todo} debts={!debtors.error && !!debtors.data} go={go} />
+      {tab === "ops" ? (
+        <OpsTab trips={running} compare={!branch} lfSample={lf.data?.manifest.isSample} lfMissing={!!lf.error}
+          focus={focus?.tab === "ops" ? focus : null} onFocusDone={() => setFocus(null)} />
+      ) : (
+        <FinTab trips={released} debtRows={debtRows} open={open} range={range} period={period} compare={!branch}
+          debtSample={debtors.data?.manifest.isSample} debtError={debtors.error}
+          focus={focus?.tab === "fin" ? focus : null} onFocusDone={() => setFocus(null)} />
+      )}
+    </>
   );
 
   return (
@@ -205,11 +222,55 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
   );
 }
 
+/* ================================================================ ต้องจัดการ */
+type OpsFocus = { tab: "ops"; band?: "r"; issue?: IssueKey };
+type FinFocus = { tab: "fin"; pick: DebtPick };
+type Focus = OpsFocus | FinFocus;
+
+/**
+ * กล่อง "ต้องจัดการ" บนสุดของทั้งสองแท็บ (เจ้าของงานสั่ง 27 ก.ย. 2569) — รายการสั้นจากข้อมูลช่วง/สาขาที่เลือก
+ * กดแล้วเปิดแท็บ + ตั้งตัวกรองของตาราง · รายการที่เป็น 0 ไม่แสดง · ไม่มีเลย = บอกว่าไม่มีเรื่องเร่งด่วน
+ */
+function TodoBox({ todo, debts, go }: { todo: Todo; debts: boolean; go: (f: Focus) => void }) {
+  const items: { key: string; tone: "r" | "y" | "b"; text: ReactNode; f: Focus }[] = [];
+  if (todo.fail) items.push({ key: "fail", tone: "r", f: { tab: "ops", band: "r" },
+    text: <>เที่ยวไม่ผ่านเกณฑ์ <b>{fmt(todo.fail)}</b> เที่ยว{todo.failLoss ? <> (ขาดทุน <b>{fmt(todo.failLoss)}</b>)</> : null}</> });
+  if (todo.topIssue) items.push({ key: "issue", tone: "y", f: { tab: "ops", issue: todo.topIssue.key },
+    text: <>ปัญหาที่พบบ่อยสุด: {issueLabel(todo.topIssue.key)} <b>{fmt(todo.topIssue.n)}</b> เที่ยว</> });
+  if (todo.est) items.push({ key: "est", tone: "b", f: { tab: "ops", issue: "costEst" },
+    text: <>ใบใหม่รอฝ่ายบัญชีกรอกค่าใช้จ่าย <b>{fmt(todo.est)}</b> ใบ</> });
+  if (debts && todo.over30.bills) items.push({ key: "over30", tone: "r", f: { tab: "fin", pick: "over30" },
+    text: <>ลูกค้าค้างเกิน 30 วัน <b>{fmt(todo.over30.cust)}</b> ราย รวม <b>{fmt(Math.round(todo.over30.amount))}</b> บาท</> });
+  if (debts && todo.soon.bills) items.push({ key: "soon", tone: "y", f: { tab: "fin", pick: "soon" },
+    text: <>บิลครบกำหนดใน {DUE_SOON_DAYS} วัน <b>{fmt(todo.soon.cust)}</b> ราย รวม <b>{fmt(Math.round(todo.soon.amount))}</b> บาท — โทรเตือนก่อนเลยกำหนด</> });
+  return (
+    <div className="mg-todo">
+      <h3>ต้องจัดการ</h3>
+      {items.length ? (
+        <ul>
+          {items.map((x) => (
+            <li key={x.key}>
+              <button type="button" className={`mg-todo-i ${x.tone}`} onClick={() => go(x.f)}>
+                <i aria-hidden="true" /><span>{x.text}</span><em>ดู →</em>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : <p className="mg-todo-ok">✓ ไม่มีเรื่องที่ต้องจัดการในช่วงนี้</p>}
+    </div>
+  );
+}
+
 /* ================================================================ หน้างาน */
-function OpsTab({ trips, compare, lfSample, lfMissing }: {
+function OpsTab({ trips, compare, lfSample, lfMissing, focus, onFocusDone }: {
   trips: MgrTrip[]; compare: boolean; lfSample?: boolean; lfMissing: boolean;
+  focus: OpsFocus | null; onFocusDone: () => void;
 }) {
   const s = useMemo(() => lfSummary(trips), [trips]);
+  // แถบสรุปปัญหา — กดชิป = กรองตารางเหลือเที่ยวที่มีปัญหานั้น กดซ้ำเพื่อยกเลิก
+  const issues = useMemo(() => issueCounts(trips), [trips]);
+  const [issue, setIssue] = useState<IssueKey | null>(null);
+  const shown = useMemo(() => (issue ? trips.filter((t) => t.issues.includes(issue)) : trips), [trips, issue]);
   const share = (n: number) => (s.n ? `(${pct(n / s.n * 100, 0)})` : undefined);
 
   const cols = useMemo<Col<MgrTrip>[]>(() => [
@@ -233,7 +294,7 @@ function OpsTab({ trips, compare, lfSample, lfMissing }: {
     { key: "advice", label: "คำแนะนำ", get: (t) => t.advice.join(" · "),
       render: (t) => <ul className="mg-adv">{t.advice.map((a) => <li key={a}>{a}</li>)}</ul> },
   ], []);
-  const cf = useColFilters(trips, {
+  const cf = useColFilters(shown, {
     id: { kind: "text", get: (t) => t.id, placeholder: "ค้นหาเลขที่ใบรายการ" },
     br: { kind: "select", get: (t) => t.br },
     d: { kind: "select", get: (t) => t.d },
@@ -250,6 +311,14 @@ function OpsTab({ trips, compare, lfSample, lfMissing }: {
     advice: { kind: "text", get: (t) => t.advice.join(" "), placeholder: "ค้นหา เช่น ค่าน้ำมัน" },
   });
   const { sorted, sort, toggle } = useSort(cf.filtered, cols, { key: "d", dir: -1 });
+  // มาจากกล่อง "ต้องจัดการ": ตั้งตัวกรองชุดใหม่ทั้งหมด แล้วเลื่อนไปที่ตาราง
+  useEffect(() => {
+    if (!focus) return;
+    setIssue(focus.issue ?? null);
+    cf.replace(focus.band ? { band: focus.band } : {});
+    onFocusDone();
+    requestAnimationFrame(() => document.getElementById("mg-ops-table")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- เทียบรายสาขา (ทุกสาขาเท่านั้น) ---------- */
   type BrRow = ReturnType<typeof lfSummary> & { br: string };
@@ -284,10 +353,22 @@ function OpsTab({ trips, compare, lfSample, lfMissing }: {
         </div>
       )}
 
-      <div className="dz-cc" style={{ marginTop: 14 }}>
-        <h4>เที่ยวรถที่กำลังวิ่ง ({fmt(sorted.length)}{cf.active ? ` จาก ${fmt(trips.length)}` : ""} เที่ยว)</h4>
+      <div className="dz-cc" style={{ marginTop: 14 }} id="mg-ops-table">
+        <h4>เที่ยวรถที่กำลังวิ่ง ({fmt(sorted.length)}{cf.active || issue ? ` จาก ${fmt(trips.length)}` : ""} เที่ยว)</h4>
+        {issues.length > 0 && (
+          <div className="mg-issues" role="group" aria-label="สรุปปัญหาของเที่ยว">
+            <span className="mg-issues-h">ปัญหาที่พบ</span>
+            {issues.map((x) => (
+              <button key={x.key} type="button" className={"mg-chip" + (issue === x.key ? " on" : "") + (x.key === "costEst" ? " est" : "")}
+                aria-pressed={issue === x.key} onClick={() => setIssue((c) => (c === x.key ? null : x.key))}
+                title="กดเพื่อดูเฉพาะเที่ยวที่มีปัญหานี้ · กดซ้ำเพื่อยกเลิก">
+                {issueLabel(x.key)} <b>{fmt(x.n)}</b>
+              </button>
+            ))}
+          </div>
+        )}
         <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(t) => t.id}
-          empty={trips.length ? "ไม่มีเที่ยวตามตัวกรองคอลัมน์" : "ไม่มีเที่ยวที่วิ่งอยู่ในช่วงที่เลือก"}
+          empty={trips.length ? "ไม่มีเที่ยวตามตัวกรอง" : "ไม่มีเที่ยวที่วิ่งอยู่ในช่วงที่เลือก"}
           className="mg-tbl" filterRow={cf.filterRow} />
         <Note>
           สถานะ = คะแนน Load Factor + Margin (เขียว 1 · เหลือง 0.5 · แดง 0): ≥ 1.5 ผ่าน · 1 เฝ้าระวัง · ≤ 0.5 ไม่ผ่าน · ขาดทุน = ไม่ผ่านเสมอ ·
@@ -306,8 +387,8 @@ function OpsTab({ trips, compare, lfSample, lfMissing }: {
 }
 
 /* ================================================================ การเงิน */
-function FinTab({ trips, debtRows, range, period, compare, debtSample, debtError }: {
-  period: MgrPeriod;
+function FinTab({ trips, debtRows, open, range, period, compare, debtSample, debtError, focus, onFocusDone }: {
+  period: MgrPeriod; open: MgrBill[]; focus: FinFocus | null; onFocusDone: () => void;
   trips: MgrTrip[]; debtRows: DebtorRow[]; range: { start: string; end: string }; compare: boolean;
   debtSample?: boolean; debtError: string | null;
 }) {
@@ -346,28 +427,42 @@ function FinTab({ trips, debtRows, range, period, compare, debtSample, debtError
         </div>
       )}
 
-      <DebtPart rows={debtRows} range={range} period={period} sample={debtSample} error={debtError} />
+      <DebtPart rows={debtRows} open={open} range={range} period={period} sample={debtSample} error={debtError}
+        focus={focus} onFocusDone={onFocusDone} />
     </>
   );
 }
 
 /* ---------------- ลูกหนี้ค้างชำระ ---------------- */
-type DebtPick = Exclude<DebtStatus, "notdue"> | null;
+/** ตัวกรองลูกหนี้: รายช่วงอายุหนี้ (การ์ด) · over30 = เกิน 30 วัน (31–60 + 61+) · soon = ครบกำหนดใน DUE_SOON_DAYS วัน */
+type DebtPick = Exclude<DebtStatus, "notdue"> | "over30" | "soon" | null;
+const PICK_LABEL: Record<Exclude<DebtPick, null>, string> = {
+  late30: DEBT_STATUS_LABEL.late30, late60: DEBT_STATUS_LABEL.late60, late61: DEBT_STATUS_LABEL.late61,
+  over30: "เกินกำหนดเกิน 30 วัน", soon: `ครบกำหนดใน ${DUE_SOON_DAYS} วัน`,
+};
+const pickOk = (p: DebtPick, b: MgrBill): boolean =>
+  !p ? true : p === "over30" ? b.status === "late60" || b.status === "late61" : p === "soon" ? dueSoon(b) : b.status === p;
 
 /**
  * ลูกหนี้คงค้าง ณ วันสิ้นช่วง (27 ก.ย. 2569) — การ์ด 5 ใบ (คงค้างรวม · 1–30 · 31–60 · 61+ · DSO) + กระแสของช่วง
  * + ตารางลูกค้าที่ค้าง (กดแถว = กรองตารางบิลเหลือลูกค้ารายนั้น กดซ้ำเพื่อยกเลิก) + ตารางบิลค้าง
  */
-function DebtPart({ rows, range, period, sample, error }: {
-  period: MgrPeriod;
+function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone }: {
+  period: MgrPeriod; open: MgrBill[]; focus: FinFocus | null; onFocusDone: () => void;
   rows: DebtorRow[]; range: { start: string; end: string }; sample?: boolean; error: string | null;
 }) {
   const [pick, setPick] = useState<DebtPick>(null);
   const [pickCust, setPickCust] = useState<string | null>(null);
   const toggle = (p: Exclude<DebtPick, null>) => setPick((c) => (c === p ? null : p));
-  const open = useMemo(() => outstandingAt(rows, range.end), [rows, range.end]);
   const s = useMemo(() => debtSummary(open, rows, range), [open, rows, range]);
-  const byStatus = useMemo(() => (pick ? open.filter((b) => b.status === pick) : open), [open, pick]);
+  const byStatus = useMemo(() => (pick ? open.filter((b) => pickOk(pick, b)) : open), [open, pick]);
+  const soon = useMemo(() => open.filter(dueSoon), [open]);
+  // มาจากกล่อง "ต้องจัดการ"
+  useEffect(() => {
+    if (!focus) return;
+    setPick(focus.pick); setPickCust(null); onFocusDone();
+    requestAnimationFrame(() => document.getElementById("mg-debt-cust")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [focus]); // eslint-disable-line react-hooks/exhaustive-deps
   const custs = useMemo(() => byCustomer(byStatus), [byStatus]);
   const shownBills = useMemo(() => (pickCust ? byStatus.filter((b) => b.cust === pickCust) : byStatus), [byStatus, pickCust]);
   const custName = (c: string) => custCode(numberForDebtor(c)) || c;
@@ -406,6 +501,8 @@ function DebtPart({ rows, range, period, sample, error }: {
     { key: "amount", label: "มูลค่า", get: (b) => b.amount, num: true, render: (b) => fmt(Math.round(b.amount)) },
     { key: "overdue", label: "ค้างชำระ (วัน)", get: (b) => b.overdue, num: true,
       render: (b) => (b.overdue ? fmt(b.overdue) : "–") },
+    { key: "dueIn", label: "ครบกำหนดในอีก (วัน)", get: (b) => b.dueIn ?? -1, num: true,
+      render: (b) => (b.dueIn == null ? "–" : dueSoon(b) ? <b className="mg-soon">{b.dueIn === 0 ? "วันนี้" : fmt(b.dueIn)}</b> : fmt(b.dueIn)) },
     { key: "status", label: "สถานะ", get: (b) => DEBT_RANK[b.status],
       render: (b) => <span className={`mg-st ${b.status}`}>{DEBT_DOT[b.status]} {DEBT_STATUS_LABEL[b.status]}</span> },
   ], []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -415,6 +512,7 @@ function DebtPart({ rows, range, period, sample, error }: {
     br: { kind: "select", get: (b) => b.br },
     amount: { kind: "min", get: (b) => b.amount },
     overdue: { kind: "min", get: (b) => b.overdue },
+    dueIn: { kind: "select", get: (b) => (dueSoon(b) ? "soon" : ""), opts: [{ v: "soon", label: `ภายใน ${DUE_SOON_DAYS} วัน` }] },
     status: { kind: "select", get: (b) => b.status,
       opts: (Object.keys(DEBT_STATUS_LABEL) as DebtStatus[]).map((k) => ({ v: k, label: `${DEBT_DOT[k]} ${DEBT_STATUS_LABEL[k]}` })) },
   });
@@ -446,11 +544,21 @@ function DebtPart({ rows, range, period, sample, error }: {
             <span>เก็บเงินได้{periodIn(period)} <b>{fmt(Math.round(s.collected))}</b> บาท ({fmt(s.collectedN)} บิล)</span>
           </div>
 
-          <div className="dz-cc" style={{ marginTop: 14 }}>
+          <div className="dz-cc" style={{ marginTop: 14 }} id="mg-debt-cust">
             <h4>
               ลูกค้าที่ค้างชำระ ({fmt(cs.sorted.length)} ราย)
-              {pick && <span className="cp-pick"> · {DEBT_STATUS_LABEL[pick]}</span>}
+              {pick && <span className="cp-pick"> · {PICK_LABEL[pick]}</span>}
             </h4>
+            <div className="mg-issues">
+              <button type="button" className={"mg-chip soon" + (pick === "soon" ? " on" : "")} aria-pressed={pick === "soon"}
+                onClick={() => toggle("soon")} title="ลูกค้าที่มีบิลครบกำหนดภายใน 7 วันหลังวันสิ้นช่วง — โทรเตือนก่อนเลยกำหนด">
+                ⏰ ครบกำหนดใน {DUE_SOON_DAYS} วัน <b>{fmt(new Set(soon.map((b) => b.cust)).size)} ราย · {fmt(Math.round(soon.reduce((x, b) => x + b.amount, 0)))} บาท</b>
+              </button>
+              <button type="button" className={"mg-chip" + (pick === "over30" ? " on" : "")} aria-pressed={pick === "over30"}
+                onClick={() => toggle("over30")}>
+                เกินกำหนดเกิน 30 วัน <b>{fmt(Math.round(s.late60 + s.late61))} บาท</b>
+              </button>
+            </div>
             <SortTable rows={cs.sorted} cols={custCols} sort={cs.sort} onSort={cs.toggle} rowKey={(c) => c.cust}
               empty={open.length ? "ไม่มีลูกค้าตามตัวกรอง" : "ไม่มีบิลค้างชำระ ณ วันสิ้นช่วง"}
               className="mg-tbl mg-click" filterRow={ccf.filterRow} maxHeight="45vh"
@@ -465,7 +573,7 @@ function DebtPart({ rows, range, period, sample, error }: {
           <div className="dz-cc" style={{ marginTop: 14 }}>
             <h4>
               บิลค้างชำระ ({fmt(sorted.length)} บิล)
-              {pick && <span className="cp-pick"> · {DEBT_STATUS_LABEL[pick]}</span>}
+              {pick && <span className="cp-pick"> · {PICK_LABEL[pick]}</span>}
               {pickCust && <span className="cp-pick"> · ลูกค้า {custName(pickCust)}
                 <button type="button" className="mg-x" onClick={() => setPickCust(null)} aria-label="ยกเลิกเลือกลูกค้า">×</button></span>}
             </h4>
@@ -476,7 +584,8 @@ function DebtPart({ rows, range, period, sample, error }: {
               ลูกหนี้คงค้าง = ทุกบิลที่วางแล้วและยังไม่ชำระ ณ วันสุดท้ายของช่วง ไม่ว่าวางบิลเมื่อไหร่ (รวมที่ยังไม่ถึงกำหนด) ·
               ค้างชำระ (วัน) = วันที่เลยกำหนด ณ วันนั้น · วางบิล/เก็บเงินได้ในช่วง = วันวางบิล/วันที่จบอยู่ในช่วง ·
               DSO = ลูกหนี้คงค้าง ÷ ยอดวางบิลในช่วง × จำนวนวันในช่วง · เห็นเฉพาะบิลที่อยู่ในไฟล์ลูกหนี้ ·
-              กดการ์ดเกินกำหนดเพื่อกรองทั้งสองตาราง กดซ้ำเพื่อยกเลิก
+              กดการ์ดเกินกำหนด/ปุ่มเหนือตารางลูกค้าเพื่อกรองทั้งสองตาราง กดซ้ำเพื่อยกเลิก ·
+              ครบกำหนดใน {DUE_SOON_DAYS} วัน = ยังไม่ถึงกำหนด และครบภายใน {DUE_SOON_DAYS} วันหลังวันสิ้นช่วง
             </Note>
           </div>
         </>

@@ -2867,3 +2867,51 @@ text.num-fd{transform-box:fill-box}
 @media(max-width:1300px){.dso2-two{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:1100px){.dso2-ov{grid-template-columns:minmax(0,1fr)}.dso2-ov-donut{max-width:320px}}
 @media(max-width:720px){.dso2-donuts{grid-template-columns:minmax(0,1fr)}}
+
+/* Manager Dashboard: กล่อง "ต้องจัดการ" + ชิปสรุปปัญหา/ตัวกรองลูกหนี้ (27 ก.ย. 2569) */
+#view-dash .mg-todo{background:var(--d-card);border-radius:18px;padding:16px 20px;margin:0 0 16px;
+  box-shadow:0 1px 2px rgba(27,27,31,.04),0 8px 24px -16px rgba(27,27,31,.18)}
+#view-dash .mg-todo h3{margin:0 0 8px;font-size:16px;font-weight:700;color:var(--d-ink)}
+#view-dash .mg-todo ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:8px}
+#view-dash .mg-todo-i{width:100%;display:flex;align-items:center;gap:10px;text-align:left;font:inherit;font-size:14px;color:var(--d-ink2);
+  background:var(--d-soft,#F7F5F2);border:1px solid transparent;border-radius:12px;padding:10px 12px;cursor:pointer;
+  transition:border-color .15s,background-color .15s}
+#view-dash .mg-todo-i:hover{border-color:rgba(26,23,20,.18);background:#fff}
+#view-dash .mg-todo-i:focus-visible{outline:2px solid #5B3FE0;outline-offset:2px}
+#view-dash .mg-todo-i i{flex:none;width:10px;height:10px;border-radius:50%}
+#view-dash .mg-todo-i.r i{background:#E11D48}
+#view-dash .mg-todo-i.y i{background:#F59E0B}
+#view-dash .mg-todo-i.b i{background:#0EA5E9}
+#view-dash .mg-todo-i span{flex:1}
+#view-dash .mg-todo-i b{color:var(--d-ink)}
+#view-dash .mg-todo-i em{font-style:normal;font-size:12.5px;color:var(--d-ink5);white-space:nowrap}
+#view-dash .mg-todo-ok{margin:0;color:var(--green);font-size:14px}
+#view-dash .mg-issues{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 12px}
+#view-dash .mg-issues-h{font-size:12.5px;color:var(--d-ink5);margin-right:4px}
+#view-dash .mg-chip{font:inherit;font-size:12.5px;color:var(--d-ink3);background:#fff;border:1px solid var(--d-line);border-radius:999px;
+  padding:5px 11px;cursor:pointer;transition:border-color .15s,background-color .15s,color .15s}
+#view-dash .mg-chip b{margin-left:4px;color:var(--d-ink)}
+#view-dash .mg-chip:hover{border-color:rgba(26,23,20,.3)}
+#view-dash .mg-chip.on{background:#1A1714;border-color:#1A1714;color:#fff}
+#view-dash .mg-chip.on b{color:#fff}
+#view-dash .mg-chip.est:not(.on){border-color:#FCD9A8;background:#FFF8EE}
+#view-dash .mg-chip.soon:not(.on){border-color:#FCD9A8;background:#FFF8EE}
+#view-dash .mg-soon{color:#B45309}
+
+/* แท็บ Damage Rate (27 ก.ย. 2569 · ไฟล์ "dashboard คชจ.md"): การ์ดแถว 1 = 4 ใบ · แถว 2 = 2 ใบ · ป้ายคำแนะนำ */
+#view-dash .dz-heroes.dmg-heroes{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width: 1100px){#view-dash .dz-heroes.dmg-heroes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width: 640px){#view-dash .dz-heroes.dmg-heroes{grid-template-columns:1fr}}
+#view-dash .dz-cards.dmg-cards2{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width: 640px){#view-dash .dz-cards.dmg-cards2{grid-template-columns:1fr}}
+.dmg-rec{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap;
+  background:var(--d-rail);color:var(--d-ink4)}
+.dmg-rec.follow{background:#DDF3EA;color:#047857}
+.dmg-rec.check{background:#E3F0FA;color:#0369A1}
+.dmg-rec.improve{background:#FEF0D9;color:#B45309}
+.dmg-rec.urgent{background:#FBE3E7;color:#BE123C}
+/* จุดสี KPI Damage ในกล่อง PI (เขียว ≤ P75 · เหลือง < 2×P75 · แดง ≥ 2×P75 — แสดงผลเท่านั้น) */
+.pi-tone{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0;box-shadow:0 0 0 2px rgba(255,255,255,.55)}
+.pi-tone.g{background:#22C55E}
+.pi-tone.y{background:#FACC15}
+.pi-tone.r{background:#EF4444}

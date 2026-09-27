@@ -4,16 +4,19 @@
  * สเปก: `ออกแบบ Dashboard.pdf` (หน้าตา) + `dashboard คชจ.pdf` (นิยามข้อมูล) · เจ้าของงานเคาะรายละเอียด 23 ก.ย. 2569
  * สูตรทั้งหมดอยู่ที่ `lib/damage/damage.ts` — ไฟล์นี้วาดอย่างเดียว
  *
- * ลำดับบนหน้า: ตัวกรอง → การ์ด KPI → แนวโน้มรายเดือน + Damage Alert รายเดือน
- *   → วงกลมสัดส่วนชนิดรถ + แท่งเส้นทาง 10 อันดับ → ตารางเส้นทาง × ประเภทรถ × ชนิดรถ
- *   → Damage Alert ของตาราง → ตารางระดับความเสียหายและแนวทางการดำเนินการ
+ * ลำดับบนหน้า: ตัวกรอง → การ์ด KPI (แถว 1: DR · DIR · มูลค่า · เที่ยวที่มีบิลเคลียร์ · แถว 2: รายได้ · เที่ยวทั้งหมด)
+ *   → แนวโน้มรายเดือน + Damage Alert รายเดือน → แท่งนอน DIR ตามชนิดรถ 15 อันดับ (ท่อน = ประเภทรถ) + ตามเส้นทาง 15 อันดับ
+ *   → ตารางเส้นทาง × ประเภทรถ × ชนิดรถ (ระดับ + คำแนะนำ) → Damage Alert → ตารางคำแนะนำ → ตารางระดับความเสียหาย
+ * ★ ไฟล์ "dashboard คชจ.md" (เจ้าของงานส่ง 27 ก.ย. 2569): เกณฑ์ระดับ 4 ระดับ + คำแนะนำ 4 แบบ (lib/damage/damage.ts) ·
+ *   เลือกเดือนเดียว = ไม่ใช้ P75 เป็นเกณฑ์ (ไม่จัดระดับ/คำแนะนำ ไม่มี Alert ซ่อนเส้น P75) · กราฟแท่งนับทุกกลุ่ม ไม่ตัดกลุ่มเที่ยวน้อย
+ *   (เจ้าของงานเลือก) แต่ Damage Alert ยังนับเฉพาะกลุ่ม ≥ MIN_TRIPS_ALERT เที่ยว
  *
  * ★ ตัวหาร = เที่ยวที่จับคู่บิลได้ **ไม่รวมเที่ยววิ่งเปล่า** (เจ้าของงานเคาะ 20 ก.ย. 2569)
  * ★ มูลค่าความเสียหายมาจากบิลในไฟล์รายได้ (clrAmt/clrN) จึงมีเฉพาะเที่ยวที่ m = true
  *   หน้า "Dashboard ค่าเดินทาง(ไม่ใช้)" จึงขึ้นข้อจำกัดแทน · ไม่ใช้ธง clear จากไฟล์ต้นทุน (ไม่ตรงกับบิลจริง)
  * ★ ตัวกรองมีสามชุดที่ขอบเขตไม่เท่ากัน — สลับกันแล้วตัวเลขผิดโดยไม่มี error:
  *     timed  = ตัวกรองเวลาอย่างเดียว → เกณฑ์ P75 (ภาพรวมบริษัท ไม่ตามเส้นทาง/รถ)
- *     rows   = เวลา + เส้นทาง/รถด้านบน → การ์ด วงกลม แท่ง Alert รายเดือน
+ *     rows   = เวลา + เส้นทาง/รถด้านบน → การ์ด กราฟแท่ง Alert รายเดือน
  *     กราฟแนวโน้ม = ทั้งปีที่เลือก (ไม่ตัดตามช่วงเดือน) + เส้นทาง/รถด้านบน
  *   ตารางมีตัวกรองหัวตารางของตัวเอง ค่าว่าง = ตามตัวกรองด้านบน ถ้าเลือก = ทับมิตินั้น (ไม่มีตัวกรองเวลาของตัวเอง
  *   เพราะระดับความเสียหายต้องเทียบกับ P75 ของช่วงเวลาเดียวกับด้านบน)
@@ -21,28 +24,29 @@
  */
 import { useMemo, useState } from "react";
 import {
-  Bar, CartesianGrid, ComposedChart, Legend, Line, LineChart, ReferenceArea, ReferenceLine,
+  Bar, BarChart, CartesianGrid, LabelList, Legend, Line, LineChart, ReferenceArea, ReferenceLine,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { DPie } from "../../lib/chart/dcharts";
-import { anim, axisProps, gridProps, legendProps, tooltipProps } from "../../lib/chart/primitives";
-import { D, useChartTheme } from "../../lib/chart/theme";
+import { BAR_RADIUS, anim, axisProps, gridProps, legendProps, tooltipProps } from "../../lib/chart/primitives";
+import { D, DFONT, useChartTheme } from "../../lib/chart/theme";
+import type { ChartTheme } from "../../lib/chart/theme";
 import { FF, Hero, KC, Note, Pane, TableHead } from "../dash-fleet/parts";
 import { ListFF, PeriodFF, SortTable, duniq, fmt, isFiltered, monthLabel, pct, routeArrow, useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import {
-  CASES, LEVELS, MIN_TRIPS_ALERT, PERIOD_ALL, aggregateDamage, caseOf, damageCase, damageLevel, damageThresholds, inPeriod,
-  isPartialYear, levelOf, totalDamage,
+  LEVELS, MIN_TRIPS_ALERT, PERIOD_ALL, RECS, aggregateDamage, damageLevel, damageRec, damageThresholds, inPeriod,
+  isPartialYear, levelOf, recOf, totalDamage,
 } from "../../lib/damage/damage";
-import type { DamageAgg, DamageCase, DamageLevel, DamagePeriod, DamageThresholds } from "../../lib/damage/damage";
+import type { DamageAgg, DamageLevel, DamagePeriod, DamageRec, DamageThresholds } from "../../lib/damage/damage";
 import type { Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 
-const TOP_ROUTES = 10;
-/** จำนวนชนิดรถที่แยกสีในวงกลม/แท่ง — ที่เหลือรวมเป็น "อื่น ๆ" (ชุดตัวอย่างมีชนิดรถที่เสียหาย 13 ชนิด) */
-const TOP_KINDS = 5;
-const OTHER = "อื่น ๆ";
-const PALETTE = [D.indigo, D.violet, D.amber, D.teal, D.rose, D.cyan, D.orange, D.pink, D.emerald, "#65A30D"];
+/** จำนวนแท่งของกราฟชนิดรถ/เส้นทาง (เจ้าของงานสั่ง 27 ก.ย. 2569 — เดิมเส้นทาง 10 · ชนิดรถเป็นวงกลม 5 + อื่น ๆ) */
+const TOP_BARS = 15;
+/** สีประเภทรถในแท่งชนิดรถ — ชุดเดียวกับแท็บ Vehicle Utilization (FT_COLOR ใน FleetUtilizationView.tsx) ผูกกับชื่อ ไม่ใช่ลำดับ */
+const FT_ORDER = ["รถบริษัท", "รถร่วม", "รถร่วมนอกพิเศษ"];
+const FT_COLOR: Record<string, string> = { "รถบริษัท": D.indigo, "รถร่วม": D.teal, "รถร่วมนอกพิเศษ": D.amber };
+const ftColor = (ft: string): string => FT_COLOR[ft] ?? D.slate;
 const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 
 /**
@@ -54,9 +58,14 @@ const pctTick = (v: number): string =>
 
 /** สองเส้นของกราฟแนวโน้ม — แกนเดียว กดปุ่มหัวการ์ดเปิด-ปิดทีละเส้น (เจ้าของงานเลือก 23 ก.ย. 2569) */
 const LINES = [
-  { key: "dr", label: "Damage Rate", color: D.rose, p75: "p75Rate" },
-  { key: "dir", label: "Damage Incidence Rate", color: D.cyan, p75: "p75Incidence" },
+  { key: "dr", label: "Damage Rate", color: D.rose, p75: "p75Rate", p75Label: "เส้นเกณฑ์ระดับมูลค่าความเสียหาย (P75)" },
+  { key: "dir", label: "Damage Incidence Rate", color: D.cyan, p75: "p75Incidence", p75Label: "เส้นเกณฑ์ระดับการเกิดความเสียหาย (P75)" },
 ] as const;
+
+/** ชื่อเดือนเต็ม — Damage Alert รายเดือนตามตัวอย่างในไฟล์ "เดือน มกราคม …" */
+const TH_MONTH = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
+  "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+const fullMonth = (mo: string): string => `${TH_MONTH[Number(mo.slice(5, 7)) - 1]} ${Number(mo.slice(0, 4)) + 543}`;
 
 const rtKey = (t: Trip): string => t.rt || routeArrow(t);
 const orNone = (s: string): string => s || "(ไม่ระบุ)";
@@ -76,8 +85,8 @@ const T0: TableFilter = { rt: "", ft: "", vk: "", level: "dmg" };
 interface GroupRow extends DamageAgg {
   route: string; ft: string; vk: string;
   level: DamageLevel | null;
-  /** กรณีตามเกณฑ์ (5 กรณี) — ระดับปานกลางมีสองกรณีที่แนวทางต่างกัน ใช้บอกแนวทางบนป้าย */
-  kase: DamageCase | null;
+  /** คำแนะนำตาม logic ในไฟล์ (ชุดแยกจากระดับ) */
+  rec: DamageRec | null;
 }
 
 const rankOf = (l: DamageLevel | null): number => (l ? levelOf(l).rank : -1);
@@ -123,71 +132,41 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
       .filter((a) => a.n >= MIN_TRIPS_ALERT && damageLevel(a, th) === "high")
       .sort((a, b) => a.key.localeCompare(b.key)), [rows, th]);
 
-  /* ---------- วงกลม: สัดส่วนเที่ยวที่มีบิลเคลียร์ตามชนิดรถ ---------- */
-  const damaged = useMemo(() => rows.filter((t) => t.clrN > 0), [rows]);
-  const pieKinds = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of damaged) m.set(orNone(t.vk), (m.get(orNone(t.vk)) ?? 0) + 1);
-    const all = [...m.entries()].sort((a, b) => b[1] - a[1]);
-    const top = all.slice(0, TOP_KINDS);
-    const rest = all.slice(TOP_KINDS).reduce((s, [, v]) => s + v, 0);
-    return rest ? [...top, [OTHER, rest] as [string, number]] : top;
-  }, [damaged]);
-  const fleetShare = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of damaged) m.set(orNone(t.ft), (m.get(orNone(t.ft)) ?? 0) + 1);
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [damaged]);
-
-  /* ---------- แท่ง: Incidence รายเส้นทาง แบ่งท่อนตามสัดส่วนชนิดรถที่ใช้ในเส้นทางนั้น ---------- */
-  const barRoutes = useMemo(() =>
-    aggregateDamage(rows, rtKey)
-      .filter((a) => a.n >= MIN_TRIPS_ALERT && a.incidence > 0)
-      .sort((a, b) => b.incidence - a.incidence).slice(0, TOP_ROUTES), [rows]);
-  const barKinds = useMemo(() => {
-    const keep = new Set(barRoutes.map((r) => r.key));
-    const m = new Map<string, number>();
-    for (const t of rows) if (keep.has(rtKey(t))) m.set(orNone(t.vk), (m.get(orNone(t.vk)) ?? 0) + 1);
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, TOP_KINDS).map(([k]) => k);
-  }, [rows, barRoutes]);
-
-  /** สีของชนิดรถใช้ชุดเดียวกันทั้งวงกลมและแท่ง — ชนิดเดียวกันต้องสีเดียวกันทั้งสองกราฟ */
-  const colorOf = useMemo(() => {
-    const order: string[] = [];
-    for (const [k] of pieKinds) if (k !== OTHER && !order.includes(k)) order.push(k);
-    for (const k of barKinds) if (!order.includes(k)) order.push(k);
-    return (k: string): string => (k === OTHER ? D.slate : PALETTE[order.indexOf(k) % PALETTE.length] ?? D.slate);
-  }, [pieKinds, barKinds]);
-
-  const barData = useMemo(() => {
-    const byRoute = new Map<string, Map<string, number>>();
-    const keep = new Set(barRoutes.map((r) => r.key));
+  /* ---------- แท่งนอน: อัตราความถี่การเกิดความเสียหาย (DIR) ตามชนิดรถ · ท่อน = สัดส่วนประเภทรถของเที่ยวที่มีบิลเคลียร์ ---------- */
+  const kindBars = useMemo(() => {
+    const top = aggregateDamage(rows, (t) => orNone(t.vk))
+      .filter((a) => a.dmgTrips > 0)
+      .sort((a, b) => b.incidence - a.incidence || b.dmgTrips - a.dmgTrips).slice(0, TOP_BARS);
+    const keep = new Set(top.map((a) => a.key));
+    const byKind = new Map<string, Map<string, number>>();
     for (const t of rows) {
-      const r = rtKey(t);
-      if (!keep.has(r)) continue;
-      const k = barKinds.includes(orNone(t.vk)) ? orNone(t.vk) : OTHER;
-      const m = byRoute.get(r) ?? new Map<string, number>();
-      m.set(k, (m.get(k) ?? 0) + 1);
-      byRoute.set(r, m);
+      if (!(t.clrN > 0) || !keep.has(orNone(t.vk))) continue;
+      const m = byKind.get(orNone(t.vk)) ?? new Map<string, number>();
+      m.set(orNone(t.ft), (m.get(orNone(t.ft)) ?? 0) + 1);
+      byKind.set(orNone(t.vk), m);
     }
-    return barRoutes.map((r) => {
-      const m = byRoute.get(r.key)!;
-      // ท่อน = Incidence ของเส้นทาง × สัดส่วนเที่ยวของชนิดรถนั้น → ทุกท่อนรวมกันเท่ากับ Incidence ของเส้นทางพอดี
-      const row: Record<string, string | number> = { name: r.key, total: r.incidence };
-      [...barKinds, OTHER].forEach((k, i) => {
-        const share = (m.get(k) ?? 0) / r.n;
-        row[`k${i}`] = Math.round(r.incidence * share * 1000) / 1000;
-        row[`s${i}`] = Math.round(share * 1000) / 10;
+    const fts = [...new Set([...byKind.values()].flatMap((m) => [...m.keys()]))]
+      .sort((a, b) => (FT_ORDER.indexOf(a) + 1 || 99) - (FT_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b, "th"));
+    const data = top.map((a) => {
+      const m = byKind.get(a.key) ?? new Map<string, number>();
+      const row: KindBar = { name: a.key, total: a.incidence, dmg: a.dmgTrips, n: a.n, amt: a.clrAmt, shares: {} };
+      // ท่อน = DIR ของชนิดรถ × สัดส่วนประเภทรถในเที่ยวที่มีบิลเคลียร์ → ทุกท่อนรวมเท่ากับ DIR ของชนิดรถพอดี
+      fts.forEach((ft, i) => {
+        const share = (m.get(ft) ?? 0) / a.dmgTrips;
+        row[`f${i}`] = a.incidence * share;
+        row.shares[ft] = share * 100;
       });
       return row;
     });
-  }, [rows, barRoutes, barKinds]);
-  const barSeries = useMemo(() => {
-    const ks = [...barKinds, OTHER];
-    // "อื่น ๆ" ขึ้นเฉพาะเมื่อมีเที่ยวจริง ไม่งั้นป้ายสีมีชื่อที่ไม่มีท่อนให้เห็น
-    return ks.map((k, i) => ({ key: `k${i}`, share: `s${i}`, label: k, color: colorOf(k) }))
-      .filter((s) => barData.some((r) => Number(r[s.key]) > 0));
-  }, [barKinds, barData, colorOf]);
+    return { data, series: fts.map((ft, i) => ({ key: `f${i}`, label: ft, color: ftColor(ft) })) };
+  }, [rows]);
+
+  /* ---------- แท่งนอน: DIR ตามเส้นทาง 15 อันดับ · แท่งสีเดียว ตัวเลข % ในแท่ง ---------- */
+  const routeBars = useMemo(() =>
+    aggregateDamage(rows, rtKey)
+      .filter((a) => a.dmgTrips > 0)
+      .sort((a, b) => b.incidence - a.incidence || b.dmgTrips - a.dmgTrips).slice(0, TOP_BARS)
+      .map((a) => ({ name: a.key, v: a.incidence, dmg: a.dmgTrips, n: a.n })), [rows]);
 
   /* ---------- ตาราง: ตัวกรองหัวตารางทับตัวกรองด้านบนทีละมิติ ---------- */
   const eff: Dims = { rt: tf.rt || f.rt, ft: tf.ft || f.ft, vk: tf.vk || f.vk };
@@ -195,8 +174,7 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
     const g = aggregateDamage(timed.filter((t) => passDims(t, eff)), (t) => `${rtKey(t)}\u0000${t.ft}\u0000${t.vk}`);
     return g.map((a) => {
       const [route = "", ft = "", vk = ""] = a.key.split("\u0000");
-      const kase = damageCase(a, th);
-      return { ...a, route, ft, vk, kase, level: kase ? caseOf(kase).level : null };
+      return { ...a, route, ft, vk, level: damageLevel(a, th), rec: damageRec(a, th) };
     })
       // เรียงตั้งต้น: ระดับสูงก่อน แล้วตาม Damage Rate — useSort เรียงแบบ stable จึงคงลำดับรองนี้ไว้
       .sort((a, b) => rankOf(b.level) - rankOf(a.level) || (b.rate ?? 0) - (a.rate ?? 0));
@@ -224,7 +202,9 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
     { key: "incidence", label: "Damage Incidence Rate (%)", get: (r) => r.incidence, num: true,
       render: (r) => pct(r.incidence, 2) },
     { key: "level", label: "ระดับความเสียหาย", get: (r) => rankOf(r.level),
-      render: (r) => <LevelBadge level={r.level} kase={r.kase} /> },
+      render: (r) => <LevelBadge level={r.level} /> },
+    { key: "rec", label: "คำแนะนำ", get: (r) => (r.rec ? RECS.findIndex((x) => x.key === r.rec) : -1),
+      render: (r) => <RecBadge rec={r.rec} /> },
   ], []);
   const { sorted, sort, toggle } = useSort(shown, cols, { key: "level", dir: -1 });
 
@@ -250,14 +230,14 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
 
       <Pane deps={[rows]}>
         {/* Row 1 การ์ดใหญ่ · Row 2 การ์ดเล็ก — ลำดับตาม `dashboard คชจ.pdf` หน้า 3 (เจ้าของงานเลือก 23 ก.ย. 2569) */}
-        <div className="dz-heroes">
+        {/* แถว 1 = 4 ใบ · แถว 2 = 2 ใบ ตามไฟล์ "dashboard คชจ.md" (27 ก.ย. 2569) */}
+        <div className="dz-heroes dmg-heroes">
           <Hero kind="loss" l="Damage Rate" v={kpi.rate == null ? "–" : pct(kpi.rate, 3)} s="มูลค่าบิลเคลียร์ ÷ รายได้รวม" />
           <Hero kind="fleet" l="Damage Incidence Rate" v={pct(kpi.incidence, 2)} s="เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมด" />
           <Hero kind="rev" l="มูลค่าบิลเคลียร์" v={fmt(kpi.clrAmt, 2)} s="บาท · มูลค่าความเสียหาย" />
+          <Hero kind="warn" l="จำนวนเที่ยวที่มีบิลเคลียร์" v={fmt(kpi.dmgTrips)} s="เที่ยว · มีบิลเคลียร์อย่างน้อย 1 รายการ" />
         </div>
-        <div className="dz-cards">
-          <KC dot={D.rose} tone={kpi.dmgTrips ? "warn" : undefined} l="จำนวนเที่ยวที่มีบิลเคลียร์"
-            v={fmt(kpi.dmgTrips)} s="เที่ยว · มีบิลเคลียร์อย่างน้อย 1 รายการ" />
+        <div className="dz-cards dmg-cards2">
           <KC dot={D.emerald} l="รายได้รวม" v={fmt(kpi.rev)} s="บาท · เฉพาะเที่ยวที่จับคู่ได้" />
           <KC dot={D.indigo} l="จำนวนเที่ยวทั้งหมด" v={fmt(kpi.n)} s="เที่ยว · ฐานของทุกอัตรา" />
         </div>
@@ -267,9 +247,10 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
             ? <> · ตรงกับเที่ยวที่จับคู่กับไฟล์รายได้ได้ {fmt(matchedTotal)} เที่ยว หักเที่ยววิ่งเปล่า {fmt(emptyN)} เที่ยว = {fmt(expectedN)} ✓</>
             : <b style={{ color: "var(--red)" }}> · ไม่ตรงกับฐานที่ควรได้ ({fmt(expectedN)} เที่ยว = จับคู่ได้ {fmt(matchedTotal)} − วิ่งเปล่า {fmt(emptyN)}) — มีเที่ยวตกหล่นจากการรวมยอด</b>)}
           {!unfiltered && <> · กรองอยู่ เทียบกับฐานทั้งหมด {fmt(expectedN)} เที่ยว (จับคู่ได้ {fmt(matchedTotal)} − วิ่งเปล่า {fmt(emptyN)})</>}
-          {th.months === 1 && (
+          {th.months > 0 && !th.usable && (
             <b style={{ color: "var(--orange-dark)" }}>
-              {" "}· ช่วงที่เลือกมีข้อมูลเดือนเดียว เกณฑ์ P75 จึงเท่ากับค่าของเดือนนั้นเอง — ควรเลือกช่วงอย่างน้อย 2 เดือน
+              {" "}· ช่วงที่เลือกมีข้อมูลเดือนเดียว ไม่ใช้ P75 เป็นเกณฑ์ — ไม่จัดระดับ/คำแนะนำ และไม่มี Damage Alert ·
+              เลือกช่วงอย่างน้อย 2 เดือนเพื่อประเมิน
             </b>
           )}
         </Note>
@@ -294,38 +275,30 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
             <TrendLines data={trend} hidden={hidden} th={th}
               band={partial ? [monthLabel(`${f.year}-${f.from}`), monthLabel(`${f.year}-${f.to}`)] : null} />
           </div>
-          <AlertList title="Damage Alert · รายเดือน"
+          <AlertList title="Damage Alert · รายเดือน" action="ควรเร่งตรวจสอบแก้ไข"
             empty="ไม่มีเดือนที่ Damage Rate และ Damage Incidence Rate เกินเกณฑ์ P75 พร้อมกัน"
             items={monthAlerts.map((a) => ({
-              key: a.key, head: monthLabel(a.key),
-              sub: `Damage Rate ${a.rate == null ? "–" : pct(a.rate, 3)} | Incidence Rate ${pct(a.incidence, 2)}`,
+              key: a.key, head: `เดือน ${fullMonth(a.key)}`,
+              sub: `Damage Rate ${a.rate == null ? "–" : pct(a.rate, 3)}, Damage Incidence Rate ${pct(a.incidence, 2)}`,
             }))} />
         </div>
 
-        {/* แผนภูมิวงกลม + แท่งเส้นทาง */}
+        {/* แท่งนอน DIR ตามชนิดรถ + ตามเส้นทาง (15 อันดับ · เจ้าของงานสั่ง 27 ก.ย. 2569 แทนวงกลม/แท่งแบ่งชนิดรถ) */}
         <div className="dz-row dz-11" style={{ marginTop: 14 }}>
           <div className="dz-cc">
-            <TableHead title="สัดส่วนเที่ยวที่มีบิลเคลียร์ ตามชนิดรถ" />
-            <div className="dz-box">
-              {pieKinds.length
-                ? <DPie suffix=" เที่ยว" colors={pieKinds.map(([k]) => colorOf(k))}
-                    data={pieKinds.map(([k, v]) => ({ name: `${k} · ${pct(v / damaged.length * 100, 0)}`, v }))} />
+            <TableHead title="อัตราความถี่การเกิดความเสียหายตามชนิดรถ" />
+            <div className="dz-box" style={{ height: barsHeight(kindBars.data.length) }}>
+              {kindBars.data.length
+                ? <KindBars data={kindBars.data} series={kindBars.series} />
                 : <EmptyChart text="ไม่มีเที่ยวที่มีบิลเคลียร์ตามตัวกรองที่เลือก" />}
             </div>
-            {fleetShare.length > 0 && (
-              <div className="dmg-fleet">
-                {fleetShare.map(([k, v]) => (
-                  <span key={k}>{k} <b>{pct(v / damaged.length * 100, 0)}</b></span>
-                ))}
-              </div>
-            )}
           </div>
           <div className="dz-cc">
-            <TableHead title={`Damage Incidence Rate รายเส้นทาง · ${TOP_ROUTES} อันดับแรก · แบ่งตามชนิดรถที่ใช้`} />
-            <div className="dz-box tall">
-              {barData.length
-                ? <StackBars data={barData} series={barSeries} />
-                : <EmptyChart text={`ไม่มีเส้นทางที่มีบิลเคลียร์และมีอย่างน้อย ${MIN_TRIPS_ALERT} เที่ยวตามตัวกรองที่เลือก`} />}
+            <TableHead title="อัตราความถี่การเกิดความเสียหายตามเส้นทาง" />
+            <div className="dz-box" style={{ height: barsHeight(routeBars.length) }}>
+              {routeBars.length
+                ? <RouteBars data={routeBars} />
+                : <EmptyChart text="ไม่มีเส้นทางที่มีบิลเคลียร์ตามตัวกรองที่เลือก" />}
             </div>
           </div>
         </div>
@@ -349,26 +322,29 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
           {/* dmg-tbl: หัวคอลัมน์ตัดบรรทัดได้ — 8 คอลัมน์ ถ้าไม่ตัด คอลัมน์ระดับความเสียหายหลุดขอบขวาไปอยู่นอกจอ */}
           <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} className="dmg-tbl"
             rowKey={(r) => r.key} empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" />
-          <AlertList title="Damage Alert · ต้องเร่งตรวจสอบ"
+          <AlertList title="Damage Alert · ต้องเร่งตรวจสอบ" action="เร่งตรวจสอบและแก้ไขด่วน"
             empty={`ไม่มีกลุ่มที่อยู่ในระดับความเสี่ยงสูง (นับเฉพาะกลุ่มที่มีอย่างน้อย ${MIN_TRIPS_ALERT} เที่ยว)`}
             items={tableAlerts.map((r) => ({
               key: r.key, head: `${r.route} · ${orNone(r.ft)} · ${orNone(r.vk)}`,
-              sub: `Damage Rate ${r.rate == null ? "–" : pct(r.rate, 3)} | Incidence Rate ${pct(r.incidence, 2)} · ${fmt(r.dmgTrips)} จาก ${fmt(r.n)} เที่ยว`,
+              sub: `Damage Rate = ${r.rate == null ? "–" : pct(r.rate, 3)} | Incidence Rate = ${pct(r.incidence, 2)} · ${fmt(r.dmgTrips)} จาก ${fmt(r.n)} เที่ยว`,
             }))} />
         </div>
 
-        {/* ระดับความเสียหายและแนวทางการดำเนินการ (สเปกหน้า 6) — ต่อจาก Alert ของตาราง */}
+        {/* คำแนะนำ (ต่อจาก Alert ของตารางตามไฟล์) + ระดับความเสียหาย — สองชุดเกณฑ์แยกกัน */}
         <div className="dz-cc" style={{ marginTop: 14 }}>
-          <TableHead title="ระดับความเสียหายและแนวทางการดำเนินการ" />
-          <GuideTable th={th} />
+          <TableHead title="คำแนะนำและแนวทางการดำเนินการ" />
+          <RecTable th={th} />
+        </div>
+        <div className="dz-cc" style={{ marginTop: 14 }}>
+          <TableHead title="ระดับความเสียหาย" />
+          <LevelTable />
         </div>
         <Note>
           <b>Damage Rate</b> = มูลค่าบิลเคลียร์ ÷ รายได้รวม ×100 ·
           <b> Damage Incidence Rate</b> = เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมด ×100 (นับเที่ยว ไม่นับรายการบิลซ้ำ) ·
           <b> เกณฑ์ P75</b> คิดจาก KPI รายเดือนของ<b>ภาพรวมบริษัท</b>ในช่วงเวลาที่เลือก (สูตรเดียวกับ PERCENTILE.INC ของ Excel)
           ไม่เปลี่ยนตามตัวกรองเส้นทาง/รถ แล้วใช้เป็นเกณฑ์เดียวกันกับทุกกลุ่ม ·
-          Damage Alert และกราฟแท่งนับเฉพาะกลุ่มที่มีอย่างน้อย {MIN_TRIPS_ALERT} เที่ยว
-          (ตารางแสดงระดับของทุกกลุ่มครบ)
+          Damage Alert นับเฉพาะกลุ่มที่มีอย่างน้อย {MIN_TRIPS_ALERT} เที่ยว (ตารางและกราฟแท่งแสดงทุกกลุ่ม)
           {isSample && <b style={{ color: "var(--red)" }}> · ชุดข้อมูลตัวอย่างนี้สุ่มบิลมาบางส่วน ตัวเลขจึงต่ำกว่าความจริงมาก ให้ดูจากชุดข้อมูลจริง</b>}
         </Note>
       </Pane>
@@ -378,10 +354,16 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
 
 /* ---------------- ชิ้นส่วนของแท็บ ---------------- */
 
-function LevelBadge({ level, kase }: { level: DamageLevel | null; kase?: DamageCase | null }) {
-  if (!level) return <span className="dmg-lv none">–</span>;
-  // วางเมาส์ = แนวทางการดำเนินการของกรณีนั้น (ระดับปานกลางสองกรณีแนวทางไม่เหมือนกัน)
-  return <span className={`dmg-lv ${level}`} title={kase ? caseOf(kase).action : undefined}>{levelOf(level).label}</span>;
+function LevelBadge({ level }: { level: DamageLevel | null }) {
+  if (!level) return <span className="dmg-lv none" title="ใช้ P75 เป็นเกณฑ์ไม่ได้ (ช่วงที่เลือกมีข้อมูลเดือนเดียว)">–</span>;
+  const l = levelOf(level);
+  return <span className={`dmg-lv ${level}`} title={`${l.meaning} · ${l.action}`}>{l.label}</span>;
+}
+
+function RecBadge({ rec }: { rec: DamageRec | null }) {
+  if (!rec) return <span className="dmg-rec">–</span>;
+  const r = recOf(rec);
+  return <span className={`dmg-rec ${rec}`} title={r.action}>{r.label}</span>;
 }
 
 function EmptyChart({ text }: { text: string }) {
@@ -389,8 +371,10 @@ function EmptyChart({ text }: { text: string }) {
 }
 
 /** รายการเตือนระดับสูง — ใช้ทั้งใต้กราฟแนวโน้ม (รายเดือน) และใต้ตาราง (รายกลุ่ม) */
-function AlertList({ title, items, empty }: {
+function AlertList({ title, items, empty, action }: {
   title: string; empty: string;
+  /** ข้อความหลังลูกศร — ไฟล์ใช้คนละคำ: รายเดือน "ควรเร่งตรวจสอบแก้ไข" · รายกลุ่ม "เร่งตรวจสอบและแก้ไขด่วน" */
+  action: string;
   items: { key: string; head: string; sub: string }[];
 }) {
   const high = levelOf("high");
@@ -403,7 +387,7 @@ function AlertList({ title, items, empty }: {
             <div key={it.key} className="dmg-alert">
               <div>
                 <b>{it.head}</b>
-                <small>{it.sub} → เร่งตรวจสอบและแก้ไข</small>
+                <small>{it.sub} → {action}</small>
               </div>
               <span className="dmg-lv high">{high.label}</span>
             </div>
@@ -414,28 +398,48 @@ function AlertList({ title, items, empty }: {
   );
 }
 
-/** ตารางเกณฑ์การประเมิน 5 กรณี (ไฟล์ "dashboard คชจ (1).pdf" หน้า 1) พร้อมค่า P75 ของช่วงที่เลือก ให้ผู้ใช้เห็นว่าแต่ละระดับตัดสินจากอะไร */
-function GuideTable({ th }: { th: DamageThresholds }) {
+/** ตารางคำแนะนำ (ไฟล์ "dashboard คชจ.md") พร้อมค่า P75 ของช่วงที่เลือก ให้ผู้ใช้เห็นว่าตัดสินจากอะไร */
+function RecTable({ th }: { th: DamageThresholds }) {
   return (
     <>
       <div className="dmg-th">
         เกณฑ์ P75 ของช่วงที่เลือก (ภาพรวมบริษัท {fmt(th.months)} เดือน):
         {" "}Damage Rate <b>{th.p75Rate == null ? "–" : pct(th.p75Rate, 3)}</b>
         {" "}· Damage Incidence Rate <b>{th.p75Incidence == null ? "–" : pct(th.p75Incidence, 2)}</b>
+        {th.months > 0 && !th.usable && " · เดือนเดียว ไม่ใช้เป็นเกณฑ์"}
       </div>
       <table className="dz-tbl">
-        <thead><tr><th>เงื่อนไข</th><th>ระดับความเสียหาย</th><th>แนวทางการดำเนินการ</th></tr></thead>
+        <thead><tr><th>คำแนะนำ</th><th>เงื่อนไข</th><th>แนวทางการดำเนินการ</th></tr></thead>
         <tbody>
-          {CASES.map((c) => (
-            <tr key={c.key}>
-              <td style={{ whiteSpace: "nowrap" }}>{c.when}</td>
-              <td><span className={`dmg-lv ${c.level}`}>{levelOf(c.level).label}</span></td>
-              <td>{c.action}</td>
+          {RECS.map((r) => (
+            <tr key={r.key}>
+              <td><RecBadge rec={r.key} /></td>
+              <td style={{ whiteSpace: "nowrap" }}>{r.when}</td>
+              <td>{r.action}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </>
+  );
+}
+
+/** ตารางระดับความเสียหาย 4 ระดับ (ไฟล์ "dashboard คชจ.md") — เรียงจากไม่มีความเสียหายถึงระดับสูง ตามไฟล์ */
+function LevelTable() {
+  return (
+    <table className="dz-tbl">
+      <thead><tr><th>เงื่อนไข</th><th>ระดับความเสียหาย</th><th>ความหมาย</th><th>แนวทางการดำเนินการ</th></tr></thead>
+      <tbody>
+        {[...LEVELS].reverse().map((l) => (
+          <tr key={l.key}>
+            <td style={{ whiteSpace: "nowrap" }}>{l.when}</td>
+            <td><span className={`dmg-lv ${l.key}`}>{l.label}</span></td>
+            <td>{l.meaning}</td>
+            <td>{l.action}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -455,16 +459,22 @@ function TrendLines({ data, hidden, th, band }: {
         <XAxis {...axisProps(t)} dataKey="mo" />
         <YAxis {...axisProps(t)} width={58} domain={[0, "auto"]} tickFormatter={pctTick} />
         <Tooltip {...tooltipProps(t, "%", 3)} />
-        <Legend {...legendProps} />
+        {/* ชื่อเส้นประตามไฟล์อยู่ในป้ายสี (เดิมเขียนบนเส้น — เส้น Damage Rate อยู่ชิดแกนล่าง ป้ายทับชื่อเดือน) */}
+        <Legend {...legendProps} height={undefined} payload={[
+          ...LINES.filter((l) => !hidden.includes(l.key)).map((l) => ({ value: l.label, type: "circle" as const, color: l.color, id: l.key })),
+          ...(th.usable ? LINES.filter((l) => !hidden.includes(l.key) && th[l.p75] != null).map((l) => ({
+            value: `${l.p75Label} ${pctTick(Math.round(th[l.p75]! * 1000) / 1000)}`, type: "plainline" as const,
+            color: l.color, id: `p75-${l.key}`, payload: { strokeDasharray: "5 5" },
+          })) : []),
+        ]} />
         {band && (band[0] === band[1]
           ? <ReferenceLine x={band[0]} stroke={D.slate} strokeWidth={10} strokeOpacity={0.18} />
           : <ReferenceArea x1={band[0]} x2={band[1]} fill={D.slate} fillOpacity={0.12} />)}
         {LINES.map((l) => {
           const v = th[l.p75];
-          return v == null || hidden.includes(l.key) ? null : (
+          return v == null || !th.usable || hidden.includes(l.key) ? null : (
             <ReferenceLine key={`p75-${l.key}`} y={v} stroke={l.color} strokeDasharray="5 5" strokeWidth={1.4}
-              ifOverflow="extendDomain"
-              label={{ value: `P75 ${pctTick(Math.round(v * 1000) / 1000)}`, position: "insideTopRight", fill: l.color, fontSize: 12 }} />
+              ifOverflow="extendDomain" />
           );
         })}
         {LINES.map((l) => (
@@ -477,33 +487,128 @@ function TrendLines({ data, hidden, th, band }: {
   );
 }
 
-/** แท่งนอนซ้อนท่อน — แกนนอน = Damage Incidence Rate % · แกนตั้ง = เส้นทาง · ท่อน = สัดส่วนชนิดรถที่ใช้ */
-function StackBars({ data, series }: {
-  data: Record<string, string | number>[];
-  series: { key: string; share: string; label: string; color: string }[];
-}) {
+interface KindBar {
+  name: string; total: number; dmg: number; n: number; amt: number;
+  /** % ของเที่ยวที่มีบิลเคลียร์ แยกประเภทรถ (รวม 100) */
+  shares: Record<string, number>;
+  [seg: string]: string | number | Record<string, number>;
+}
+
+/** ความสูงกล่องตามจำนวนแท่ง — 15 แท่งไม่เบียด */
+const barsHeight = (n: number): number => Math.max(230, n * 30 + 80);
+const yWidth = (names: string[]): number => Math.min(230, Math.max(70, names.reduce((m, x) => Math.max(m, x.length), 0) * 7.6 + 14));
+/** แท่งหนาเท่ากันทั้งสองกราฟ */
+const BAR_SIZE = 16;
+/** ชื่อแกนนอน — ใต้ป้ายแกน ขนาด/สีเดียวกับป้ายแกนของโมเดล */
+const xAxisLabel = (t: ChartTheme) => ({
+  value: "% Damage Incidence Rate", position: "insideBottom" as const, offset: -10,
+  fill: t.ink2, fontSize: 13, fontFamily: DFONT,
+});
+
+/** กล่อง tooltip ธีมเดียวกับกราฟอื่นของโมเดล (tooltipProps: พื้นเข้ม ตัวขาว มุมมน 10) */
+function TipBox({ t, title, lines }: { t: ChartTheme; title: string; lines: React.ReactNode[] }) {
+  const st = tooltipProps(t).contentStyle;
+  return (
+    <div style={{ ...st, color: "#fff", lineHeight: 1.6 }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>{title}</div>
+      {lines.map((l, i) => <div key={i}>{l}</div>)}
+    </div>
+  );
+}
+
+/**
+ * ท่อนของแท่งซ้อน — มุมมน BAR_RADIUS เฉพาะด้านนอกสุดของแท่ง (ท่อนแรก = ซ้าย · ท่อนท้าย = ขวา)
+ * ท่อนกลางเป็นสี่เหลี่ยม ต่อกันเนียนเป็นแท่งเดียวปลายมนแบบกราฟอื่นของโมเดล
+ */
+function segPath(x: number, y: number, w: number, h: number, left: boolean, right: boolean): string {
+  const r = Math.min(BAR_RADIUS, h / 2, w / (left && right ? 2 : 1));
+  const rl = left ? r : 0, rr = right ? r : 0;
+  return `M${x + rl},${y}H${x + w - rr}${rr ? `A${rr},${rr} 0 0 1 ${x + w},${y + rr}` : ""}V${y + h - rr}`
+    + `${rr ? `A${rr},${rr} 0 0 1 ${x + w - rr},${y + h}` : ""}H${x + rl}${rl ? `A${rl},${rl} 0 0 1 ${x},${y + h - rl}` : ""}`
+    + `V${y + rl}${rl ? `A${rl},${rl} 0 0 1 ${x + rl},${y}` : ""}Z`;
+}
+
+/** แท่งนอน DIR ตามชนิดรถ — แกนนอน %DIR · แกนตั้ง ชนิดรถ · ท่อน = ประเภทรถ (สัดส่วนเที่ยวที่มีบิลเคลียร์) · % ท้ายแท่ง */
+function KindBars({ data, series }: { data: KindBar[]; series: { key: string; label: string; color: string }[] }) {
   const t = useChartTheme();
-  const longest = data.reduce((m, r) => Math.max(m, String(r.name).length), 0);
-  const tip = tooltipProps(t, "%", 2);
+  // ท่อนแรก/ท่อนท้ายที่มีค่าของแต่ละแถว — ใช้วาดมุมมนและวางตัวเลข
+  const ends = data.map((r) => {
+    const on = series.filter((s) => Number(r[s.key]) > 0).map((s) => s.key);
+    return { first: on[0], last: on[on.length - 1] };
+  });
+  const tip = tooltipProps(t);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} layout="vertical" margin={{ top: 6, right: 18, left: 0, bottom: 0 }}>
+      <BarChart data={data} layout="vertical" barSize={BAR_SIZE} margin={{ top: 6, right: 46, left: 0, bottom: 22 }}>
         <CartesianGrid {...gridProps(t)} />
-        <XAxis {...axisProps(t)} type="number" tickFormatter={pctTick} />
-        <YAxis {...axisProps(t)} type="category" dataKey="name" width={Math.min(230, Math.max(70, longest * 7.2 + 12))} />
-        <Tooltip {...tip}
-          labelFormatter={(label: string, payload: { payload?: Record<string, number> }[]) =>
-            `${label} · Incidence ${pct(Number(payload?.[0]?.payload?.total ?? 0), 2)}`}
-          formatter={(v: number, name: string, item: { dataKey?: string | number; payload?: Record<string, number> }) => {
-            const s = series.find((x) => x.key === item.dataKey);
-            const share = s && item.payload ? item.payload[s.share] : null;
-            return [`${pct(v, 2)}${share != null ? ` · ใช้ ${share}% ของเที่ยวในเส้นทาง` : ""}`, name] as [string, string];
-          }} />
-        <Legend {...legendProps} />
+        <XAxis {...axisProps(t)} type="number" tickFormatter={pctTick} label={xAxisLabel(t)} height={40} />
+        <YAxis {...axisProps(t)} type="category" dataKey="name" width={yWidth(data.map((r) => r.name))} />
+        <Tooltip cursor={tip.cursor} content={({ active, payload }) => {
+          const r = active ? (payload?.[0]?.payload as KindBar | undefined) : undefined;
+          return r ? <TipBox t={t} title={r.name} lines={[
+            <>Damage Incidence Rate <b>{pct(r.total, 2)}</b></>,
+            <>มีบิลเคลียร์ <b>{fmt(r.dmg)}</b> จาก {fmt(r.n)} เที่ยว</>,
+            <>มูลค่า <b>{fmt(r.amt, 2)}</b> บาท</>,
+            ...series.map((s) => <span key={s.label}>
+              <i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 3, background: s.color, marginRight: 6 }} />
+              {s.label} <b>{pct(r.shares[s.label] ?? 0, 0)}</b></span>),
+          ]} /> : null;
+        }} />
+        {/* ป้ายสีห่างจากชื่อแกนนอนลงมาอีกนิด (เจ้าของงานขอ 27 ก.ย. 2569) */}
+        <Legend {...legendProps} wrapperStyle={{ ...legendProps.wrapperStyle, paddingTop: 14 }} />
         {series.map((s) => (
-          <Bar key={s.key} dataKey={s.key} name={s.label} stackId="vk" fill={s.color} {...anim} />
+          <Bar key={s.key} dataKey={s.key} name={s.label} stackId="ft" fill={s.color} {...anim}
+            shape={(raw: unknown) => {
+              const p = raw as { x?: number; y?: number; width?: number; height?: number; index?: number };
+              const e = ends[p.index ?? 0];
+              if (!p.width || p.width <= 0) return <g />;
+              return <path d={segPath(p.x ?? 0, p.y ?? 0, p.width, p.height ?? 0, e?.first === s.key, e?.last === s.key)} fill={s.color} />;
+            }}>
+            <LabelList dataKey={s.key} content={(p: { x?: number | string; y?: number | string; width?: number | string; height?: number | string; index?: number }) => {
+              const i = p.index ?? 0;
+              if (ends[i]?.last !== s.key) return null;
+              return <text x={Number(p.x) + Number(p.width) + 6} y={Number(p.y) + Number(p.height) / 2} dy={4}
+                fontSize={12} fontWeight={700} fontFamily={DFONT} fill={t.ink}>{pct(data[i]!.total, 1)}</text>;
+            }} />
+          </Bar>
         ))}
-      </ComposedChart>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+/** ตัวเลข % ในแท่ง — แท่งสั้นเกินวางไว้ท้ายแท่งแทน */
+function InBarLabel(p: { x?: number; y?: number; width?: number; height?: number; value?: number; ink?: string }) {
+  const { x = 0, y = 0, width = 0, height = 0, value = 0 } = p;
+  const txt = pct(value, value < 1 ? 2 : 1);
+  const inside = width > txt.length * 7 + 12;
+  return (
+    <text x={inside ? x + width - 7 : x + width + 6} y={y + height / 2} dy={4} fontSize={12} fontWeight={700} fontFamily={DFONT}
+      textAnchor={inside ? "end" : "start"} fill={inside ? "#fff" : p.ink}>{txt}</text>
+  );
+}
+
+/** แท่งนอน DIR ตามเส้นทาง — แท่งสีเดียว ตัวเลข % ในแท่ง · ป็อบอัพ = กี่เที่ยว */
+function RouteBars({ data }: { data: { name: string; v: number; dmg: number; n: number }[] }) {
+  const t = useChartTheme();
+  const tip = tooltipProps(t);
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} layout="vertical" barSize={BAR_SIZE} margin={{ top: 6, right: 46, left: 0, bottom: 22 }}>
+        <CartesianGrid {...gridProps(t)} />
+        <XAxis {...axisProps(t)} type="number" tickFormatter={pctTick} label={xAxisLabel(t)} />
+        <YAxis {...axisProps(t)} type="category" dataKey="name" width={yWidth(data.map((r) => r.name))} />
+        <Tooltip cursor={tip.cursor} content={({ active, payload }) => {
+          const r = active ? (payload?.[0]?.payload as { name: string; v: number; dmg: number; n: number } | undefined) : undefined;
+          return r ? <TipBox t={t} title={r.name} lines={[
+            <>Damage Incidence Rate <b>{pct(r.v, 2)}</b></>,
+            <>มีบิลเคลียร์ <b>{fmt(r.dmg)}</b> จาก {fmt(r.n)} เที่ยว</>,
+          ]} /> : null;
+        }} />
+        <Bar dataKey="v" name="Damage Incidence Rate" fill={D.cyan} radius={BAR_RADIUS} {...anim}>
+          <LabelList dataKey="v" content={<InBarLabel ink={t.ink} />} />
+        </Bar>
+      </BarChart>
     </ResponsiveContainer>
   );
 }

@@ -95,7 +95,7 @@ export function PiBox({ index, results, status, note }: {
       <div className="pi-subs">
         {results.map((r) => (
           <div key={r.key} title={subTitle(r)} className={"pi-sub" + (r.pending || r.score == null ? " na" : "")}>
-            <span>{METRICS[r.key].label}</span>
+            <span>{r.tone && <i className={`pi-tone ${r.tone}`} aria-hidden="true" />}{METRICS[r.key].label}</span>
             <b>{subValue(r)}</b>
             <Meter v={r.score ?? 0} max={METRIC_MAX} cls="pi-bar" />
           </div>
@@ -134,9 +134,9 @@ export function PiService({ trips, refTrips }: { trips: Trip[] | null; refTrips:
       : INDEXES.service.subs.map((key) => ({ key, pending: false, tally: null, score: null }))),
     [trips, ref]);
   const note = ref && (ref.p75Dr != null || ref.p75Dir != null)
-    ? `Score = MAX(0, 10 − 5 × KPI ÷ P75) · P75 จาก KPI รายเดือนของภาพรวมบริษัททุกเดือนในไฟล์ (${ref.months} เดือน · ไม่ตามตัวกรอง):`
+    ? `Score = MAX(0, 10 − 5 × KPI ÷ P75) · P75 จาก KPI รายเดือนของภาพรวมบริษัท 12 เดือนล่าสุด (${ref.from} ถึง ${ref.to} · ไม่ตามตัวกรอง):`
       + ` Damage Rate ${ref.p75Dr == null ? "–" : `${ref.p75Dr.toFixed(3)}%`} · Damage Incidence Rate ${ref.p75Dir == null ? "–" : `${ref.p75Dir.toFixed(2)}%`}`
-      + ` · Incidence ต้องมีอย่างน้อย ${fmt(ref.minTrips)} เที่ยว`
+      + ` · Incidence ต้องมีอย่างน้อย ${fmt(ref.minTrips)} เที่ยว · จุดสี: เขียว ≤ P75 · เหลือง < 2×P75 · แดง ≥ 2×P75`
     : undefined;
   return <PiBox index={INDEXES.service} results={results} status={damageStatus(results)} note={note} />;
 }

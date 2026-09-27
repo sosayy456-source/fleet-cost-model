@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBench, buildTrips, fileSrc, marginBand, marginOf, overallBand, recordSrc } from "./manager";
+import { buildBench, buildTrips, fileSrc, issueCounts, issueLabel, managerTodo, marginBand, marginOf, overallBand, recordSrc } from "./manager";
 import { buildForecast } from "../forecast/forecast";
 import type { Trip } from "../data/useCostRev";
 import type { TripRecord } from "../../types/record";
@@ -47,6 +47,15 @@ describe("คำแนะนำรายเที่ยว", () => {
     const [r] = buildTrips(F([bad, ...base], [["bad", 0.9]])).filter((t) => t.id === "bad");
     expect(r!.band).toBe("r");
     expect(r!.advice.join(" ")).toMatch(/^ขาดทุน: ค่าน้ำมันสูงกว่าเฉลี่ย/);
+    expect(r!.issues).toEqual(["loss", "cost:fuel"]);
+    expect(issueLabel("cost:fuel")).toBe("ค่าน้ำมันสูงกว่าเฉลี่ย");
+  });
+  it("นับปัญหาต่อเที่ยว + กล่องต้องจัดการไม่ซ้ำรายการขาดทุน/รอบัญชี", () => {
+    const bad = T("bad", { fuel: 9000, cost: 12000, profit: -2000 });
+    const ts = buildTrips(F([bad, ...base], [["bad", 0.9], ["a", 0.3], ["b", 0.3]]));
+    expect(issueCounts(ts)).toEqual([{ key: "lfLow", n: 2 }, { key: "cost:fuel", n: 1 }, { key: "loss", n: 1 }]);
+    const todo = managerTodo(ts, []);
+    expect(todo).toMatchObject({ fail: 1, failLoss: 1, est: 0, topIssue: { key: "lfLow", n: 2 } });
   });
   it("LF ต่ำแต่กำไรดี = เฝ้าระวัง พร้อมคำแนะนำด้านการบรรทุก", () => {
     const [r] = buildTrips(F(base, [["a", 0.3]]));

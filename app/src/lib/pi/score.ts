@@ -132,6 +132,8 @@ export const scoreOf = (t: Tally): number | null => (t.n ? (t.g + 0.5 * t.y) / t
 export interface MetricResult {
   key: MetricKey; pending: boolean; tally: Tally | null; score: number | null;
   na?: string; detail?: string; basis?: string;
+  /** สีแสดงผลของค่า KPI (Damage · เทียบ P75) — ไม่เกี่ยวกับคะแนน · ไม่มี = ไม่แสดงจุดสี */
+  tone?: "g" | "y" | "r";
 }
 
 /** สีที่ให้มาแล้ว (เกณฑ์ขยับตามข้อมูล เช่น Empty Return) → ผลของตัวชี้วัด · bands null = ไม่มีข้อมูล */

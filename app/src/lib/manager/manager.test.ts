@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  byCustomer, debtSummary, latestPeriod, lfBand, outstandingAt, lfSummary, onRoad, periodLabel, periodOptions, periodRange, releasedIn, runEnd,
+  byCustomer, debtSummary, dueSoon, latestPeriod, managerTodo, lfBand, outstandingAt, lfSummary, onRoad, periodLabel, periodOptions, periodRange, releasedIn, runEnd,
 } from "./manager";
 import type { MgrTrip } from "./manager";
 import type { DebtorRow } from "../data/useDebtors";
@@ -34,7 +34,7 @@ describe("เกณฑ์ Load Factor ของหน้านี้ ≥ 70 / 40
 
 const trip = (d: string, km: number | null, lf: number | null = 80): MgrTrip => ({
   id: d, br: "เชียงใหม่", d, eta: runEnd(d, km), o: "ก", de: "ข", vk: "รถ 6 ล้อ", lf, lfb: lf == null ? null : lfBand(lf),
-  margin: null, mb: null, band: lf == null ? null : lfBand(lf), advice: [], rev: 0, cost: 0, profit: 0, empty: false, src: "file", costEst: false,
+  margin: null, mb: null, band: lf == null ? null : lfBand(lf), advice: [], issues: [], rev: 0, cost: 0, profit: 0, empty: false, src: "file", costEst: false,
 });
 
 describe("กำลังวิ่ง = [วันปล่อยรถ, วันที่คาดว่าถึง] ทับช่วงที่เลือก", () => {
@@ -87,6 +87,17 @@ describe("ลูกหนี้ — ยอดคงค้าง ณ วันส
   it("ไม่มีบิลวางในช่วง = DSO หารไม่ได้", () => {
     const jun = periodRange({ kind: "day", value: "2026-05-31" });
     expect(debtSummary(outstandingAt(rows, jun.end), rows, jun).dso).toBeNull();
+  });
+  it("ครบกำหนดใน 7 วัน = ยังไม่ถึงกำหนดและครบภายใน 7 วันหลังวันสิ้นช่วง", () => {
+    const bs = outstandingAt([...rows, bill("2026-05-20", "2026-06-07", null, 70), bill("2026-05-20", "2026-06-08", null, 80)], may.end);
+    expect(bs.filter(dueSoon).map((b) => [b.amount, b.dueIn])).toEqual([[300, 5], [70, 7]]);
+    expect(bs.find((b) => b.amount === 80)!.dueIn).toBe(8);
+    expect(bs.find((b) => b.amount === 100)!.dueIn).toBeNull();   // เลยกำหนดแล้ว
+  });
+  it("กล่องต้องจัดการ: ค้างเกิน 30 วัน = 31–60 + 61+ · นับลูกค้าไม่ซ้ำ", () => {
+    const t = managerTodo([], outstandingAt(rows, may.end));
+    expect(t.over30).toEqual({ cust: 1, amount: 250, bills: 2 });
+    expect(t.soon).toEqual({ cust: 1, amount: 300, bills: 1 });
   });
   it("รวมรายลูกค้า", () => {
     const b = outstandingAt(rows.map((r, i) => ({ ...r, cust: i < 2 ? "A" : "B" })), may.end);

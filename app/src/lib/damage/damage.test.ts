@@ -2,7 +2,7 @@
  * สูตรแท็บ Damage Rate — P75 ต้องตรงกับ PERCENTILE.INC ของ Excel และการจัดระดับต้องตรงเกณฑ์ 5 กรณี (dashboard คชจ (1).pdf หน้า 1)
  */
 import { describe, expect, it } from "vitest";
-import { CASES, aggregateDamage, caseOf, damageCase, damageLevel, damageThresholds, inPeriod, levelOf, percentileInc, totalDamage } from "./damage";
+import { LEVELS, RECS, aggregateDamage, damageLevel, damageRec, damageThresholds, inPeriod, levelOf, percentileInc, recOf, totalDamage } from "./damage";
 import type { DamageThresholds } from "./damage";
 
 describe("percentileInc = PERCENTILE.INC ของ Excel", () => {
@@ -49,46 +49,45 @@ describe("รวมยอด", () => {
   });
 });
 
-describe("เกณฑ์การประเมิน 5 กรณี (dashboard คชจ (1).pdf หน้า 1)", () => {
-  const th: DamageThresholds = { p75Rate: 1, p75Incidence: 5, months: 12 };
-  const lv = (rate: number | null, incidence: number, clrAmt = 100) => damageLevel({ rate, incidence, clrAmt }, th);
-  const cs = (rate: number | null, incidence: number, clrAmt = 100) => damageCase({ rate, incidence, clrAmt }, th);
+describe("ระดับความเสียหาย 4 ระดับ + คำแนะนำ (dashboard คชจ.md 27 ก.ย. 2569)", () => {
+  const th: DamageThresholds = { p75Rate: 1, p75Incidence: 5, months: 12, usable: true };
+  const a = (rate: number | null, incidence: number, clrAmt = 100, dmgTrips = 1) => ({ rate, incidence, clrAmt, dmgTrips });
+  const lv = (rate: number | null, incidence: number) => damageLevel(a(rate, incidence), th);
+  const rc = (rate: number | null, incidence: number) => damageRec(a(rate, incidence), th);
 
-  it("ไม่มีความเสียหาย = ไม่มีมูลค่าบิลเคลียร์", () => {
-    expect(cs(0, 0, 0)).toBe("none");
-    expect(lv(0, 0, 0)).toBe("none");
+  it("DR = 0 และ DIR = 0 → ไม่มีความเสียหาย · ติดตามผล", () => {
+    expect(damageLevel(a(0, 0, 0, 0), th)).toBe("none");
+    expect(damageRec(a(0, 0, 0, 0), th)).toBe("follow");
   });
-  it("ไม่เกินทั้งคู่ = ระดับต่ำ · เท่ากับ P75 ยังไม่ถือว่าเกิน", () => {
-    expect(cs(0.1, 2)).toBe("low");
-    expect(cs(1, 5)).toBe("low");
-    expect(lv(1, 5)).toBe("low");
+  it("ไม่เกินทั้งคู่ → ระดับต่ำ · ตรวจสอบ · เท่ากับ P75 ไม่ถือว่าเกิน", () => {
+    expect([lv(0.1, 2), lv(1, 5)]).toEqual(["low", "low"]);
+    expect([rc(0.1, 2), rc(1, 5)]).toEqual(["check", "check"]);
   });
-  it("เกิดบ่อยแต่มูลค่าไม่เกิน = ปานกลาง (ปรับปรุงกระบวนการ)", () => {
-    expect(cs(0.5, 8)).toBe("freq");
-    expect(lv(1, 8)).toBe("medium");
-    expect(caseOf("freq").action).toContain("ลดการเกิดซ้ำ");
+  it("เกินตัวใดตัวหนึ่ง → ระดับปานกลาง · คำแนะนำต่างตามตัวที่เกิน", () => {
+    expect([lv(0.5, 8), lv(9, 2)]).toEqual(["medium", "medium"]);
+    expect(rc(0.5, 8)).toBe("improve");   // DIR เกิน DR ไม่เกิน
+    expect(rc(9, 2)).toBe("check");       // DR เกิน DIR ไม่เกิน — ตาม logic ในไฟล์ (ระดับปานกลาง แต่คำแนะนำตรวจสอบ)
   });
-  it("เกิดไม่บ่อยแต่มูลค่าเกิน = ปานกลาง (ควบคุมมูลค่าสูง) — เดิมเป็นระดับต่ำ", () => {
-    expect(cs(9, 2)).toBe("value");
-    expect(cs(9, 5)).toBe("value");
-    expect(lv(9, 2)).toBe("medium");
-    expect(caseOf("value").action).toContain("มูลค่าสูง");
-  });
-  it("เกินทั้งคู่ = ความเสี่ยงสูง", () => {
-    expect(cs(1.2, 8)).toBe("high");
-    expect(levelOf(lv(1.2, 8)!).label).toBe("ความเสี่ยงสูง");
+  it("เกินทั้งคู่ → ระดับสูง · เร่งตรวจสอบและแก้ไข", () => {
+    expect(lv(1.2, 8)).toBe("high");
+    expect(levelOf("high").label).toBe("ระดับสูง");
+    expect(recOf(rc(1.2, 8)!).label).toBe("เร่งตรวจสอบและแก้ไข");
   });
   it("มีความเสียหายแต่ไม่มีรายได้ = เกินเกณฑ์มูลค่าแน่นอน", () => {
-    expect(cs(null, 8)).toBe("high");
-    expect(cs(null, 2)).toBe("value");
+    expect(lv(null, 8)).toBe("high");
+    expect(lv(null, 2)).toBe("medium");
   });
-  it("ตารางเกณฑ์มี 5 แถวตามไฟล์ ปานกลางสองแถว", () => {
-    expect(CASES.map((c) => c.level)).toEqual(["none", "low", "medium", "medium", "high"]);
+  it("ตารางตามไฟล์: 4 ระดับ · 4 คำแนะนำ", () => {
+    expect(LEVELS.map((l) => l.key)).toEqual(["high", "medium", "low", "none"]);
+    expect(RECS.map((r) => r.label)).toEqual(["ติดตามผล", "ตรวจสอบ", "ปรับปรุงกระบวนการ", "เร่งตรวจสอบและแก้ไข"]);
   });
-  it("ยังไม่มีเกณฑ์ = แยกระดับไม่ได้ (ยกเว้นไม่มีความเสียหาย)", () => {
-    const none: DamageThresholds = { p75Rate: null, p75Incidence: null, months: 0 };
-    expect(damageLevel({ rate: 1, incidence: 5, clrAmt: 10 }, none)).toBeNull();
-    expect(damageLevel({ rate: 0, incidence: 0, clrAmt: 0 }, none)).toBe("none");
+  it("เดือนเดียว/ไม่มีเกณฑ์ = ไม่จัดระดับ/คำแนะนำ (ยกเว้นไม่มีความเสียหาย)", () => {
+    const one: DamageThresholds = { p75Rate: 1, p75Incidence: 5, months: 1, usable: false };
+    expect(damageLevel(a(1, 5), one)).toBeNull();
+    expect(damageRec(a(1, 5), one)).toBeNull();
+    expect(damageLevel(a(0, 0, 0, 0), one)).toBe("none");
+    expect(damageRec(a(0, 0, 0, 0), one)).toBe("follow");
+    expect(damageThresholds([{ mo: "2026-01", rev: 1000, clrAmt: 10, clrN: 1 }]).usable).toBe(false);
   });
 });
 

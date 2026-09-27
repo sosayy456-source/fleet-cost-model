@@ -72,74 +72,88 @@ export function percentileInc(values: number[], p: number): number | null {
 export interface DamageThresholds {
   p75Rate: number | null;
   p75Incidence: number | null;
-  /** จำนวนเดือนที่ใช้คิด — น้อยกว่า 2 ให้หน้าจอขึ้นโน้ตเตือน */
+  /** จำนวนเดือนที่ใช้คิด */
   months: number;
+  /**
+   * ใช้ P75 เป็นเกณฑ์ได้ไหม — ต้องมีอย่างน้อย 2 เดือน (ไฟล์ "dashboard คชจ.md" 27 ก.ย. 2569: เลือกเดือนเดียว
+   * แสดง KPI ตามปกติแต่ไม่ใช้ P75 เป็นเกณฑ์ · เจ้าของงานเลือกให้ไม่จัดระดับ/คำแนะนำ ไม่มี Alert ซ่อนเส้น P75)
+   */
+  usable: boolean;
 }
 
 /** เกณฑ์ P75 จาก KPI รายเดือนของเที่ยวที่ส่งมา (ต้องเป็นชุดที่กรองเฉพาะเวลา — ดูหัวไฟล์) */
 export function damageThresholds(trips: DamageTrip[]): DamageThresholds {
   const monthly = aggregateDamage(trips, (t) => t.mo);
+  const p75Rate = percentileInc(monthly.flatMap((a) => (a.rate == null ? [] : [a.rate])), 0.75);
+  const p75Incidence = percentileInc(monthly.map((a) => a.incidence), 0.75);
   return {
     // เดือนที่ไม่มีรายได้เลยหา Damage Rate ไม่ได้ จึงไม่นับเข้าเปอร์เซ็นไทล์ของ Damage Rate
-    p75Rate: percentileInc(monthly.flatMap((a) => (a.rate == null ? [] : [a.rate])), 0.75),
-    p75Incidence: percentileInc(monthly.map((a) => a.incidence), 0.75),
-    months: monthly.length,
+    p75Rate, p75Incidence, months: monthly.length,
+    usable: monthly.length >= 2 && p75Rate != null && p75Incidence != null,
   };
 }
 
-/* ---------------- ระดับความเสียหาย ---------------- */
+/* ---------------- ระดับความเสียหาย + คำแนะนำ ---------------- */
 
 /**
- * เดิมสเปกเรียก "คำแนะนำ" — เจ้าของงานเปลี่ยนเป็น "ระดับความเสียหาย" 23 ก.ย. 2569
- * ★ เกณฑ์ชุดใหม่ (ไฟล์ "dashboard คชจ (1).pdf" หน้า 1 · เจ้าของงานสั่ง 24 ก.ย. 2569) แทน logic หน้า 7 เดิม:
- *   ระดับบนป้ายเหลือ 4 ระดับ แต่เงื่อนไขมี 5 กรณี — "ระดับปานกลาง" มีสองกรณีที่แนวทางต่างกัน (ดู CASES)
- *   ต่างจากเดิม: เกิดไม่บ่อยแต่มูลค่าเกิน P75 เดิมเป็น "ระดับต่ำ" ตอนนี้เป็น "ระดับปานกลาง" · "ระดับสูง" → "ความเสี่ยงสูง"
+ * ★ ไฟล์ "dashboard คชจ.md" (เจ้าของงานส่ง 27 ก.ย. 2569) แทนเกณฑ์ 5 กรณีของ 24 ก.ย. — สองชุดแยกกัน ตารางเส้นทางแสดงทั้งคู่ (เจ้าของงานเลือก):
+ *   ระดับความเสียหาย 4 ระดับ: DR = 0 และ DIR = 0 → ไม่มี · ไม่เกินทั้งคู่ → ต่ำ · เกินตัวใดตัวหนึ่ง → ปานกลาง · เกินทั้งคู่ → สูง
+ *   คำแนะนำ (logic ในไฟล์): DR = 0 → ติดตามผล · DR > 0 และ DIR ≤ P75 → ตรวจสอบ (ไฟล์เขียน "แก้ไขตามปกติ" ด้วย เจ้าของงานเลือก "ตรวจสอบ")
+ *     · DIR > P75 และ DR ≤ P75 → ปรับปรุงกระบวนการ · เกินทั้งคู่ → เร่งตรวจสอบและแก้ไข
+ *   ★ สองชุดไม่ตรงกันตรง "DR เกิน แต่ DIR ไม่เกิน" = ระดับปานกลาง แต่คำแนะนำ "ตรวจสอบ" — ตามไฟล์ ไม่ใช่บั๊ก
+ *   "เท่ากับ P75" ไม่ถือว่าเกิน · มีความเสียหายแต่ไม่มีรายได้ (rate = null) = เกินเกณฑ์มูลค่าแน่นอน
  */
 export type DamageLevel = "none" | "low" | "medium" | "high";
 
-export const LEVELS: { key: DamageLevel; label: string; rank: number }[] = [
-  { key: "high", label: "ความเสี่ยงสูง", rank: 3 },
-  { key: "medium", label: "ระดับปานกลาง", rank: 2 },
-  { key: "low", label: "ระดับต่ำ", rank: 1 },
-  { key: "none", label: "ไม่มีความเสียหาย", rank: 0 },
+export const LEVELS: { key: DamageLevel; label: string; rank: number; when: string; meaning: string; action: string }[] = [
+  { key: "high", label: "ระดับสูง", rank: 3, when: "DR > P75 และ DIR > P75",
+    meaning: "ความเสียหายเกิดบ่อยและ/หรือมีผลกระทบด้านมูลค่าสูง ควรเร่งแก้ไข",
+    action: "วิเคราะห์สาเหตุหลักและกำหนดมาตรการป้องกันการเกิดซ้ำ" },
+  { key: "medium", label: "ระดับปานกลาง", rank: 2, when: "DR > P75 หรือ DIR > P75",
+    meaning: "เริ่มพบความเสียหายที่ควรเฝ้าระวัง ทั้งด้านมูลค่าหรือจำนวนครั้ง",
+    action: "ตรวจสอบสาเหตุและปรับปรุงกระบวนการ ติดตามปัจจัยที่ทำให้เกิดความเสียหาย" },
+  { key: "low", label: "ระดับต่ำ", rank: 1, when: "DR ≤ P75 และ DIR ≤ P75",
+    meaning: "ความเสียหายทั้งด้านมูลค่าและความถี่อยู่ในระดับอ้างอิง",
+    action: "ตรวจสอบและแก้ไขตามกระบวนการปกติ" },
+  { key: "none", label: "ไม่มีความเสียหาย", rank: 0, when: "DR = 0 และ DIR = 0",
+    meaning: "ไม่พบความเสียหายจากการขนส่ง",
+    action: "ติดตามผลการดำเนินงานอย่างต่อเนื่อง" },
 ];
 export const levelOf = (k: DamageLevel) => LEVELS.find((l) => l.key === k)!;
 
-/** 5 กรณีของเกณฑ์การประเมิน ตามตารางในไฟล์ทุกแถว (เงื่อนไข · ระดับ · แนวทางการดำเนินการ) */
-export type DamageCase = "none" | "low" | "freq" | "value" | "high";
-
-export const CASES: { key: DamageCase; level: DamageLevel; when: string; action: string }[] = [
-  { key: "none", level: "none", when: "Damage Rate = 0",
-    action: "ติดตามผลการดำเนินงานอย่างต่อเนื่อง" },
-  { key: "low", level: "low", when: "Damage Incidence Rate ≤ P75 + Damage Rate ≤ P75",
-    action: "ตรวจสอบและแก้ไขตามกระบวนการปกติ" },
-  { key: "freq", level: "medium", when: "Damage Incidence Rate > P75 + Damage Rate ≤ P75",
-    action: "ปรับปรุงกระบวนการเพื่อลดการเกิดซ้ำ" },
-  { key: "value", level: "medium", when: "Damage Incidence Rate ≤ P75 + Damage Rate > P75",
-    action: "ควบคุมและลดผลกระทบจากความเสียหายมูลค่าสูง" },
-  { key: "high", level: "high", when: "Damage Incidence Rate > P75 + Damage Rate > P75",
-    action: "เร่งตรวจสอบสาเหตุหลัก (Root Cause) และกำหนดมาตรการป้องกันการเกิดซ้ำ" },
+export type DamageRec = "follow" | "check" | "improve" | "urgent";
+/** ตาราง "คำแนะนำและแนวทางการดำเนินการ" ตามไฟล์ — ลำดับตามไฟล์ */
+export const RECS: { key: DamageRec; label: string; when: string; action: string }[] = [
+  { key: "follow", label: "ติดตามผล", when: "DR = 0",
+    action: "ติดตาม KPI อย่างต่อเนื่องเพื่อรักษาระดับผลการดำเนินงาน" },
+  { key: "check", label: "ตรวจสอบ", when: "DR > 0 และ DIR ≤ P75",
+    action: "ตรวจสอบบิลเคลียร์/เหตุการณ์เป็นรายกรณี และแก้ไขตามกระบวนการปกติ" },
+  { key: "improve", label: "ปรับปรุงกระบวนการ", when: "DR > 0 · DIR > P75 และ DR ≤ P75",
+    action: "ตรวจสอบ Loading, Handling, Route หรือการปฏิบัติงาน เพื่อหาสาเหตุของการเกิดซ้ำ" },
+  { key: "urgent", label: "เร่งตรวจสอบและแก้ไข", when: "DR > P75 และ DIR > P75",
+    action: "หา Root Cause โดยเร็ว และกำหนดมาตรการแก้ไขและป้องกันการเกิดซ้ำ" },
 ];
-export const caseOf = (k: DamageCase) => CASES.find((c) => c.key === k)!;
+export const recOf = (k: DamageRec) => RECS.find((r) => r.key === k)!;
 
-/**
- * จัดกรณีตามเกณฑ์ชุดใหม่ — สองเกณฑ์เทียบแยกกัน ครบ 4 ช่องของ (Incidence เกิน/ไม่เกิน) × (Rate เกิน/ไม่เกิน)
- * "เท่ากับ P75" ยังไม่ถือว่าเกิน (≤) ตามตารางในไฟล์
- * คืน null ถ้ายังไม่มีเกณฑ์ (ช่วงเวลาที่เลือกไม่มีข้อมูลเลย) — แยกระดับไม่ได้ ยกเว้นไม่มีความเสียหาย
- */
-export function damageCase(a: Pick<DamageAgg, "rate" | "incidence" | "clrAmt">, th: DamageThresholds): DamageCase | null {
-  if (!(a.clrAmt > 0)) return "none";
-  if (th.p75Rate == null || th.p75Incidence == null) return null;
-  // มีความเสียหายแต่ไม่มีรายได้ (rate = null) = เสียหายเท่าไรก็เกินเกณฑ์มูลค่า
-  const overRate = (a.rate ?? Infinity) > th.p75Rate;
-  const overInc = a.incidence > th.p75Incidence;
-  return overInc ? (overRate ? "high" : "freq") : (overRate ? "value" : "low");
+type LevelInput = Pick<DamageAgg, "rate" | "incidence" | "clrAmt" | "dmgTrips">;
+const over = (a: LevelInput, th: DamageThresholds) => ({
+  rate: (a.rate ?? Infinity) > th.p75Rate!, inc: a.incidence > th.p75Incidence!,
+});
+
+/** ระดับความเสียหาย · null = ใช้ P75 ไม่ได้ (เดือนเดียว/ไม่มีข้อมูล) — ยกเว้นไม่มีความเสียหายเลย */
+export function damageLevel(a: LevelInput, th: DamageThresholds): DamageLevel | null {
+  if (!(a.clrAmt > 0) && !a.dmgTrips) return "none";
+  if (!th.usable) return null;
+  const o = over(a, th);
+  return o.rate && o.inc ? "high" : o.rate || o.inc ? "medium" : "low";
 }
 
-/** ระดับบนป้าย (4 ระดับ) ของกรณีนั้น */
-export function damageLevel(a: Pick<DamageAgg, "rate" | "incidence" | "clrAmt">, th: DamageThresholds): DamageLevel | null {
-  const c = damageCase(a, th);
-  return c ? caseOf(c).level : null;
+/** คำแนะนำตาม logic ในไฟล์ · null = ใช้ P75 ไม่ได้ — ยกเว้น DR = 0 (ติดตามผล ไม่ต้องใช้เกณฑ์) */
+export function damageRec(a: LevelInput, th: DamageThresholds): DamageRec | null {
+  if (!(a.clrAmt > 0)) return "follow";
+  if (!th.usable) return null;
+  const o = over(a, th);
+  return !o.inc ? "check" : o.rate ? "urgent" : "improve";
 }
 
 /* ---------------- ตัวกรองช่วงเวลา ---------------- */

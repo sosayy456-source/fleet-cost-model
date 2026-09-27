@@ -58,5 +58,6 @@ export function useColFilters<T>(rows: T[], defs: Record<string, ColFilterDef<T>
   };
 
   const active = Object.values(vals).some((v) => v !== "");
-  return { filtered, filterRow, active, clear: () => setVals({}) };
+  /** แทนค่าตัวกรองทั้งชุด — กล่อง "ต้องจัดการ" ใช้พาไปตารางพร้อมตัวกรอง */
+  return { filtered, filterRow, active, clear: () => setVals({}), replace: (v: Record<string, string>) => setVals(v) };
 }

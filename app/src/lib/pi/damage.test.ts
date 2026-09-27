@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { damageRef, damageResults, damageStatus, p75Score } from "./damage";
+import { damageRef, damageResults, damageStatus, kpiTone, p75Score } from "./damage";
 import type { DamageTrip } from "../damage/damage";
 
 describe("Score = MAX(0, 10 − 5 × KPI ÷ P75) — ตารางในสเปกข้อ 6", () => {
@@ -17,6 +17,21 @@ describe("Score = MAX(0, 10 − 5 × KPI ÷ P75) — ตารางในสเ
 const month = (mo: string, n: number, d: number, c = 10): DamageTrip[] =>
   Array.from({ length: n }, (_, i) => ({ mo, rev: 1000, clrAmt: i < d ? c : 0, clrN: i < d ? 1 : 0 }));
 
+describe("ชุดอ้างอิง 12 เดือนล่าสุด + สีของ KPI (dashboard คชจ.md 27 ก.ย. 2569)", () => {
+  it("ใช้เฉพาะ 12 เดือนปฏิทินล่าสุด นับย้อนจากเดือนล่าสุดที่มีเที่ยว", () => {
+    // ปีก่อนเสียหายหนัก 30% — ถ้านับทุกเดือน P75 จะสูง · 12 เดือนล่าสุด (2025-08..2026-07) ไม่มีเดือนนั้น
+    const old = month("2024-12", 10, 3);
+    const recent = ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03",
+      "2026-04", "2026-05", "2026-06", "2026-07"].flatMap((mo) => month(mo, 50, 1));
+    const ref = damageRef([...old, ...recent]);
+    expect(ref).toMatchObject({ from: "2025-08", to: "2026-07", months: 12, p75Dir: 2 });
+  });
+  it("สี: เขียว ≤ P75 · เหลือง < 2×P75 · แดง ≥ 2×P75", () => {
+    expect([1, 2, 3, 3.99, 4, 9].map((k) => kpiTone(k, 2))).toEqual(["g", "g", "y", "y", "r", "r"]);
+    expect([kpiTone(0, null), kpiTone(1, null)]).toEqual(["g", "r"]);
+  });
+});
+
 describe("ชุดอ้างอิง + กรณีพิเศษ (สเปกข้อ 10)", () => {
   it("P75 = 0 (เดือนส่วนใหญ่ไม่เสียหาย) ถอยไปใช้เดือนที่มีค่า > 0", () => {
     const ref = damageRef([...month("2026-01", 50, 0), ...month("2026-02", 50, 0), ...month("2026-03", 50, 0),
@@ -28,14 +43,14 @@ describe("ชุดอ้างอิง + กรณีพิเศษ (สเ�
     expect(zero.p75Dir).toBe(4);           // P75 ของ [0,0,0,0,4] = 0 → ใช้เดือนที่มีค่า [4]
   });
   it("เที่ยวขั้นต่ำ = 100 ÷ (2 × P75 ของ DIR)", () => {
-    const ref = { p75Dr: 0.04, p75Dir: 2.5, months: 12, minTrips: Math.ceil(100 / 5) };
+    const ref = { p75Dr: 0.04, p75Dir: 2.5, months: 12, minTrips: Math.ceil(100 / 5), from: "2025-08", to: "2026-07" };
     const [, few] = damageResults(month("2026-07", 19, 1), ref);
     expect(few).toMatchObject({ score: null, na: "ข้อมูลไม่เพียงพอ" });
     const [, ok] = damageResults(month("2026-07", 20, 0), ref);
     expect(ok.score).toBe(10);
   });
   it("รายได้ 0 → DR ประเมินไม่ได้ · ไม่มีเที่ยว → DIR ไม่มีเที่ยว (ไม่ใช่ 0)", () => {
-    const ref = { p75Dr: 0.04, p75Dir: 2.5, months: 12, minTrips: 20 };
+    const ref = { p75Dr: 0.04, p75Dir: 2.5, months: 12, minTrips: 20, from: "2025-08", to: "2026-07" };
     const [dr, dir] = damageResults([], ref);
     expect(dr).toMatchObject({ score: null, na: "ประเมินไม่ได้" });
     expect(dir).toMatchObject({ score: null, na: "ไม่มีเที่ยว" });

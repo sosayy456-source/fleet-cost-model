@@ -131,6 +131,8 @@ export interface MgrTrip {
   band: Band | null;
   /** คำแนะนำว่าควรปรับที่จุดไหน (tripAdvice) */
   advice: string[];
+  /** ปัญหาของเที่ยวเป็นคีย์ (tripAdvice) — ใช้นับ/กรองในแถบสรุปปัญหา · ว่าง = ไม่มีปัญหา */
+  issues: IssueKey[];
   rev: number; cost: number; profit: number;
   empty: boolean;
   /** file = ไฟล์ของบริษัท · new = ใบที่บันทึกใหม่ในโมเดล (บันทึกบิล → จัดรถ → ฝ่ายบัญชี) */
@@ -201,33 +203,84 @@ const bahtTxt = (x: number): string => Math.round(x).toLocaleString("en-US");
  * ของเส้นทาง × ชนิดรถเดียวกัน (หรือชนิดรถ) และรายได้ที่ต่ำกว่าเฉลี่ย · ไม่เจอจุดผิดปกติ = ให้ทบทวนราคา
  * ต้นทุนพยากรณ์ (ใบใหม่ที่ฝ่ายบัญชียังไม่กรอก) ไม่ชี้กลุ่มต้นทุน — พยากรณ์คือค่าเฉลี่ยอยู่แล้ว
  */
-export function tripAdvice(t: MgrSrc, lfb: Band | null, mb: Band | null, margin: number | null, bench: Bench | null): string[] {
-  if (t.empty) return ["เที่ยววิ่งเปล่า — หางานขากลับหรือรวมกับเที่ยวอื่น"];
-  const out: string[] = [];
-  if (lfb === "r") out.push("รถว่างมาก — รวมบิลเส้นทางเดียวกันเพิ่มหรือใช้รถคันเล็กลง");
-  else if (lfb === "y") out.push("ยังเติมสินค้าได้อีก");
+export function tripAdvice(t: MgrSrc, lfb: Band | null, mb: Band | null, margin: number | null, bench: Bench | null):
+  { advice: string[]; issues: IssueKey[] } {
+  if (t.empty) return { advice: ["เที่ยววิ่งเปล่า — หางานขากลับหรือรวมกับเที่ยวอื่น"], issues: ["empty"] };
+  const out: string[] = [], issues: IssueKey[] = [];
+  if (lfb === "r") { out.push("รถว่างมาก — รวมบิลเส้นทางเดียวกันเพิ่มหรือใช้รถคันเล็กลง"); issues.push("lfLow"); }
+  else if (lfb === "y") { out.push("ยังเติมสินค้าได้อีก"); issues.push("lfMid"); }
+  if (margin != null && margin < 0) issues.push("loss");
   if (mb && mb !== "g") {
     const head = margin != null && margin < 0 ? "ขาดทุน" : mb === "r" ? "Margin ต่ำมาก" : "Margin ต่ำ";
     const points: string[] = [];
     if (bench) {
-      if (bench.rev > 0 && t.rev < bench.rev * (1 - UNDER_REV_PCT / 100))
+      if (bench.rev > 0 && t.rev < bench.rev * (1 - UNDER_REV_PCT / 100)) {
         points.push(`รายได้ต่ำกว่าเฉลี่ย ${pctTxt((1 - t.rev / bench.rev) * 100)}`);
+        issues.push("revLow");
+      }
       if (!t.costEst) {
         const over = COST_PART_LABELS.filter(({ key }) => key !== "other").map(({ key, label }) => {
           const a = bench.parts[key], v = t.parts[key], ex = v - a;
-          return { label, a, v, ex, ok: ex >= OVER_BAHT && (a <= 0 || v >= a * (1 + OVER_PCT / 100)) };
+          return { key, label, a, v, ex, ok: ex >= OVER_BAHT && (a <= 0 || v >= a * (1 + OVER_PCT / 100)) };
         }).filter((x) => x.ok).sort((x, y) => y.ex - x.ex).slice(0, 2);
-        for (const x of over)
+        for (const x of over) {
           points.push(x.a > 0 ? `${x.label}สูงกว่าเฉลี่ย ${pctTxt((x.v / x.a - 1) * 100)} (+${bahtTxt(x.ex)} บาท)`
             : `มี${x.label} ${bahtTxt(x.v)} บาท (ปกติแทบไม่มี)`);
+          issues.push(`cost:${x.key}`);
+        }
       }
     }
+    if (!points.length) issues.push("price");
     out.push(points.length ? `${head}: ${points.join(" · ")}`
       : t.costEst ? `${head} (ต้นทุนพยากรณ์) — ทบทวนราคาค่าขนส่ง` : `${head} — ต้นทุนใกล้ค่าเฉลี่ย ทบทวนราคาค่าขนส่ง`);
   }
   if (!out.length) out.push(lfb == null ? "Margin ดี" : "ดี — คงรูปแบบนี้ไว้");
-  if (t.costEst) out.push("รอฝ่ายบัญชีกรอกค่าใช้จ่าย (ตอนนี้ใช้ต้นทุนพยากรณ์)");
-  return out;
+  if (t.costEst) { out.push("รอฝ่ายบัญชีกรอกค่าใช้จ่าย (ตอนนี้ใช้ต้นทุนพยากรณ์)"); issues.push("costEst"); }
+  return { advice: out, issues };
+}
+
+/* ---------------- สรุปปัญหา + สิ่งที่ต้องจัดการ (เจ้าของงานสั่ง 27 ก.ย. 2569) ---------------- */
+
+/** ปัญหาของเที่ยวเป็นคีย์ — ออกมาจาก tripAdvice ชุดเดียวกับข้อความคำแนะนำ (ไม่แยกตีความข้อความ) */
+export type IssueKey = "empty" | "lfLow" | "lfMid" | "loss" | "revLow" | "price" | "costEst" | `cost:${keyof CostParts}`;
+export function issueLabel(k: IssueKey): string {
+  if (k.startsWith("cost:")) {
+    const part = COST_PART_LABELS.find((x) => x.key === k.slice(5));
+    return `${part?.label ?? k.slice(5)}สูงกว่าเฉลี่ย`;
+  }
+  return ({ empty: "เที่ยววิ่งเปล่า", lfLow: "รถว่างมาก (LF < 40%)", lfMid: "ยังเติมสินค้าได้ (LF 40–70%)", loss: "ขาดทุน",
+    revLow: "รายได้ต่ำกว่าเฉลี่ย", price: "Margin ต่ำแต่ต้นทุนปกติ (ทบทวนราคา)", costEst: "รอฝ่ายบัญชีกรอกค่าใช้จ่าย" } as Record<string, string>)[k] ?? k;
+}
+/** นับเที่ยวต่อปัญหา มากไปน้อย */
+export function issueCounts(trips: MgrTrip[]): { key: IssueKey; n: number }[] {
+  const m = new Map<IssueKey, number>();
+  for (const t of trips) for (const k of new Set(t.issues)) m.set(k, (m.get(k) ?? 0) + 1);
+  return [...m].map(([key, n]) => ({ key, n })).sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
+}
+
+/** บิลครบกำหนดภายในกี่วัน = "ใกล้ครบกำหนด" (ตามรอบโทรเตือนรายสัปดาห์) */
+export const DUE_SOON_DAYS = 7;
+export const dueSoon = (b: MgrBill): boolean => b.dueIn != null && b.dueIn <= DUE_SOON_DAYS;
+
+/** กล่อง "ต้องจัดการ" บนสุดของ Manager Dashboard — นับจากชุดเดียวกับสองแท็บ (เที่ยวที่กำลังวิ่ง · ลูกหนี้คงค้าง ณ สิ้นช่วง) */
+export interface Todo {
+  fail: number; failLoss: number; est: number;
+  topIssue: { key: IssueKey; n: number } | null;
+  over30: { cust: number; amount: number; bills: number };
+  soon: { cust: number; amount: number; bills: number };
+}
+export function managerTodo(running: MgrTrip[], open: MgrBill[]): Todo {
+  const grp = (bs: MgrBill[]) => ({ cust: new Set(bs.map((b) => b.cust)).size, amount: bs.reduce((s, b) => s + b.amount, 0), bills: bs.length });
+  // ปัญหาที่พบบ่อยสุด ไม่นับที่มีรายการของตัวเองในกล่องแล้ว (ขาดทุน · รอฝ่ายบัญชี)
+  const top = issueCounts(running).find((x) => x.key !== "loss" && x.key !== "costEst") ?? null;
+  return {
+    fail: running.filter((t) => t.band === "r").length,
+    failLoss: running.filter((t) => t.band === "r" && t.profit < 0).length,
+    est: running.filter((t) => t.costEst).length,
+    topIssue: top,
+    over30: grp(open.filter((b) => b.status === "late60" || b.status === "late61")),
+    soon: grp(open.filter(dueSoon)),
+  };
 }
 
 /** เที่ยวของไฟล์ต้นทุน + LF จากไฟล์ LF (สัดส่วน 0–1.3 → %) · ผู้เรียกกรอง inProfitScope มาแล้ว */
@@ -284,7 +337,7 @@ export function buildTrips(file: MgrSrc[], fresh: MgrSrc[] = []): MgrTrip[] {
     return {
       id: t.id, br: branchOf(t.br), d: t.d, eta: runEnd(t.d, t.km), o: t.o, de: t.de, vk: t.vk,
       lf: t.lf, lfb, margin, mb, band: overallBand(lfb, mb, margin),
-      advice: tripAdvice(t, lfb, mb, margin, mb && mb !== "g" ? bench(t) : null),
+      ...tripAdvice(t, lfb, mb, margin, mb && mb !== "g" ? bench(t) : null),
       rev: t.rev, cost: t.cost, profit: t.profit, empty: t.empty, src: t.src, costEst: t.costEst,
     };
   });
@@ -339,7 +392,9 @@ export const DEBT_STATUS_LABEL: Record<DebtStatus, string> = {
 
 export interface MgrBill { doc: string; cust: string; br: string; amount: number; issue: string; due: string;
   /** วันที่ค้างเกินกำหนด ณ วันสิ้นช่วง — ยังไม่ถึงกำหนด = 0 */
-  overdue: number; status: DebtStatus }
+  overdue: number; status: DebtStatus;
+  /** อีกกี่วันครบกำหนด (0 = ครบวันนั้น) — เฉพาะที่ยังไม่ถึงกำหนด · เกินแล้ว = null */
+  dueIn: number | null }
 
 const statusOf = (over: number): DebtStatus =>
   over <= 0 ? "notdue" : over <= 30 ? "late30" : over <= 60 ? "late60" : "late61";
@@ -349,7 +404,7 @@ export function outstandingAt(rows: DebtorRow[], asOf: string): MgrBill[] {
   return ageBills(rows, asOf).filter((a) => a.status !== "paid").map((a) => {
     const status = statusOf(a.over);
     return { doc: a.r.doc, cust: a.r.cust, br: branchOf(a.r.br), amount: a.r.amount, issue: a.r.issue, due: a.r.due,
-      overdue: status === "notdue" ? 0 : a.over, status };
+      overdue: status === "notdue" ? 0 : a.over, status, dueIn: status === "notdue" ? -a.over : null };
   });
 }
 
