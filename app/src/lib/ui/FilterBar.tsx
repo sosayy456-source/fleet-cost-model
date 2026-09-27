@@ -7,11 +7,15 @@
  */
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
-import { useFilterSlot } from "./dashContext";
+import { useFilterSlot, useFloatingFilterSlot } from "./dashContext";
 
 export default function FilterBar({ children }: { children: ReactNode }) {
   const slot = useFilterSlot();
-  if (slot) return createPortal(children, slot);
+  const floatingSlot = useFloatingFilterSlot();
+  if (slot) return <>
+    {createPortal(children, slot)}
+    {floatingSlot && createPortal(children, floatingSlot)}
+  </>;
   return <div className="dz-filters">{children}</div>;
 }
 

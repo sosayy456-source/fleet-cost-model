@@ -126,7 +126,7 @@ export default function ManagerDash({ role }: { role: RoleKey }) {
     <>
       <EtlBanner status={etlAll} />
       <DashShell sample={m?.isSample} meta={meta || undefined} tabs={tabs}
-        onRefresh={cr.reload} loading={cr.loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่">
+        onRefresh={cr.reload} loading={cr.loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่" floatingFilters>
         <FilterBar>
           <div className="ff">
             <label>ช่วงเวลา</label>

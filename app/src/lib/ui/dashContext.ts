@@ -20,6 +20,9 @@ export const useDashPage = (): DashPageInfo | null => useContext(DashPageContext
 
 export const FilterSlotContext = createContext<HTMLElement | null>(null);
 export const useFilterSlot = (): HTMLElement | null => useContext(FilterSlotContext);
+/** ช่องตัวกรองชุดเดียวกันในแผงลอย ใช้เมื่อเลื่อนแถบหัวพ้นจอ */
+export const FloatingFilterSlotContext = createContext<HTMLElement | null>(null);
+export const useFloatingFilterSlot = (): HTMLElement | null => useContext(FloatingFilterSlotContext);
 
 /**
  * ที่มาของข้อมูลที่แท็บประกาศทับหัวแดชบอร์ด — ป้าย "ข้อมูลตัวอย่าง" กับบรรทัดที่มาต้องเป็นของชุดที่แท็บนั้นใช้จริง
