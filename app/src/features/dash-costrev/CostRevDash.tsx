@@ -103,7 +103,7 @@ export default function CostRevDash() {
     <>
       <EtlBanner status={etlAll} />
       <DashShell title={title} sample={m?.isSample} meta={meta || undefined}
-        tabs={tabs} onRefresh={reload} loading={loading} refreshTitle={refreshTitle}>
+        tabs={tabs} onRefresh={reload} loading={loading} refreshTitle={refreshTitle} floatingFilters>
         {STANDALONE.has(tab) ? (
           <>{tab === "lf" && <LoadFactorTab />}{tab === "tonkm" && <TonKmTab />}</>
         ) : error ? (
