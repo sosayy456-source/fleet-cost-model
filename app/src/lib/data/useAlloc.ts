@@ -34,6 +34,8 @@ export interface AllocManifest {
   revenue: { toCustomers: number; notLinked: number };
   itemStatus: Record<string, number>;
   months: string[];
+  /** จำนวนชุดย่อยของบิล · ไม่มีในไฟล์รุ่นเก่าที่เก็บ bills.json ก้อนเดียว */
+  billShards?: number;
 }
 
 /** 1 ระเบียน = 1 ลูกค้า (ผู้จ่ายเงิน) */
@@ -92,7 +94,7 @@ export interface AllocCustMonth {
   flagRev: number; fNoSize: number; fBig: number; fTiny: number;
 }
 
-/** บิลรายใบ (bills.json) — มีเฉพาะลูกค้าที่ติด Top 10 ของช่วงเวลาใดช่วงหนึ่ง */
+/** บิลรายใบ — สูงสุด 100 บิลล่าสุดต่อรายต่อเดือนของลูกค้าที่เปิดรายละเอียดได้ */
 export interface AllocBill {
   ci: number; bill: string; date: string; doc: string; route: string; revenue: number; cost: number;
   /**
@@ -103,8 +105,8 @@ export interface AllocBill {
   eqKg: number | null; metric: number | null; share: number | null; byRevenue: number | null;
 }
 
-/** "ปี|เดือน" → ดัชนีลูกค้า Top 10 กำไรสูงสุด (gain) / ขาดทุนมากสุด (loss) เป็นบาท ที่ ETL คัดไว้ */
-export type AllocTop = Record<string, { gain: number[]; loss: number[] }>;
+/** "ปี|เดือน" → Top 100 สองฝั่ง และ Top 10 ของช่วง %Margin ทั้งแปดช่วง · ไฟล์รุ่นเก่าไม่มี margin */
+export type AllocTop = Record<string, { gain: number[]; loss: number[]; margin?: number[][] }>;
 
 /**
  * คีย์ของ top.json ตามช่วงเวลา — ต้องตรงกับ top_by_period() ใน etl/build_alloc.py
@@ -144,7 +146,7 @@ interface BillColumns {
 }
 
 const BASE = import.meta.env.BASE_URL;
-const FORCED = import.meta.env.VITE_DATASET as AllocDataset | undefined;
+const FORCED = import.meta.env.DEV ? undefined : import.meta.env.VITE_DATASET as AllocDataset | undefined;
 
 const url = (ds: AllocDataset, f: string) => `${BASE}data/${ds}/alloc/${f}`;
 
@@ -227,17 +229,34 @@ function toBills(c: BillColumns | null): AllocBill[] | null {
 }
 
 let cache: Promise<AllocData> | null = null;
+const billShardCache = new Map<string, Promise<AllocBill[]>>();
+
+/** โหลดเฉพาะชุดย่อยของลูกค้าที่กดดู · ไฟล์รุ่นเก่ายังอ่าน bills.json ตามเดิม */
+export async function loadAllocBills(data: AllocData, ci: number): Promise<AllocBill[]> {
+  const shards = data.manifest.billShards;
+  if (!shards) return data.bills?.filter((b) => b.ci === ci) ?? [];
+  const file = `bills_${(ci % shards).toString(16).padStart(2, "0")}.json`;
+  const key = `${data.manifest.dataset}/${data.manifest.generatedAt}/${file}`;
+  let promise = billShardCache.get(key);
+  if (!promise) {
+    promise = fetchJson<BillColumns>(data.manifest.dataset, file)
+      .then((columns) => toBills(columns) ?? [])
+      .catch((error) => { billShardCache.delete(key); throw error; });
+    billShardCache.set(key, promise);
+  }
+  return (await promise).filter((b) => b.ci === ci);
+}
 
 export async function loadAlloc(): Promise<AllocData> {
   cache ??= (async () => {
     const ds = await detect();
-    const [manifest, columns, months, unlinked, custMonths, bills, top] = await Promise.all([
-      fetchJson<AllocManifest>(ds, "manifest.json"),
+    const manifest = await fetchJson<AllocManifest>(ds, "manifest.json");
+    const [columns, months, unlinked, custMonths, bills, top] = await Promise.all([
       fetchJson<CustomerColumns>(ds, "customers.json"),
       fetchJson<AllocMonths>(ds, "months.json"),
       fetchJson<AllocUnlinked>(ds, "unlinked.json"),
       fetchOptional<CustMonthColumns>(ds, "cust_months.json"),
-      fetchOptional<BillColumns>(ds, "bills.json"),
+      manifest.billShards ? Promise.resolve(null) : fetchOptional<BillColumns>(ds, "bills.json"),
       fetchOptional<AllocTop>(ds, "top.json"),
     ]);
     return {
@@ -261,7 +280,7 @@ export function useAlloc(): AllocState {
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
 
-  const reload = useCallback(() => { cache = null; resetAllocDataset(); setTick((t) => t + 1); }, []);
+  const reload = useCallback(() => { cache = null; billShardCache.clear(); resetAllocDataset(); setTick((t) => t + 1); }, []);
 
   useEffect(() => {
     let alive = true;

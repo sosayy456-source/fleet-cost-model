@@ -6,7 +6,7 @@
  * ตอนนี้แอปตรวจเองจาก public/data/real/costrev/manifest.json: มี = real / ไม่มี = sample
  * และตรวจซ้ำทุกครั้งที่กดรีเฟรชข้อมูล จึงวางไฟล์ตอน server รันอยู่ก็เห็นผลได้
  *
- * VITE_DATASET ยังบังคับได้ถ้าตั้งไว้ — workflow deploy ตั้ง sample เสมอ
+ * โหมดพัฒนาเลือกชุดข้อมูลจากไฟล์ผลลัพธ์เสมอ · VITE_DATASET ใช้บังคับเฉพาะตอน build
  * (และไฟล์ใต้ public/data/real/ ติด .gitignore จึงไม่มีทางขึ้น Pages อยู่แล้ว)
  *
  * ★ Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์ (SPA fallback)
@@ -16,7 +16,7 @@ import { useEffect, useState } from "react";
 
 export type DatasetName = "sample" | "real";
 
-const FORCED = (import.meta.env.VITE_DATASET as string | undefined) as DatasetName | undefined;
+const FORCED = import.meta.env.DEV ? undefined : import.meta.env.VITE_DATASET as DatasetName | undefined;
 const BASE = import.meta.env.BASE_URL;
 
 /** path ของไฟล์ข้อมูลที่ ETL สร้าง (เคารพ base ของ Vite) */

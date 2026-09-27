@@ -95,12 +95,13 @@ export function DBar({
   ));
   const tip = tooltipProps(t, suffix, digits);
   const tooltip = tooltipExtra ? (
-    <Tooltip {...tip} formatter={(v: number, name: string, item: { payload?: Row }) => {
+    <Tooltip {...tip} itemStyle={{ ...tip.itemStyle, whiteSpace: "pre-line" }}
+      formatter={(v: number, name: string, item: { payload?: Row }) => {
       const [shown] = tip.formatter(v, name);
       // ดัชนีจาก payload ของแถว ไม่ใช่ลำดับ item ใน tooltip (ซึ่งเป็นลำดับของ series)
       const i = item.payload ? data.indexOf(item.payload) : -1;
       const extra = i >= 0 ? tooltipExtra(i) : null;
-      return [extra ? `${shown} · ${extra}` : shown, name] as [string, string];
+      return [extra ? `${shown}\n${extra}` : shown, name] as [string, string];
     }} />
   ) : <Tooltip {...tip} />;
   return (

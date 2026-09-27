@@ -1,7 +1,7 @@
 /**
  * Overall Dashboard (เดิมชื่อ Executive Dashboard — เปลี่ยน 25 ก.ย. 2569 · ชื่อ Executive Dashboard ย้ายไปเป็นของเมนู Demo)
  *   แดชบอร์ดต้นทุน+รายได้รายเที่ยว จากไฟล์ realalldata
- *   ชุด inProfitScope() = จับคู่กับข้อมูลรายได้ได้ (m) + เที่ยววิ่งเปล่า (เจ้าของงานเคาะ 24 ก.ย. 2569 — ชุดเดียวกับเมนู Demo)
+ *   ชุด inProfitScope() = เที่ยวที่จับคู่เลขที่ใบรายการกับบิลรายได้ได้ (m)
  *   ★ เมนู "Dashboard ค่าเดินทาง(ไม่ใช้)" (โหมด all = ทุกเที่ยวในไฟล์) ลบออกแล้ว 24 ก.ย. 2569 — ไม่มีโหมดอีก
  *
  * แท็บจากไฟล์ต้นทุน: การใช้ประโยชน์ของกองรถ · Damage Rate · เที่ยววิ่งเปล่า (docs/spec-เที่ยววิ่งเปล่า.md) · รายละเอียด ข้อ 3
@@ -14,9 +14,8 @@
  *   จึงวาดก่อนการตรวจ error/ว่างของ costrev เข้าได้แม้ไฟล์ต้นทุนหาย
  * ★ แท็บ "กำไรส่วนเกิน/ตัน-กม." (23 ก.ย. 2569) ใช้ชุด loadfactor/ เดียวกัน — STANDALONE เหมือนกัน
  *   การ์ดสรุปในเมนู Demo กดแล้วเปิดแท็บนี้ตรง ๆ ผ่าน openExecTab() (lib/ui/dashJump.ts)
- * ★ ทุกแท็บของโหมด exec ใช้ชุดเดียวกัน (24 ก.ย. 2569) — เดิมแท็บ "เที่ยววิ่งเปล่า" เป็นข้อยกเว้นที่ใช้ทุกแถวในไฟล์
- *   (ALL_TRIPS) ส่วนแท็บอื่นใช้ m อย่างเดียว เที่ยวเปล่าจึงหลุดจากกำไร และ % เที่ยวเปล่าหารด้วยต้นทุนของเที่ยว
- *   ที่หน้าอื่นไม่นับ · ตอนนี้ทุกแท็บได้ m + เที่ยวเปล่า แท็บที่ไม่ควรนับเที่ยวเปล่าตัดออกเอง (Damage · ตารางสรุป)
+ * ★ แท็บเที่ยววิ่งเปล่าแสดงทุกเที่ยวตามนิยามเดิม รวมเที่ยวที่จับคู่บิลไม่ได้
+ *   แท็บกำไรหลักและแท็บอื่นใช้เฉพาะเที่ยวที่จับคู่ได้
  *
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
  */
@@ -74,7 +73,6 @@ export default function CostRevDash() {
     if (!data) return [];
     return data.trips.filter(inProfitScope);
   }, [data]);
-  const emptyN = useMemo(() => trips.filter((t) => t.empty).length, [trips]);
 
   const refreshTitle = "ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่";
   const m = data?.manifest;
@@ -82,7 +80,7 @@ export default function CostRevDash() {
   // บรรทัดที่มาของข้อมูลใต้หัวเรื่อง — ข้อความตามดีไซน์ 1A
   const meta = m && (
     <Meta parts={[
-        <><b>{fmt(trips.length)}</b> เที่ยว = จับคู่กับข้อมูลรายได้ได้ <b>{fmt(trips.length - emptyN)}</b> + เที่ยววิ่งเปล่า <b>{fmt(emptyN)}</b> จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
+        <><b>{fmt(trips.length)}</b> เที่ยวที่จับคู่กับข้อมูลรายได้ได้ จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์ · แท็บเที่ยววิ่งเปล่าแสดงทุกเที่ยวตามเดิม</>,
         `ข้อมูลรายได้ ${m.revenueFiles} ไฟล์`,
         <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
       ]} />);
@@ -124,7 +122,7 @@ export default function CostRevDash() {
         ) : (
           <>
             {tab === "fleet" && <FleetTab trips={trips} />}
-            {tab === "empty" && <EmptyTab trips={trips} />}
+            {tab === "empty" && <EmptyTab trips={data.trips} />}
             {tab === "damage" && <DamageTab trips={trips} matchedTotal={m.matched} isSample={m.isSample} />}
             {tab === "detail3" && <Detail3Tab trips={trips} />}
           </>

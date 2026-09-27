@@ -17,12 +17,12 @@
     old_debtors.json   บิล "ที่ยังค้างชำระ" จากไฟล์รายได้ของเที่ยวที่จับคู่ได้ ในรูปแถว "ข้อมูลเก่า" ของหน้าลูกหนี้
 
 กติกา (ตกลงกับเจ้าของข้อมูล 16 ก.ย. 2569):
-    รายได้เที่ยว    = ราคารวมจากรายได้ ถ้าว่างใช้ ค่าบรรทุกทั้งใบรายการ
-    ต้นทุนเที่ยว    = คอลัมน์ ต้นทุน (ตัวสุดท้าย รวมค่าเช่าแล้ว)
+    รายได้เที่ยว    = ผลรวม ราคารวม ของบิลที่เลขที่ใบรายการตรงกันและนับเข้าลูกค้า
+    ต้นทุนเที่ยว    = คอลัมน์ ต้นทุน หักส่วนที่ปันให้บิลเคลียร์/รายการไร้ผู้จ่าย
+                     ด้วยตัวหารเดียวกับ build_alloc.py (เฉพาะเที่ยวที่จับคู่ได้)
     เที่ยววิ่งเปล่า  = ราคารวมจากรายได้ = 0 และ ค่าบรรทุกทั้งใบรายการ = 0 พร้อมกัน (ช่องว่างนับเป็น 0)
                      ไม่จำกัดประเภทใบรายการ — ตกลง 17 ก.ย. 2569 (docs/spec-เที่ยววิ่งเปล่า.md)
-                     ★ อ่านสองคอลัมน์แยกกัน ห้ามดูจาก revenue เพราะถ้าคอลัมน์แรกเป็น 0 จริง revenue
-                       จะเป็น 0 โดยไม่ดูค่าบรรทุก
+                     ★ อ่านสองคอลัมน์แยกกัน ห้ามดูจากรายได้บิลที่ใช้คิดกำไร
     สูญเปล่า        = 3 คอลัมน์น้ำมันนอกเส้นทาง (WASTE_COLS) — เอกสารฉบับแก้ 16 ก.ย. 2569 ย้าย
                      "เบี้ยเลี้ยงนอกเส้นทาง" ออกจากสูญเปล่าไปอยู่ในค่าเบี้ยเลี้ยง
     น้ำมัน          = 8 คอลัมน์ตามเอกสารจัดประเภทต้นทุน (ไม่มีแก๊ส/Fleet Card)
@@ -78,7 +78,9 @@ except ImportError:       # ไม่มีก็ยังรันได้ แ
     _calamine = None
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from src.alloc import DROPPED_TRIP_TYPES, Item  # noqa: E402
+from src.alloc import (DROPPED_TRIP_TYPES, Item, TripAcc, exclusion_of,
+                       measure, payer_of, share_in_trip)  # noqa: E402
+from src.capacity import Capacity  # noqa: E402
 from src.custcodes import resolve_codes  # noqa: E402
 from src.svcalloc import SvcAlloc  # noqa: E402
 from src.tripcols import encode as encode_trips  # noqa: E402
@@ -173,15 +175,6 @@ def line_weight_kg(qty: float, unit_kg: float, total_kg: float) -> float:
     if qty > 0 and unit_kg > 0:
         return qty * unit_kg
     return 0.0
-
-
-def num_or_none(v) -> float | None:
-    if v is None or str(v).strip() in ("", "-", "None"):
-        return None
-    try:
-        return float(str(v).replace(",", "").strip())
-    except ValueError:
-        return None
 
 
 def text(v) -> str:
@@ -281,7 +274,43 @@ def xlsx_files(folder: Path) -> list[Path]:
 
 
 # ---------------------------------------------------------------- รายได้
-def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
+class BillProfitAcc:
+    """สะสมรายได้และต้นทุนที่เข้าลูกค้า โดยใช้ตัวหารเดียวกับ build_alloc.py"""
+
+    def __init__(self, routes: dict[str, dict[str, float]], trip_types: dict[str, str],
+                 cfs: dict[str, float]) -> None:
+        self.routes = routes
+        self.trip_types = trip_types
+        self.cfs = cfs
+        self.divisors: dict[str, TripAcc] = {}
+        self.excluded: dict[str, list[Item]] = {}
+        self.revenue: dict[str, float] = {}
+
+    def add(self, it: Item) -> None:
+        measure(it, self.routes, self.cfs[it.doc])
+        acc = self.divisors.get(it.doc)
+        if acc is None:
+            acc = self.divisors[it.doc] = TripAcc()
+        acc.add(it)
+        if exclusion_of(it, self.trip_types.get(it.doc, "")) or not payer_of(it)[1]:
+            self.excluded.setdefault(it.doc, []).append(it)
+        else:
+            self.revenue[it.doc] = self.revenue.get(it.doc, 0.0) + it.revenue
+
+    def totals(self, doc: str, trip_cost: float) -> tuple[float, float]:
+        """คืนรายได้และต้นทุนสุทธิของใบรายการหลังตัดรายการที่ไม่เข้าลูกค้า"""
+        acc = self.divisors[doc]
+        divisor = acc.divisor()
+        fill = acc.fill()
+        excluded_cost = 0.0
+        for it in self.excluded.get(doc, ()):
+            it.workload = it.basis * (it.dist if it.dist is not None else fill)
+            excluded_cost += trip_cost * share_in_trip(it, *divisor)
+        return self.revenue.get(doc, 0.0), trip_cost - excluded_cost
+
+
+def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None,
+                 profit_acc: BillProfitAcc | None = None):
     """
     อ่านไฟล์รายได้ แล้วคืน (ใบรายการที่ตรงกับ want, บิลของใบเหล่านั้น, จำนวนไฟล์, จำนวนแถว,
     ยอดที่ชำระแล้ว, มูลค่าบิลเคลียร์ต่อใบ, จำนวนรายการบิลเคลียร์ต่อใบ)
@@ -309,6 +338,8 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
     paid_seen = 0
     paid_total = 0.0
     files = xlsx_files(rev_dir)
+    if rev_dir == SAMPLE_REV_DIR:
+        files = [p for p in files if p.name.startswith("bill_")]
     for fi, p in enumerate(files):
         span(12, 92, fi, len(files), f"อ่านไฟล์รายได้ {fi + 1}/{len(files)}")
         hdr, rows = iter_sheet(p, 0)
@@ -331,12 +362,21 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
             # ชำระแล้วจะถูก continue ทิ้ง ถ้านับทีหลังบิลเคลียร์ที่ชำระแล้วจะหายไปเงียบ ๆ แล้ว
             # Damage Rate ต่ำกว่าจริง (ชุดตัวอย่างบังเอิญเป็น "ยังไม่ได้ชำระ" ครบ ข้อมูลจริงไม่รับประกัน)
             goods_type = text(g(r, "ประเภทสินค้า"))
-            if svc is not None:
-                svc.add(Item(
+            include_profit = True
+            if svc is not None or profit_acc is not None:
+                item = Item(
                     doc=doc, bill=text(g(r, "เลขที่บิล")), origin=text(g(r, "ต้นทาง")), dest=text(g(r, "ปลายทาง")),
                     weight=num(g(r, "น้ำหนักรวม")), qty=num(g(r, "จำนวน")),
                     width=num(g(r, "กว้าง")), length=num(g(r, "ยาว")), height=num(g(r, "สูง")),
-                    name=text(g(r, "ชื่อสินค้า")), revenue=num(g(r, "ราคารวม")), goods=goods_type))
+                    name=text(g(r, "ชื่อสินค้า")), revenue=num(g(r, "ราคารวม")), goods=goods_type,
+                    payment=text(g(r, "ประเภทการชำระเงิน")),
+                    sender=text(g(r, "ผู้ส่ง_encoded")), receiver=text(g(r, "ผู้รับ_encoded")))
+                if profit_acc is not None:
+                    include_profit = (not exclusion_of(item, profit_acc.trip_types.get(doc, ""))
+                                      and bool(payer_of(item)[1]))
+                    profit_acc.add(item)
+                if svc is not None and include_profit:
+                    svc.add(item)
             if goods_type == GOODS_CLEARED:
                 clr_amt[doc] = clr_amt.get(doc, 0.0) + num(g(r, "ราคารวม"))
                 clr_n[doc] = clr_n.get(doc, 0) + 1
@@ -354,7 +394,7 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None):
                 # น้ำหนักก็นับก่อนตัวกรองสถานะชำระเงิน · บิลเคลียร์ไม่ใช่สินค้าที่บรรทุกจริง
                 weight_kg[doc] = weight_kg.get(doc, 0.0) + line_weight_kg(
                     num(g(r, "จำนวน")), num(g(r, "น้ำหนักต่อหน่วย")), num(g(r, "น้ำหนักรวม")))
-            if goods_type != GOODS_CLEARED:
+            if goods_type != GOODS_CLEARED and include_profit:
                 service = goods_type or "ไม่ระบุ"
                 amounts = service_revenue.setdefault(doc, {})
                 amounts[service] = amounts.get(service, 0.0) + num(g(r, "ราคารวม"))
@@ -449,8 +489,6 @@ def build(dataset: str) -> None:
                 skipped_no_date += 1
                 continue
 
-            rev1 = num_or_none(g(r, COL_REV1))
-            revenue = rev1 if rev1 is not None else num(g(r, COL_REV2))
             cost = num(g(r, COL_COST))
             ttype = text(g(r, "ประเภทใบรายการ"))
             # ★ ประเภทที่เจ้าของงานสั่งตัดออกจากโมเดลทั้งระบบ (20 ก.ย. 2569) — ทิ้งทั้งแถว
@@ -537,9 +575,9 @@ def build(dataset: str) -> None:
                 "rt": text(g(r, "จุดขึ้น-จุดลง")) or f"{origin}-{dest}",
                 "dir": text(g(r, "ขาขึ้น-ขาล่อง")),
                 "km": distance(origin, dest),
-                "rev": round(revenue, 2),
+                "rev": 0.0,  # รายได้ของเที่ยวที่จับคู่ได้เติมจากยอดบิลหลังอ่านไฟล์รายได้
                 "cost": round(cost, 2),
-                "profit": round(revenue - cost, 2),
+                "profit": round(-cost, 2),
                 "empty": empty,
                 "clear": text(g(r, "เป็นบิลเคลียร์")) == "ใช่",
                 "m": False,   # เติมทีหลังเมื่ออ่านไฟล์รายได้เสร็จ
@@ -564,12 +602,46 @@ def build(dataset: str) -> None:
     # อ่านรายได้ทีหลัง แล้วเก็บเฉพาะบิลของใบที่มีในไฟล์ต้นทุน (ดูเหตุผลใน load_revenue)
     print(f"อ่านข้อมูลรายได้จาก {rev_dir}")
     cost_docs = {t["id"] for t in trips}
-    svc = SvcAlloc(routes)
+    cap = Capacity(ROOT / "app" / "src" / "lib" / "refdata" / "vehicles.json")
+    kinds_by_doc: dict[str, list[str]] = {}
+    for t in trips:
+        kinds_for_doc = kinds_by_doc.setdefault(t["id"], [])
+        for vehicle in t["vs"]:
+            kind = vehicle.get("vk", "")
+            if kind and kind != "-" and kind not in kinds_for_doc:
+                kinds_for_doc.append(kind)
+    cfs = {doc: cap.trip_cf(kinds_for_doc)[0] for doc, kinds_for_doc in kinds_by_doc.items()}
+    svc = SvcAlloc(routes, cfs)
+    profit_acc = BillProfitAcc(routes, {t["id"]: t["t"] for t in trips}, cfs)
     (rev_docs, rev_bills, rev_files, rev_rows, rev_paid, clr_amt, clr_n, goods,
-     bill_n, payers, service_revenue, weight_kg) = load_revenue(rev_dir, cost_docs, svc)
+     bill_n, payers, service_revenue, weight_kg) = load_revenue(rev_dir, cost_docs, svc, profit_acc)
     print(f"  {rev_files} ไฟล์ · {rev_rows:,} แถว · ใบรายการที่ตรงกับไฟล์ต้นทุน {len(rev_docs):,}")
+    doc_cost: dict[str, float] = {}
+    doc_rows: Counter[str] = Counter()
+    for t in trips:
+        doc_cost[t["id"]] = doc_cost.get(t["id"], 0.0) + t["cost"]
+        doc_rows[t["id"]] += 1
+    profit_totals = {doc: profit_acc.totals(doc, doc_cost[doc]) for doc in rev_docs}
+    del profit_acc
     for t in trips:
         t["m"] = t["id"] in rev_docs
+        if t["m"]:
+            doc = t["id"]
+            revenue, net_cost = profit_totals[doc]
+            gross_cost = t["cost"]
+            factor = net_cost / doc_cost[doc] if doc_cost[doc] else 1.0
+            t["rev"] = round(revenue / doc_rows[doc], 2)
+            t["cost"] = round(gross_cost * factor, 2)
+            t["profit"] = round(t["rev"] - t["cost"], 2)
+            # ต้นทุนรายกลุ่มและรายรถต้องอยู่บนฐานสุทธิเดียวกับต้นทุนของเที่ยว
+            for key in ("waste", "fuel", "allow", "fee", "repair", "dep", "rent"):
+                t[key] = round(t[key] * factor, 2)
+            for key in list(t):
+                if key.startswith(("f_", "a_", "p_")):
+                    t[key] = round(t[key] * factor, 2)
+            for vehicle in t["vs"]:
+                vehicle["c"] = round(vehicle["c"] * factor, 2)
+                vehicle["d"] = round(vehicle["d"] * factor, 2)
         # ★ ธง clear (จากไฟล์ต้นทุน) กับ clrN (จากบิลจริง) ไม่เท่ากัน — ชุดตัวอย่าง 12 ไฟล์มีใบที่ธง "ใช่" 125 ใบ
         #   แต่หาบิลเคลียร์เจอแค่ 26 ใบ เพราะไฟล์รายได้ตัวอย่างถูกสุ่มมาบางส่วน
         #   แท็บ Damage Rate คิดจาก clrAmt/clrN เท่านั้น (มูลค่าจริง) ไม่ใช่ธง clear
@@ -624,7 +696,15 @@ def build(dataset: str) -> None:
     old_debtors = [b for t in matched for b in rev_bills.get(t["id"], [])]
     # แปลงรหัสต้นฉบับของผู้ส่ง/ผู้รับเป็นเลข CUS ตั้งแต่ตอน ETL
     # หน้ารายการลูกหนี้กับแท็บ "จากข้อมูลบิล (เดิม)" จะได้ไม่ต้องโหลด custmap.bin 18 MB
-    _codes = resolve_codes(ROOT, {str(b.get(k) or "") for b in old_debtors for k in ("sender", "receiver")})
+    if dataset == "sample":
+        # ใช้รหัสที่เคยอยู่ในชุดตัวอย่าง เพื่อไม่เปิดตารางรหัสลูกค้าข้อมูลจริง
+        previous = OUT_ROOT / "sample" / "costrev" / "old_debtors.json"
+        saved = json.loads(previous.read_text(encoding="utf-8")) if previous.exists() else []
+        _codes = {str(b[k]): int(b[f"{k}N"])
+                  for b in saved for k in ("sender", "receiver") if b.get(k) and b.get(f"{k}N")}
+    else:
+        _codes = resolve_codes(
+            ROOT, {str(b.get(k) or "") for b in old_debtors for k in ("sender", "receiver")})
     for b in old_debtors:
         b["senderN"] = _codes.get(str(b.get("sender") or ""), 0)
         b["receiverN"] = _codes.get(str(b.get("receiver") or ""), 0)
@@ -676,7 +756,7 @@ def build(dataset: str) -> None:
     dump("old_records.json", old_records)
     dump("old_debtors.json", old_debtors)
 
-    print(f"เขียน {out_dir.relative_to(ROOT)}")
+    print(f"เขียน {out_dir}")
     print(f"  เที่ยว {len(trips):,} · จับคู่กับข้อมูลรายได้ได้ {len(matched):,} ({100*len(matched)/len(trips):.1f}%)")
     print(f"  ช่วงวันที่ {dates[0]} → {dates[-1]} · ปี {manifest['years']}")
     print(f"  ระยะทางจาก routes.json: เส้นทาง {route_hit}/{len(route_pairs)} · เที่ยวที่มี กม. {trips_with_km:,} ({manifest['routeDistance']['pct']}%)")

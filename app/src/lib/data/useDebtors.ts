@@ -67,7 +67,7 @@ export interface DebtorData {
 }
 
 const BASE = import.meta.env.BASE_URL;
-const FORCED = import.meta.env.VITE_DATASET as DebtorDataset | undefined;
+const FORCED = import.meta.env.DEV ? undefined : import.meta.env.VITE_DATASET as DebtorDataset | undefined;
 
 export const debtorUrl = (ds: DebtorDataset, f: string) => `${BASE}data/${ds}/debtors/${f}`;
 const url = debtorUrl;

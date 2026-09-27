@@ -17,6 +17,7 @@ from src.svcalloc import NO_GROUP, SvcAlloc
 ROUTES = json.loads((Path(__file__).resolve().parent.parent / "app" / "src" / "lib" / "refdata" / "routes.json")
                     .read_text(encoding="utf-8"))
 DOC = "5240111503464"
+DOC_CF = 250.0
 
 
 def item(goods: str, weight: float, revenue: float, dest: str = "ปากคลองตลาด", qty: float = 1) -> Item:
@@ -25,7 +26,7 @@ def item(goods: str, weight: float, revenue: float, dest: str = "ปากคล
 
 
 def run(items: list[Item], cost: float, rev: float):
-    s = SvcAlloc(ROUTES)
+    s = SvcAlloc(ROUTES, {DOC: DOC_CF})
     for it in items:
         s.add(it)
     return {g: (n, r, c) for g, n, r, c in s.finalize(DOC, cost, rev)}
@@ -42,7 +43,7 @@ def test_ผลรวมกลุ่มเท่าต้นทุนและ�
 def test_ตรงกับ_allocate_trip():
     items = [item("A", 500, 800), item("B", 200, 400), item("A", 300, 300, dest="ที่ไม่มีในตาราง")]
     ref = allocate_trip([item("A", 500, 800), item("B", 200, 400), item("A", 300, 300, dest="ที่ไม่มีในตาราง")],
-                        10_000, ROUTES)
+                        10_000, ROUTES, cf=DOC_CF)
     want: dict[str, float] = {}
     for it in ref.items:
         want[it.goods] = want.get(it.goods, 0.0) + (it.alloc or 0.0)
@@ -58,7 +59,7 @@ def test_ไม่มีน้ำหนักใช้ตัวถ่วงส�
 
 
 def test_ประเภทสินค้าว่างเป็นไม่ระบุ_และใบที่ไม่มีบิลคืนว่าง():
-    s = SvcAlloc(ROUTES)
+    s = SvcAlloc(ROUTES, {DOC: DOC_CF})
     s.add(item("", 100, 50))
     assert [g for g, *_ in s.finalize(DOC, 10, 50)] == [NO_GROUP]
     assert s.finalize("ไม่มีใบนี้", 10, 50) == []

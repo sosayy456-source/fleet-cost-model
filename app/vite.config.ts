@@ -179,8 +179,8 @@ function autoEtl(): Plugin {
     },
     cr: {
       script: "build_costrev.py", dir: costDir, out: costOut,
-      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/Dashboard real data/ — Executive/Dashboard รวม กลับไปใช้ข้อมูลตัวอย่าง",
-      emptyMsg: "ไม่มีไฟล์ต้นทุน+รายได้จริงแล้ว กลับไปใช้ข้อมูลตัวอย่าง",
+      emptyLog: "ไม่มีไฟล์ต้นทุนหรือรายได้จริงครบคู่ — Executive/Dashboard รวม กลับไปใช้ข้อมูลตัวอย่าง",
+      emptyMsg: "ไม่มีไฟล์ต้นทุนหรือรายได้จริงครบคู่แล้ว กลับไปใช้ข้อมูลตัวอย่าง",
       clearFailLog: "✗ ลบ public/data/real/costrev/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
       clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/costrev/manifest.json เองแล้วกดรีเฟรช",
       startLog: () => "▶ กำลังแปลงไฟล์ต้นทุน+รายได้รายเที่ยว (python build_costrev.py --dataset real) …",
@@ -191,8 +191,8 @@ function autoEtl(): Plugin {
       // ปันส่วนจากไฟล์ดิบเสมอ — รายงานค่าเดินทาง + ไฟล์บิลใน etl/data/revenue/
       // (เดิมมี etl/data/allocated/ มาก่อน เจ้าของข้อมูลสั่งตัดทิ้ง 17 ก.ย. 2569 เพราะข้อมูลซ้ำ)
       script: "build_alloc.py", dir: costDir, out: allocOut,
-      emptyLog: "ไม่มีไฟล์ .xlsx ใน etl/data/Dashboard real data/ — กำไรลูกค้า (ปันส่วนต้นทุน) กลับไปใช้ข้อมูลตัวอย่าง",
-      emptyMsg: "ไม่มีไฟล์ต้นทุนจริงแล้ว — กำไรลูกค้า (ปันส่วนต้นทุน) กลับไปใช้ข้อมูลตัวอย่าง",
+      emptyLog: "ไม่มีไฟล์ต้นทุนหรือรายได้จริงครบคู่ — กำไรลูกค้า (ปันส่วนต้นทุน) กลับไปใช้ข้อมูลตัวอย่าง",
+      emptyMsg: "ไม่มีไฟล์ต้นทุนหรือรายได้จริงครบคู่แล้ว — กำไรลูกค้า (ปันส่วนต้นทุน) กลับไปใช้ข้อมูลตัวอย่าง",
       clearFailLog: "✗ ลบ public/data/real/alloc/manifest.json ไม่ได้ (ไฟล์ถูกล็อก) — ลบเองแล้วกดรีเฟรช",
       clearFailMsg: "ล้างข้อมูลจริงไม่สำเร็จ — ลบ public/data/real/alloc/manifest.json เองแล้วกดรีเฟรช",
       startLog: () => "▶ กำลังทำข้อมูลกำไรลูกค้าจากการปันส่วนต้นทุน (python build_alloc.py --dataset real) …",
@@ -232,7 +232,12 @@ function autoEtl(): Plugin {
 
     // ลบไฟล์ออกจนหมด = ไม่มีข้อมูลจริงแล้ว → ล้าง JSON เก่าทิ้ง ไม่งั้นแดชบอร์ดยังโชว์ชุดเดิมค้างอยู่
     // ลบเฉพาะไฟล์ข้างใน ไม่ลบโฟลเดอร์ — Windows ถือ handle ของโฟลเดอร์ใต้ public/ ไว้ (watcher)
-    if (!hasXlsx(spec.dir)) {
+    // ชุดต้นทุนรายเที่ยวและกำไรลูกค้าต้องมีทั้งไฟล์ต้นทุนกับไฟล์รายได้
+    // ถ้าฝั่งใดหาย ให้ล้างผลลัพธ์เก่าเพื่อกลับไปใช้ชุดตัวอย่าง
+    const hasInputs = job === "cr" || job === "al"
+      ? hasXlsx(costDir) && hasXlsx(revDir)
+      : hasXlsx(spec.dir);
+    if (!hasInputs) {
       const { ok, failed } = clearOut(spec.out, "manifest.json");
       if (ok) {
         log(spec.emptyLog + (failed.length ? ` (ลบไม่ได้ ${failed.length} ไฟล์ ไม่เป็นไร แอปไม่อ่านแล้ว)` : ""));
@@ -399,11 +404,13 @@ function autoEtl(): Plugin {
       // มีไฟล์วางไว้แล้วแต่ยังไม่เคยแปลง (เช่นวางตอน server ยังไม่เปิด) → แปลงให้ทันที
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
       const pendingRev = false;   // build_json.py ไม่รันอัตโนมัติแล้ว — ดูเหตุผลใน tick()
-      const pendingCr = hasXlsx(costDir) && !existsSync(resolve(costOut, "manifest.json"));
-      const pendingAl = hasXlsx(costDir) && hasXlsx(revDir)
-        && !existsSync(resolve(allocOut, "manifest.json"));
-      const pendingDb = hasXlsx(debtDir) && !existsSync(resolve(debtOut, "manifest.json"));
-      const pendingLf = hasXlsx(lfDir) && !existsSync(resolve(lfOut, "manifest.json"));
+      // ตอนเปิด dev ใหม่ ให้ตรวจทั้งงานที่ยังไม่เคยแปลงและผลลัพธ์เก่าที่ไม่มีไฟล์ต้นทางแล้ว
+      const pendingCr = (hasXlsx(costDir) && hasXlsx(revDir))
+        !== existsSync(resolve(costOut, "manifest.json"));
+      const pendingAl = (hasXlsx(costDir) && hasXlsx(revDir))
+        !== existsSync(resolve(allocOut, "manifest.json"));
+      const pendingDb = hasXlsx(debtDir) !== existsSync(resolve(debtOut, "manifest.json"));
+      const pendingLf = hasXlsx(lfDir) !== existsSync(resolve(lfOut, "manifest.json"));
       if (pendingRev || pendingCr || pendingAl || pendingDb || pendingLf) {
         server.httpServer?.once("listening", () => setTimeout(() => {
           if (pendingRev) want.rev = true;

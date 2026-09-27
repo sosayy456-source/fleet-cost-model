@@ -1549,14 +1549,16 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .dz-kc.hero.on::after{content:"✓ กำลังกรองตาราง";position:absolute;right:16px;top:16px;z-index:1;
   font-size:11.5px;padding:3px 9px;border-radius:999px;background:rgba(255,255,255,.28);color:#fff}
 #view-dash .dz-kc.hero.on .hh .u{display:none}
-/* หัวตารางกำไรรายลูกค้า: ชื่อ + คำอธิบาย ซ้าย · ปุ่มสลับ Top 10/ทุกราย ขวา */
+/* หัวตารางกำไรรายลูกค้า: ชื่อ + คำอธิบายซ้าย · ตัวกรองกำไร/ขาดทุนขวา */
 .cp-th{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
 .cp-th p{margin:4px 0 0;font-size:13px;color:var(--d-ink5)}
+.cp-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.cp-actions input[type="search"]{min-width:230px;max-width:100%}
 .cp-pick{font-weight:600;color:var(--d-indigo)}
 .cp-seg{display:inline-flex;border:1px solid var(--d-line);border-radius:10px;overflow:hidden;background:var(--d-soft)}
 .cp-seg button{border:0;background:transparent;font-family:inherit;font-size:13px;padding:7px 12px;cursor:pointer;color:var(--d-ink3)}
 .cp-seg button.on{background:var(--d-card);color:var(--d-ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--d-line)}
-/* ป้ายอันดับในตาราง */
+/* ป้ายสถานะในส่วนลูกค้า */
 .cp-tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .cp-tag.gain{color:var(--green);background:var(--green-soft)}
 .cp-tag.loss{color:var(--red);background:var(--red-soft,#FBE9E7)}
@@ -1564,8 +1566,10 @@ body:has(#view-dash.active){background:#EDE7DF}
 /* แถวที่กดดูบิลไม่ได้ — ไม่ใช้เคอร์เซอร์มือ ไม่ไฮไลต์ */
 .cp-tbl tbody tr.nolink{cursor:default}
 .cp-tbl tbody tr.nolink:hover{background:transparent}
-.cp-tbl th:nth-child(2),.cp-tbl td:nth-child(2){width:1%;white-space:nowrap}
-.cp-tbl th:nth-child(3),.cp-tbl td:nth-child(3),.cp-tbl th:nth-child(4),.cp-tbl td:nth-child(4){width:auto;padding-left:10px}
+.cp-tbl th,.cp-tbl td,.cp-tbl th.n,.cp-tbl td.n{text-align:center}
+.cp-tbl th:first-child,.cp-tbl td:first-child{width:1%;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cp-tbl th:nth-child(2),.cp-tbl td:nth-child(2){white-space:nowrap}
+.cp-tbl th:nth-child(3),.cp-tbl td:nth-child(3){width:1%;white-space:nowrap}
 /* หัวส่วนลูกหนี้ค้างชำระ: ชื่อซ้าย · ช่อง "ข้อมูล ณ วันที่" ริมขวา (สเปกข้อ 5) */
 .cp-sec{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
 .cp-sec h3{margin:0;font-size:19px;font-weight:700;color:var(--d-ink)}

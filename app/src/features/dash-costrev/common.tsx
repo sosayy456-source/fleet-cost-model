@@ -145,6 +145,8 @@ export interface Col<T> {
   get: (r: T) => string | number | null;
   render?: (r: T) => ReactNode;
   num?: boolean;
+  /** คอลัมน์แสดงสถานะอย่างเดียว ไม่มีการเรียง */
+  sortable?: boolean;
 }
 
 /**
@@ -202,13 +204,14 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, classNam
         {filterRow && <tr className="dz-frow">{cols.map((c) => <th key={c.key}>{filterRow(c)}</th>)}</tr>}
         <tr>
           {cols.map((c) => (
-            <th key={c.key} className={c.num ? "n" : undefined} onClick={() => onSort(c.key)}
-              style={{ cursor: "pointer", userSelect: "none" }}
-              title="กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อล้างกลับค่าเริ่มต้น">
+            <th key={c.key} className={c.num ? "n" : undefined}
+              onClick={c.sortable === false ? undefined : () => onSort(c.key)}
+              style={{ cursor: c.sortable === false ? undefined : "pointer", userSelect: "none" }}
+              title={c.sortable === false ? undefined : "กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อล้างกลับค่าเริ่มต้น"}>
               {c.label}
-              <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 11.5 }}>
+              {c.sortable !== false && <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 11.5 }}>
                 {sort.key === c.key ? (sort.dir === 1 ? "▲" : "▼") : "▲▼"}
-              </span>
+              </span>}
             </th>
           ))}
         </tr>

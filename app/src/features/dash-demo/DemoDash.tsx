@@ -8,10 +8,8 @@
  *   ยกเว้นลูกหนี้ DSO (กำไรลูกค้า ส่วนที่ 2) ที่มี "ข้อมูล ณ วันที่" ของตัวเองเหมือนเดิม
  * ★ หัวหน้าเป็นของไฟล์ต้นทุน (costrev/) เสมอ ช่วงข้อมูล + ข้อจำกัดของไฟล์ลูกหนี้อยู่ที่หัวส่วน DSO
  *
- * ใช้ `costrev/trips.json` ชุด `inProfitScope()` = **เที่ยวที่จับคู่เลขที่ใบรายการกับไฟล์รายได้ได้ (m)
- * + เที่ยววิ่งเปล่า** (เจ้าของงานเคาะ 24 ก.ย. 2569 — เดิมใช้ m อย่างเดียว เที่ยวเปล่าหลุดออกไปเองโดยไม่ได้ตั้งใจ
- * เพราะไม่มีบิลให้จับคู่ กำไรจึงสูงเกินจริง) · เที่ยวที่จับคู่ไม่ได้ทั้งที่มีรายได้ยังไม่นับ เพราะไม่มีบิล
- * คิด จำนวนบิล / จำนวนลูกค้า ไม่ได้ · เที่ยวเปล่ามีบิล 0 ลูกค้าว่าง กลุ่มบริการว่าง (ขึ้นเป็น "ไม่ระบุ")
+ * ใช้ `costrev/trips.json` ชุด `inProfitScope()` = เที่ยวที่จับคู่เลขที่ใบรายการกับไฟล์รายได้ได้ (m)
+ * รายได้และต้นทุนของเที่ยวในชุดนี้นับเฉพาะบิลที่เข้าลูกค้า · เที่ยวเปล่าที่จับคู่ไม่ได้อยู่ในแท็บเที่ยวเปล่า
  *
  * ส่วน "กำไรลูกค้า" **ไม่ใช้ trips เลย** — อ่านชุด alloc/ กับ debtors/ ของตัวเอง
  * จึงวาดเสมอแม้ไฟล์ต้นทุนจะหาย/ยังโหลดไม่เสร็จ (สามส่วนแรกขึ้นข้อความแทน)
@@ -129,7 +127,10 @@ export default function DemoDash() {
     services: duniq(all.map((t) => t.sg || "ไม่ระบุ")),
   }), [all]);
   const branchTrips = useMemo(() => all.filter((t) => !fv.br || t.br === fv.br), [all, fv.br]);
-  const emptyN = useMemo(() => all.filter((t) => t.empty).length, [all]);
+  const emptyAll = useMemo(() => data?.trips ?? [], [data]);
+  const emptyBranchTrips = useMemo(() => emptyAll.filter((t) => !fv.br || t.br === fv.br), [emptyAll, fv.br]);
+  const emptyTrips = useMemo(() => emptyAll.filter((t) => passDemo(t, fv)), [emptyAll, fv]);
+  const emptyTripsAnyYear = useMemo(() => emptyAll.filter((t) => passDemo(t, fv, { ignoreYear: true })), [emptyAll, fv]);
   const trips = useMemo(() => all.filter((t) => passDemo(t, fv)), [all, fv]);
   // ข้อ 3 ส่วนที่ 1 เทียบปีที่เลือกกับปีก่อนหน้า — ต้องได้เที่ยวทุกปีที่ผ่านตัวกรองอื่น
   const tripsAnyYear = useMemo(() => all.filter((t) => passDemo(t, fv, { ignoreYear: true })), [all, fv]);
@@ -185,7 +186,7 @@ export default function DemoDash() {
   const piRef = m && !error ? all : null;
   const meta = m && (
     <Meta parts={[
-      <><b>{fmt(all.length)}</b> เที่ยว = จับคู่กับข้อมูลรายได้ได้ <b>{fmt(all.length - emptyN)}</b> + เที่ยววิ่งเปล่า <b>{fmt(emptyN)}</b> จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
+      <><b>{fmt(all.length)}</b> เที่ยวที่จับคู่กับข้อมูลรายได้ได้ จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์ · การ์ดเที่ยวเปล่าแสดงทุกเที่ยวตามเดิม</>,
       `ข้อมูลรายได้ ${m.revenueFiles} ไฟล์`,
       <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
     ]} />
@@ -239,7 +240,7 @@ export default function DemoDash() {
 
         <PiReportProvider value={pi.report}>
           {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} /></>)}
-          {part("item2", <>{tripsState ?? <Item2Tab all={branchTrips} trips={trips} tripsAnyYear={tripsAnyYear} f={fv} />}
+          {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
             <PiCost trips={piTrips} /></>)}

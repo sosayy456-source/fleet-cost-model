@@ -101,7 +101,7 @@ export const idleOf =(cost: number, lf: number): number => cost * Math.max(0, 1 
 export const recovOf = (cost: number, lf: number, tg: number): number => cost * Math.max(0, tg - lf);
 
 const BASE = import.meta.env.BASE_URL;
-const FORCED = import.meta.env.VITE_DATASET as LfDataset | undefined;
+const FORCED = import.meta.env.DEV ? undefined : import.meta.env.VITE_DATASET as LfDataset | undefined;
 const url = (ds: LfDataset, f: string) => `${BASE}data/${ds}/loadfactor/${f}`;
 
 let resolved: LfDataset | null = FORCED ?? null;

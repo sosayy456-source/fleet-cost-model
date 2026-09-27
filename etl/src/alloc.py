@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import re
 import statistics
+from collections import Counter
 from dataclasses import dataclass, field
 
 DIM_MAX = 1000.0         # ซม. — ด้านที่ยาวกว่านี้ถือว่ากรอกผิด (พบ ยาว 6,080 ซม.)
@@ -292,6 +293,50 @@ def payer_of(it: Item) -> tuple[str, str]:
     if p in PAYER_RECEIVER:
         return "ผู้รับ", it.receiver
     return "", ""
+
+
+def measure(it: Item, routes: dict[str, dict[str, float]], cf: float) -> None:
+    """เติมตัวถ่วงของรายการก่อนสะสมตัวหารต้นทุนรายเที่ยว"""
+    it.dist, it.dist_source = lookup_distance(routes, it.origin, it.dest)
+    it.cbm = volume_cbm(it)
+    it.cf = cf
+    it.basis, it.basis_cond = basis_of(it.weight, it.cbm, it.qty, cf)
+    it.flag = data_flag(it)
+
+
+class TripAcc:
+    """ตัวสะสมตัวหารรายเที่ยว ใช้ร่วมกันระหว่าง ETL ลูกค้าและรายเที่ยว"""
+
+    __slots__ = ("dists", "norm", "flag")
+
+    def __init__(self) -> None:
+        self.dists: Counter[float] = Counter()
+        self.norm = [0.0, 0.0, 0.0, 0.0, 0]
+        self.flag = [0.0, 0.0, 0.0, 0.0, 0]
+
+    def add(self, it: Item) -> None:
+        a = self.flag if it.flag else self.norm
+        a[4] += 1
+        a[2] += it.revenue
+        a[3] += it.qty
+        if it.dist is None:
+            a[1] += it.basis
+        else:
+            self.dists[it.dist] += 1
+            a[0] += it.basis * it.dist
+
+    def fill(self) -> float:
+        if not self.dists:
+            return 1.0
+        return float(statistics.median(list(self.dists.elements())))
+
+    def divisor(self) -> tuple[float, str, float, float]:
+        """ตัวหารและก้อนรายการผิดปกติ ใช้สูตรเดียวกับฝั่งลูกค้า"""
+        rev_all = self.norm[2] + self.flag[2]
+        f = pool_of(rev_all, self.flag[2])
+        a = self.norm if f else [x + y for x, y in zip(self.norm, self.flag)]
+        total, source = divisor_of(a[0] + a[1] * self.fill(), a[2], a[3], int(a[4]))
+        return total, source, f, rev_all
 
 
 # ---------------- รายการที่น้ำหนัก/ขนาดเชื่อไม่ได้ → ปันตามรายได้ (23 ก.ย. 2569) ----------------

@@ -130,15 +130,8 @@ export interface CostRevData {
   svc: SvcAlloc | null;
 }
 
-/**
- * ชุดเที่ยวที่ใช้คิดกำไร = **จับคู่เลขที่ใบรายการกับไฟล์รายได้ได้ (m) + เที่ยววิ่งเปล่า**
- * (เจ้าของงานเคาะ 24 ก.ย. 2569 — อนาคตทุกแท็บจะรวมเป็นหน้าเดียว และ Executive Dashboard
- * เป็นหน้ารายละเอียดที่ลิงก์ไป ข้อมูลต้องเป็นชุดเดียวกัน)
- * เที่ยวเปล่าเป็นกรณีพิเศษ: ไม่มีรายได้จึงไม่มีบิลในไฟล์รายได้ให้จับคู่ตั้งแต่ต้น แต่เป็นต้นทุนจริงของบริษัท
- * ถ้าไม่นับ กำไรจะสูงเกินจริง (ชุดตัวอย่าง: ต้นทุนเที่ยวเปล่า 2.44 ล้าน · Margin 60.3% → 57.6%)
- * ★ ห้ามเขียนเงื่อนไขนี้ซ้ำในหน้าจอ ใช้ฟังก์ชันนี้เท่านั้น
- */
-export const inProfitScope = (t: Trip): boolean => t.m || t.empty;
+/** กำไรหลักใช้เฉพาะเที่ยวที่มีเลขที่ใบรายการตรงกับบิลรายได้ */
+export const inProfitScope = (t: Trip): boolean => t.m;
 
 /* ---------- ยอดที่คำนวณต่อจากกลุ่มต้นทุน (นิยามตามเอกสารจัดประเภทต้นทุน) ---------- */
 /** ต้นทุนปกติ = ต้นทุนทั้งหมด − สูญเปล่า */
@@ -153,7 +146,7 @@ export const fixedOf = (t: Trip): number => t.dep;
 export const otherOf = (t: Trip): number => normalOf(t) - variableOf(t) - semiOf(t) - fixedOf(t) - t.rent;
 
 const BASE = import.meta.env.BASE_URL;
-const FORCED = import.meta.env.VITE_DATASET as CostRevDataset | undefined;
+const FORCED = import.meta.env.DEV ? undefined : import.meta.env.VITE_DATASET as CostRevDataset | undefined;
 
 const url = (ds: CostRevDataset, f: string) => `${BASE}data/${ds}/costrev/${f}`;
 

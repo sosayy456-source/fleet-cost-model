@@ -16,8 +16,8 @@ import type { Col } from "../dash-costrev/common";
 import type { AllocBill } from "../../lib/data/useAlloc";
 import type { CustRow } from "./CustomerProfitTab";
 
-export default function CustBillsModal({ row, bills, period, onClose }: {
-  row: CustRow; bills: AllocBill[]; period: string; onClose: () => void;
+export default function CustBillsModal({ row, bills, period, loading, error, onClose }: {
+  row: CustRow; bills: AllocBill[]; period: string; loading: boolean; error: string | null; onClose: () => void;
 }) {
   useEffect(() => {
     const on = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -61,16 +61,18 @@ export default function CustBillsModal({ row, bills, period, onClose }: {
           <div className="sm-mt">
             <div className="modal-h">ลูกค้า <ShortId v={row.code} n={row.n} /> <span>· {row.side}</span></div>
             <p>
-              {period} · {fmt(bills.length)} บิล · รายได้ {fmt(Math.round(row.revenue))} · ต้นทุนจัดสรร {fmt(Math.round(row.cost))} ·
+              {period} · {loading ? "กำลังโหลดรายการบิล" : error ? "โหลดรายการบิลไม่สำเร็จ" : `แสดง ${fmt(bills.length)} บิลล่าสุดจากทั้งหมด ${fmt(row.bills)} บิล`} · รายได้รวม {fmt(Math.round(row.revenue))} · ต้นทุนจัดสรรรวม {fmt(Math.round(row.cost))} ·
               กำไร <b style={{ color: row.profit < 0 ? "var(--red)" : "var(--green)" }}>{signed(Math.round(row.profit))}</b> บาท
               {row.margin != null && <> · อัตรากำไร {pct(row.m)}</>}
             </p>
+            <p>ข้อจำกัดทางข้อมูล: ดูได้สูงสุด 100 บิลล่าสุดต่อราย · ยอดรวมด้านบนคำนวณจากทุกบิล</p>
           </div>
           <button type="button" className="sm-x" onClick={onClose} aria-label="ปิด">✕</button>
         </div>
         <div className="sm-list">
           <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(b, i) => `${b.bill}-${i}`}
-            empty="ไม่มีบิลของลูกค้ารายนี้ในช่วงเวลาที่กรอง" className={hasBreakdown ? "ta-tbl" : undefined} />
+            empty={loading ? "กำลังโหลดรายการบิล..." : error ? `โหลดรายการบิลไม่สำเร็จ: ${error}` : "ไม่มีบิลของลูกค้ารายนี้ในช่วงเวลาที่กรอง"}
+            className={hasBreakdown ? "ta-tbl" : undefined} />
           <p className="dz-note" style={{ marginTop: 8 }}>
             {hasBreakdown
               ? <>ต้นทุนจัดสรร = ต้นทุนเที่ยว × Metric ของบิล ÷ Metric รวมของทุกบิลในเที่ยว · CF = ความจุน้ำหนัก ÷ ความจุปริมาตร
