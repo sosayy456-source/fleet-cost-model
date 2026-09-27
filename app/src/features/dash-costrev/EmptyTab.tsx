@@ -247,6 +247,23 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
   );
 }
 
+/**
+ * แผนที่เที่ยววิ่งเปล่าอย่างเดียว (การ์ด [2b] + ป็อบอัพรายการเที่ยว) — เมนู Executive Summary แท็บ Fleet Utilization & Cost
+ * (27 ก.ย. 2569) · rows = เที่ยวที่ผู้เรียกกรองมาแล้ว (ชุด inProfitScope) · ตัวเดียวกับในแท็บนี้ แก้ที่เดียวได้ทั้งสองหน้า
+ */
+export function EmptyMapSection({ rows }: { rows: Trip[] }) {
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const emptyRoutes = useMemo(() => byRoute(rows).filter((r) => r.emptyN > 0)
+    .sort((a, b) => b.emptyCost - a.emptyCost), [rows]);
+  return (
+    <>
+      <EmptyRouteMap rows={rows} routes={emptyRoutes}
+        onList={(rt) => setDetail({ title: rt, scope: rows.filter((t) => t.rt === rt) })} />
+      {detail && <EmptyTripsModal detail={detail} onClose={() => setDetail(null)} />}
+    </>
+  );
+}
+
 /** แถวของตารางจัดอันดับบนการ์ดแผนที่ */
 interface MapRow extends RouteAgg { o: string; de: string; rank: number }
 

@@ -19,13 +19,12 @@ import TripsModal from "./TripsModal";
 import { ListFF, SortTable, duniq, fmt, marginTone, monthLabel, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import type { Trip } from "../../lib/data/useCostRev";
+import { CHERRY, IS_CHERRY } from "../../lib/ui/dashTheme";
 
 /** สีเดียวกับการ์ดสามใบ (index.css .dm-sg.c1/.c2/.c3) */
-export const GROUP_COLORS: Record<string, string> = {
-  "สินค้าทั่วไป": "#259b24",
-  "สินค้าแช่เย็น": D.teal,
-  "สินค้าแช่แข็ง": "#039be5",
-};
+export const GROUP_COLORS: Record<string, string> = IS_CHERRY
+  ? { "สินค้าทั่วไป": CHERRY.burgundy, "สินค้าแช่เย็น": CHERRY.brick, "สินค้าแช่แข็ง": CHERRY.plum }
+  : { "สินค้าทั่วไป": "#259b24", "สินค้าแช่เย็น": D.teal, "สินค้าแช่แข็ง": "#039be5" };
 
 const TOP_N = 10;
 const F0 = { o: "", de: "", vk: "" };

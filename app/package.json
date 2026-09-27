@@ -7,6 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "serve": "npm run build && vite preview --open",
+    "build:real": "node tools/check-real.mjs && tsc -b && vite build --outDir dist-real",
+    "serve:real": "vite preview --outDir dist-real --port 4174 --strictPort --open",
     "test": "vitest run",
     "test:watch": "vitest"
   },

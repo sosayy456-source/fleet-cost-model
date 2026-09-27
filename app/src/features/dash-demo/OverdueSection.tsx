@@ -41,6 +41,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { ShortId } from "../../lib/custmap/ShortId";
+import { custCode } from "../../lib/custmap/custmap";
 import { monthSpan, thDateSafe, thMonthRange, thSlash } from "../../lib/record/date";
 import type { DebtorRow, DebtorState } from "../../lib/data/useDebtors";
 import { Hero, Note, Pane } from "../dash-fleet/parts";
@@ -229,8 +230,17 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
     const m = new Map<string, number>();
     for (const a of aged) if (a.over > 0) m.set(a.r.cust, (m.get(a.r.cust) ?? 0) + a.r.amount);
     return [...m.entries()].sort((a, b) => b[1] - a[1])
-      .map(([cust, late]) => ({ cust, n: numberForDebtor(cust), late, share: revTotal ? late / revTotal * 100 : 0 }));
+      .map(([cust, late], i) => {
+        const n = numberForDebtor(cust);
+        return { cust, n, late, rank: i + 1, code: n ? custCode(n) : "", share: revTotal ? late / revTotal * 100 : 0 };
+      });
   }, [aged, revTotal]);
+  // ค้นหาลูกค้าในตารางลูกหนี้จ่ายช้า — ตรงกับรหัส CUS หรือรหัสต้นฉบับ (บางส่วนก็ได้) · ลำดับยังเป็นอันดับในรายชื่อทั้งหมด
+  const [custQ, setCustQ] = useState("");
+  const custRows = useMemo(() => {
+    const k = custQ.trim().toLowerCase();
+    return k ? topCust.filter((c) => c.code.toLowerCase().includes(k) || c.cust.toLowerCase().includes(k)) : topCust;
+  }, [topCust, custQ]);
 
   /** ใบทั้งหมดของช่วงที่กด — ทั้งค้างและชำระแล้ว ป็อบอัพแยกแท็บเอง */
   const pickedRows = useMemo(
@@ -321,19 +331,23 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
 
         {/* ③ ลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด */}
         <div className="dz-cc dso2-block">
-          <h4>ลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด</h4>
+          <div className="dso2-rank-h">
+            <h4>ลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด</h4>
+            <input type="search" className="d3-tt-search" placeholder="ค้นหาลูกค้า (รหัส CUS / รหัสต้นฉบับ)" value={custQ}
+              onChange={(e) => setCustQ(e.target.value)} aria-label="ค้นหาลูกค้า" />
+          </div>
           <div className="dso2-revline">รายได้รวม {thSlash(revFrom)} – {thSlash(asOf)} <b>{fmt(Math.round(revTotal))}</b> บาท
             <span>· ฐานของ % ต่อรายได้ทุกแถว</span></div>
-          <div className="dso2-rank th"><span>#</span><span>ลูกหนี้</span><span>ยอดเงินจ่ายช้า (บาท)</span><span>% ต่อรายได้</span></div>
-          {topCust.length ? <GrowBox rows={topCust} maxHeight={VISIBLE_ROWS * RANK_ROW_PX} render={(shown) => shown.map((c, i) => (
+          <div className="dso2-rank th"><span>ลำดับ</span><span>ลูกหนี้</span><span>ยอดเงินจ่ายช้า (บาท)</span><span>% ต่อรายได้</span></div>
+          {custRows.length ? <GrowBox rows={custRows} maxHeight={VISIBLE_ROWS * RANK_ROW_PX} render={(shown) => shown.map((c) => (
             <div key={c.cust} className="dso2-rank">
-              <span className="dso2-rk">{i + 1}</span>
+              <span className="dso2-rk">{c.rank}</span>
               <span className="dso2-nm"><ShortId v={c.cust} n={c.n ?? undefined} /></span>
               <span className="dso2-bar"><span className="dso2-rail"><i style={{ width: `${c.late / topCust[0]!.late * 100}%` }} /></span>
                 <b>{fmt(Math.round(c.late))}</b></span>
               <span className="fu-pill low">{pct(c.share, 2)}</span>
             </div>
-          ))} /> : <p className="dz-note">ไม่มีลูกหนี้ที่จ่ายช้า ณ วันที่เลือก</p>}
+          ))} /> : <p className="dz-note">{topCust.length ? `ไม่พบลูกค้าที่ตรงกับ "${custQ.trim()}"` : "ไม่มีลูกหนี้ที่จ่ายช้า ณ วันที่เลือก"}</p>}
           <Note>ยอดจ่ายช้า = จ่ายช้าแต่จ่ายแล้ว + จ่ายช้าแต่ยังไม่ได้จ่าย · ทั้งหมด {fmt(topCust.length)} ราย เรียงยอดมากไปน้อย (เลื่อนในกล่องเพื่อดูต่อ) ·
             % ต่อรายได้ = ยอดจ่ายช้าของลูกหนี้รายนั้น ÷ รายได้รวมทั้งหมดตั้งแต่ 1 ม.ค. ถึงวันที่เลือก (ยอดวางบิลทุกใบในไฟล์ลูกหนี้) · DSO = ยอดค้าง ÷ ยอดวางบิล × {fmt(kpi.days)} วัน
             (ตั้งแต่ใบวางบิลใบแรกในไฟล์ถึงวันที่เลือก) ·

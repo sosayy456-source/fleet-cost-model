@@ -51,7 +51,11 @@ interface RouteRow {
   rank: number;
 }
 
-export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFilter }) {
+/**
+ * summary = โหมดของเมนู Executive Summary (แท็บ Route Profitability · เจ้าของงานเลือกส่วนจาก PDF 27 ก.ย. 2569):
+ * วาดเฉพาะการ์ดอัตรากำไร 3 กลุ่มบริการ (ข้อ 5) แล้วต่อด้วยการ์ดแผนที่ + จัดอันดับ (ข้อ 4) — แก้ที่นี่ได้ทั้งสองหน้า
+ */
+export default function RouteProfitTab({ trips, f, summary }: { trips: Trip[]; f: DemoFilter; summary?: boolean }) {
   const [picked, setPicked] = useState<string | null>(null);
   const [showList, setShowList] = useState(false);
   /** ป็อบอัพเที่ยวที่ขาดทุนทั้งหมด (กดการ์ด %เที่ยวที่ขาดทุน) */
@@ -162,9 +166,74 @@ export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFil
     return { name: g, n: gs.length, rev, profit, margin: rev ? profit / rev * 100 : null };
   }), [rows]);
 
+  const mapBlock = (
+      <>
+        {/* 4 — ดีไซน์ที่เจ้าของงานส่ง 24 ก.ย. 2569: แผนที่ (ซ้าย) · จัดอันดับ + รายละเอียดต้นทุน (ขวา) */}
+        {/* การ์ดเดียวสองคอลัมน์: แผนที่ (ลากเส้นแบ่งปรับความกว้างได้) | จัดอันดับ + รายละเอียด */}
+        <RouteMapCard routes={mapRoutes} onMissing={setMissing}
+          chip={pickedRow ? pickedRow.rt : "กดเส้นทางในตารางเพื่อดูบนแผนที่"} chipLoss={!!pickedRow && pickedRow.profit < 0}
+          cantDraw={!!pickedRow && (missing.includes(pickedRow.rt) || !pickedRow.o || !pickedRow.de)}>
+            <section className="rp-sec">
+              <header className="rp-sh">
+                <span className="rp-ico green" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7" /></svg>
+                </span>
+                <div className="rp-sht">
+                  <h3>จัดอันดับกำไรต่อเที่ยว</h3>
+                  <p>คลิกเส้นทางเพื่อดูรายละเอียดต้นทุน · กดซ้ำเพื่อเอาเส้นทางออกจากแผนที่</p>
+                </div>
+                <span className="rp-pill">บาท/เที่ยว</span>
+              </header>
+              <div className="rp-tblwrap">
+                <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}
+                  empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" className="rp-tbl" maxHeight={300}
+                  rowProps={(r) => ({
+                    className: r.rt === detail?.rt ? "on" : undefined,
+                    // กดแถวเดิมซ้ำ = ยกเลิก แผนที่กลับเป็นแผนที่เปล่า (เจ้าของงานขอ 24 ก.ย. 2569)
+                    onClick: () => setPicked((p) => (p === r.rt ? null : r.rt)),
+                    title: r.rt === picked ? "กดอีกครั้งเพื่อเอาเส้นทางออกจากแผนที่" : "กดเพื่อดูรายละเอียดต้นทุนและเส้นทางบนแผนที่",
+                  })} />
+              </div>
+            </section>
+
+            <section className="rp-sec">
+              {detail ? <RouteDetail r={detail} tree={costTree} onList={() => setShowList(true)} />
+                : <p className="rp-foot rp-pad">เลือกเส้นทางจากรายการด้านบน</p>}
+            </section>
+        </RouteMapCard>
+        <Note>
+          ปุ่ม <b>i</b> เปิดรายการทุกเที่ยวของเส้นทางนั้นตามตัวกรองด้านบน · ต้นทุนแยกตามการจัดประเภท: <b>ต้นทุนปกติ</b>
+          (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ) และ <b>ต้นทุนสูญเปล่า</b> ·
+          % ของกำไรเทียบรายได้ · % ของต้นทุนแต่ละกลุ่มเทียบต้นทุนรวม · แนวเส้นบนแผนที่ตามทางหลวงหลักโดยประมาณ ไม่ใช่เส้นทาง GPS จริง
+        </Note>
+
+      </>
+  );
+  const sgBlock = (
+      <>
+        {/* 5 */}
+        <div className="dm-sgs">
+          {groups.map((g, i) => (
+            <button key={g.name} type="button"
+              className={`dm-sg c${i + 1}` + (openGroup === g.name ? " open" : "")}
+              aria-expanded={openGroup === g.name}
+              onClick={() => setOpenGroup((p) => (p === g.name ? null : g.name))}
+              title={openGroup === g.name ? "กดอีกครั้งเพื่อปิด" : "กดเพื่อดูกราฟและรายเส้นทางของกลุ่มนี้"}>
+              <span className="l">อัตรากำไร · {g.name}</span>
+              <span className="v">{g.margin == null ? "–" : pct(g.margin)}</span>
+              <span className="s">{fmt(g.n)} เที่ยว · กำไร {signed(Math.round(g.profit))} บาท</span>
+            </button>
+          ))}
+        </div>
+        <Note>การ์ดกลุ่มบริการคิดตามตัวกรองด้านบน · กดการ์ดเพื่อกางกราฟกับรายเส้นทางของกลุ่มนั้น กดซ้ำเพื่อปิด</Note>
+        {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup} />}
+      </>
+  );
+
   return (
     <>
       <Pane deps={[rows]}>
+        {!summary && <>
         {/* 1 */}
         <div className="dz-heroes">
           <Hero kind={kpi.profit < 0 ? "loss" : "profit"} l="กำไร" v={signed(kpi.profit)} unit="บาท" s="รายได้ – ต้นทุน = กำไร" />
@@ -206,61 +275,11 @@ export default function RouteProfitTab({ trips, f }: { trips: Trip[]; f: DemoFil
           </div>
         </div>
 
-        {/* 4 — ดีไซน์ที่เจ้าของงานส่ง 24 ก.ย. 2569: แผนที่ (ซ้าย) · จัดอันดับ + รายละเอียดต้นทุน (ขวา) */}
-        {/* การ์ดเดียวสองคอลัมน์: แผนที่ (ลากเส้นแบ่งปรับความกว้างได้) | จัดอันดับ + รายละเอียด */}
-        <RouteMapCard routes={mapRoutes} onMissing={setMissing}
-          chip={pickedRow ? pickedRow.rt : "กดเส้นทางในตารางเพื่อดูบนแผนที่"} chipLoss={!!pickedRow && pickedRow.profit < 0}
-          cantDraw={!!pickedRow && (missing.includes(pickedRow.rt) || !pickedRow.o || !pickedRow.de)}>
-            <section className="rp-sec">
-              <header className="rp-sh">
-                <span className="rp-ico green" aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7" /></svg>
-                </span>
-                <div className="rp-sht">
-                  <h3>จัดอันดับกำไรต่อเที่ยว</h3>
-                  <p>คลิกเส้นทางเพื่อดูรายละเอียดต้นทุน · กดซ้ำเพื่อเอาเส้นทางออกจากแผนที่</p>
-                </div>
-                <span className="rp-pill">บาท/เที่ยว</span>
-              </header>
-              <div className="rp-tblwrap">
-                <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}
-                  empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" className="rp-tbl" maxHeight={300}
-                  rowProps={(r) => ({
-                    className: r.rt === detail?.rt ? "on" : undefined,
-                    // กดแถวเดิมซ้ำ = ยกเลิก แผนที่กลับเป็นแผนที่เปล่า (เจ้าของงานขอ 24 ก.ย. 2569)
-                    onClick: () => setPicked((p) => (p === r.rt ? null : r.rt)),
-                    title: r.rt === picked ? "กดอีกครั้งเพื่อเอาเส้นทางออกจากแผนที่" : "กดเพื่อดูรายละเอียดต้นทุนและเส้นทางบนแผนที่",
-                  })} />
-              </div>
-            </section>
+        </>}
 
-            <section className="rp-sec">
-              {detail ? <RouteDetail r={detail} tree={costTree} onList={() => setShowList(true)} />
-                : <p className="rp-foot rp-pad">เลือกเส้นทางจากรายการด้านบน</p>}
-            </section>
-        </RouteMapCard>
-        <Note>
-          ปุ่ม <b>i</b> เปิดรายการทุกเที่ยวของเส้นทางนั้นตามตัวกรองด้านบน · ต้นทุนแยกตามการจัดประเภท: <b>ต้นทุนปกติ</b>
-          (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ) และ <b>ต้นทุนสูญเปล่า</b> ·
-          % ของกำไรเทียบรายได้ · % ของต้นทุนแต่ละกลุ่มเทียบต้นทุนรวม · แนวเส้นบนแผนที่ตามทางหลวงหลักโดยประมาณ ไม่ใช่เส้นทาง GPS จริง
-        </Note>
-
-        {/* 5 */}
-        <div className="dm-sgs">
-          {groups.map((g, i) => (
-            <button key={g.name} type="button"
-              className={`dm-sg c${i + 1}` + (openGroup === g.name ? " open" : "")}
-              aria-expanded={openGroup === g.name}
-              onClick={() => setOpenGroup((p) => (p === g.name ? null : g.name))}
-              title={openGroup === g.name ? "กดอีกครั้งเพื่อปิด" : "กดเพื่อดูกราฟและรายเส้นทางของกลุ่มนี้"}>
-              <span className="l">อัตรากำไร · {g.name}</span>
-              <span className="v">{g.margin == null ? "–" : pct(g.margin)}</span>
-              <span className="s">{fmt(g.n)} เที่ยว · กำไร {signed(Math.round(g.profit))} บาท</span>
-            </button>
-          ))}
-        </div>
-        <Note>การ์ดกลุ่มบริการคิดตามตัวกรองด้านบน · กดการ์ดเพื่อกางกราฟกับรายเส้นทางของกลุ่มนั้น กดซ้ำเพื่อปิด</Note>
-        {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup} />}
+        {!summary && mapBlock}
+        {sgBlock}
+        {summary && mapBlock}
       </Pane>
 
       {showList && detail && (

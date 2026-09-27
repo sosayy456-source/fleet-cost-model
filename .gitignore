@@ -43,6 +43,8 @@ node_modules/
 # ── React app ──────────────────────────────────────────
 app/node_modules/
 app/dist/
+# สำเนาเว็บที่ build พร้อมข้อมูลจริง (npm run build:real) — ห้ามขึ้น repo
+app/dist-real/
 # ข้อมูลจริงที่ ETL สร้าง ห้ามขึ้น repo (GitHub Pages เป็นเว็บสาธารณะ)
 app/public/data/real/
 # ไฟล์เดิมที่เก็บไว้เทียบตอนตรวจ (app/tools/verify-trips.mjs) — ลบหลังตรวจเสร็จ
