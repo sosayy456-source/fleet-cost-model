@@ -11,6 +11,9 @@ cd app
 npm ci                    # lockfile commit ไว้แล้ว ใช้ ci ไม่ใช่ install
 npm run dev               # → http://localhost:5173/fleet-cost-model/  (ต้องมี path ย่อยด้วย)
 npm run build             # tsc -b แล้วค่อย vite build
+npm run serve             # build แล้วเปิด preview → http://localhost:4173/fleet-cost-model/  แก้โค้ดแล้วหน้าไม่เปลี่ยนจนกว่าจะรันใหม่ (ไม่มี autoEtl)
+npm run build:real        # สำเนาเว็บ + ข้อมูลจริงแยกไว้ที่ dist-real/ (ติด .gitignore) · ไม่มี real/costrev/manifest.json = ไม่ build
+npm run serve:real        # เปิด dist-real/ → http://localhost:4174/fleet-cost-model/  ไม่เปลี่ยนตามโค้ด/ETL จนกว่าจะ build:real ใหม่
 npm test                  # vitest run — 20 ตัว
 npm test -- src/lib/cost/computeCost.test.ts     # เฉพาะไฟล์เดียว
 npm test -- -t "ชื่อเทส"                          # เฉพาะเคสเดียว
