@@ -3353,15 +3353,19 @@ html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
 #view-dash .mo-stack > .mg-todo{margin:0}
 #view-dash .mo-full{margin:0 0 14px}
 /* กล่อง "บิลที่รับวันนี้" ข้างกล่องต้องจัดการ (28 ก.ย. 2569) */
-#view-dash .mo-top{margin:0 0 16px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+#view-dash .mo-top{margin:0 0 16px;grid-template-columns:minmax(0,2.4fr) minmax(0,1fr)}
 #view-dash .mo-top > .mg-todo{margin:0}
-#view-dash .mo-today{margin:0;display:flex;flex-direction:column}
-#view-dash .mo-today-n{font-size:15px;font-weight:700;color:var(--d-ink2);margin:2px 0 10px}
-#view-dash .mo-today-n b{font-size:30px;font-weight:800;color:var(--d-ink);margin-right:4px}
-#view-dash .mo-today-kv{margin-bottom:12px}
-#view-dash .mo-today-kv b{font-size:17px}
-#view-dash .mo-today-kv b.warn{color:#B45309}
-#view-dash .mo-today-btn{margin-top:auto;align-self:flex-start}
+/* กล่องบิลที่รับวันนี้แบบย่อ (เจ้าของงานสั่ง 28 ก.ย. 2569 "ใหญ่ไป") — ให้สูงไม่เกินกล่องต้องจัดการ */
+#view-dash .dz-cc.mo-today{margin:0;display:flex;flex-direction:column;padding:14px 18px}
+#view-dash .dz-cc.mo-today h4{font-size:15px;margin:0 0 6px}
+#view-dash .mo-today-n{font-size:13px;font-weight:700;color:var(--d-ink2);margin:0 0 6px}
+#view-dash .mo-today-n b{font-size:22px;font-weight:800;color:var(--d-ink);margin-right:3px}
+#view-dash .mo-today .mo-cost.mo-today-kv{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 10px;margin-bottom:6px}
+#view-dash .mo-today .mo-cost.mo-today-kv div{font-size:11.5px}
+#view-dash .mo-today .mo-cost.mo-today-kv b{font-size:13.5px}
+#view-dash .mo-today .mo-cost.mo-today-kv b.warn{color:#B45309}
+#view-dash .mo-today-btn{margin-top:auto;align-self:flex-start;font-size:12px;padding:4px 10px}
+#view-dash .mo-today .mg-todo-ok{font-size:13px}
 @media (max-width:900px){#view-dash .mo-top{grid-template-columns:1fr}}
 /* ลูกค้าที่ค้างชำระ + บิลค้างชำระ วางข้างกัน (28 ก.ย. 2569) — ตารางบิลคอลัมน์เยอะกว่าจึงกว้างกว่า · ในกล่องเลื่อนแนวนอนได้ */
 #view-dash .mg-debt2{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
@@ -3663,3 +3667,6 @@ html.theme-cherry #view-dash .dm-part{background:color-mix(in srgb,var(--th-page
 html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
 /* หัวข้อส่วนของ Manager Dashboard หน้าเดียว (การเงินสาขา · หน้างานและกองรถ · ลูกค้าและลูกหนี้) วางบนพื้นหน้า — ใช้สีตัวอักษรบนพื้นหน้าของธีม (merge โมเดล-Anda 28 ก.ย. 2569) */
 html.theme-cherry #view-dash .mo-sec-h{color:var(--th-pageText)}
+#view-dash .mo-today.mo-click{cursor:pointer;transition:box-shadow .15s,transform .15s}
+#view-dash .mo-today.mo-click:hover{box-shadow:0 6px 18px rgba(0,0,0,.12);transform:translateY(-1px)}
+#view-dash .mo-today.mo-click:focus-visible{outline:2px solid var(--accent,#590212);outline-offset:2px}

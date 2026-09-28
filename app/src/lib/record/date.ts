@@ -33,6 +33,23 @@ export function toISODate(v: unknown): string {
   return Number.isFinite(t) ? BKK_DAY.format(new Date(t)) : "";
 }
 
+const BKK_TIME = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false });
+const STAMP = /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?$/;
+
+/**
+ * เวลาประทับรูปแบบใดก็ได้ → 'YYYY-MM-DD HH:mm' (เวลาไทย) แบบ nowStamp() · อ่านไม่ออกคืนค่าเดิม
+ * ★ Google Sheet แปลง "2026-09-28 10:15" ในแท็บ "บิลรอจัดรถ" เป็นเซลล์วันที่ แล้ว Apps Script ส่งกลับเป็น
+ *   "Mon Sep 28 2026 10:15:00 GMT+0700 (ICT)" — กล่อง "บิลที่รับวันนี้" ของ Manager Dashboard จึงหาบิลวันนี้ไม่เจอ (28 ก.ย. 2569)
+ */
+export function toStamp(v: unknown): string {
+  const s = v == null ? "" : String(v).trim();
+  if (!s || STAMP.test(s)) return s;
+  const t = Date.parse(s);
+  if (!Number.isFinite(t)) return s;
+  const d = new Date(t);
+  return `${BKK_DAY.format(d)} ${BKK_TIME.format(d).replace(/^24:/, "00:")}`;
+}
+
 /** '2025-07-17' -> '17 ก.ค. 2568' · รูปแบบอื่นแปลงผ่าน toISODate ก่อน อ่านไม่ออกคืนค่าเดิม (ไม่ขึ้น NaN) */
 export function thDate(iso: string): string {
   const s = ISO_DAY.test(iso) ? iso : toISODate(iso);

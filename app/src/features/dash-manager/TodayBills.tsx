@@ -12,12 +12,12 @@ import { createPortal } from "react-dom";
 import { SortTable, fmt, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { ShortId } from "../../lib/custmap/ShortId";
-import { thDateSafe, todayISO } from "../../lib/record/date";
+import { thDateSafe, toStamp, todayISO } from "../../lib/record/date";
 import type { PendingBill } from "../../types/bill";
 
-/** บิลที่บันทึกวันนี้ (ไม่รวมที่ยกเลิก) ของสาขาที่ผ่าน inBranch */
+/** บิลที่บันทึกวันนี้ (ไม่รวมที่ยกเลิก) ของสาขาที่ผ่าน inBranch · เวลาบันทึกผ่าน toStamp (รับข้อความ Date ของชีตด้วย) */
 export function todayBills(bills: PendingBill[], inBranch: (br: string) => boolean, today = todayISO()): PendingBill[] {
-  return bills.filter((b) => b.status !== "ยกเลิก" && String(b.createdAt ?? "").startsWith(today) && inBranch(b.branch));
+  return bills.filter((b) => b.status !== "ยกเลิก" && toStamp(b.createdAt).slice(0, 10) === today && inBranch(b.branch));
 }
 
 export default function TodayBills({ bills, loading, error }: { bills: PendingBill[]; loading: boolean; error: string | null }) {
@@ -27,8 +27,11 @@ export default function TodayBills({ bills, loading, error }: { bills: PendingBi
     kg: a.kg + (Number(b.weight) || 0), cbm: a.cbm + (Number(b.volume) || 0), rev: a.rev + (Number(b.total) || 0),
   }), { n: 0, wait: 0, done: 0, kg: 0, cbm: 0, rev: 0 }), [bills]);
 
-  return (
-    <div className="dz-cc mo-today">
+  // กดที่กล่องตรงไหนก็ได้ = ป็อบอัพรายการบิลของวันนี้ (เจ้าของงานขอ 28 ก.ย. 2569)
+  // ★ ป็อบอัพต้องอยู่นอก div ที่กดได้ — portal ยังส่งคลิกขึ้นหาพ่อตาม React tree กดปิดแล้วจะเปิดกลับเอง
+  return (<>
+    <div className="dz-cc mo-today mo-click" role="button" tabIndex={0} title="กดเพื่อดูรายการบิลที่รับวันนี้"
+      onClick={() => setOpen(true)} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}>
       <h4>บิลที่รับวันนี้ ({thDateSafe(todayISO())})</h4>
       {loading && !bills.length ? <p className="dz-note">กำลังโหลดบิล…</p>
         : error && !bills.length ? <p className="dz-note">โหลดบิลไม่ได้: {error}</p>
@@ -42,11 +45,11 @@ export default function TodayBills({ bills, loading, error }: { bills: PendingBi
             <div>ปริมาตรรวม<b>{fmt(s.cbm, 2)} ลบ.ม.</b></div>
             <div>รายได้รวม<b>{fmt(Math.round(s.rev))} บาท</b></div>
           </div>
-          <button type="button" className="btn-ghost mo-today-btn" onClick={() => setOpen(true)}>ดูรายการบิล →</button>
+          <span className="btn-ghost mo-today-btn" aria-hidden="true">ดูรายการบิล →</span>
         </>}
-      {open && <TodayBillsModal bills={bills} onClose={() => setOpen(false)} />}
     </div>
-  );
+    {open && <TodayBillsModal bills={bills} onClose={() => setOpen(false)} />}
+  </>);
 }
 
 function TodayBillsModal({ bills, onClose }: { bills: PendingBill[]; onClose: () => void }) {
