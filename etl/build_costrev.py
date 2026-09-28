@@ -86,7 +86,10 @@ from src.svcalloc import SvcAlloc  # noqa: E402
 from src.tripcols import encode as encode_trips  # noqa: E402
 from src.sheetcache import cached_rows  # noqa: E402
 from src.progress import report, span  # noqa: E402
-from src.excluded_bills import is_excluded  # noqa: E402
+from src.excluded_bills import ABSURD_KG, RULES_VERSION, excluded_list, is_absurd_weight, is_excluded, weight_kg  # noqa: E402
+
+#: บิลที่ตัดทิ้งอัตโนมัติเพราะน้ำหนักเกิน ABSURD_KG ในการแปลงรอบนี้ (เลขที่บิล → ใบรายการ, กก.) — log + manifest.absurdWeight
+ABSURD_SEEN: dict[str, tuple[str, float]] = {}
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -365,6 +368,11 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None,
             if is_excluded(g(r, "เลขที่บิล")):
                 excluded_seen += 1
                 continue
+            # น้ำหนักเกินพันตัน = กรอกผิดแน่ (ตัดอัตโนมัติ · เจ้าของงานสั่ง 28 ก.ย. 2569)
+            q_, u_, t_ = num(g(r, "จำนวน")), num(g(r, "น้ำหนักต่อหน่วย")), num(g(r, "น้ำหนักรวม"))
+            if is_absurd_weight(q_, u_, t_):
+                ABSURD_SEEN[text(g(r, "เลขที่บิล"))] = (doc, weight_kg(q_, u_, t_))
+                continue
             doc_set.add(doc)
             # มูลค่าความเสียหาย = ราคารวมของบิลที่ประเภทสินค้าเป็น "บิลเคลียร์" (นิยามเดียวกับ
             # adminWriteOff ฝั่งแอป) — ต้องนับ ★ ก่อน ★ ตัวกรองสถานะชำระเงินข้างล่าง เพราะบิลที่
@@ -437,6 +445,10 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None,
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
     if excluded_seen:
         print(f"  ข้ามบิลที่อยู่ในรายการตัดทิ้ง (src/excluded_bills.py) {excluded_seen:,} แถว")
+    if ABSURD_SEEN:
+        print(f"  [!] ตัดบิลที่น้ำหนักเกิน {ABSURD_KG:,} กก. อัตโนมัติ {len(ABSURD_SEEN):,} บิล:")
+        for bill, (doc, kg) in sorted(ABSURD_SEEN.items(), key=lambda x: -x[1][1])[:20]:
+            print(f"      บิล {bill} (ใบรายการ {doc}) {kg:,.0f} กก.")
     return (doc_set, bills, len(files), rows_seen,
             {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n,
             goods, bill_n, payers, service_revenue, weight_kg)
@@ -727,6 +739,11 @@ def build(dataset: str) -> None:
     manifest = {
         "dataset": dataset,
         "isSample": dataset == "sample",
+        # บิลที่ตัดทิ้งตอนแปลงรอบนี้ — plugin autoEtl เทียบกับ src/excluded_bills.py ไม่ตรง = แปลงใหม่เอง
+        "excludedBills": excluded_list(), "excludeRules": RULES_VERSION,
+        "absurdWeight": {"limitKg": ABSURD_KG, "bills": len(ABSURD_SEEN),
+                         "list": [{"bill": b_, "doc": d_, "kg": round(k_)} for b_, (d_, k_) in
+                                  sorted(ABSURD_SEEN.items(), key=lambda x: -x[1][1])[:50]]},
         "generatedAt": datetime.now().isoformat(timespec="seconds"),
         "costFiles": [p.name for p in cost_files],
         "revenueFiles": rev_files,

@@ -72,7 +72,10 @@ from build_costrev import find_header_row, iter_sheet, parse_date, utf8_stdout, 
 from src.capacity import CF_MEDIAN, Capacity
 from src.custcodes import resolve_codes
 from src.progress import report, span
-from src.excluded_bills import is_excluded
+from src.excluded_bills import ABSURD_KG, RULES_VERSION, excluded_list, is_absurd_weight, is_excluded, weight_kg
+
+#: บิลที่ตัดทิ้งอัตโนมัติเพราะน้ำหนักเกิน ABSURD_KG (เลขที่บิล → ใบรายการ, กก.) — manifest.absurdWeight
+ABSURD_SEEN: dict[str, tuple[str, float]] = {}
 from src.alloc import (
     DIST_EXACT,
     DIST_FALLBACK,
@@ -628,7 +631,7 @@ BILL_COLS = {
     "weight": "น้ำหนักรวม", "qty": "จำนวน", "width": "กว้าง", "length": "ยาว", "height": "สูง",
     "name": "ชื่อสินค้า", "revenue": "ราคารวม", "payment": "ประเภทการชำระเงิน",
     "sender": "ผู้ส่ง_encoded", "receiver": "ผู้รับ_encoded", "goods": "ประเภทสินค้า",
-    "date": "วันที่",
+    "date": "วันที่", "unit_kg": "น้ำหนักต่อหน่วย",
 }
 
 
@@ -659,6 +662,11 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
             continue
         # บิลที่ข้อมูลผิดจนใช้ไม่ได้ (src/excluded_bills.py) — ทุกรอบของการปันส่วนอ่านผ่านตัวนี้
         if is_excluded(g("bill")):
+            continue
+        # น้ำหนักเกินพันตัน = กรอกผิดแน่ ตัดทิ้งทั้งบิล (กติกาเดียวกับ build_costrev · เจ้าของงานสั่ง 28 ก.ย. 2569)
+        q_, u_, t_ = num(g("qty")), num(g("unit_kg")), num(g("weight"))
+        if is_absurd_weight(q_, u_, t_):
+            ABSURD_SEEN[txt(g("bill"))] = (doc, weight_kg(q_, u_, t_))
             continue
         d = parse_date(g("date"))
         it = Item(
@@ -957,6 +965,11 @@ def build(dataset: str) -> None:
     manifest = {
         "dataset": dataset,
         "isSample": dataset == "sample",
+        # บิลที่ตัดทิ้งตอนแปลงรอบนี้ — plugin autoEtl เทียบกับ src/excluded_bills.py ไม่ตรง = แปลงใหม่เอง
+        "excludedBills": excluded_list(), "excludeRules": RULES_VERSION,
+        "absurdWeight": {"limitKg": ABSURD_KG, "bills": len(ABSURD_SEEN),
+                         "list": [{"bill": b_, "doc": d_, "kg": round(k_)} for b_, (d_, k_) in
+                                  sorted(ABSURD_SEEN.items(), key=lambda x: -x[1][1])[:50]]},
         "generatedAt": datetime.now().replace(microsecond=0).isoformat(),
         **info,
     }
