@@ -12,7 +12,7 @@
  * ต้องครอบทั้งหัวและเนื้อหา เพราะตัวกรองอยู่ในแท็บ (ลูกของ children) แต่ไปแสดงที่หัว
  * สถานะโหลด/พัง/ไม่มีข้อมูลก็ใช้โครงนี้ ปุ่มรีเฟรชกับ "เปลี่ยนหน้าที่" จึงกดได้ตลอด
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import RefreshBtn from "./RefreshBtn";
 import logo from "../../assets/logo-tiger.webp";
@@ -37,7 +37,7 @@ export interface DashShellProps {
    * หัวแบบแคปซูลยาว — tabs = ปุ่มแท็บ · sub = บรรทัดรองใต้หัวเรื่อง · tools = ปุ่มก่อนรีเฟรช
    * filters = ปุ่มตัวกรองมาตรฐาน: FilterBar ของแท็บที่เปิดอยู่ portal เข้าแผงของปุ่มนี้ (ตัวกรองเปลี่ยนตามแท็บเอง)
    */
-  capsule?: { tabs: ReactNode; sub?: ReactNode; tools?: ReactNode; filters?: boolean };
+  capsule?: { tabs: ReactNode; sub?: ReactNode; tools?: ReactNode; filters?: boolean; info?: ReactNode };
   children?: ReactNode;
 }
 
@@ -219,8 +219,8 @@ function CapFilter({ slot, slotRef }: { slot: HTMLElement | null; slotRef: (el: 
  * บรรทัดที่มาของข้อมูล + ป้าย "ข้อมูลตัวอย่าง" (หน้าสุด) อยู่ในแผงของปุ่มนั้น กดถึงจะโชว์ (เจ้าของงานสั่ง 28 ก.ย. 2569 รอบสาม ·
  * เดิมเป็นบรรทัดใต้แคปซูล) · ข้อมูลตัวอย่าง = ปุ่มมีจุดสีอำพันให้รู้โดยไม่ต้องกด
  */
-function CapsuleHead({ title, isSample, meta, tabs, sub, tools, onRefresh, loading, refreshTitle, onSwitchRole, roleLabel }: {
-  title?: string; isSample?: boolean; meta?: ReactNode; tabs: ReactNode; sub?: ReactNode; tools?: ReactNode;
+function CapsuleHead({ title, isSample, meta, info, tabs, sub, tools, onRefresh, loading, refreshTitle, onSwitchRole, roleLabel }: {
+  title?: string; isSample?: boolean; meta?: ReactNode; info?: ReactNode; tabs: ReactNode; sub?: ReactNode; tools?: ReactNode;
   onRefresh: () => void; loading?: boolean; refreshTitle?: string; onSwitchRole?: () => void; roleLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -233,9 +233,34 @@ function CapsuleHead({ title, isSample, meta, tabs, sub, tools, onRefresh, loadi
     document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", esc); };
   }, [open]);
-  const hasInfo = !!meta || !!isSample;
+  const hasInfo = !!info || !!meta || !!isSample;
+  // ปุ่มย่อ/ขยายแคปซูล ขวาสุดถัดจาก ⓘ (เจ้าของงานสั่ง 28 ก.ย. 2569) · ย่อ = เหลือปุ่มไอคอนเดียว ขยายด้วยปุ่มเดิม ·
+  // จำใน localStorage ของเครื่องนั้น (ความสะดวกรายเครื่อง — อ่าน/เขียนไม่ได้ก็ใช้ค่าตั้งต้น = ขยาย)
+  const [mini, setMini] = useState<boolean>(() => { try { return localStorage.getItem(CAP_MINI_KEY) === "1"; } catch { return false; } });
+  const toggleMini = () => setMini((m) => {
+    const next = !m;
+    try { localStorage.setItem(CAP_MINI_KEY, next ? "1" : "0"); } catch { /* ไม่จำก็ได้ */ }
+    if (next) setOpen(false);
+    return next;
+  });
+  // ปุ่มย่อ/ขยายอยู่นอกกรอบเนื้อหา กึ่งกลางช่องว่างฝั่งขวา (ขอบขวาของกรอบ → ขอบจอ · เจ้าของงานสั่ง 28 ก.ย. 2569)
+  // วัดจริงด้วย JS เพราะ 100vw ของ CSS นับแถบเลื่อนด้วย ปุ่มจะเยื้องจากกึ่งกลาง · ส่งเป็น --cap-gut (px) ให้ CSS วางตำแหน่ง
+  const bar = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const measure = () => {
+      const gut = Math.max(0, document.documentElement.clientWidth - el.getBoundingClientRect().right);
+      el.style.setProperty("--cap-gut", `${Math.round(gut)}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
   return (
-    <div className="cap-bar">
+    <div ref={bar} className={"cap-bar" + (mini ? " mini" : "")}>
       <header className="cap">
         <img className="cap-logo" src={logo} alt="" aria-hidden="true" />
         <div className="cap-title">
@@ -264,14 +289,24 @@ function CapsuleHead({ title, isSample, meta, tabs, sub, tools, onRefresh, loadi
           {open && (
             <div id="cap-info-panel" className="cap-info-panel" role="region" aria-label="ที่มาของข้อมูล">
               {isSample && <span className="dh-sample"><i aria-hidden="true" />ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท</span>}
-              {meta && <p className="dh-meta">{meta}</p>}
+              {info ? <div className="cap-info-content">{info}</div> : meta && <p className="dh-meta">{meta}</p>}
             </div>
           )}
         </div>
       )}
+      <button type="button" className="cap-mini-btn" onClick={toggleMini} aria-expanded={!mini}
+        aria-label={mini ? "ขยายแถบหัว" : "ย่อแถบหัว"} title={mini ? "ขยายแถบหัว" : "ย่อแถบหัว"}>
+        {mini
+          ? <img src={logo} alt="" aria-hidden="true" />
+          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 7l5 5-5 5" /><path d="M13 7l5 5-5 5" />
+            </svg>}
+      </button>
     </div>
   );
 }
+
+const CAP_MINI_KEY = "capMini";
 
 /** บรรทัดรองในแคปซูล — "2024-01-01", "2026-05-31" → "ข้อมูล 01/01/2024-31/05/2026" */
 export function dataRangeText(min: string | null | undefined, max: string | null | undefined): string {

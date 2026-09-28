@@ -7,15 +7,15 @@
  *   ใบสอง  มูลค่าต้นทุนเที่ยวเปล่าตามตัวกรอง + จำนวนเที่ยวเปล่า จากเที่ยวทั้งหมด และ **% เที่ยวเปล่าเทียบเที่ยวทั้งหมด**
  *          (นับเที่ยว ไม่ใช่ต้นทุน — ย้ายมาจากการ์ด "เที่ยววิ่งเปล่าเทียบเที่ยวทั้งหมด" เดิมของ Demo ข้อ 2)
  *
- * คืนเป็น Fragment ของ Hero สองใบ — ผู้เรียกวางในกริดของตัวเอง (.em-heroes 2 คอลัมน์ · .i2-heroes 4 คอลัมน์)
+ * คืนเป็น Fragment ของ Hero สองใบ — ผู้เรียกวางในกริดของตัวเอง (.em-heroes 2 คอลัมน์ · .i2-pair 2 คอลัมน์ในกลุ่ม Empty trip ของ Executive Dashboard)
  * ผู้เรียกส่งเที่ยวที่กรองแล้วมาเอง เพราะสองหน้ามีตัวกรองคนละชุด:
  *   all = ทุกเที่ยวในชุด (หาเดือนสุดท้ายที่ปีนั้นมีข้อมูล) · rows = กรองครบ · rowsAnyYear = กรองทุกตัวยกเว้นปี
  */
 import { useMemo } from "react";
 import { Hero } from "../dash-fleet/parts";
 import { fmt, pct } from "./common";
-import { emptyYtd, prevYY, yearShares, ytdLabel, ytdMonths } from "../../lib/empty/ytd";
-import type { EmptyYtd } from "../../lib/empty/ytd";
+import { emptyAllYears, emptyYtd, prevYY, yearShares, ytdLabel, ytdMonths } from "../../lib/empty/ytd";
+import type { EmptyAllYears, EmptyYtd } from "../../lib/empty/ytd";
 import type { Trip } from "../../lib/data/useCostRev";
 import { isPartialYear, monthsLabel, periodLabel } from "../../lib/filter/period";
 import type { Period } from "../../lib/filter/period";
@@ -35,7 +35,21 @@ function YtdLines({ r, picked }: { r: EmptyYtd; picked: boolean }) {
       <b>มูลค่ารถเที่ยวเปล่า ({ytdLabel(r.year, r.months, picked)})</b>
       <span>{perMonth(r.avgPerMonth)}</span>
       <span>{r.share == null ? "–" : pct(r.share)} ของต้นทุนวิ่งรวม</span>
-      <span>เทียบ YoY ({py}): {yoy}</span>
+      {/* YoY เฉพาะเมื่อปีก่อนมีข้อมูลช่วงเดียวกันให้เทียบ (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
+      {r.prevEmpty != null && <span>เทียบ YoY ({py}): {yoy}</span>}
+    </span>
+  );
+}
+
+/** ไม่เลือกปี — รวมทุกปี ไม่มีบรรทัด YoY */
+function AllYearLines({ r, months }: { r: EmptyAllYears; months: string }) {
+  const be = r.years.map((y) => y + 543);
+  const span = be.length ? (be.length > 1 ? `${be[0]}–${be[be.length - 1]}` : `${be[0]}`) : "";
+  return (
+    <span className="em-ytd">
+      <b>มูลค่ารถเที่ยวเปล่า (ทุกปี{span ? ` ${span}` : ""}{months ? ` · ${months}` : ""})</b>
+      <span>{perMonth(r.avgPerMonth)} · เฉลี่ย {fmt(r.months)} เดือน</span>
+      <span>{r.share == null ? "–" : pct(r.share)} ของต้นทุนวิ่งรวม</span>
     </span>
   );
 }
@@ -54,17 +68,25 @@ export default function EmptyHeroes({ all, rows, rowsAnyYear, period, onOpen }: 
   const ytd = useMemo(
     () => (focusY == null ? null : emptyYtd(rowsAnyYear, focusY, ytdMonths(all, focusY, from, to))),
     [all, rowsAnyYear, focusY, from, to]);
+  const allYears = useMemo(() => (year ? null : emptyAllYears(rows)), [year, rows]);
   const empties = useMemo(() => rows.filter((t) => t.empty), [rows]);
   const emptyCost = empties.reduce((s, t) => s + t.cost, 0);
   const scope = year ? `ปี ${periodLabel(period)}` : `รวม ${yearShare.length} ปี`;
 
   return (
     <>
-      <Hero kind="loss" onClick={onOpen}
-        l={focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${focusY + 543}${monthsLabel(period) ? ` · ${monthsLabel(period)}` : ""}` : "% ต้นทุนเที่ยวเปล่า"}
-        v={focus ? pct(focus.share) : "–"}
-        trend={yearShare.length >= 2 ? yearShare.map((x) => x.share) : undefined}
-        s={ytd && <YtdLines r={ytd} picked={isPartialYear(period)} />} />
+      {/* ไม่เลือกปี = ตัวเลขรวมทุกปี ไม่เทียบ YoY · เลือกปี = ปีนั้น + YoY ถ้าปีก่อนมีข้อมูล (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมไม่เลือกปีแสดงปีล่าสุด) */}
+      {allYears
+        ? <Hero kind="loss" onClick={onOpen}
+            l={`% ต้นทุนเที่ยวเปล่า · ทุกปี${monthsLabel(period) ? ` · ${monthsLabel(period)}` : ""}`}
+            v={allYears.share == null ? "–" : pct(allYears.share)}
+            trend={yearShare.length >= 2 ? yearShare.map((x) => x.share) : undefined}
+            s={<AllYearLines r={allYears} months={monthsLabel(period)} />} />
+        : <Hero kind="loss" onClick={onOpen}
+            l={focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${focusY + 543}${monthsLabel(period) ? ` · ${monthsLabel(period)}` : ""}` : "% ต้นทุนเที่ยวเปล่า"}
+            v={focus ? pct(focus.share) : "–"}
+            trend={yearShare.length >= 2 ? yearShare.map((x) => x.share) : undefined}
+            s={ytd && <YtdLines r={ytd} picked={isPartialYear(period)} />} />}
       <Hero kind="cost" onClick={onOpen} l={`มูลค่าต้นทุนเที่ยวเปล่า · ${scope}`} v={fmt(emptyCost)} unit="บาท"
         s={<>
           <b>{fmt(empties.length)}</b> เที่ยววิ่งเปล่า · จาก {fmt(rows.length)} เที่ยว ={" "}

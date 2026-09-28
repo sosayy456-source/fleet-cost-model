@@ -4,7 +4,7 @@
  * ★ หน้ายาวหน้าเดียว (เจ้าของงานสั่ง 24 ก.ย. 2569) — เดิมเป็น 4 แท็บ ตอนนี้วาดครบทั้ง 4 ส่วนเรียงลงมา
  *   ปุ่มแท็บ**ย้ายไปเป็นป็อบอัพของปุ่ม Demo ในแถบเมนูซ้ายแล้ว** (เจ้าของงานสั่ง 24 ก.ย. 2569 · lib/ui/demoNav.ts)
  *   กดแล้ว **เลื่อนไปหาส่วนนั้น** ไม่ใช่สลับหน้า · รายการในป็อบอัพไฮไลต์ตามส่วนที่เลื่อนถึง · หัวหน้าไม่มีแถบแท็บแล้ว
- * ★ ตัวกรองชุดเดียวคุมทั้งหน้า (filter.tsx) — แต่ละส่วนกรองเท่าที่ข้อมูลของตัวเองมี แล้วบอกไว้ด้วย FilterScope
+ * ★ ตัวกรองชุดเดียวคุมทั้งหน้า (filter.tsx) — แต่ละส่วนกรองเท่าที่ข้อมูลของตัวเองมี แล้วบอกข้อจำกัดในปุ่มข้อมูลด้วย FilterScope
  *   ยกเว้นลูกหนี้ DSO (กำไรลูกค้า ส่วนที่ 2) ที่มี "ข้อมูล ณ วันที่" ของตัวเองเหมือนเดิม
  * ★ หัวหน้าเป็นของไฟล์ต้นทุน (costrev/) เสมอ ช่วงข้อมูล + ข้อจำกัดของไฟล์ลูกหนี้อยู่ที่หัวส่วน DSO
  *
@@ -55,7 +55,10 @@ const PiService = memo(Pi.PiService);
 const DamageRateBox = memo(Pi.DamageRateBox);
 
 const PARTS = DEMO_PARTS;
+const ROUTE_LABEL = PARTS.find((p) => p.id === "route")!.label;
 type PartId = (typeof PARTS)[number]["id"];
+type InfoId = PartId | "cust-debtors";
+type SectionInfo = { content: ReactNode; sample?: boolean };
 /** เส้นอ้างอิงของการไฮไลต์ตามการเลื่อน — ส่วนที่หัวของมันเลยเส้นนี้ขึ้นไปแล้ว = ส่วนที่กำลังอ่าน (px จากขอบบนจอ) */
 const SPY_LINE = 160;
 
@@ -79,6 +82,14 @@ export default function DemoDash() {
   const stale = fv !== f;
   const set = (k: keyof DemoFilter) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const [active, setActive] = useState<PartId>("route");
+  const [activeInfo, setActiveInfo] = useState<InfoId>("route");
+  const [sectionInfo, setSectionInfo] = useState<Partial<Record<InfoId, SectionInfo>>>({});
+  const registerInfo = useCallback((id: InfoId, content: ReactNode, sample?: boolean) => {
+    setSectionInfo((prev) => ({ ...prev, [id]: { content, sample } }));
+  }, []);
+  const registerItem2Info = useCallback((content: ReactNode, sample?: boolean) => registerInfo("item2", content, sample), [registerInfo]);
+  const registerProfitInfo = useCallback((content: ReactNode, sample?: boolean) => registerInfo("cust", content, sample), [registerInfo]);
+  const registerDebtorInfo = useCallback((content: ReactNode, sample?: boolean) => registerInfo("cust-debtors", content, sample), [registerInfo]);
   const pi = usePiReports();
 
   useEffect(() => {
@@ -128,6 +139,7 @@ export default function DemoDash() {
   const lockUntil = useRef(0);
   const go = useCallback((id: PartId) => {
     setActive(id);
+    setActiveInfo(id);
     lockUntil.current = Date.now() + 1000;
     partRefs.current[id]?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
@@ -159,6 +171,8 @@ export default function DemoDash() {
         if (el && el.getBoundingClientRect().top <= SPY_LINE) cur = p.id;
       }
       setActive(cur);
+      const debtorStart = partRefs.current.cust?.querySelector<HTMLElement>('[data-demo-info="cust-debtors"]');
+      setActiveInfo(cur === "cust" && debtorStart && debtorStart.getBoundingClientRect().top <= SPY_LINE ? "cust-debtors" : cur);
     };
     // capture: กล่องที่เลื่อนจริงอาจไม่ใช่ window — scroll ไม่ bubble แต่ดักตอน capture ได้ทุกกล่อง
     const on = () => { if (!raf) raf = requestAnimationFrame(spy); };
@@ -182,6 +196,12 @@ export default function DemoDash() {
       <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
     ]} />
   );
+  const infoForScreen = sectionInfo[activeInfo];
+  const sectionLabel = activeInfo === "route" ? "Profit Per Route" : "Vehicle Utilization Cost";
+  const infoContent = activeInfo === "route" || activeInfo === "item3"
+    ? <><h3>{sectionLabel}</h3>{meta && <p className="dh-meta">{meta}</p>}</>
+    : infoForScreen?.content ?? <p>กำลังโหลดที่มาและข้อจำกัดของข้อมูลส่วนนี้…</p>;
+  const infoSample = activeInfo === "route" || activeInfo === "item3" ? m?.isSample : infoForScreen?.sample;
 
   /** สามส่วนแรกใช้ trips — ไฟล์ต้นทุนพัง/ยังโหลด/ว่าง ขึ้นข้อความแทนเนื้อหา แต่ส่วนกำไรลูกค้ายังวาดได้ */
   const tripsState: ReactNode = error ? (
@@ -203,11 +223,12 @@ export default function DemoDash() {
     </div>
   ) : null;
 
-  const part = (id: PartId, body: ReactNode) => (
+  // headInBody = ส่วนวางหัวข้อเอง (Profit Per Route วางใต้การ์ด Service Category — เจ้าของงานสั่ง 28 ก.ย. 2569)
+  const part = (id: PartId, body: ReactNode, headInBody = false) => (
     <section key={id} id={`demo-${id}`} className={stale ? "dm-part dm-stale" : "dm-part"} ref={(el) => { partRefs.current[id] = el; }}>
       {/* สีรายส่วนจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) — ครอบหัวส่วนด้วย สีหัวข้อบนพื้นหลังจึงตั้งรายส่วนได้ */}
       <ThemeScope scope={`demo:${id}`}>
-        <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>
+        {!headInBody && <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>}
         {body}
       </ThemeScope>
     </section>
@@ -256,27 +277,36 @@ export default function DemoDash() {
   return (
     <>
       <EtlBanner status={etlAll} />
-      {/* หัวแคปซูล (เจ้าของงานสั่ง 28 ก.ย. 2569): โลโก้ · Executive Dashboard + ช่วงข้อมูล · แท็บ 4 ส่วน · ปุ่มตัวกรอง
+      {/* หัวแคปซูล: โลโก้ · Executive Dashboard + ช่วงข้อมูล · แท็บข้อความ 4 ส่วน · ปุ่มตัวกรอง
           ตัวกรองอยู่ในแผงของปุ่มอย่างเดียว (เอากล่องตัวกรองในหัวออก) */}
-      <DashShell sample={m?.isSample} meta={meta || undefined}
+      <DashShell sample={infoSample}
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่"
-        capsule={{ tabs: partTabs, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined, tools: filterTool }}>
+        capsule={{ tabs: partTabs, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined, tools: filterTool, info: infoContent }}>
         <PiReportProvider value={pi.report}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
-          {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} />}
+          {part("route", <>{tripsState
+            ? <><h2 className="dm-part-h">{ROUTE_LABEL}</h2>{tripsState}</>
+            : <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" />
+            <PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>, true)}
+          {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
+            onInfo={registerItem2Info} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
             <PiCost trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("cust", <>
-            <CustomerProfitTab f={fv} />
-            {/* Service Quality (ซ้าย) + การ์ด Damage Rate (ขวา) ขนาดเท่ากัน */}
+            <CustomerProfitTab f={fv}
+              onProfitInfo={registerProfitInfo} onDebtorInfo={registerDebtorInfo} />
+            {/* การ์ด Damage Rate (ซ้าย) + Service Quality (ขวา · แบ่งสองคอลัมน์ในกล่อง) — ตามภาพที่เจ้าของงานส่ง 28 ก.ย. 2569 */}
+            {/* เส้นคั่นระหว่างกล่อง Customer PI กับแถว Damage Rate + Service Quality (เจ้าของงานขอ 28 ก.ย. 2569) */}
+            <hr className="dm-pi-sep" />
             <div className="pi-pair">
-              <PiService trips={piTrips} refTrips={piRefs?.trips ?? null} period={piEval?.label} />
               {/* การ์ด Damage Rate ใบเดียวกับแท็บ Damage — ตามตัวกรองของหน้า ไม่ใช่ช่วงที่ประเมินของ PI */}
               <DamageRateBox trips={m && !error ? trips : null} />
+              <PiService trips={piTrips} refTrips={piRefs?.trips ?? null} period={piEval?.label} />
             </div>
+            {/* เส้นคั่นก่อนกล่องคะแนนรวม (เจ้าของงานขอ 28 ก.ย. 2569) */}
+            <hr className="dm-pi-sep" />
             <PiTotal reports={pi.reports} />
           </>)}
         </PiReportProvider>

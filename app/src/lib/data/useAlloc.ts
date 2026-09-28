@@ -15,7 +15,8 @@ import type { Period } from "../filter/period";
 export type AllocDataset = "sample" | "real";
 
 /** ฝ่ายที่เป็นผู้จ่ายเงิน — ตามประเภทการชำระเงินของบิล */
-export type PayerSide = "ผู้ส่ง" | "ผู้รับ";
+/** ฝ่ายที่ลูกค้าเคยจ่าย — ETL ตั้งแต่ 28 ก.ย. 2569 รวมรายเดียวกันเป็นแถวเดียว ("ผู้ส่ง+ผู้รับ" = เคยจ่ายทั้งสองฐานะ) */
+export type PayerSide = "ผู้ส่ง" | "ผู้รับ" | "ผู้ส่ง+ผู้รับ";
 
 export interface AllocManifest {
   dataset: AllocDataset;

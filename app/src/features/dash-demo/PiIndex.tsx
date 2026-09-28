@@ -33,7 +33,6 @@ import { damageRef, damageResults } from "../../lib/pi/damage";
 import type { DamageRef } from "../../lib/pi/damage";
 import type { IndexDef, IndexStatus, MetricKey, MetricResult } from "../../lib/pi/score";
 import type { Trip } from "../../lib/data/useCostRev";
-import { Hero } from "../dash-fleet/parts";
 import { fmt, pct } from "../dash-costrev/common";
 import { passDemo, passLfDemo } from "./filter";
 import type { DemoFilter } from "./filter";
@@ -108,38 +107,24 @@ function StatusChip({ status }: { status: IndexStatus | null }) {
   return <i className={`pi-st ${status}`} title={`${STATUS_RANGE[status]} — ${STATUS_MEANING[status]}`}>{STATUS_LABEL[status]}</i>;
 }
 
-/** กล่องยาวของหนึ่งหมวด: ชื่อ · ป้ายสถานะ · คะแนนเด่น (เต็ม 20) · บรรทัดคะแนนรายตัวชี้วัด */
-export function PiBox({ index, results, note }: {
-  index: IndexDef; results: MetricResult[]; note?: string;
-}) {
-  const report = useContext(PiReportCtx);
-  useEffect(() => { report?.(index.id, results); }, [report, index.id, results]);
-  const full = index.subs.length * METRIC_MAX;
-  const { score, max } = sumScores(results);
-  const period = periodsOf(results);
+/**
+ * กล่อง PI ของหมวด Fleet · Cost · Customer · Service — ตั้งแต่ 28 ก.ย. 2569 ใช้เลย์เอาต์แถวเดียวแบบ Route & Service ทุกหมวด
+ * (เจ้าของงานสั่ง "performance index 2–5 ให้ทำตามแบบที่ 1") จึงส่งต่อให้ PiRow · note = คำอธิบายหลังปุ่ม i (ป้ายสถานะขึ้นทุกหมวดจาก indexStatus · InDex_revised v2.md)
+ */
+export function PiBox({ index, results, note }: { index: IndexDef; results: MetricResult[]; note?: string }) {
+  return <PiRow index={index} results={results} note={note} />;
+}
+
+/** คำอธิบายเกณฑ์ใต้กล่อง — ซ่อนไว้หลังปุ่ม i กดแล้วกางลงมา (เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิมโชว์ข้อความตลอด) */
+function PiNote({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
   return (
-    <section className={`pi-box t-${index.id}`}>
-      <div className="pi-head">
-        <h4 className="pi-t">{index.title} <small className="pi-bsc">{index.bsc}</small></h4>
-        <StatusChip status={indexStatus(results)} />
-      </div>
-      <div className="pi-score">
-        <b>{max ? sc(score) : "–"}</b><span>/{full}</span>
-        {max > 0 && max < full && <em>คิดได้ {max} จาก {full} คะแนน</em>}
-      </div>
-      <Meter v={score} max={full} cls="pi-meter" />
-      <div className="pi-subs">
-        {results.map((r) => (
-          <div key={r.key} title={subTitle(r)} className={"pi-sub" + (r.pending || r.score == null ? " na" : "")}>
-            <span>{r.tone && <i className={`pi-tone ${r.tone}`} aria-hidden="true" />}{METRICS[r.key].label}</span>
-            <b>{subValue(r)}</b>
-            <Meter v={r.score ?? 0} max={METRIC_MAX} cls="pi-bar" />
-          </div>
-        ))}
-      </div>
-      {period && <p className="pi-note pi-period">ประเมิน: {period}</p>}
-      {note && <p className="pi-note">{note}</p>}
-    </section>
+    <div className="pi-note-w">
+      <button type="button" className={"pi-info" + (open ? " on" : "")} aria-expanded={open}
+        aria-label={open ? "ซ่อนคำอธิบาย" : "ดูคำอธิบายวิธีคิด"} title={open ? "ซ่อนคำอธิบาย" : "ดูคำอธิบายวิธีคิด"}
+        onClick={() => setOpen((o) => !o)}>i</button>
+      {open && <p className="pi-note">{text}</p>}
+    </div>
   );
 }
 
@@ -175,8 +160,8 @@ function PiRowMetric({ r }: { r: MetricResult }) {
   const t = r.tally;
   const f = formulaText(r);
   return (
-    <div className={"pi-rm" + (r.score == null ? " na" : "")}>
-      <div className="pi-rm-h"><span>{def.label}</span><b>{subValue(r)}</b></div>
+    <div className={"pi-rm" + (r.score == null ? " na" : "")} title={subTitle(r)}>
+      <div className="pi-rm-h"><span>{r.tone && <i className={`pi-tone ${r.tone}`} aria-hidden="true" />}{def.label}</span><b>{subValue(r)}</b></div>
       {t && t.n ? <>
         <span className="pi-rm-stack" aria-hidden="true">
           {BAND_TXT.map(([k]) => (t[k] ? <i key={k} className={k} style={{ flexGrow: t[k] }} /> : null))}
@@ -205,13 +190,13 @@ function PiRowMetric({ r }: { r: MetricResult }) {
  * กล่องคะแนน x/20 สั้น ๆ ซ้าย + ตัวชี้วัดเรียงไปทางขวา คอลัมน์ละตัว · ปุ่ม "รายละเอียด" กางวิธีคิดคะแนน
  * แจ้งผลขึ้นบรรทัดคะแนนรวมเหมือน PiBox (หมวดอื่นยังใช้ PiBox)
  */
-export function PiRow({ index, results }: { index: IndexDef; results: MetricResult[] }) {
+export function PiRow({ index, results, note }: { index: IndexDef; results: MetricResult[]; note?: string }) {
   const report = useContext(PiReportCtx);
   useEffect(() => { report?.(index.id, results); }, [report, index.id, results]);
   const full = index.subs.length * METRIC_MAX;
   const { score, max } = sumScores(results);
   return (
-    <section className={`pi-box pi-row t-${index.id}`}>
+    <section id={`pi-box-${index.id}`} className={`pi-box pi-row t-${index.id}`}>
       <div className="pi-row-sc">
         <h4 className="pi-t">{index.title} <small className="pi-bsc">{index.bsc}</small></h4>
         <StatusChip status={indexStatus(results)} />
@@ -219,6 +204,7 @@ export function PiRow({ index, results }: { index: IndexDef; results: MetricResu
         <Meter v={score} max={full} cls="pi-meter" />
         {max > 0 && max < full && <em className="pi-row-part">คิดได้ {max} จาก {full}</em>}
         {periodsOf(results) && <em className="pi-row-part">ประเมิน: {periodsOf(results)}</em>}
+        {note && <PiNote text={note} />}
       </div>
       {results.map((r) => <PiRowMetric key={r.key} r={r} />)}
     </section>
@@ -304,13 +290,39 @@ export function PiCost({ trips, refs, period }: { trips: Trip[] | null; refs: Tr
  */
 export function DamageRateBox({ trips }: { trips: Trip[] | null }) {
   const kpi = useMemo(() => (trips ? totalDamage(trips.filter((t) => t.m && !t.empty)) : null), [trips]);
+  // 4 ตัวเลขชุดเดียวกับหัวแท็บ Damage Rate ของ Overall Dashboard (DamageTab.tsx) รวมในกล่องแดงกล่องเดียว เรียงบนลงล่าง
+  // (เจ้าของงานสั่ง 28 ก.ย. 2569 — รุ่นแรกเป็น 4 การ์ด 2×2 แยกสี)
+  const rows: { l: string; v: string; s: string }[] = [
+    { l: "Damage Rate", v: kpi?.rate == null ? "–" : pct(kpi.rate, 3), s: kpi ? "มูลค่าบิลเคลียร์ ÷ รายได้รวม" : "ยังไม่มีไฟล์ต้นทุน" },
+    { l: "Damage Incidence Rate", v: kpi ? pct(kpi.incidence, 2) : "–", s: "เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมด" },
+    { l: "มูลค่าบิลเคลียร์", v: kpi ? fmt(kpi.clrAmt, 2) : "–", s: "บาท · มูลค่าความเสียหาย" },
+    { l: "จำนวนเที่ยวที่มีบิลเคลียร์", v: kpi ? fmt(kpi.dmgTrips) : "–", s: "เที่ยว · มีบิลเคลียร์อย่างน้อย 1 รายการ" },
+  ];
   return (
-    <Hero kind="loss" l="Damage Rate" v={kpi?.rate == null ? "–" : pct(kpi.rate, 3)}
-      s={kpi ? "มูลค่าบิลเคลียร์ ÷ รายได้รวม" : "ยังไม่มีไฟล์ต้นทุน"} />
+    <div className="dz-kc hero loss pi-dmg4">
+      {rows.map((r) => (
+        <div className="pi-dmg-row" key={r.l}>
+          <div className="pi-dmg-l">{r.l}</div>
+          <div className="pi-dmg-v num-fd" key={r.v}>{r.v}</div>
+          <div className="pi-dmg-s">{r.s}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 /** บรรทัดสุดท้าย — คะแนนรวม XX/100 พร้อมฐานที่คิดได้และตัวชี้วัดที่ยังขาด · กดทั้งกล่อง = ป็อบอัพที่มาของคะแนน */
+/** เลื่อนไปกล่อง Index ในหน้า (id = pi-box-<หมวด>) แล้วกระพริบให้เห็นว่าคือกล่องไหน */
+function jumpToIndex(id: string): void {
+  const el = document.getElementById(`pi-box-${id}`);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.classList.remove("pi-flash");
+  void el.offsetWidth;
+  el.classList.add("pi-flash");
+  window.setTimeout(() => el.classList.remove("pi-flash"), 1800);
+}
+
 export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }) {
   const [open, setOpen] = useState(false);
   const groups = Object.values(INDEXES).map((ix) => ({ index: ix as IndexDef, results: reports[ix.id] ?? waitingOf(ix) }));
@@ -320,9 +332,11 @@ export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }
   const noData = all.filter((r) => !r.pending && r.score == null).map((r) => METRICS[r.key].label);
   return (
     <>
-      <section className="pi-total pi-click" role="button" tabIndex={0} aria-haspopup="dialog"
-        title="กดเพื่อดูว่าคะแนนแต่ละตัวชี้วัดมาจากไหน" onClick={() => setOpen(true)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}>
+      <section className="pi-total">
+        {/* ส่วนบน (ชื่อ · คะแนน · แถบ) กดแล้วเปิดที่มาของคะแนน · กล่อง 5 หมวดข้างล่างเป็นปุ่มแยก — ห้ามซ้อนปุ่มในปุ่ม */}
+        <div className="pi-total-main pi-click" role="button" tabIndex={0} aria-haspopup="dialog"
+          title="กดเพื่อดูว่าคะแนนแต่ละตัวชี้วัดมาจากไหน" onClick={() => setOpen(true)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}>
         <div className="pi-head">
           <span className="pi-total-l">คะแนนรวม Performance Index</span>
           <i className="pi-more">ดูที่มาของคะแนน ↗</i>
@@ -338,6 +352,22 @@ export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }
             {noData.length > 0 && <> · ไม่มีข้อมูล: {noData.join(" · ")}</>}
           </p>
         )}
+        </div>
+        {/* กล่องคะแนนรายหมวด — กดแล้วเลื่อนขึ้นไปกล่อง Index นั้นในส่วนของมัน (เจ้าของงานขอ 28 ก.ย. 2569) */}
+        <div className="pi-jumps">
+          {groups.map((g, i) => {
+            const full = g.index.subs.length * METRIC_MAX;
+            const r = sumScores(g.results);
+            return (
+              <button key={g.index.id} type="button" className="pi-jump" onClick={() => jumpToIndex(g.index.id)}
+                title={`ไปที่ ${g.index.title}`}>
+                <span className="pi-jump-h"><i>{i + 1}</i>{g.index.title}</span>
+                <span className="pi-jump-sc"><b>{r.max ? sc(r.score) : "–"}</b>/{full}</span>
+                <Meter v={r.score} max={full} cls="pi-bar" />
+              </button>
+            );
+          })}
+        </div>
       </section>
       {open && <PiDetailModal groups={groups} score={score} max={max} onClose={() => setOpen(false)} />}
     </>

@@ -29,3 +29,37 @@
   font-display: swap;
   src: url("./assets/fonts/LINESeedSansTH_W_XBd.woff2") format("woff2");
 }
+
+/*
+ * "LINE Seed Thai L" = ฟอนต์เดียวกัน แต่เฉพาะตัวอักษรไทย (unicode-range) ขยาย 110% (size-adjust)
+ * เจ้าของงานขอให้ตัวหนังสือไทยใหญ่ขึ้นในหน้าแดชบอร์ดและ Cost to Serve (28 ก.ย. 2569) — ตัวเลข/อังกฤษขนาดเดิม
+ * การ์ดตัวเลขใหญ่และคอลัมน์ตารางจึงไม่ล้น · ใช้ที่ #view-dash (index.css) + หน้า cost-to-serve (addFonts คัดกฎที่มีคำว่า "LINE Seed")
+ * ปรับขนาดที่ size-adjust ทั้งสามน้ำหนักพร้อมกัน
+ */
+@font-face {
+  font-family: "LINE Seed Thai L";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  size-adjust: 110%;
+  unicode-range: U+0E00-0E7F;
+  src: url("./assets/fonts/LINESeedSansTH_W_Rg.woff2") format("woff2");
+}
+@font-face {
+  font-family: "LINE Seed Thai L";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  size-adjust: 110%;
+  unicode-range: U+0E00-0E7F;
+  src: url("./assets/fonts/LINESeedSansTH_W_Bd.woff2") format("woff2");
+}
+@font-face {
+  font-family: "LINE Seed Thai L";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  size-adjust: 110%;
+  unicode-range: U+0E00-0E7F;
+  src: url("./assets/fonts/LINESeedSansTH_W_XBd.woff2") format("woff2");
+}

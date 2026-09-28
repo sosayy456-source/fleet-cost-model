@@ -90,3 +90,30 @@ export function ytdLabel(year: number, months: number[], picked: boolean): strin
 
 /** ปี พ.ศ. สองหลักของปีก่อน — ใช้ในบรรทัด "เทียบ YoY (68)" */
 export const prevYY = (year: number): string => yy(year - 1);
+
+/**
+ * ไม่เลือกปี (ทุกปี) — รวมทุกปีในชุดที่กรองแล้ว ไม่เทียบ YoY (เจ้าของงานสั่ง 28 ก.ย. 2569)
+ * เฉลี่ย/เดือน หารด้วยจำนวนเดือน (ปี-เดือน) ที่มีเที่ยวในชุด · rows = ผ่านตัวกรองทุกตัว (รวมช่วงเดือน)
+ */
+export interface EmptyAllYears {
+  years: number[];
+  months: number;
+  emptyCost: number;
+  totalCost: number;
+  avgPerMonth: number;
+  share: number | null;
+}
+export function emptyAllYears(rows: YtdTrip[]): EmptyAllYears {
+  const years = new Set<number>(), months = new Set<string>();
+  let emptyCost = 0, totalCost = 0;
+  for (const t of rows) {
+    years.add(t.y); months.add(t.mo);
+    totalCost += t.cost;
+    if (t.empty) emptyCost += t.cost;
+  }
+  return {
+    years: [...years].sort((a, b) => a - b), months: months.size, emptyCost, totalCost,
+    avgPerMonth: months.size ? emptyCost / months.size : 0,
+    share: totalCost ? emptyCost / totalCost * 100 : null,
+  };
+}

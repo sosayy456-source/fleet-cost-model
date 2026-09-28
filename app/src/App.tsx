@@ -41,6 +41,7 @@ import { loadSessionBranch, saveSessionBranch } from "./lib/store/sessionBranch"
 import BranchGate from "./features/dash-manager/BranchGate";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
+import ScrollTopButton from "./lib/ui/ScrollTopButton";
 import { clearReturnPoints, goBack, hasReturnPoint } from "./lib/ui/returnPoint";
 import { PREVIEW_SCOPE } from "./lib/ui/themePreview";
 
@@ -293,12 +294,8 @@ export default function App() {
           </ErrorBoundary>
         </section>
 
-        {/* บรรทัดท้ายหน้า — main มีอยู่นอก section ทุกหน้าจึงเห็นเหมือนกันหมด */}
-        <p className="foot">
-          ต่อยอดจากโมเดลเดิม · บันทึกลง Google Sheet ผ่าน Apps Script Web App ·
-          ข้อมูลสำรองในเครื่อง (IndexedDB)
-        </p>
       </main>
+      {!PREVIEW_SCOPE && <ScrollTopButton />}
       {role === "manager" && !managerBranch && (
         <BranchGate onPick={pickManagerBranch} onBack={() => setRole(null)} />
       )}

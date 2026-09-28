@@ -31,12 +31,14 @@ const F0 = { o: "", de: "", vk: "" };
 
 interface RouteRow { rt: string; n: number; rev: number; cost: number; profit: number; margin: number | null }
 
-export default function ServicePanel({ trips, groups, picked }: {
+export default function ServicePanel({ trips, groups, picked, tone }: {
   /** เที่ยวที่ผ่านตัวกรองของแท็บแล้ว ยกเว้นตัวกรองกลุ่มบริการ */
   trips: Trip[];
   /** ชื่อกลุ่มบริการทั้งสามตามลำดับการ์ด */
   groups: readonly string[];
   picked: string;
+  /** คลาสสีของการ์ดที่กด (sg-gen · sg-chill · sg-frozen) — พื้นกล่องกราฟใช้สีเดียวกับการ์ด (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+  tone?: string;
 }) {
   const [f, setF] = useState(F0);
   const set = (k: keyof typeof F0) => (v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -93,7 +95,7 @@ export default function ServicePanel({ trips, groups, picked }: {
 
   return (
     <div className="dm-panel">
-      <div className="dz-cc">
+      <div className={"dz-cc dm-sgchart" + (tone ? ` ${tone}` : "")}>
         <h4>กำไรสุทธิรายเดือน · เทียบ 3 กลุ่มบริการ</h4>
         <div className="dz-box tall">
           <GroupLines data={monthly} groups={groups} picked={picked} />

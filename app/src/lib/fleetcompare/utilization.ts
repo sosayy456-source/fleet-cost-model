@@ -152,6 +152,32 @@ export function serviceFleetMix(rows: FleetSlice[]) {
     || a.n - b.n || a.service.localeCompare(b.service, "th"));
 }
 
+/** ชื่อกลุ่มของเที่ยววิ่งเปล่าในการ์ดการจัดรถตามกลุ่มบริการ (Executive Dashboard) */
+export const EMPTY_SERVICE = "เที่ยววิ่งเปล่า";
+
+/**
+ * การจัดรถตามกลุ่มบริการแบบ 4 กล่องคงที่ (Executive Dashboard › Vehicle Utilization Cost ส่วนที่ 3 · เจ้าของงานสั่ง 28 ก.ย. 2569):
+ * `keep` (3 กลุ่มบริการตามลำดับ) + เที่ยววิ่งเปล่า (`emptyIds` = เลขที่ใบของเที่ยวเปล่า) ต่อท้าย
+ * กลุ่มอื่น (ของเหมาตีเปล่า · บิลเคลียร์) และเที่ยวที่มีรายได้แต่ไม่รู้กลุ่มไม่แสดง · กลุ่มที่ไม่มีเที่ยวไม่แสดง
+ */
+export function serviceMixFixed(rows: FleetSlice[], keep: readonly string[], emptyIds: ReadonlySet<string>) {
+  const tagged = rows.map((r) => (emptyIds.has(r.id) ? { ...r, service: EMPTY_SERVICE } : r));
+  const all = serviceFleetMix(tagged);
+  return [...keep, EMPTY_SERVICE].flatMap((k) => all.filter((g) => g.service === k));
+}
+
+/**
+ * การจัดรถตามกลุ่มบริการของ Overall › Vehicle Utilization (เจ้าของงานสั่ง 28 ก.ย. 2569): เที่ยววิ่งเปล่าเป็นกลุ่ม "เที่ยววิ่งเปล่า" ต่อท้าย
+ * แทน "ไม่ระบุ / ยังแบ่งกลุ่มไม่ได้" · เที่ยวที่เหลือในกลุ่มไม่ระบุ (มีรายได้แต่ไม่มีรายได้แยกกลุ่มบริการ) ไม่เป็นกลุ่ม คืนเป็นจำนวน `unknownN`
+ * ให้หน้าจอเขียนบอกตัวเล็ก · กลุ่มอื่นคงเดิม
+ */
+export function serviceMixWithEmpty(rows: FleetSlice[], emptyIds: ReadonlySet<string>) {
+  const tagged = rows.map((r) => (emptyIds.has(r.id) ? { ...r, service: EMPTY_SERVICE } : r));
+  const unknownN = docCount(tagged.filter((r) => r.service === UNKNOWN_SERVICE));
+  const mix = serviceFleetMix(tagged.filter((r) => r.service !== UNKNOWN_SERVICE));
+  return { mix: [...mix.filter((g) => g.service !== EMPTY_SERVICE), ...mix.filter((g) => g.service === EMPTY_SERVICE)], unknownN };
+}
+
 /** เส้นทางที่มีเที่ยวมากที่สุด พร้อมสัดส่วนชนิดรถ — คืนทุกเส้นทาง ผู้เรียกตัดเอง
  *  `ids` = เลขที่ใบรายการของเส้นทางนั้น (ป็อปอัปรายการเที่ยวใช้ชุดนี้ จำนวนแถวจึงเท่ากับ n เสมอ) */
 export function routeUsage(rows: FleetSlice[]) {

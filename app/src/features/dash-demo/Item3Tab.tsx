@@ -9,7 +9,7 @@
  * ★ ดีไซน์: การ์ดส่วนเรียงแนวตั้ง · หัวข้อเป็นป้ายไล่สี (ม่วง/เขียว/ฟ้า) · หัวตารางไล่สีเดียวกับหัวข้อ ·
  *   แท่งแบบ 3D (ชั้น gloss) · โดนัท SVG ไล่เฉด · **ไม่มีปุ่ม "ดูรายละเอียด" แล้ว — กดแถวในตาราง (ส่วน 1–2) หรือแผงข้อมูล (ส่วน 3)
  *   เพื่อลิงก์ไปหน้าปลายทาง** (เจ้าของงานสั่ง 24 ก.ย. 2569) ·
- *   ปุ่ม "กลับไปส่วนที่ 1 ↑" ท้ายส่วนที่ 3 · สีเป็นค่าตายตัวตาม handoff (คลาส .i3-* ในส่วนที่ 2 ของ index.css)
+ *   สีเป็นค่าตายตัวตาม handoff (คลาส .i3-* ในส่วนที่ 2 ของ index.css)
  *   ฟอนต์ยังเป็น LINE Seed ของทั้งโมเดล (handoff ใช้ Prompt)
  * ★ ใช้ชุดเดียวกับแท็บปลายทาง (จับคู่รายได้ได้ + เที่ยววิ่งเปล่า · 24 ก.ย. 2569) ตัวเลขจึงตรงกับหน้าที่ลิงก์ไปเมื่อไม่กรอง
  * ★ สูตรทั้งหมดมาจาก lib/detail3/calc.ts กับ lib/fleetcompare/utilization.ts — ห้ามคิดเองในไฟล์นี้
@@ -19,14 +19,26 @@
  *   คอลัมน์ ชนิดรถ · เที่ยว · บาท/เที่ยว · บาท/กม. · บาท/ตัน-กม. · % เปลี่ยนแปลง เรียงได้สามจังหวะ (useSort) ·
  *   ⚠ แดง + จำนวนคันที่ติด Flag ของเกณฑ์นั้น (kindCostTable/costFlags ใน lib/detail3/calc.ts — เกิน 2 เท่าของค่าเฉลี่ยรายคันของชนิดรถ)
  */
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Trip } from "../../lib/data/useCostRev";
 import { DEP_BREAKEVEN, FLAG_TIMES, depByKind, depreciation, kindCostTable, vehicleRows } from "../../lib/detail3/calc";
-import { fleetSlices, fleetTypeShare, serviceFleetMix } from "../../lib/fleetcompare/utilization";
+import { EMPTY_SERVICE, fleetSlices, fleetTypeShare, serviceMixFixed } from "../../lib/fleetcompare/utilization";
+import { SERVICE_GROUPS } from "../../lib/pi/route";
+import imgBox from "../../assets/icons3d/box.webp";
+import imgCloud from "../../assets/icons3d/cloud.webp";
+import imgSnow from "../../assets/icons3d/snow.webp";
+import imgBoxOpen from "../../assets/icons3d/box-open.webp";
 import { openExecTab } from "../../lib/ui/dashJump";
 import { fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { CHERRY, IS_CHERRY } from "../../lib/ui/dashTheme";
+
+/** สี + รูปของกลุ่มบริการ ชุดเดียวกับการ์ด Service Category ของ Profit Per Route (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+const SG_TONE: Record<string, { cls: string; x?: string }> = {
+  [SERVICE_GROUPS[0]]: { cls: "sg-gen" },
+  [SERVICE_GROUPS[1]]: { cls: "sg-chill", x: imgCloud },
+  [SERVICE_GROUPS[2]]: { cls: "sg-frozen", x: imgSnow },
+};
 
 /** สีประเภทรถตาม handoff — [สีหลัก, สีอ่อนของโดนัท, ป้ายสั้น] · ธีม cherry ตาม "การแสดงผล.pdf": บริษัท เบอร์กันดี · ร่วม ม่วงหม่น · นอกพิเศษ ส้มอิฐ */
 const FT: Record<string, [string, string, string]> = IS_CHERRY ? {
@@ -60,7 +72,6 @@ const linkProps = (go: () => void, label: string) => ({
  */
 /** hideFleet = ไม่วาดส่วนที่ 3 (ภาพรวมกองรถ) — เมนู Executive Summary ใช้แค่ส่วนที่ 1–2 (27 ก.ย. 2569) */
 export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips: Trip[]; costTrips: Trip[]; year: string; hideFleet?: boolean }) {
-  const top = useRef<HTMLElement>(null);
   const rows = useMemo(() => vehicleRows(trips), [trips]);
   // ส่วนที่ 1: ค้นหาเส้นทาง · เลือกชนิดรถหลายชนิด · เฉพาะเที่ยวที่ถูก Flag
   const [origin, setOrigin] = useState("");
@@ -83,9 +94,20 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
   const costSort = useSort(cost.list, costCols, { key: "n", dir: -1 });
   const dep = useMemo(() => depreciation(rows), [rows]);
   const depKinds = useMemo(() => depByKind(dep.list), [dep.list]);
+  // หัวตารางความคุ้มค่าเสื่อมกดเรียงได้ (เจ้าของงานสั่ง 28 ก.ย. 2569) — มากไปน้อย → น้อยไปมาก → ลำดับเดิมของ depByKind
+  type DepKind = (typeof depKinds)[number];
+  const depCols = useMemo<(Col<DepKind> & { cls?: string })[]>(() => [
+    { key: "vk", label: "ชนิดรถ", get: (k) => k.vk },
+    { key: "fc", label: "ค่าเสื่อมเฉลี่ย/เที่ยว", get: (k) => k.fc, num: true },
+    { key: "worthPct", label: "สัดส่วนเที่ยวคุ้ม / ไม่คุ้มค่าเสื่อม", get: (k) => k.worthPct, cls: "i3-divcol" },
+    { key: "coverage", label: "คุ้มค่าเสื่อม", get: (k) => k.coverage, num: true },
+  ], []);
+  const depSort = useSort(depKinds, depCols, { key: "", dir: -1 });
   const worthPct = dep.list.length ? (dep.list.length - dep.notWorth) / dep.list.length * 100 : 0;
   const slices = useMemo(() => fleetSlices(trips), [trips]);
-  const mix = useMemo(() => serviceFleetMix(slices), [slices]);
+  // 4 กล่อง: 3 กลุ่มบริการ + เที่ยววิ่งเปล่า (แทน "ไม่ระบุ / ยังแบ่งกลุ่มไม่ได้" · ตัดของเหมาตีเปล่า — เจ้าของงานสั่ง 28 ก.ย. 2569)
+  const emptyIds = useMemo(() => new Set(trips.filter((t) => t.empty).map((t) => t.id)), [trips]);
+  const mix = useMemo(() => serviceMixFixed(slices, SERVICE_GROUPS, emptyIds), [slices, emptyIds]);
   const types = useMemo(() => fleetTypeShare(slices), [slices]);
   const typeTotal = types.reduce((s, t) => s + t.n, 0);
   // ช่วงเดือนของปีล่าสุด — ปีล่าสุดมักยังไม่ครบ ต้องบอกผู้ใช้ว่าเทียบช่วงไหน
@@ -103,7 +125,7 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
   }, [types, typeTotal]);
 
   return <div className="i3-page">
-    <Section ref={top} tone="violet" title="ต้นทุนขนส่งแต่ละชนิดรถ"
+    <Section tone="violet" title="ต้นทุนขนส่งแต่ละชนิดรถ"
       sub={cost.year ? `ปี ${be(cost.year)}${span && ` (${span})`} เทียบปี ${be(cost.prev!)} · รวมรถบริษัทและรถร่วม` : "ยังไม่มีข้อมูล"}>
       <div className="i3-tools">
         <PlaceInput label="ต้นทาง" value={origin} onChange={setOrigin} opts={cost.origins} />
@@ -159,10 +181,15 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
         </div>
         <div className="i3-tbl-wrap"><table className="i3-tbl">
           <thead><tr>
-            <th>ชนิดรถ</th><th className="n">ค่าเสื่อมเฉลี่ย/เที่ยว</th>
-            <th className="i3-divcol">สัดส่วนเที่ยวคุ้ม / ไม่คุ้มค่าเสื่อม</th><th className="n">คุ้มค่าเสื่อม</th>
+            {depCols.map((c) => (
+              <th key={c.key} className={[c.num ? "n" : "", c.cls ?? "", "i3-sort"].join(" ").trim()} onClick={() => depSort.toggle(c.key)}
+                title="กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อกลับลำดับเดิม">
+                {c.label}<span className={depSort.sort.key === c.key ? "on" : ""}>
+                  {depSort.sort.key === c.key ? (depSort.sort.dir === 1 ? "▲" : "▼") : "▲▼"}</span>
+              </th>
+            ))}
           </tr></thead>
-          <tbody className="i3-link">{depKinds.map((k) => <tr key={k.vk} {...linkProps(toPart2, "Vehicle Utilization Cost (คุ้มค่าเสื่อม)")}>
+          <tbody className="i3-link">{depSort.sorted.map((k) => <tr key={k.vk} {...linkProps(toPart2, "Vehicle Utilization Cost (คุ้มค่าเสื่อม)")}>
             <td><Kind name={k.vk} n={k.n} /></td>
             <td className="n i3-bold">฿{fmt(k.fc)}</td>
             <td><div className="i3-worth" title={`คุ้ม ${fmt(k.nWorth)} · ไม่คุ้ม ${fmt(k.n - k.nWorth)} เที่ยว`}>
@@ -180,15 +207,19 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
         ป้ายท้ายแถวใช้ coverage ของชนิดรถ (Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม) · ต้นทุน/ค่าเสื่อมแยกรายคัน (หัว/หางนับแยก)</p>
     </Section>
 
-    {!hideFleet && <Section tone="blue" title="ภาพรวมการใช้ประโยชน์กองรถ"
+    {!hideFleet && <Section tone="blue" className="i3-fleet-sec" title="ภาพรวมการใช้ประโยชน์กองรถ"
       sub="การใช้รถตามกลุ่มบริการและประเภทรถ">
       <div className="i3-fleet">
         <div className="i3-panel i3-link" {...linkProps(toFleet, "Vehicle Utilization")}>
           <div className="i3-panel-head"><b>การจัดรถตามกลุ่มบริการ</b><span>ดูสัดส่วนรถบริษัท รถร่วม และรถร่วมนอกพิเศษ</span></div>
           <div className="i3-groups">{mix.map((g) => {
             const comp = g.main === "รถบริษัท";
-            return <div key={g.service} className="i3-group">
-              <div className="i3-group-head"><b>{g.service}</b><span>{fmt(g.n)} เที่ยว</span></div>
+            const tone = SG_TONE[g.service];
+            return <div key={g.service} className={"i3-group" + (tone ? ` i3-sg ${tone.cls}` : g.service === EMPTY_SERVICE ? " i3-empty" : "")}>
+              <div className="i3-group-head"><b>{g.service}</b><span>{fmt(g.n)} เที่ยว</span>
+                {tone && <span className="i3-sgpic" aria-hidden="true"><img className="bx" src={imgBox} alt="" />{tone.x && <img className="x" src={tone.x} alt="" />}</span>}
+                {/* เที่ยววิ่งเปล่า = กล่องเปิดว่าง (รูปจากเจ้าของงาน 28 ก.ย. 2569) ตำแหน่ง/ขนาดเดียวกับรูปของกลุ่มบริการ */}
+                {g.service === EMPTY_SERVICE && <span className="i3-sgpic" aria-hidden="true"><img className="bx" src={imgBoxOpen} alt="" /></span>}</div>
               <div className="i3-stack" role="img" aria-label={g.types.map((t) => `${t.key} ${pct(t.share, 0)}`).join(" · ")}>
                 {g.types.map((t) => <i key={t.key} title={`${t.key}: ${fmt(t.n)} เที่ยว (${pct(t.share)})`}
                   style={{ width: `${t.share}%`, ["--c" as string]: ftOf(t.key)[0] }} />)}
@@ -221,15 +252,14 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
         </div>
       </div>
       <p className="i3-note">ใบที่มีรถหลายประเภท (เช่น หัวรถบริษัท + หางรถร่วม) นับในทุกประเภทที่มี ยอดรวมโดนัทจึงมากกว่าจำนวนเที่ยว</p>
-      <button type="button" className="i3-back" onClick={() => scrollToTop(top)}>กลับไปส่วนที่ 1 ↑</button>
     </Section>}
   </div>;
 }
 
-function Section({ ref, tone, title, sub, children }: {
-  ref?: RefObject<HTMLElement | null>; tone: "violet" | "green" | "blue"; title: string; sub: string; children: ReactNode;
+function Section({ tone, title, sub, className, children }: {
+  tone: "violet" | "green" | "blue"; title: string; sub: string; className?: string; children: ReactNode;
 }) {
-  return <section ref={ref} className="i3-sec">
+  return <section className={`i3-sec${className ? ` ${className}` : ""}`}>
     <header className="i3-sec-head">
       <div><h2 className={`i3-h ${tone}`}>{title}</h2><p>{sub}</p></div>
     </header>
@@ -290,10 +320,4 @@ function KindDropdown({ all, sel, onChange }: { all: string[]; sel: Set<string>;
 
 function Kind({ name, n }: { name: string; n: number }) {
   return <div className="i3-kind"><b>{name}</b><span>{fmt(n)} เที่ยว</span></div>;
-}
-
-/** เลื่อนกลับส่วนที่ 1 — หักความสูงแถบหัวที่ติดบน (76px ตาม handoff) */
-function scrollToTop(ref: RefObject<HTMLElement | null>): void {
-  const el = ref.current;
-  if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 76, behavior: "smooth" });
 }

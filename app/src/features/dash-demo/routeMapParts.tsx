@@ -54,6 +54,15 @@ const COST_TREE: { group: string; parts: CostPart[] }[] = [
     { label: "สูญเปล่า", color: RP.waste, of: (t) => t.waste },
   ] },
 ];
+/**
+ * ต้นทุนสูญเปล่าแยกตามค่าใช้จ่ายจริง (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมก้อนเดียว "สูญเปล่า") · ใช้เมื่อไฟล์มีคีย์ w_* (ETL 28 ก.ย. 2569)
+ * ก้อนที่เป็น 0 ไม่แสดงอยู่แล้ว (buildCostTree) · ไฟล์รุ่นก่อนถอยไปใช้ก้อนเดียวใน COST_TREE
+ */
+const WASTE_PARTS: CostPart[] = [
+  { label: "ค่าน้ำมันนอกเส้นทาง", color: RP.waste, of: (t) => t.w_off ?? 0 },
+  { label: "ค่าน้ำมันนอกเส้นทาง (Fleet Card)", color: "#E39A8F", of: (t) => t.w_fleet ?? 0 },
+  { label: "ค่าน้ำมันรถวิ่งอ้อม", color: "#A8473D", of: (t) => t.w_detour ?? 0 },
+];
 
 type CostVal = Omit<CostPart, "subs"> & { v: number };
 export type CostTree = { group: string; parts: (CostVal & { subs: CostVal[] })[]; sum: number }[];
@@ -61,7 +70,9 @@ export type CostTree = { group: string; parts: (CostVal & { subs: CostVal[] })[]
 /** ต้นทุนของชุดเที่ยว แยกตามการจัดประเภท (ปกติ → ผันแปร/กึ่งผันแปร/คงที่/ค่าเช่า/อื่น ๆ · สูญเปล่า) — ก้อนที่เป็น 0 ไม่แสดง */
 export function buildCostTree(trips: Trip[]): CostTree {
   const sum = (of: (t: Trip) => number) => trips.reduce((s, t) => s + of(t), 0);
-  return COST_TREE.map((g) => {
+  const split = trips.some((t) => t.w_off !== undefined);
+  return COST_TREE.map((g0) => {
+    const g = split && g0.group === "ต้นทุนสูญเปล่า" ? { ...g0, parts: WASTE_PARTS } : g0;
     const parts = g.parts
       .map((p) => ({
         ...p, v: sum(p.of),

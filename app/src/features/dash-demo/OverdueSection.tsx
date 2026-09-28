@@ -3,7 +3,7 @@
  * (ไฟล์ "ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx" · etl/build_debtors.py) สเปกข้อ 5–7 ของ "ปรับปรุงโมเดล.pdf"
  * แก้ตามสเปกรุ่นแก้ 23 ก.ย. 2569 ("ใช้ข้อมูลทั้งที่รับชำระแล้ว และยังไม่ได้รับชำระ")
  *
- *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา **ค่าเริ่มต้น = 31/05/2026 (DEFAULT_AS_OF · เจ้าของงานสั่ง 24 ก.ย. 2569)**
+ *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา **ค่าเริ่มต้น = 13/07/2026 (DEFAULT_AS_OF · เจ้าของงานสั่ง 28 ก.ย. 2569)**
  *      ถ้าไฟล์เริ่มหลังวันนั้น (ข้อมูลชุดอื่น) ถอยไปใช้วันที่อ้างอิงในชีตสรุปวิเคราะห์ (manifest.refDate) → asOf (วันล่าสุดในไฟล์)
  *      **ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1**
  *   6. การ์ดใหญ่ไล่สี 5 ใบ (แบบเดียวกับการ์ดของส่วนที่ 1 — เจ้าของงานสั่ง 23 ก.ย. 2569)
@@ -35,9 +35,9 @@
  *     อยู่ในขอบเขต   = วางบิลไม่เกินวันที่เลือก           ชำระแล้ว = วันที่จบ ≤ วันที่เลือก
  *     ค้างชำระ       = ยังไม่จบ และครบกำหนดก่อนวันที่เลือก  ยังไม่ถึงกำหนด = ยังไม่จบ และครบกำหนดตั้งแต่วันที่เลือกขึ้นไป
  *   เทียบวันที่เป็นสตริง ISO ได้ตรง ๆ เพราะ ETL เขียนเป็น YYYY-MM-DD ทุกช่อง
- * ★ ข้อจำกัดที่ต้องเขียนกำกับ (สเปกสั่ง): ข้อมูลชุดใหม่มีแค่ 7 เดือน และจับคู่กับข้อมูลในอดีตไม่ได้ครบ
+ * ★ ข้อจำกัดที่ต้องเขียนกำกับ: ช่วงข้อมูลลูกหนี้อาจไม่ครบปี และจับคู่กับข้อมูลในอดีตไม่ได้ครบ
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { ShortId } from "../../lib/custmap/ShortId";
@@ -75,9 +75,9 @@ const bucketOf = (over: number): number =>
  *   2 จ่ายช้าแต่ยังไม่ได้จ่าย = ค้าง เกินกำหนด (การ์ด "เกินกำหนดชำระ") · 3 ยังไม่ถึงกำหนด
  */
 const STATUS = [
-  { label: "จ่ายตรงเวลา", color: D.emeraldLight },
-  { label: "จ่ายช้าแต่จ่ายแล้ว", color: "#F87171" },
-  { label: "จ่ายช้าแต่ยังไม่ได้จ่าย", color: "#B91C1C" },
+  { label: "ชำระตามกำหนด", color: D.emeraldLight },
+  { label: "เกินกำหนดชำระแต่ชำระแล้ว", color: "#F87171" },
+  { label: "เกินกำหนดชำระและยังไม่ได้ชำระ", color: "#B91C1C" },
   { label: "ยังไม่ถึงกำหนด", color: D.slate },
 ] as const;
 const statusOf = (a: Aged): number => (a.status === "paid" ? (a.over > 0 ? 1 : 0) : a.status === "over" ? 2 : 3);
@@ -89,7 +89,7 @@ const LATE_PAID_COLORS = ["#EF4444", "#F87171", "#FCA5A5", "#FECACA", "#FEE2E2"]
 const LATE_UNPAID_COLORS = ["#7F1D1D", "#B91C1C", "#DC2626", "#F87171", "#FECACA"] as const;
 /** อันดับลูกหนี้จ่ายช้า — แสดงทุกรายในกล่องเลื่อน เห็นครั้งละ VISIBLE_ROWS แถว (เจ้าของงานสั่ง 27 ก.ย. 2569) · ความสูงแถวตรงกับ .dso2-rank */
 const VISIBLE_ROWS = 10;
-const RANK_ROW_PX = 50;
+const RANK_ROW_PX = 58;
 
 const sumAmt = (xs: Aged[]): number => xs.reduce((s, a) => s + a.r.amount, 0);
 /** DSO มาตรฐาน = ยอดค้าง ÷ ยอดวางบิล × จำนวนวัน (ใบวางบิลใบแรกในไฟล์ → วันที่เลือก) */
@@ -99,16 +99,9 @@ function dsoOf(aged: Aged[], asOf: string, start: string): number | null {
   const unpaid = sumAmt(aged.filter((a) => a.status !== "paid"));
   return unpaid / all * Math.max(1, dayNum(asOf) - dayNum(start) + 1);
 }
-/** วันเดียวกันของเดือนก่อน (ISO) — วันที่ไม่มีในเดือนนั้นถอยเป็นวันสุดท้ายของเดือน */
-function prevMonthISO(iso: string): string {
-  const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
-  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
-  const last = new Date(Date.UTC(py, pm, 0)).getUTCDate();
-  return `${py}-${String(pm).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
-}
 
-/** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 24 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
-const DEFAULT_AS_OF = "2026-05-31";
+/** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 28 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
+const DEFAULT_AS_OF = "2026-07-13";
 
 /**
  * ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
@@ -119,7 +112,10 @@ export function defaultAsOf(min: string | null, m: Pick<DebtorManifest, "refDate
 }
 
 /** onAsOf = แจ้ง "ข้อมูล ณ วันที่" ที่เลือกอยู่ออกไป — คะแนน DSO ของ Performance Index ใช้วันเดียวกับส่วนนี้ */
-export default function OverdueSection({ state, branch, onAsOf }: { state: DebtorState; branch: string; onAsOf?: (iso: string) => void }) {
+export default function OverdueSection({ state, branch, onAsOf, onInfo }: {
+  state: DebtorState; branch: string; onAsOf?: (iso: string) => void;
+  onInfo?: (content: ReactNode, sample?: boolean) => void;
+}) {
   const { data, error } = state;
   const rows = useMemo(() => data ? (branch ? data.rows.filter((r) => r.br === branch) : data.rows) : [], [data, branch]);
   const range = useMemo(() => {
@@ -132,6 +128,18 @@ export default function OverdueSection({ state, branch, onAsOf }: { state: Debto
     }
     return { min, max };
   }, [data, branch, rows]);
+  const limit = range.min && range.max ? coverageLimit(range.min, range.max) : null;
+  const isSample = data?.manifest.isSample;
+  useEffect(() => {
+    onInfo?.(<>
+      <h3>Customer Performance · ลูกหนี้</h3>
+      <p>ข้อมูลจากไฟล์ลูกหนี้{isSample !== undefined && ` · ${isSample ? "ข้อมูลตัวอย่าง" : "ข้อมูลจริง"}`} · ใบวางบิลช่วง {thDateSafe(range.min)} – {thDateSafe(range.max)}</p>
+      <p>ส่วนนี้ใช้สาขาที่เลือกและ “ข้อมูล ณ วันที่” ของตัวเอง โดยไม่ใช้ตัวกรองปี/เดือนและตัวกรองอื่นด้านบน</p>
+      {limit && <p className="cap-info-limit">{limit}</p>}
+      <p>ข้อมูลชุดใหม่ยังจับคู่กับข้อมูลในอดีตได้ไม่ครบถ้วน จึงอาจกระทบความครบถ้วนของการวิเคราะห์</p>
+      <p>ยอดจ่ายช้า = เกินกำหนดชำระแต่ชำระแล้ว + เกินกำหนดชำระและยังไม่ได้ชำระ · % ต่อรายได้เทียบยอดวางบิลทุกใบตั้งแต่ 1 ม.ค. ถึงวันที่เลือก · DSO = ยอดค้าง ÷ ยอดวางบิล × จำนวนวันจากใบแรกถึงวันที่เลือก</p>
+    </>, isSample);
+  }, [onInfo, isSample, range.min, range.max, limit]);
   if (error || !data) {
     return (
       <div className="dz-cc">
@@ -148,7 +156,7 @@ export default function OverdueSection({ state, branch, onAsOf }: { state: Debto
   }
   const start = defaultAsOf(range.min, data.manifest);
   return <OverdueBody rows={rows} refDate={start}
-    range={range} isSample={data.manifest.isSample} onAsOf={onAsOf} />;
+    range={range} isSample={data.manifest.isSample} infoInHeader={!!onInfo} onAsOf={onAsOf} />;
 }
 
 /**
@@ -164,8 +172,9 @@ function coverageLimit(min: string, max: string): string | null {
   return `ข้อจำกัดด้านข้อมูล: ไฟล์ลูกหนี้${what} ยังไม่ครบทั้งปี — ยอดค้าง ยอดชำระ และ DSO ในส่วนนี้คิดจากช่วงนี้เท่านั้น`;
 }
 
-function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
-  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null }; isSample: boolean;
+function OverdueBody({ rows, refDate, range, isSample, infoInHeader, onAsOf }: {
+  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null };
+  isSample: boolean; infoInHeader: boolean;
   onAsOf?: (iso: string) => void;
 }) {
   useDebtorCodes();
@@ -189,15 +198,12 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
     const paid = aged.filter((a) => a.status === "paid");
     const notdue = aged.filter((a) => a.status === "notdue");
     const over = aged.filter((a) => a.status === "over");
-    // DSO เทียบเดือนก่อนหน้า = DSO ณ วันเดียวกันของเดือนก่อน (ถ้ายังอยู่ในช่วงไฟล์)
-    const prev = prevMonthISO(asOf);
-    const prevDso = range.min && prev >= range.min ? dsoOf(ageBills(rows, prev), prev, start) : null;
     return {
       all: aged.length, allAmt: sumAmt(aged),
       paid: paid.length, paidAmt: sumAmt(paid),
       notdue: notdue.length, notdueAmt: sumAmt(notdue),
       over: over.length, overAmt: sumAmt(over),
-      dso: dsoOf(aged, asOf, start), prevDso,
+      dso: dsoOf(aged, asOf, start),
       days: Math.max(1, dayNum(asOf) - dayNum(start) + 1),
     };
   }, [aged, asOf, start, range.min, rows]);
@@ -214,9 +220,9 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
 
   /* ---------- บิลจ่ายช้าแยกช่วงวัน (โดนัท 2 วง) ---------- */
   const donuts = useMemo(() => ([
-    { key: "paid" as const, title: "จ่ายช้าแต่จ่ายแล้ว", colors: LATE_PAID_COLORS,
+    { key: "paid" as const, title: "เกินกำหนดชำระแต่ชำระแล้ว", colors: LATE_PAID_COLORS,
       list: aged.filter((a) => statusOf(a) === 1) },
-    { key: "unpaid" as const, title: "จ่ายช้าแต่ยังไม่ได้จ่าย", colors: LATE_UNPAID_COLORS,
+    { key: "unpaid" as const, title: "เกินกำหนดชำระและยังไม่ได้ชำระ", colors: LATE_UNPAID_COLORS,
       list: aged.filter((a) => statusOf(a) === 2) },
   ]).map((d) => {
     const amt = LATE_RANGES.map(() => 0), n = LATE_RANGES.map(() => 0);
@@ -243,6 +249,11 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
   }, [aged, revTotal]);
   // ค้นหาลูกค้าในตารางลูกหนี้จ่ายช้า — ตรงกับรหัส CUS หรือรหัสต้นฉบับ (บางส่วนก็ได้) · ลำดับยังเป็นอันดับในรายชื่อทั้งหมด
   const [custQ, setCustQ] = useState("");
+  /** ลูกหนี้ที่กดในตารางจ่ายช้า → ป็อบอัพรายบิล (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+  const [billCust, setBillCust] = useState<string | null>(null);
+  const billRows = useMemo(
+    () => (billCust == null ? [] : aged.filter((a) => a.r.cust === billCust && a.over > 0)),
+    [aged, billCust]);
   const custRows = useMemo(() => {
     const k = custQ.trim().toLowerCase();
     return k ? topCust.filter((c) => c.code.toLowerCase().includes(k) || c.cust.toLowerCase().includes(k)) : topCust;
@@ -252,20 +263,18 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
   const pickedRows = useMemo(
     () => (picked == null ? [] : aged.filter((a) => bucketOf(a.over) === picked.i)),
     [aged, picked]);
-
   const limit = range.min && range.max ? coverageLimit(range.min, range.max) : null;
+
   const pctOf = (n: number, d: number): string => (d ? pct(n / d * 100) : "–");
   const onTime = cats[0]!, late = cats[1]!, lateUnpaid = cats[2]!;
-  const dsoDiff = kpi.dso != null && kpi.prevDso != null ? Math.round(kpi.dso) - Math.round(kpi.prevDso) : null;
 
   return (
     <Pane deps={[aged]}>
       <div className="cp-sec">
         <div>
-          <h3>สถานะการชำระเงินของลูกหนี้ และลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด<SourceTag sample={isSample} what="ไฟล์ลูกหนี้" /></h3>
-          <p>แยกประเภทบิลจ่ายช้า: จ่ายช้าแต่จ่ายแล้ว / จ่ายช้าแต่ยังไม่ได้จ่าย · ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)} ·
-            ส่วนนี้ไม่ขึ้นกับตัวกรองด้านบน ใช้ "ข้อมูล ณ วันที่" ทางขวาแทน</p>
-          {limit && <p className="dso-limit">{limit}</p>}
+          <h3>สถานะการชำระเงินของลูกหนี้ และลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด{!infoInHeader && <SourceTag sample={isSample} what="ไฟล์ลูกหนี้" />}</h3>
+          <p>แยกประเภทบิลจ่ายช้า: เกินกำหนดชำระแต่ชำระแล้ว / เกินกำหนดชำระและยังไม่ได้ชำระ{!infoInHeader && <> · ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)} · ส่วนนี้ไม่ขึ้นกับตัวกรองด้านบน ใช้ "ข้อมูล ณ วันที่" ทางขวาแทน</>}</p>
+          {!infoInHeader && limit && <p className="dso-limit">{limit}</p>}
         </div>
         <label className="cp-date">
           <span>ข้อมูล ณ วันที่</span>
@@ -275,18 +284,15 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
       </div>
 
       <div className="dz-heroes dso-heroes">
-        <Hero kind="cust" l={`บิลที่วางถึง ${thDateSafe(asOf)}`} v={fmt(kpi.all)} unit="ใบ" s={`มูลค่า ${fmt(Math.round(kpi.allAmt))} บาท`} />
+        <Hero kind="cust" l={`บิลที่วางถึง ${thDateSafe(asOf)}`} v={fmt(kpi.all)} unit="บิล" s={`มูลค่า ${fmt(Math.round(kpi.allAmt))} บาท`} />
         {/* การ์ดสองใบนี้ตรงกับโดนัทภาพรวม (เจ้าของงานสั่ง 27 ก.ย. 2569): ชำระตามกำหนด = จ่ายตรงเวลา ·
-            เกินกำหนดชำระ = จ่ายช้าแต่จ่ายแล้ว + จ่ายช้าแต่ยังไม่ได้จ่าย */}
+            เกินกำหนดชำระ = เกินกำหนดชำระแต่ชำระแล้ว + เกินกำหนดชำระและยังไม่ได้ชำระ */}
         <Hero kind="profit" l="ชำระตามกำหนด" v={fmt(onTime.bills)} vSub={`(${pctOf(onTime.bills, kpi.all)})`}
           s={`${fmt(Math.round(onTime.amt))} บาท (${pctOf(onTime.amt, kpi.allAmt)})`} />
         <Hero kind="loss" l="เกินกำหนดชำระ" v={fmt(late.bills + lateUnpaid.bills)} vSub={`(${pctOf(late.bills + lateUnpaid.bills, kpi.all)})`}
           s={`${fmt(Math.round(late.amt + lateUnpaid.amt))} บาท (${pctOf(late.amt + lateUnpaid.amt, kpi.allAmt)})`} />
         <Hero kind="fleet" l="ยังไม่ถึงกำหนดชำระ" v={fmt(kpi.notdue)} vSub={`(${pctOf(kpi.notdue, kpi.all)})`}
           s={`${fmt(Math.round(kpi.notdueAmt))} บาท (${pctOf(kpi.notdueAmt, kpi.allAmt)})`} />
-        <Hero kind="rev" l="DSO · วันเก็บหนี้เฉลี่ย" v={kpi.dso == null ? "–" : fmt(Math.round(kpi.dso))} unit="วัน"
-          s={dsoDiff == null ? "ไม่มีข้อมูลเดือนก่อนหน้า"
-            : `${dsoDiff === 0 ? "เท่าเดิม" : `${dsoDiff < 0 ? "↓" : "↑"} ${fmt(Math.abs(dsoDiff))} วัน`} เทียบ ณ ${thSlash(prevMonthISO(asOf))}`} />
       </div>
 
       {/* ① ภาพรวมสถานะการชำระเงิน — โดนัทกลาง + การ์ดสถานะซ้าย/ขวา + แถบสรุปบิลจ่ายช้า (ภาพที่เจ้าของงานส่ง 27 ก.ย. 2569) */}
@@ -299,7 +305,7 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
           <div className="dso2-ov-side">{[2, 3].map((i) => <StatusCard key={i} c={cats[i]!} total={kpi.all}
             on={stSel === i} dim={stSel != null && stSel !== i} onClick={() => pickSt(i)} />)}</div>
         </div>
-        <div className="dso2-ov-late" title="จ่ายช้าแต่จ่ายแล้ว + จ่ายช้าแต่ยังไม่ได้จ่าย">
+        <div className="dso2-ov-late" title="เกินกำหนดชำระแต่ชำระแล้ว + เกินกำหนดชำระและยังไม่ได้ชำระ">
           <span>บิลจ่ายช้าทั้งหมด</span>
           <b>{fmt(late.bills + lateUnpaid.bills)} บิล ({pctOf(late.bills + lateUnpaid.bills, kpi.all)})</b>
           <b>{fmt(Math.round(late.amt + lateUnpaid.amt))} บาท</b>
@@ -346,7 +352,9 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
             <span>· ฐานของ % ต่อรายได้ทุกแถว</span></div>
           <div className="dso2-rank th"><span>ลำดับ</span><span>ลูกหนี้</span><span>ยอดเงินจ่ายช้า (บาท)</span><span>% ต่อรายได้</span></div>
           {custRows.length ? <GrowBox rows={custRows} maxHeight={VISIBLE_ROWS * RANK_ROW_PX} render={(shown) => shown.map((c) => (
-            <div key={c.cust} className="dso2-rank">
+            <div key={c.cust} className="dso2-rank dso2-click" role="button" tabIndex={0}
+              title="กดเพื่อดูรายละเอียดบิลที่จ่ายช้าของลูกค้ารายนี้" onClick={() => setBillCust(c.cust)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setBillCust(c.cust); } }}>
               <span className="dso2-rk">{c.rank}</span>
               <span className="dso2-nm"><ShortId v={c.cust} n={c.n ?? undefined} /></span>
               <span className="dso2-bar"><span className="dso2-rail"><i style={{ width: `${c.late / topCust[0]!.late * 100}%` }} /></span>
@@ -354,14 +362,17 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
               <span className="fu-pill low">{pct(c.share, 2)}</span>
             </div>
           ))} /> : <p className="dz-note">{topCust.length ? `ไม่พบลูกค้าที่ตรงกับ "${custQ.trim()}"` : "ไม่มีลูกหนี้ที่จ่ายช้า ณ วันที่เลือก"}</p>}
-          <Note>ยอดจ่ายช้า = จ่ายช้าแต่จ่ายแล้ว + จ่ายช้าแต่ยังไม่ได้จ่าย · ทั้งหมด {fmt(topCust.length)} ราย เรียงยอดมากไปน้อย (เลื่อนในกล่องเพื่อดูต่อ) ·
-            % ต่อรายได้ = ยอดจ่ายช้าของลูกหนี้รายนั้น ÷ รายได้รวมทั้งหมดตั้งแต่ 1 ม.ค. ถึงวันที่เลือก (ยอดวางบิลทุกใบในไฟล์ลูกหนี้) · DSO = ยอดค้าง ÷ ยอดวางบิล × {fmt(kpi.days)} วัน
-            (ตั้งแต่ใบวางบิลใบแรกในไฟล์ถึงวันที่เลือก) ·
-            <b> ข้อจำกัดของส่วนนี้:</b> ข้อมูลที่ใช้วิเคราะห์เป็นข้อมูลชุดใหม่ซึ่งมีระยะเวลาเพียง 7 เดือน และไม่สามารถจับคู่กับข้อมูลในอดีต
-            ได้อย่างครบถ้วน จึงอาจส่งผลให้การวิเคราะห์มีข้อจำกัดด้านความแม่นยำและความครบถ้วนของผลลัพธ์</Note>
+          <Note>ยอดจ่ายช้า = เกินกำหนดชำระแต่ชำระแล้ว + เกินกำหนดชำระและยังไม่ได้ชำระ · ทั้งหมด {fmt(topCust.length)} ราย เรียงยอดมากไปน้อย (เลื่อนในกล่องเพื่อดูต่อ · กดแถวเพื่อดูรายละเอียดบิล)
+            {!infoInHeader && <> · % ต่อรายได้ = ยอดจ่ายช้าของลูกหนี้รายนั้น ÷ รายได้รวมทั้งหมดตั้งแต่ 1 ม.ค. ถึงวันที่เลือก (ยอดวางบิลทุกใบในไฟล์ลูกหนี้) ·
+              DSO = ยอดค้าง ÷ ยอดวางบิล × {fmt(kpi.days)} วัน (ตั้งแต่ใบวางบิลใบแรกในไฟล์ถึงวันที่เลือก) ·
+              <b> ข้อจำกัดของส่วนนี้:</b> ข้อมูลชุดใหม่ยังจับคู่กับข้อมูลในอดีตได้ไม่ครบถ้วน</>}
+          </Note>
         </div>
       </div>
 
+      {billCust != null && (
+        <CustBillsModal cust={billCust} rows={billRows} asOf={asOf} onClose={() => setBillCust(null)} />
+      )}
       {picked != null && (
         <OverdueModal key={`${picked.i}-${picked.tab}`} bucket={BUCKETS[picked.i] ?? ""} notDue={picked.i === 0}
           initTab={picked.tab} rows={pickedRows} asOf={asOf} onClose={() => setPicked(null)} />
@@ -560,13 +571,69 @@ function OverdueModal({ bucket, notDue, initTab, rows: all, asOf, onClose }: {
         </div>
         <div className="cp-seg" role="group" aria-label="สถานะ" style={{ margin: "0 0 10px" }}>
           <button type="button" className={!paid ? "on" : ""} onClick={() => setTab("unpaid")}>
-            ยังค้าง ({fmt(unpaidN)} ใบ)</button>
+            ยังค้าง ({fmt(unpaidN)} บิล)</button>
           <button type="button" className={paid ? "on" : ""} onClick={() => setTab("paid")}>
-            {notDue ? "ชำระตรงเวลา" : "ชำระแล้ว (จ่ายช้า)"} ({fmt(all.length - unpaidN)} ใบ)</button>
+            {notDue ? "ชำระตามกำหนด" : "เกินกำหนดชำระแต่ชำระแล้ว"} ({fmt(all.length - unpaidN)} บิล)</button>
         </div>
         <div className="sm-list">
-          <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(c) => c.cust}
+          <SortTable className="od-tbl" rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(c) => c.cust}
             empty="ไม่มีรายการในช่วงนี้" />
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="btn-ghost" onClick={onClose}>ปิด</button>
+        </div>
+      </div>
+    </div>,
+    host,
+  );
+}
+
+/* ================================================================ ป็อบอัพรายบิลของลูกหนี้ที่จ่ายช้า (กดแถวในตารางลูกหนี้จ่ายช้า) */
+/**
+ * บิลชุดเดียวกับที่รวมเป็น "ยอดเงินจ่ายช้า" ของแถวนั้น (over > 0 ณ วันที่เลือก) — ทั้งชำระแล้วแต่เกินกำหนด และยังค้างเกินกำหนด
+ * เกินกำหนด = ชำระแล้ว: วันที่จบ − วันครบกำหนด · ยังค้าง: วันที่เลือก − วันครบกำหนด (ageBills)
+ */
+function CustBillsModal({ cust, rows, asOf, onClose }: { cust: string; rows: Aged[]; asOf: string; onClose: () => void }) {
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", on);
+    return () => document.removeEventListener("keydown", on);
+  }, [onClose]);
+
+  const cols = useMemo<Col<Aged>[]>(() => [
+    { key: "doc", label: "เลขที่บิล", get: (a) => a.r.doc },
+    { key: "issue", label: "วันวางบิล", get: (a) => a.r.issue, render: (a) => thSlash(a.r.issue) },
+    { key: "term", label: "ระยะเวลาเครดิต", get: (a) => a.r.term, num: true, render: (a) => `${fmt(a.r.term)} วัน` },
+    { key: "due", label: "ครบกำหนด", get: (a) => a.r.due, render: (a) => thSlash(a.r.due) },
+    { key: "close", label: "สถานะ", get: (a) => (a.status === "paid" ? a.r.close ?? "" : ""),
+      render: (a) => a.status === "paid"
+        ? <span className="cp-tag gain">ชำระแล้ว {thSlash(a.r.close!)}</span>
+        : <span className="cp-tag loss">ยังไม่ได้ชำระ</span> },
+    { key: "amount", label: "ยอดเงิน (บาท)", get: (a) => a.r.amount, num: true, render: (a) => fmt(Math.round(a.r.amount)) },
+    { key: "over", label: "เกินกำหนดชำระ", get: (a) => a.over, num: true,
+      render: (a) => <span style={{ fontWeight: 700, color: "var(--red)" }}>{fmt(a.over)} วัน</span> },
+  ], []);
+  const { sorted, sort, toggle } = useSort(rows, cols, { key: "over", dir: -1 });
+
+  const n = numberForDebtor(cust);
+  const total = Math.round(rows.reduce((s, a) => s + a.r.amount, 0));
+  const unpaid = rows.filter((a) => a.status !== "paid").length;
+  const avgOver = rows.length ? rows.reduce((s, a) => s + a.over, 0) / rows.length : 0;
+  const host = document.getElementById("view-dash") ?? document.body;
+  return createPortal(
+    <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="modal wide sm-modal" role="dialog" aria-modal="true" aria-label="รายละเอียดบิลที่จ่ายช้า">
+        <div className="sm-mh">
+          <div className="sm-mt">
+            <div className="modal-h">บิลที่จ่ายช้า · <ShortId v={cust} n={n ?? undefined} /> <span>· ณ {thSlash(asOf)}</span></div>
+            <p>{fmt(rows.length)} บิล (ยังไม่ได้ชำระ {fmt(unpaid)} บิล) · ยอดรวม {fmt(total)} บาท ·
+              เกินกำหนดเฉลี่ย {fmt(Math.round(avgOver))} วัน · เกินกำหนด = ชำระแล้วนับถึงวันที่ชำระ · ยังไม่ชำระนับถึงวันที่เลือก</p>
+          </div>
+          <button type="button" className="sm-x" onClick={onClose} aria-label="ปิด">✕</button>
+        </div>
+        <div className="sm-list">
+          <SortTable className="cb-tbl" rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(a) => `${a.r.doc}|${a.r.issue}`}
+            empty="ไม่มีบิลที่จ่ายช้า ณ วันที่เลือก" />
         </div>
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>ปิด</button>

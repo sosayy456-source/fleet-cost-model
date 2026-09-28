@@ -92,6 +92,8 @@ function Body({ trips, isSample, files, summary }: { trips: LfTrip[]; isSample: 
 
   /* ---------- 1. ภาพรวม ---------- */
   const sum = useMemo(() => summarize(rows), [rows]);
+  /** สัดส่วนที่ว่างของแถบ 100 บาท = 1 − LF เฉลี่ย (LF เกิน 100% ถือว่าเต็ม) — ตรงกับการ์ด LF เฉลี่ย */
+  const barIdle = 1 - Math.max(0, Math.min(1, sum.avgLf));
   const tr = useMemo(() => trend(scope), [scope]);
   const trendData = useMemo(() => Array.from({ length: 12 }, (_, i) => {
     const row: Record<string, string | number | null> = { mo: monthName(String(i + 1).padStart(2, "0")) };
@@ -172,10 +174,12 @@ function Body({ trips, isSample, files, summary }: { trips: LfTrip[]; isSample: 
 
         {/* ===== 1. ภาพรวม ===== */}
         <div className="dz-cc lf-hero">
-          <h2>ทุก 100 บาทที่จ่ายค่าขนส่ง มี <b>{Math.round(sum.share * 100)} บาท</b>จมไปกับที่ว่างบนรถ</h2>
-          <p>จากต้นทุนขนส่งรวม {baht(sum.cost)} บาท ของ {fmt(sum.n)} เที่ยว ({periodLabel}) — ส่วนที่ว่างคือ 100% − Max LF ของแต่ละเที่ยว
-            {(vk || rt || f.ft) && " (เฉพาะกลุ่มที่เลือก)"}</p>
-          <CargoBar idleShare={sum.share} />
+          {/* แถบ 100 บาทใช้ LF เฉลี่ย (ส่วนที่ได้ขนของ = LF เฉลี่ย · ที่ว่าง = 100 − LF เฉลี่ย) ให้ตรงกับการ์ด "LF เฉลี่ยเทียบเป้า"
+              (เจ้าของงานสั่ง 28 ก.ย. 2569: 57/43 ต้องเป็น 59/41) — การ์ดยอดเงินยังคิดรายเที่ยวถ่วงต้นทุน (sum.idle/sum.share) */}
+          <h2>ทุก 100 บาทที่จ่ายค่าขนส่ง มี <b>{Math.round(barIdle * 100)} บาท</b>จมไปกับที่ว่างบนรถ</h2>
+          <p>จากต้นทุนขนส่งรวม {baht(sum.cost)} บาท ของ {fmt(sum.n)} เที่ยว ({periodLabel}) — ส่วนที่ได้ขนของ = LF เฉลี่ย {pctOf(sum.avgLf)} ·
+            ส่วนที่ว่าง = 100% − LF เฉลี่ย{(vk || rt || f.ft) && " (เฉพาะกลุ่มที่เลือก)"}</p>
+          <CargoBar idleShare={barIdle} />
           <div className="lf-legend">
             <span><i className="sw used" />ต้นทุนที่ได้ขนของจริง</span>
             <span><i className="sw idle" />ต้นทุนที่จมกับที่ว่าง (จ่ายเต็ม แต่ขนได้ไม่เต็มคัน)</span>
@@ -318,11 +322,13 @@ function Body({ trips, isSample, files, summary }: { trips: LfTrip[]; isSample: 
 /** แถบตู้รถ — ส่วนที่ใช้ขนของจริง (เขียวน้ำทะเล) กับส่วนที่จมกับที่ว่าง (แดงส้ม) ต่อ 100 บาท */
 function CargoBar({ idleShare, small }: { idleShare: number; small?: boolean }) {
   const i = Math.max(0, Math.min(1, idleShare)) * 100;
+  // ปัดฝั่งที่ว่างก่อน แล้วฝั่งใช้จริง = 100 − ที่ว่าง ป้ายสองฝั่งรวมกันได้ 100 เสมอ (58.5/41.5 ไม่กลายเป็น 59 + 42)
+  const idleN = Math.round(i), usedN = 100 - idleN;
   return (
     <div className={"lf-cargo" + (small ? " sm" : "")} role="img"
-      aria-label={`ต้นทุน 100 บาท ใช้ขนของจริง ${(100 - i).toFixed(0)} บาท จมกับที่ว่าง ${i.toFixed(0)} บาท`}>
-      <div className="seg used" style={{ width: `${100 - i}%` }}><span>{(100 - i).toFixed(0)} บาท</span></div>
-      <div className="seg idle" style={{ width: `${i}%` }}><span>{i.toFixed(0)} บาท</span></div>
+      aria-label={`ต้นทุน 100 บาท ใช้ขนของจริง ${usedN} บาท จมกับที่ว่าง ${idleN} บาท`}>
+      <div className="seg used" style={{ width: `${100 - i}%` }}><span>{usedN} บาท</span></div>
+      <div className="seg idle" style={{ width: `${i}%` }}><span>{idleN} บาท</span></div>
     </div>
   );
 }

@@ -26,7 +26,7 @@
 import { useMemo, useState } from "react";
 import { DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
-import { Hero, KC, Note, Pane } from "../dash-fleet/parts";
+import { Hero, KC, Pane } from "../dash-fleet/parts";
 import {
   SortTable, fmt, groupBy, monthLabel, pct, signed, useSort,
 } from "../dash-costrev/common";
@@ -41,6 +41,7 @@ import { TonKmHero, TonKmScope } from "../dash-costrev/tonkm/TonKmDemoRow";
 import type { Trip } from "../../lib/data/useCostRev";
 // กลุ่มบริการของการ์ดท้ายหน้า + %Margin รายเส้นทาง — ชุดเดียวกับ Performance Index (Route & Service)
 import { SERVICE_GROUPS, routeMargin } from "../../lib/pi/route";
+import { percentileInc } from "../../lib/damage/damage";
 import imgBox from "../../assets/icons3d/box.webp";
 import imgCloud from "../../assets/icons3d/cloud.webp";
 import imgSnow from "../../assets/icons3d/snow.webp";
@@ -93,14 +94,40 @@ interface RouteRow {
   margin: number | null;
   /** อันดับตามกำไรต่อเที่ยว (มากไปน้อย) — คอลัมน์ # ของตารางจัดอันดับ คงที่ไม่ขยับตามการกดเรียงคอลัมน์อื่น */
   rank: number;
+  /** %Margin ของเส้นทางนี้แยกกลุ่มบริการ (ลำดับ SERVICE_GROUPS) · null = ไม่มีเที่ยวของกลุ่มนั้น (N/A) */
+  sgMargin: (number | null)[];
+}
+
+/** ป้ายสั้นของกลุ่มบริการบนหัวตารางจัดอันดับ (ลำดับ SERVICE_GROUPS) */
+const SG_SHORT = ["ทั่วไป", "แช่เย็น", "แช่แข็ง"] as const;
+/**
+ * สี %Margin ของตารางจัดอันดับ (ชิปรายกลุ่มบริการ + คอลัมน์อัตรากำไร) — เกณฑ์ percentile (เจ้าของงานสั่ง 28 ก.ย. 2569
+ * แทนเกณฑ์ตายตัว > 10% / 5–10% / < 5%): ขาดทุน (< 0) แดง · 0 ถึง < P50 เหลือง · ≥ P50 เขียว
+ * P50 = ค่ากลาง %Margin รายเที่ยวของทุกเที่ยวที่ผ่านตัวกรองของหน้า (marginP50) · ไม่มีเที่ยว = ไม่ขาดทุนเป็นเหลืองทั้งหมด
+ */
+const sgTone = (m: number, p50: number | null): "g" | "y" | "r" =>
+  (m < 0 ? "r" : p50 != null && m >= p50 ? "g" : "y");
+/** สีตัวอักษรของคอลัมน์อัตรากำไร — ชุดเดียวกับชิป (.rp-sgc.g/.y/.r) */
+const TONE_INK = { g: "#16775B", y: "#B26A12", r: "#B42A2A" } as const;
+
+/** P50 ของ %Margin รายเที่ยว (PERCENTILE.INC) · รายได้ 0 แล้วขาดทุน = −100% ตาม routeMargin · รายได้ 0 ไม่ขาดทุน = ไม่นับ */
+function marginP50(trips: Trip[]): number | null {
+  const ms: number[] = [];
+  for (const t of trips) {
+    const m = routeMargin(t.rev, t.profit);
+    if (m != null) ms.push(m);
+  }
+  return percentileInc(ms, 0.5);
 }
 
 /**
- * summary = โหมดของเมนู Executive Summary (แท็บ Route Profitability · เจ้าของงานเลือกส่วนจาก PDF 27 ก.ย. 2569):
- * วาดเฉพาะการ์ดอัตรากำไร 3 กลุ่มบริการ (ข้อ 5) แล้วต่อด้วยการ์ดแผนที่ + จัดอันดับ (ข้อ 4) — แก้ที่นี่ได้ทั้งสองหน้า
+ * summary = โหมดของเมนู Executive Summary (แท็บ Route Profitability · เจ้าของงานเลือกส่วนจาก PDF 27 ก.ย. 2569) —
+ * ตั้งแต่ 28 ก.ย. 2569 ทุกหน้าเรียง Service Category → แผนที่ + จัดอันดับ เหมือนกันแล้ว prop นี้จึงไม่เปลี่ยนอะไร (คงไว้ให้ผู้เรียกเดิม)
  */
-export default function RouteProfitTab({ trips, f, summary, overview }: {
+export default function RouteProfitTab({ trips, f, overview, partTitle }: {
   trips: Trip[]; f: DemoFilter; summary?: boolean;
+  /** หัวข้อส่วน — วางใต้การ์ด Service Category เหนือแผนที่ (เจ้าของงานสั่ง 28 ก.ย. 2569) · ไม่ส่ง = ไม่มีหัวข้อ */
+  partTitle?: string;
   /** true = วาดเฉพาะ 6 กล่องภาพรวม (Executive Dashboard วางเหนือกรอบส่วน) · false = เนื้อหาส่วน (เริ่มที่กราฟรายเดือน) */
   overview?: boolean;
 }) {
@@ -147,6 +174,14 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
   /* ---------- 4. แผนที่ 5 เส้นทางกำไรสูงสุด + จัดอันดับกำไรต่อเที่ยว + รายละเอียดต้นทุน ---------- */
   const ends = useRouteEnds(rows);
   const byRoute = useMemo<RouteRow[]>(() => {
+    // เส้นทาง × กลุ่มบริการ → %Margin ของชิปในตาราง (รายได้/กำไรรวมของเที่ยวกลุ่มนั้นในเส้นทางนั้น)
+    const sgSum = new Map<string, { rev: number; profit: number; n: number }>();
+    for (const t of rows) {
+      const k = `${t.rt}|${t.sg}`;
+      const a = sgSum.get(k) ?? { rev: 0, profit: 0, n: 0 };
+      a.rev += t.rev; a.profit += t.profit; a.n++;
+      sgSum.set(k, a);
+    }
     const list = groupBy(rows, (t) => t.rt).map((a) => ({
       rt: a.key, ...(ends.get(a.key) ?? { o: "", de: "" }), n: a.n, rev: a.rev, cost: a.cost, profit: a.profit,
       perTrip: a.profit / a.n,
@@ -154,33 +189,37 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
       // หารด้วยศูนย์ตรง ๆ ไม่ได้ · รายได้ 0 และไม่ขาดทุน (ต้นทุน 0 ด้วย) ยังเป็น null = "–"
       margin: routeMargin(a.rev, a.profit),
       rank: 0,
+      sgMargin: SERVICE_GROUPS.map((g) => {
+        const x = sgSum.get(`${a.key}|${g}`);
+        return x && x.n ? routeMargin(x.rev, x.profit) : null;
+      }),
     }));
     [...list].sort((a, b) => b.perTrip - a.perTrip).forEach((r, i) => { r.rank = i + 1; });
     return list;
   }, [rows, ends]);
 
-  /** ฐานของความยาวแท่ง — ค่าสัมบูรณ์มากสุดในชุดที่กรองอยู่ */
-  const barMax = useMemo(() => Math.max(1, ...byRoute.map((r) => Math.abs(r.perTrip))), [byRoute]);
-
+  const p50 = useMemo(() => marginP50(rows), [rows]);
   const cols = useMemo<Col<RouteRow>[]>(() => [
     { key: "rank", label: "#", get: (r) => r.rank,
       render: (r) => <span className="rp-rank">{String(r.rank).padStart(2, "0")}</span> },
     { key: "rt", label: "เส้นทาง", get: (r) => r.rt,
       render: (r) => <div className="rp-rt"><b>{r.rt}</b><small>{fmt(r.n)} เที่ยว</small></div> },
-    { key: "perTrip", label: "กำไร/เที่ยว (บาท)", get: (r) => r.perTrip, num: true,
-      render: (r) => (
-        <div className="rp-val">
-          <b style={r.perTrip < 0 ? { color: RP.loss } : undefined}>{signed(Math.round(r.perTrip))}</b>
-          <span className="rp-track" aria-hidden="true">
-            <i style={{ width: `${Math.abs(r.perTrip) / barMax * 100}%`, background: r.perTrip < 0 ? RP.loss : RP.profit }} />
-          </span>
-        </div>
-      ) },
+    // %Margin รายกลุ่มบริการเป็นชิป (ตามภาพที่เจ้าของงานส่ง 28 ก.ย. 2569 แทนคอลัมน์แท่งกำไร/เที่ยว) · ไม่มีเที่ยวของกลุ่ม = N/A กรอบประ
+    ...SERVICE_GROUPS.map((g, i): Col<RouteRow> => ({
+      key: `sg${i}`, label: SG_SHORT[i]!, get: (r) => r.sgMargin[i] ?? null, num: true,
+      render: (r) => {
+        const m = r.sgMargin[i];
+        return m == null
+          ? <span className="rp-sgc na" title={`${g}: ไม่มีเที่ยวในเส้นทางนี้`}>N/A</span>
+          : <span className={`rp-sgc ${sgTone(m, p50)}`} title={`${g}: อัตรากำไร ${pct(m)}${p50 == null ? "" : ` · P50 ${pct(p50)}`}`}>{m > 0 ? "+" : ""}{Math.round(m)}%</span>;
+      },
+    })),
     { key: "margin", label: "อัตรากำไร", get: (r) => r.margin, num: true,
-      render: (r) => <span className="rp-margin" style={{ color: r.margin != null && r.margin < 0 ? RP.loss : RP.profit }}>
+      render: (r) => <span className="rp-margin" style={{ color: r.margin == null ? undefined : TONE_INK[sgTone(r.margin, p50)] }}>
         {r.margin == null ? "–" : pct(r.margin)}</span> },
-  ], [barMax]);
-  const { sorted, sort, toggle } = useSort(byRoute, cols, { key: "perTrip", dir: -1 });
+  ], [p50]);
+  // เรียงตั้งต้นตามอันดับกำไร/เที่ยว (# = 1 ขึ้นก่อน) — คอลัมน์กำไร/เที่ยวเอาออกแล้ว
+  const { sorted, sort, toggle } = useSort(byRoute, cols, { key: "rank", dir: 1 });
 
   /**
    * เส้นบนแผนที่ = เฉพาะเส้นทางที่ผู้ใช้กดในตารางด้านขวา (เจ้าของงานกำหนด 24 ก.ย. 2569) — เปิดมายังไม่กด = แผนที่เปล่า
@@ -195,10 +234,8 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
   const [missing, setMissing] = useState<string[]>([]);
 
 
-  // เส้นทางที่เลือกไว้หลุดจากตัวกรอง → กลับไปใช้แถวแรกของตาราง
-  const detail = useMemo(
-    () => byRoute.find((r) => r.rt === picked) ?? sorted[0] ?? null,
-    [byRoute, picked, sorted]);
+  // รายละเอียดต้นทุนโผล่เฉพาะเมื่อกดแถว (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมโชว์แถวแรกไว้ก่อน) · เส้นทางหลุดจากตัวกรอง = ซ่อน
+  const detail = pickedRow;
   const detailTrips = useMemo(
     () => (detail ? rows.filter((t) => t.rt === detail.rt) : []),
     [rows, detail]);
@@ -229,14 +266,13 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
                   <svg viewBox="0 0 24 24"><path d="M6 20V10M12 20V4M18 20v-7" /></svg>
                 </span>
                 <div className="rp-sht">
-                  <h3>จัดอันดับกำไรต่อเที่ยว</h3>
-                  <p>คลิกเส้นทางเพื่อดูรายละเอียดต้นทุน · กดซ้ำเพื่อเอาเส้นทางออกจากแผนที่</p>
+                  <h3>จัดอันดับเส้นทาง</h3>
+                  <p>คลิกเส้นทางเพื่อดูรายละเอียดต้นทุน · กดซ้ำเพื่อปิด · # = อันดับกำไรต่อเที่ยว · ชิป = อัตรากำไรรายกลุ่มบริการ</p>
                 </div>
-                <span className="rp-pill">บาท/เที่ยว</span>
               </header>
               <div className="rp-tblwrap">
                 <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}
-                  empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" className="rp-tbl" maxHeight={300}
+                  empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" className="rp-tbl rp-tbl-sg" maxHeight={detail ? 350 : 620}
                   rowProps={(r) => ({
                     className: r.rt === detail?.rt ? "on" : undefined,
                     // กดแถวเดิมซ้ำ = ยกเลิก แผนที่กลับเป็นแผนที่เปล่า (เจ้าของงานขอ 24 ก.ย. 2569)
@@ -246,17 +282,12 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
               </div>
             </section>
 
-            <section className="rp-sec">
-              {detail ? <RouteDetail r={detail} tree={costTree} onList={() => setShowList(true)} />
-                : <p className="rp-foot rp-pad">เลือกเส้นทางจากรายการด้านบน</p>}
-            </section>
+            {detail && (
+              <section className="rp-sec">
+                <RouteDetail r={detail} tree={costTree} onList={() => setShowList(true)} />
+              </section>
+            )}
         </RouteMapCard>
-        <Note>
-          ปุ่ม <b>i</b> เปิดรายการทุกเที่ยวของเส้นทางนั้นตามตัวกรองด้านบน · ต้นทุนแยกตามการจัดประเภท: <b>ต้นทุนปกติ</b>
-          (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ) และ <b>ต้นทุนสูญเปล่า</b> ·
-          % ของกำไรเทียบรายได้ · % ของต้นทุนแต่ละกลุ่มเทียบต้นทุนรวม · แนวเส้นบนแผนที่ตามทางหลวงหลักโดยประมาณ ไม่ใช่เส้นทาง GPS จริง
-        </Note>
-
       </>
   );
   const sgBlock = (
@@ -280,7 +311,8 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
             </button>
           ))}
         </div>
-        {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup} />}
+        {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup}
+          tone={SG_STYLE[SERVICE_GROUPS.indexOf(openGroup as (typeof SERVICE_GROUPS)[number])]?.cls} />}
       </>
   );
 
@@ -353,9 +385,10 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
   return (
     <>
       <Pane deps={[rows]}>
-        {!summary && mapBlock}
+        {/* Service Category อยู่เหนือแผนที่ทุกหน้า (เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิม Executive Dashboard วางแผนที่ก่อน) */}
         {sgBlock}
-        {summary && mapBlock}
+        {partTitle && <h2 className="dm-part-h dm-part-h-mid">{partTitle}</h2>}
+        {mapBlock}
       </Pane>
 
       {showList && detail && (

@@ -21,20 +21,20 @@
  *
  * ★ Demo รวมเป็นหน้ายาวหน้าเดียว (24 ก.ย. 2569) — ส่วนนี้ไม่มีตัวกรองของตัวเองแล้ว ใช้ ปี/เดือน จากตัวกรองของหน้า
  *   (ชุด alloc/ ยุบได้แค่ลูกค้า × เดือนตามวันที่บิล ตัวกรองอื่นขึ้นบรรทัดบอกผ่าน FilterScope)
- *   ส่วนที่ 2 (DSO) ใช้ตัวกรองสาขาของหน้า และมี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ที่หัวส่วนที่ 2
+ *   ส่วนที่ 2 (DSO) ใช้ตัวกรองสาขาของหน้า และมี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ในปุ่มข้อมูลเมื่ออยู่บนส่วนนี้
  *   ป้ายตัวอย่าง/จริงของแต่ละส่วนอยู่ที่ SourceTag — สองชุดเลือก real/sample แยกกัน
  *
  * ★ ท้ายส่วน (25 ก.ย. 2569): กล่อง Customer Profitability & Cash Flow Index กล่องยาว (การ์ด Damage Rate ย้ายไปข้าง Service Quality)
  *   Customer Net Profit ให้สีรายลูกค้าจากชุดเดียวกับส่วนที่ 1 (rollupCustomers) · DSO ให้สีรายบิลจากไฟล์ลูกหนี้
  *   ณ "ข้อมูล ณ วันที่" เดียวกับส่วนที่ 2 (OverdueSection แจ้งวันที่ออกมาทาง onAsOf) · สูตรคะแนนอยู่ใน lib/pi/score.ts
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { evalPeriod, inWindow, refSet, refWindow } from "../../lib/pi/baseline";
 import { collectionDays, debtorFileEnd } from "../../lib/debtors/aging";
 import { INDEXES, metricResult, withPeriod } from "../../lib/pi/score";
 import type { MetricResult } from "../../lib/pi/score";
 import { PiBox } from "./PiIndex";
-import { DBar } from "../../lib/chart/dcharts";
+import { DBar, DPieSplit } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { ShortId, shortIdText } from "../../lib/custmap/ShortId";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
@@ -142,9 +142,23 @@ export function custPiResults(alloc: AllocData | null, debtors: DebtorData | nul
   ];
 }
 
-export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
+export default function CustomerProfitTab({ f, onProfitInfo, onDebtorInfo }: {
+  f: DemoFilter;
+  onProfitInfo?: (content: ReactNode, sample?: boolean) => void;
+  onDebtorInfo?: (content: ReactNode, sample?: boolean) => void;
+}) {
   const alloc = useAlloc();
   const debtors = useDebtors();
+  const allocSample = alloc.data?.manifest.isSample;
+  useEffect(() => {
+    onProfitInfo?.(<>
+      <h3>Customer Performance · กำไรลูกค้า</h3>
+      <p>ข้อมูลจากการปันต้นทุนเที่ยวให้บิลรายได้ ยุบเป็นรายลูกค้า × เดือนตามวันที่บิล{allocSample !== undefined && ` · ${allocSample ? "ข้อมูลตัวอย่าง" : "ข้อมูลจริง"}`}</p>
+      <p>รายละเอียดเปิดได้สูงสุด 100 บิลล่าสุดต่อรายในช่วงเวลาที่เลือก แต่ยอดรวมในตารางคำนวณจากทุกบิล</p>
+      <p>เมื่อบิลส่วนใหญ่ไม่มีน้ำหนัก/ขนาด หรือขนาดผิดปกติ ระบบปันต้นทุนตามสัดส่วนรายได้แทนน้ำหนัก × ระยะทาง และแสดงป้าย “ปันตามรายได้”</p>
+      <FilterScope f={f} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่มีสาขาและไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
+    </>, allocSample);
+  }, [onProfitInfo, allocSample, f]);
   /** "ข้อมูล ณ วันที่" ที่ส่วน DSO เลือกอยู่ — คะแนน DSO ใช้วันเดียวกัน */
   const [asOf, setAsOf] = useState<string | null>(null);
   const custPi = useMemo(() => custPiResults(alloc.data, debtors.data, asOf, f),
@@ -175,12 +189,13 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
           </p>
         </div>
       ) : (
-        <ProfitPart data={alloc.data} f={f} />
+        <><div data-demo-info="cust" className="dm-info-anchor" /><ProfitPart data={alloc.data} f={f} infoInHeader={!!onProfitInfo} /></>
       )}
 
       {/* ส่วนที่ 2 — เว้นบรรทัดจากส่วนแรกตามสเปก */}
       <div style={{ height: 28 }} />
-      <OverdueSection state={debtors} branch={f.br} onAsOf={setAsOf} />
+      <div data-demo-info="cust-debtors" className="dm-info-anchor" />
+      <OverdueSection state={debtors} branch={f.br} onAsOf={setAsOf} onInfo={onDebtorInfo} />
 
       {/* Performance Index — กล่องยาว */}
       <PiBox index={INDEXES.cust} results={custPi} />
@@ -189,7 +204,7 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
 }
 
 /* ================================================================ ส่วนที่ 1 */
-function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
+function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoFilter; infoInHeader: boolean }) {
   // ใช้แค่ปี/เดือนของตัวกรองหน้า — แยกออกมาเป็น object เล็ก ตัวกรองอื่นเปลี่ยนแล้วจะได้ไม่คำนวณซ้ำ
   const f = useMemo<Period>(() => ({ year: page.year, from: page.from, to: page.to }), [page.year, page.from, page.to]);
   const [pick, setPick] = useState<Sel | null>(null);
@@ -297,13 +312,44 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   const pickLabel = !pick ? null
     : pick.kind === "all" ? "ลูกค้าทั้งหมด" : pick.kind === "gain" ? "ลูกค้าที่ทำกำไร"
     : pick.kind === "loss" ? "ลูกค้าที่ขาดทุน" : `ช่วง %Margin ${BUCKETS[pick.i]?.label ?? ""}`;
+  /* ---------- วงกลมสัดส่วน Top 10 (เจ้าของงานส่งภาพ 28 ก.ย. 2569) ----------
+   * กำไร = Σกำไรของ Top 10 กำไรสูงสุด ÷ กำไรรวมของลูกค้าที่มีกำไร (ตัวเลขเดียวกับ foot ของการ์ด "ลูกค้าที่มีกำไร")
+   * ขาดทุน = Σขาดทุนของ Top 10 ขาดทุนมากสุด ÷ ขาดทุนรวมของลูกค้าที่ขาดทุน
+   * Top 10 = ชุดเดียวกับป้าย "Top 10" ในตาราง (top.json ของ ETL) · ไฟล์รุ่นก่อนไม่มีคีย์ช่วง → จัดอันดับจาก rows เอง */
+  const [pieSide, setPieSide] = useState<"gain" | "loss">("gain");
+  const pie = useMemo(() => {
+    const gains = rows.filter((r) => r.profit >= 0), losses = rows.filter((r) => r.profit < 0);
+    const topOf = (list: CustRow[], set: Set<number>, desc: boolean): CustRow[] => top
+      ? list.filter((r) => set.has(r.ci))
+      : [...list].sort((a, b) => (desc ? b.profit - a.profit : a.profit - b.profit) || a.ci - b.ci).slice(0, 10);
+    const sum = (list: CustRow[]) => list.reduce((s, r) => s + Math.abs(r.profit), 0);
+    const gTop = topOf(gains, gainSet, true), lTop = topOf(losses, lossSet, false);
+    return {
+      gain: { top: sum(gTop), rest: sum(gains) - sum(gTop), n: gTop.length, all: gains.length },
+      loss: { top: sum(lTop), rest: sum(losses) - sum(lTop), n: lTop.length, all: losses.length },
+    };
+  }, [rows, top, gainSet, lossSet]);
+  const pieNow = pie[pieSide];
+  const pieTotal = pieNow.top + pieNow.rest;
+  // เขียว/แดงชุดเดียวกับการ์ดรายได้/ต้นทุนของธีม (revA/revB · costA/costB) · Top 10 = เข้ม · ลูกค้าอื่น = อ่อน ·
+  // กรอบ = เฉดเข้มกว่าของฝั่งนั้น (เจ้าของงานสั่ง 28 ก.ย. 2569 — แทนกรอบดำ)
+  const pieColors = pieSide === "gain" ? ["#0C5A45", "#34A07F"] : ["#8E1B1B", "#D44C45"];
+  const pieStroke = pieSide === "gain" ? "#073628" : "#5A0F0F";
+  const pieData = useMemo(() => [
+    { name: pieSide === "gain" ? "Top 10 กำไรสูงสุด" : "Top 10 ขาดทุนมากสุด", v: pieNow.top },
+    { name: "ลูกค้าอื่น", v: pieNow.rest },
+  ], [pieSide, pieNow]);
+  const pieShare = (v: number) => pieTotal ? pct(v / pieTotal * 100, 2) : "–";
+
   const periodLabel = periodText(f);
 
   return (
     <>
       <Pane deps={[rows]}>
-        <SourceTag block sample={data.manifest.isSample} what="ส่วนกำไรลูกค้า (ไฟล์ต้นทุน + บิลรายได้)" />
-        <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่มีสาขาและไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
+        {!infoInHeader && <>
+          <SourceTag block sample={data.manifest.isSample} what="ส่วนกำไรลูกค้า (ไฟล์ต้นทุน + บิลรายได้)" />
+          <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่มีสาขาและไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
+        </>}
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
           <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"
@@ -317,8 +363,33 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
             onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
         </div>
 
-        {/* 4 — กราฟช่วง %Margin */}
-        <div className="dz-cc" style={{ marginTop: 14 }}>
+        {/* 4 — วงกลมสัดส่วน Top 10 (ซ้าย) + กราฟช่วง %Margin (ขวา) */}
+        <div className="cp-dist">
+        <div className="dz-cc cp-pie">
+          {/* หัวข้อไม่เปลี่ยนตามฝั่ง ปุ่มสลับจึงอยู่ที่เดิมเสมอ — ชื่อฝั่งไปอยู่บรรทัดใต้หัวแทน */}
+          <div className="cp-pie-h">
+            <h4>สัดส่วน Top 10</h4>
+            <div className="cp-seg cp-pie-seg" role="group" aria-label="เลือกฝั่ง">
+              <button type="button" className={pieSide === "gain" ? "on" : ""} aria-pressed={pieSide === "gain"} onClick={() => setPieSide("gain")}>กำไร</button>
+              <button type="button" className={pieSide === "loss" ? "on" : ""} aria-pressed={pieSide === "loss"} onClick={() => setPieSide("loss")}>ขาดทุน</button>
+            </div>
+          </div>
+          <div className={"cp-pie-cap " + pieSide}>
+            {pieSide === "gain" ? "กำไรทั้งหมด" : "ขาดทุนทั้งหมด"} <b>{fmt(Math.round(pieTotal))}</b> บาท
+          </div>
+          {pieTotal > 0 ? <>
+            <div className="cp-pie-box"><DPieSplit data={pieData} colors={pieColors} stroke={pieStroke} /></div>
+            <ul className="cp-pie-legend">
+              {pieData.map((d, i) => <li key={d.name}>
+                <i style={{ background: pieColors[i] }} />
+                <span>{i === 0 ? d.name : `ลูกค้าอื่น (${fmt(Math.max(0, pieNow.all - pieNow.n))} ราย)`}</span>
+                <b>{pieShare(d.v)}</b>
+                <em>{fmt(Math.round(d.v))} บาท</em>
+              </li>)}
+            </ul>
+          </> : <p className="muted cp-pie-empty">ไม่มีลูกค้าที่{pieSide === "gain" ? "มีกำไร" : "ขาดทุน"}ในช่วงนี้</p>}
+        </div>
+        <div className="dz-cc cp-hist">
           <h4>การกระจายตัวของอัตรากำไร · จำนวนลูกค้าในแต่ละช่วง %Margin</h4>
           <div className="dz-box">
             <DBar data={hist} xKey="label" suffix=" ราย" colors={BUCKETS.map((b) => b.color)}
@@ -331,6 +402,7 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
               activeIndex={pick?.kind === "bucket" ? pick.i : null} />
           </div>
           <Note>กดแท่งเพื่อดูรายลูกค้าในช่วงนั้นที่ตารางข้างล่าง กดซ้ำเพื่อยกเลิก · การ์ดสามใบด้านบนกดได้เหมือนกัน</Note>
+        </div>
         </div>
 
         {/* ตารางกำไรรายลูกค้า */}
@@ -360,10 +432,9 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
           />
           <Note>
             กดที่แถวของลูกค้าที่ติด <b>Top 100 กำไรสูงสุด/ขาดทุนมากสุด</b> หรือ <b>Top 10 ของแต่ละช่วง %Margin</b> เพื่อดูรายละเอียด ·
-            <b> ข้อจำกัดทางข้อมูล:</b> ดูได้สูงสุด 100 บิลล่าสุดต่อรายในช่วงเวลาที่เลือก ยอดรวมในตารางยังคำนวณจากทุกบิล ·
-            อัตรากำไร = กำไร ÷ รายได้ · รายได้ 0 แล้วขาดทุนคิดเป็น −100% ·
-            ป้าย <span className="cp-rev">ปันตามรายได้</span> = บิลส่วนใหญ่ของรายนี้ไม่มีน้ำหนัก/ขนาด หรือกรอกขนาดผิดปกติ
-            จึงปันต้นทุนตามสัดส่วนรายได้แทนน้ำหนัก × ระยะทาง
+            อัตรากำไร = กำไร ÷ รายได้ · รายได้ 0 แล้วขาดทุนคิดเป็น −100%
+            {!infoInHeader && <> · <b>ข้อจำกัดทางข้อมูล:</b> ดูได้สูงสุด 100 บิลล่าสุดต่อรายในช่วงเวลาที่เลือก ยอดรวมในตารางยังคำนวณจากทุกบิล ·
+              ป้าย <span className="cp-rev">ปันตามรายได้</span> = บิลส่วนใหญ่ของรายนี้ไม่มีน้ำหนัก/ขนาด หรือกรอกขนาดผิดปกติ จึงปันต้นทุนตามสัดส่วนรายได้แทนน้ำหนัก × ระยะทาง</>}
           </Note>
         </div>
       </Pane>
