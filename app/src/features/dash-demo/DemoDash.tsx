@@ -256,7 +256,7 @@ export default function DemoDash() {
         <PiReportProvider value={pi.report}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} /></>)}
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}

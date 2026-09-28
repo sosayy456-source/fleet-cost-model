@@ -3147,9 +3147,23 @@ html.theme-cherry .i3-donut-total b{font-size:34px;color:#2A0A10}
 
 /* ===== หัวแบบแคปซูลยาว (DashShell capsule · Executive Dashboard · เจ้าของงานสั่ง 28 ก.ย. 2569) =====
    แคปซูลแถวเดียว = โลโก้ · หัวเรื่อง + ช่วงข้อมูล · แท็บ · ปุ่มตัวกรอง · รีเฟรช · เปลี่ยนหน้าที่ — ติดขอบบนตอนเลื่อน
-   บรรทัดที่มาของข้อมูล (.cap-meta) อยู่นอกแคปซูลข้างล่าง ป้ายข้อมูลตัวอย่างหน้าสุด
+   ที่มาของข้อมูล + ป้ายข้อมูลตัวอย่างอยู่ในแผงของปุ่ม ⓘ นอกแคปซูลฝั่งขวา (.cap-info · 28 ก.ย. 2569 รอบสาม)
    z-index 25 < แถบเมนูซ้าย (.sidebar 30) — เมนูกางตอนชี้ต้องทับแคปซูล ไม่ใช่ถูกบัง (เจ้าของงานแจ้ง 28 ก.ย. 2569) */
-.cap{position:sticky;top:10px;z-index:25;display:flex;align-items:center;gap:14px;padding:8px 10px 8px 12px;min-width:0;
+/* แถวแคปซูล + ปุ่ม ⓘ ติดขอบบนด้วยกัน (28 ก.ย. 2569 รอบสาม) */
+.cap-bar{position:sticky;top:10px;z-index:25;display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.cap-bar > .cap{flex:1;min-width:0}
+.cap-info{position:relative;flex:none}
+.cap-info-btn{position:relative;display:grid;place-items:center;width:44px;height:44px;border-radius:50%;border:1px solid rgba(26,23,20,.1);
+  background:#fff;color:#6B6257;cursor:pointer;box-shadow:0 10px 30px -18px rgba(26,23,20,.35)}
+.cap-info-btn svg{width:22px;height:22px}
+.cap-info-btn:hover,.cap-info-btn[aria-expanded="true"]{color:#1A1714;background:#F3EEE8}
+.cap-info-btn:focus-visible{outline:2px solid #4B2ED4;outline-offset:2px}
+.cap-info-dot{position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#C9821A;border:1.5px solid #fff}
+.cap-info-panel{position:absolute;top:54px;right:0;width:min(560px,calc(100vw - 40px));padding:14px 16px;border-radius:16px;background:#fff;
+  border:1px solid rgba(26,23,20,.1);box-shadow:0 24px 48px -24px rgba(26,23,20,.4);display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.cap-info-panel .dh-meta{font-size:13.5px}
+html.theme-cherry .cap-info-btn{border-color:#E4CDD3;color:#7A5A60}
+.cap{display:flex;align-items:center;gap:14px;padding:8px 10px 8px 12px;min-width:0;
   background:#fff;border:1px solid rgba(26,23,20,.08);border-radius:999px;box-shadow:0 10px 30px -18px rgba(26,23,20,.35)}
 .cap-logo{width:44px;height:44px;flex:none;object-fit:contain}
 .cap-title{display:flex;flex-direction:column;min-width:0;flex:none;line-height:1.25}
@@ -3174,10 +3188,8 @@ html.theme-cherry .i3-donut-total b{font-size:34px;color:#2A0A10}
 .cap-role{border:0;background:#1A1714;color:#F7F3ED;font:inherit;font-size:13px;padding:9px 14px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .cap-role:hover{background:#332C25}
 .cap-tabs button:focus-visible,.cap-role:focus-visible,.cap-icon:focus-visible{outline:2px solid #4B2ED4;outline-offset:2px}
-.dh-meta.cap-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;margin:10px 0 18px;padding:0 14px;font-size:13.5px}
-.cap-meta .dh-sample{margin-right:10px;font-size:12.5px;padding:3px 10px 3px 8px}
 /* ส่วนของหน้าไม่หลบใต้แคปซูลตอนกดแท็บเลื่อนไปหา */
-#view-dash .cap~.dm-part{scroll-margin-top:84px}
+#view-dash .cap-bar~.dm-part{scroll-margin-top:84px}
 html.theme-cherry .cap{border-color:#E4CDD3;box-shadow:0 14px 36px -22px rgba(89,2,18,.45)}
 @media(max-width:1400px){.cap{flex-wrap:wrap;border-radius:30px}.cap-tabs{order:5;flex-basis:100%;justify-content:flex-start}.cap-tools{margin-left:auto}}
 @media(prefers-reduced-motion:reduce){.cap-icon.spin{animation:none}}
@@ -3264,3 +3276,110 @@ html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
 #view-dash .pi-bsc{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;font-size:11.5px;font-weight:600;
   vertical-align:2px;background:rgba(255,255,255,.2);color:inherit;opacity:.9;white-space:nowrap}
 #view-dash .pi-dm-ixh .pi-bsc{background:var(--d-rail)}
+
+/* ===== Executive Dashboard รอบสาม (28 ก.ย. 2569) — 6 กล่องภาพรวม · กราฟรายเดือน · แผนที่ =====
+   แถวบนเตี้ยลง · การ์ดกำไรใช้ลูกศรขึ้น/ลง (.hero-art) แทนกราฟ · แถวสอง 4 ใบ (รวม %เที่ยวที่ขาดทุน) · รูป 3 มิติไม่มีกรอบรอง */
+#view-dash .dm-overview .dz-heroes > .dz-kc.hero{padding:18px 22px 16px}
+#view-dash .dm-overview .dz-heroes > .dz-kc.hero .v{font-size:36px;margin-top:6px}
+#view-dash .dm-overview .dz-heroes > .dz-kc.hero:first-child .v{font-size:42px}
+html.theme-cherry #view-dash .dm-overview .dz-heroes > .dz-kc.hero .v{font-size:38px}
+html.theme-cherry #view-dash .dm-overview .dz-heroes > .dz-kc.hero:first-child .v{font-size:44px}
+#view-dash .dm-overview .dz-kc.dm-duo{padding:16px 22px;gap:8px}
+html.theme-cherry #view-dash .dm-overview .dm-duo-r .v{font-size:30px}
+#view-dash .dz-kc.hero .hero-art{position:absolute;right:20px;bottom:16px;width:70px;height:48px;color:rgba(255,255,255,.9);pointer-events:none}
+#view-dash .dz-kc.hero .hero-art svg{width:100%;height:100%;display:block}
+#view-dash .dz-kc.hero:has(.hero-art) .s{padding-right:84px}
+#view-dash .dz-kc .kc-ic{background:none;width:60px;height:60px;top:12px}
+#view-dash .dz-kc .kc-ic svg{width:60px;height:60px}
+#view-dash .dz-cards.dm-avg{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1180px){#view-dash .dz-cards.dm-avg{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#view-dash .dz-kc.dm-loss{display:flex;flex-direction:column;align-items:flex-start;text-align:left;font:inherit;border:0;cursor:pointer;color:#fff;
+  background:linear-gradient(135deg,#C8384E 0%,#E0525F 100%);transition:transform .2s var(--d-ease),box-shadow .2s var(--d-ease)}
+html.theme-cherry #view-dash .dz-kc.dm-loss{background:var(--ch-rose)}
+#view-dash .dz-kc.dm-loss:hover:not(:disabled){transform:translateY(-3px);box-shadow:0 18px 32px -22px rgba(23,22,26,.5)}
+#view-dash .dz-kc.dm-loss:disabled{cursor:default}
+#view-dash .dz-kc.dm-loss .l,#view-dash .dz-kc.dm-loss .v,#view-dash .dz-kc.dm-loss .s,
+html.theme-cherry #view-dash .dz-kc.dm-loss .l,html.theme-cherry #view-dash .dz-kc.dm-loss .v,html.theme-cherry #view-dash .dz-kc.dm-loss .s{color:#fff}
+#view-dash .dz-kc.dm-loss .s{opacity:.9}
+#view-dash .dz-kc.dm-loss:focus-visible{outline:3px solid var(--d-indigo);outline-offset:2px}
+/* กราฟรายเดือน: ตั้งต้นเตี้ย (ยังเห็นครบทุกเดือน) · ปุ่มขยาย = ขนาดเดิม .dz-box.tall */
+#view-dash .dm-month{margin-top:14px}
+#view-dash .dm-month-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#view-dash .dm-month-h h4{margin:0}
+#view-dash .dm-month-btn{border:1px solid var(--d-line2);background:var(--d-card);color:var(--d-ink2);font:inherit;font-size:13px;
+  padding:6px 14px;border-radius:999px;cursor:pointer}
+#view-dash .dm-month-btn:hover{background:var(--d-soft)}
+#view-dash .dm-month-btn:focus-visible{outline:2px solid var(--d-indigo);outline-offset:2px}
+#view-dash .dz-box.dm-month-sm{height:190px}
+/* เส้นกั้นก่อนกล่อง Performance Index */
+#view-dash .dm-pi-sep{border:0;border-top:1px solid rgba(26,23,20,.14);margin:22px 0 4px}
+html.theme-cherry #view-dash .dm-pi-sep{border-top-color:rgba(89,2,18,.18)}
+/* แผนที่เส้นทาง (RouteMapCard) โหมดขาว: พื้นทะเลฟ้าให้ตัดกับแผ่นดินไทยสีขาว (เจ้าของงานสั่ง 28 ก.ย. 2569 · ทุกแผนที่เส้นทาง ไม่รวมแผนที่ตำแหน่งรถ) */
+.rp-mapbox.light.rp-sea{border-color:#BFD9EE;background:radial-gradient(120% 90% at 30% 20%,#E3F1FC 0%,#BFDDF4 100%)}
+
+/* ===== Profit Per Route รอบสี่ (28 ก.ย. 2569) ===== */
+/* ลูกศร 3 มิติในที่ว่างขวาของการ์ดกำไร — ใหญ่ขึ้น กึ่งกลางแนวตั้ง */
+#view-dash .dz-kc.hero .hero-art{right:26px;top:50%;bottom:auto;width:150px;height:118px;transform:translateY(-38%)}
+#view-dash .dz-kc.hero:has(.hero-art) .v,#view-dash .dz-kc.hero:has(.hero-art) .s{margin-right:150px}
+#view-dash .dz-kc.hero:has(.hero-art) .s{padding-right:12px}
+/* หัวข้อ Service Category ก่อนการ์ดกลุ่มบริการ */
+#view-dash .dm-sub-h{margin:26px 0 0;font-size:22px;font-weight:800;color:var(--d-ink)}
+html.theme-cherry #view-dash .dm-sub-h{color:#590212}
+/* การ์ดกลุ่มบริการ: ชื่อกลุ่มใหญ่เกือบเท่าตัวเลข · "อัตรากำไร" ตัวเล็กหน้าตัวเลข · รูป 3 มิติ */
+.dm-sgs .dm-sg > .l,html.theme-cherry .dm-sgs .dm-sg > .l{font-size:32px;font-weight:800;line-height:1.15;opacity:1;padding-right:64px}
+.dm-sg-vrow{position:relative;z-index:1;display:flex;align-items:baseline;gap:10px}
+.dm-sg-vrow small{font-size:14px;font-weight:600;opacity:.8;white-space:nowrap}
+.dm-sgs .dm-sg-ic{width:66px;height:66px;top:12px;right:14px;opacity:1}
+/* รายละเอียดต้นทุนของเส้นทางที่เลือก — ตัวหนังสือใหญ่ขึ้น (ภาพที่เจ้าของงานส่ง) · จองที่ 11 แถวตามขนาดใหม่ */
+#view-dash .rp-dh .rp-sht h3{font-size:24px}
+.rp-dh .rp-sht p{font-size:15px}
+.rp-stats span{font-size:15px}
+.rp-stats b{font-size:30px}
+.rp-stack{height:16px}
+.rp-cl{font-size:17px;min-height:500px}
+.rp-cl li{padding:8px 0}
+.rp-cl li.grp{font-size:18px}
+.rp-cl li b{width:84px;font-size:17px}
+.rp-cl li small{width:140px;font-size:16px}
+.rp-cl li i{width:12px;height:12px}
+.rp-cl li.sub i{width:10px;height:10px}
+
+/* ===== 6 กล่องภาพรวม: ชื่อกล่องใหญ่ขึ้นให้อ่านง่าย · กล่องรายได้/ต้นทุนมีเส้นแบ่ง (เจ้าของงานสั่ง 28 ก.ย. 2569) ===== */
+#view-dash .dm-overview .dz-kc .l,html.theme-cherry #view-dash .dm-overview .dz-kc .l,
+html.theme-cherry #view-dash .dm-overview .dz-kc.hero .l{font-size:20px;font-weight:700;line-height:1.3}
+#view-dash .dm-overview .dm-duo-r .l,html.theme-cherry #view-dash .dm-overview .dm-duo-r .l{font-size:20px;font-weight:700;color:var(--d-ink3)}
+#view-dash .dm-overview .dz-kc .l .d{width:9px;height:9px}
+#view-dash .dm-overview .dm-duo-r + .dm-duo-r{padding-top:10px;border-top:1px solid rgba(89,2,18,.16)}
+/* การ์ดเด่นแถวบนมีชิปหน่วยข้างชื่อ — ชื่อยาว (กำไรส่วนเกิน/ตัน-กม. เฉลี่ยรวม) ต้องไม่ดันชิปตกบรรทัด */
+#view-dash .dm-overview .dz-kc.hero .u{white-space:nowrap;flex:none}
+#view-dash .dm-overview .dz-kc.hero .l,html.theme-cherry #view-dash .dm-overview .dz-kc.hero .l{font-size:19px;text-wrap:balance}
+/* ชื่อกล่องใหญ่ขึ้นอีก (เจ้าของงานสั่ง 28 ก.ย. 2569 รอบสอง) — แถวบน 23px · แถวสอง 24px */
+#view-dash .dm-overview .dz-kc .l,html.theme-cherry #view-dash .dm-overview .dz-kc .l,
+#view-dash .dm-overview .dm-duo-r .l,html.theme-cherry #view-dash .dm-overview .dm-duo-r .l{font-size:24px}
+#view-dash .dm-overview .dz-kc.hero .l,html.theme-cherry #view-dash .dm-overview .dz-kc.hero .l{font-size:23px}
+#view-dash .dm-overview .dz-kc .l .d{width:10px;height:10px}
+
+/* ===== รูป 3 มิติจากเจ้าของงาน (assets/icons3d · 28 ก.ย. 2569) ===== */
+#view-dash .dz-kc .kc-ic img{width:64px;height:64px;object-fit:contain;display:block;filter:drop-shadow(0 6px 8px rgba(0,0,0,.12))}
+#view-dash .dz-kc.hero .hero-art .hero-art-img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 10px 14px rgba(0,0,0,.28))}
+.dm-sgs .dm-sg-ic{width:84px;height:84px;top:10px;right:12px}
+.sg-pic{position:relative;display:block;width:100%;height:100%}
+.sg-pic img{position:absolute;left:0;bottom:0;width:78%;height:78%;object-fit:contain;filter:drop-shadow(0 6px 8px rgba(0,0,0,.14))}
+.sg-pic img.sg-pic-x{left:auto;bottom:auto;right:-4px;top:-6px;width:56%;height:56%}
+.dm-sgs .dm-sg > .l,html.theme-cherry .dm-sgs .dm-sg > .l{padding-right:84px}
+#view-dash .dz-kc .kc-ic{width:72px;height:72px;top:10px;right:12px}
+#view-dash .dz-kc .kc-ic img{width:72px;height:72px}
+.dm-sgs .dm-sg-ic{width:96px;height:96px;top:8px}
+.sg-pic img{width:72%;height:72%}
+.sg-pic img.sg-pic-x{right:-6px;top:-8px;width:66%;height:66%;filter:drop-shadow(0 4px 6px rgba(15,58,92,.3))}
+/* รูปรถเข็นในการ์ดตัน-กม.: เล็กลงเล็กน้อย เลื่อนลงให้ห่างชิปหน่วย (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+#view-dash .dz-kc.hero .hero-art:has(.hero-art-img){width:122px;height:98px;right:30px;transform:translateY(-18%)}
+
+/* หัวข้อส่วน (Profit Per Route ฯลฯ) ตัวหนาเท่า Service Category · Service Category ใหญ่ขึ้น + ขีดซ้าย/เส้นยาวแบบหัวข้อส่วน (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+#view-dash .dm-part-h,html.theme-cherry #view-dash .dm-part-h{font-weight:800}
+#view-dash .dm-sub-h{display:flex;align-items:center;gap:14px;font-size:24px;line-height:1.3;padding-left:12px;border-left:4px solid #C9A77A}
+#view-dash .dm-sub-h::after{content:"";flex:1;height:1px;background:rgba(26,23,20,.12)}
+html.theme-cherry #view-dash .dm-sub-h::after{background:rgba(89,2,18,.12)}
+/* Service Category ขนาด/ขีดเท่าหัวข้อส่วน (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+#view-dash .dm-sub-h{font-size:24px;padding-left:14px}
+html.theme-cherry #view-dash .dm-sub-h{font-size:28px;padding-left:14px;border-left:4px solid #C9A77A}

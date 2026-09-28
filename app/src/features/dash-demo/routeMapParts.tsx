@@ -194,7 +194,7 @@ export function RouteMapCard({ routes, chip, chipLoss, cantDraw, onMissing, labe
     <div ref={wrapRef} className={"rp-wrap" + (dragging ? " dragging" : "")}
       style={{ gridTemplateColumns: `${mapPct}% minmax(0,1fr)` }}>
       <section className="rp-mapcol" aria-label={label}>
-        <div className={"rp-mapbox" + (mapDark ? "" : " light")}>
+        <div className={"rp-mapbox" + (mapDark ? "" : " light rp-sea")}>
           <RouteMap routes={routes} onMissing={onMissing} dark={mapDark} />
           <div className="rp-theme" role="group" aria-label="โหมดแผนที่">
             <button type="button" aria-pressed={!mapDark} onClick={() => pickTheme(false)} title="โหมดขาว">

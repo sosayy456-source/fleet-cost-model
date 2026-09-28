@@ -41,58 +41,49 @@ import { TonKmHero, TonKmScope } from "../dash-costrev/tonkm/TonKmDemoRow";
 import type { Trip } from "../../lib/data/useCostRev";
 // กลุ่มบริการของการ์ดท้ายหน้า + %Margin รายเส้นทาง — ชุดเดียวกับ Performance Index (Route & Service)
 import { SERVICE_GROUPS, routeMargin } from "../../lib/pi/route";
+import imgBox from "../../assets/icons3d/box.webp";
+import imgCloud from "../../assets/icons3d/cloud.webp";
+import imgSnow from "../../assets/icons3d/snow.webp";
+import imgFolder from "../../assets/icons3d/folder.webp";
+import imgPin from "../../assets/icons3d/pin.webp";
+import imgPerson from "../../assets/icons3d/person.webp";
 
+
+/** รูปมุมขวาบนของการ์ดกำไรเฉลี่ย — รูป 3 มิติที่เจ้าของงานส่ง 28 ก.ย. 2569 (assets/icons3d): บิล = แฟ้มเอกสารฟ้า · เที่ยว = หมุดบนฐาน · ลูกค้า = คนสีน้ำเงิน */
+const ICON_BILL = <img src={imgFolder} alt="" />;
+const ICON_PIN = <img src={imgPin} alt="" />;
+const ICON_PERSON = <img src={imgPerson} alt="" />;
 
 /**
- * รูปมุมขวาบนของการ์ดกำไรเฉลี่ย — สีเดียว (currentColor = สีจุดของการ์ด) แบบสองน้ำหนัก: พื้นจาง + เส้นเข้ม
- * บิล = กระดาษ BILL มุมพับ + $ · เที่ยว = หมุดบนแผนที่พับ · ลูกค้า = คน (เจ้าของงานสั่ง 28 ก.ย. 2569 — เคยลองภาพหลายสีแล้วไม่เอา)
+ * ลูกศรซิกแซก 3 มิติในที่ว่างขวาของการ์ดกำไร (แทนกราฟกำไรรายเดือน · เจ้าของงานสั่ง 28 ก.ย. 2569 — รอบแรกเป็นเส้นแบนเล็ก ๆ)
+ * กำไรชี้ขึ้น · ขาดทุนชี้ลง · ชั้นล่างเลื่อนลงขวาสีเข้ม = ความหนา · ชั้นบนไล่ขาว→โปร่ง + เส้นสะท้อนแสง
  */
-const ICON_BILL = (
-  <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 5h17l8 8v30H12Z" fill="currentColor" fillOpacity=".14" />
-    <path d="M29 5v8h8" />
-    <path d="M17 12h7" strokeWidth="2.6" />
-    <path d="M22 19.5c-.8-1-2-1.5-3.2-1.5-1.8 0-3 1-3 2.3 0 3 6.4 1.6 6.4 4.7 0 1.3-1.3 2.4-3.2 2.4-1.3 0-2.6-.6-3.4-1.6M18.9 16.5v1.5m0 9.4v1.5" />
-    <rect x="26" y="19" width="7" height="7" rx="1.2" fill="currentColor" fillOpacity=".35" />
-    <path d="M17 33h15M17 38h10" />
-  </svg>
-);
-const ICON_PIN = (
-  <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 17l12-4 16 4 12-4v28l-12 4-16-4-12 4Z" fill="currentColor" fillOpacity=".12" />
-    <path d="M16 13v28M32 17v28" strokeOpacity=".55" />
-    <path d="M4 32l12-3 9 3" strokeOpacity=".55" strokeDasharray="2.5 3" />
-    <path d="M33 3a8 8 0 0 0-8 8c0 6 8 15 8 15s8-9 8-15a8 8 0 0 0-8-8Z" fill="currentColor" fillOpacity=".35" />
-    <circle cx="33" cy="11" r="2.8" fill="currentColor" stroke="none" />
-  </svg>
-);
-const ICON_PERSON = (
-  <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="24" cy="24" r="20" fill="currentColor" fillOpacity=".1" />
-    <circle cx="24" cy="19" r="7" fill="currentColor" fillOpacity=".35" />
-    <path d="M11.5 38a13 13 0 0 1 25 0" fill="currentColor" fillOpacity=".35" />
-  </svg>
-);
+const trendArrow = (up: boolean) => {
+  const d = up ? "M6 70 40 36l18 18L96 16" : "M6 14l34 34 18-18 38 38";
+  const head = up ? "M74 12h26v26" : "M74 72h26V46";
+  return (
+    <svg className="dm-trend-ic" viewBox="0 0 110 86" aria-hidden="true" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <defs>
+        <linearGradient id="ta-g" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stopColor="#fff" stopOpacity=".55" /><stop offset="1" stopColor="#fff" /></linearGradient>
+      </defs>
+      <g stroke="#000" strokeOpacity=".22" strokeWidth="13" transform="translate(4 5)"><path d={d} /><path d={head} /></g>
+      <g stroke="url(#ta-g)" strokeWidth="13"><path d={d} /><path d={head} /></g>
+      <g stroke="#fff" strokeOpacity=".9" strokeWidth="3" transform="translate(-2 -3)"><path d={d} /></g>
+    </svg>
+  );
+};
 
-/** ภาพประกอบการ์ดกลุ่มบริการ (ลำดับเดียวกับ SERVICE_GROUPS) — กล่องพัสดุ · กล่อง + ปรอท · กล่อง + หิมะ */
-const BOX = <>
-  <path d="M8 22 28 14l20 8-20 8Z" /><path d="M8 22v22l20 8V30" /><path d="M48 22v22l-20 8" />
-  <path d="m18 18 20 8v7" />
-</>;
+/**
+ * ภาพประกอบการ์ดกลุ่มบริการ (ลำดับเดียวกับ SERVICE_GROUPS) — รูป 3 มิติที่เจ้าของงานส่ง 28 ก.ย. 2569 (assets/icons3d)
+ * ทั่วไป = กล่องพัสดุ · แช่เย็น = กล่อง + เมฆลมเย็น · แช่แข็ง = กล่อง + เกล็ดหิมะ (รูปที่สองวางซ้อนมุมขวาบนของกล่อง)
+ */
+const sgPic = (extra?: string) => (
+  <span className="sg-pic"><img src={imgBox} alt="" />{extra && <img className="sg-pic-x" src={extra} alt="" />}</span>
+);
 const SG_STYLE = [
-  { cls: "sg-gen", icon: <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-    {BOX}<path d="M14 36v4l4 1.6" /></svg> },
-  { cls: "sg-chill", icon: <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-    {/* ปรอทแบบเหมือนจริง (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569): หลอดขอบมน · ขีดสเกล · ของเหลวเติมในกระเปาะ · กล่องเลื่อนซ้ายหลบ */}
-    <g transform="translate(-6 6)">{BOX}</g>
-    <path d="M49 38V9a5 5 0 0 1 10 0v29a8 8 0 1 1-10 0Z" />
-    <path d="M59 13h4M59 19h4M59 25h4M59 31h3" />
-    <path d="M52.5 26v14.5a4.6 4.6 0 1 0 3 0V26a1.5 1.5 0 0 0-3 0Z" fill="currentColor" fillOpacity=".45" stroke="none" />
-    <circle cx="52.6" cy="45.2" r="1.3" fill="#fff" stroke="none" opacity=".8" /></svg> },
-  { cls: "sg-frozen", icon: <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-    {/* กล่องขนาดเดิม (เลื่อนซ้ายลงเล็กน้อย) + เกล็ดหิมะ 6 แฉกมีกิ่ง V ทุกแฉกที่มุมขวาบน (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569) */}
-    <g transform="translate(-5 6)">{BOX}</g>
-    <path strokeWidth="3" d="M51 14L51 2M51 7l-2.6-3.1M51 7l2.6-3.1M51 14L61.4 8M57 10.5l1.4-3.8M57 10.5l3.9.7M51 14L61.4 20M57 17.5l3.9-.7M57 17.5l1.4 3.8M51 14L51 26M51 21l2.6 3.1M51 21l-2.6 3.1M51 14L40.6 20M45 17.5l-1.4 3.8M45 17.5l-3.9-.7M51 14L40.6 8M45 10.5l-3.9.7M45 10.5l-1.4-3.8" /></svg> },
+  { cls: "sg-gen", icon: sgPic() },
+  { cls: "sg-chill", icon: sgPic(imgCloud) },
+  { cls: "sg-frozen", icon: sgPic(imgSnow) },
 ] as const;
 
 // สี · กลุ่มต้นทุน · การ์ดแผนที่ อยู่ใน routeMapParts.tsx (ใช้ร่วมกับแผนที่เที่ยววิ่งเปล่าของ Overall Dashboard · 26 ก.ย. 2569)
@@ -117,6 +108,8 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
   const [showList, setShowList] = useState(false);
   /** ป็อบอัพเที่ยวที่ขาดทุนทั้งหมด (กดการ์ด %เที่ยวที่ขาดทุน) */
   const [showLoss, setShowLoss] = useState(false);
+  /** กราฟรายเดือนในภาพรวม: ตั้งต้นเตี้ย กดขยายเป็นขนาดเดิม (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+  const [chartBig, setChartBig] = useState(false);
   /** การ์ดกลุ่มบริการที่กางแผงอยู่ — กดซ้ำที่การ์ดเดิม = ปิด */
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
@@ -268,44 +261,40 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
   );
   const sgBlock = (
       <>
-        {/* 5 */}
+        {/* 5 — หัวข้อ "Service Category" (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
+        <h3 className="dm-sub-h">Service Category</h3>
         <div className="dm-sgs">
           {/* สี + ไอคอนตามชนิดสินค้า (เจ้าของงานสั่ง 28 ก.ย. 2569): ทั่วไป น้ำตาลอ่อน + กล่องพัสดุ · แช่เย็น ฟ้าอ่อน + กล่อง + ปรอท ·
-              แช่แข็ง ฟ้าเข้มขึ้น + กล่อง + หิมะ · ใบที่ 4 = %เที่ยวที่ขาดทุน (ย้ายมาจากการ์ดกำไร) สีแดง กดดูรายการเที่ยว */}
+              แช่แข็ง ฟ้าเข้มขึ้น + กล่อง + หิมะ · %เที่ยวที่ขาดทุนย้ายไปแถวสองของ 6 กล่องภาพรวมแล้ว */}
           {groups.map((g, i) => (
             <button key={g.name} type="button"
               className={`dm-sg c${i + 1} ${SG_STYLE[i]!.cls}` + (openGroup === g.name ? " open" : "")}
               aria-expanded={openGroup === g.name}
               onClick={() => setOpenGroup((p) => (p === g.name ? null : g.name))}
               title={openGroup === g.name ? "กดอีกครั้งเพื่อปิด" : "กดเพื่อดูกราฟและรายเส้นทางของกลุ่มนี้"}>
-              <span className="l">อัตรากำไร · {g.name}</span>
-              <span className="v">{g.margin == null ? "–" : pct(g.margin)}</span>
+              {/* ชื่อกลุ่มตัวใหญ่ใกล้ขนาดตัวเลข · "อัตรากำไร" ตัวเล็กหน้าตัวเลข (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
+              <span className="l">{g.name}</span>
+              <span className="dm-sg-vrow"><small>อัตรากำไร</small><span className="v">{g.margin == null ? "–" : pct(g.margin)}</span></span>
               <span className="s">{fmt(g.n)} เที่ยว · กำไร {signed(Math.round(g.profit))} บาท</span>
               <span className="dm-sg-ic" aria-hidden="true">{SG_STYLE[i]!.icon}</span>
             </button>
           ))}
-          <button type="button" className="dm-sg sg-loss" disabled={!kpi.loss} onClick={() => setShowLoss(true)}
-            title={kpi.loss ? "กดดูรายการเที่ยวที่ขาดทุนทั้งหมด" : undefined}>
-            <span className="l">%เที่ยวที่ขาดทุน</span>
-            <span className="v">{pct(kpi.lossPct)}</span>
-            <span className="s">{kpi.loss ? `${fmt(kpi.loss)} จาก ${fmt(kpi.n)} เที่ยว · กดดูรายการ` : "ไม่มีเที่ยวขาดทุน"}</span>
-          </button>
         </div>
-        <Note>การ์ดกลุ่มบริการคิดตามตัวกรองด้านบน · กดการ์ดเพื่อกางกราฟกับรายเส้นทางของกลุ่มนั้น กดซ้ำเพื่อปิด</Note>
         {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup} />}
       </>
   );
 
-  // ★ 6 กล่องภาพรวม (overview) วาดแยกเหนือกรอบส่วน Profit Per Route — ส่วนนี้เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569)
+  // ★ 6 กล่องภาพรวม + กราฟรายเดือน (overview) วาดแยกเหนือกรอบส่วน Profit Per Route — ส่วนนี้เริ่มที่แผนที่ (เจ้าของงานสั่ง 28 ก.ย. 2569)
   if (overview) return (
+    <>
     <Pane deps={[rows]}>
-        {/* 1–2 — 6 กล่อง (ปรับปรุงโมเดล2.pdf · เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิม 15 กล่อง)
-            แถวบน (เด่น): กำไร (+%Margin · เส้นกำไรรายเดือน · %เที่ยวที่ขาดทุน) · กำไรส่วนเกิน/ตัน-กม. · รายได้ + ต้นทุน (สีอ่อน)
-            แถวสอง: กำไรเฉลี่ย/บิล · /เที่ยว · /ลูกค้า พร้อมจำนวนบิล/เที่ยว/ลูกค้า และไอคอนมุมขวาบน
+        {/* 1–2 — 6 กล่อง (ปรับปรุงโมเดล2.pdf · เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิม 15 กล่อง) + การ์ด %เที่ยวที่ขาดทุน ต่อท้ายแถวสอง
+            แถวบน (เด่น · เตี้ยลง): กำไร (+%Margin · ลูกศรขึ้น/ลงแทนกราฟ) · กำไรส่วนเกิน/ตัน-กม. · รายได้ + ต้นทุน (สีอ่อน)
+            แถวสอง: กำไรเฉลี่ย/บิล · /เที่ยว · /ลูกค้า (รูป 3 มิติ) · %เที่ยวที่ขาดทุน (แดง กดดูรายการ)
             ตัดออก: ชนิดรถกำไรสูงสุด/ต่ำสุด · ชนิดรถต่ำกว่าเป้า (ยังอยู่ในแท็บ Contribution Margin ของ Overall) */}
         <div className="dz-heroes">
           <Hero kind={kpi.profit < 0 ? "loss" : "profit"} l={kpi.profit < 0 ? "ขาดทุน" : "กำไร"} v={signed(kpi.profit)} unit="บาท"
-            s={<><b className="dm-margin">%Margin {pct(kpi.margin)}</b> กำไร ÷ รายได้</>} trend={monthly.length > 1 ? monthly.map((m) => m.กำไร) : undefined} />
+            s={<><b className="dm-margin">%Margin {pct(kpi.margin)}</b> กำไร ÷ รายได้</>} art={trendArrow(kpi.profit >= 0)} />
           <TonKmHero f={f} />
           <div className="dz-kc dm-duo">
             <div className="dm-duo-r">
@@ -319,26 +308,32 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
             <span className="dm-duo-u">บาท</span>
           </div>
         </div>
-        <div className="dz-cards three dm-avg">
+        <div className="dz-cards four dm-avg">
           <KC dot={D.indigo} tone={kpi.perBill < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/บิล" icon={ICON_BILL}
             v={signed(Math.round(kpi.perBill))} s={`บาท ต่อบิล · ${fmt(kpi.bills)} บิลของใบรายการที่จับคู่ได้`} />
           <KC dot={D.violet} tone={kpi.perTrip < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/เที่ยว" icon={ICON_PIN}
             v={signed(Math.round(kpi.perTrip))} s={`บาท ต่อเที่ยว · ${fmt(kpi.n)} เที่ยว`} />
           <KC dot={D.teal} tone={kpi.perCust < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/ลูกค้า" icon={ICON_PERSON}
             v={signed(Math.round(kpi.perCust))} s={`บาท ต่อลูกค้า · ${fmt(kpi.custs)} ราย (ผู้จ่ายเงินไม่ซ้ำ)`} />
+          {/* ย้ายมาจากแถวการ์ดกลุ่มบริการท้ายส่วน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
+          <button type="button" className="dz-kc dm-loss" disabled={!kpi.loss} onClick={() => setShowLoss(true)}
+            title={kpi.loss ? "กดดูรายการเที่ยวที่ขาดทุนทั้งหมด" : undefined}>
+            <span className="l">%เที่ยวที่ขาดทุน</span>
+            <span className="v" key={kpi.lossPct}>{pct(kpi.lossPct)}</span>
+            <span className="s">{kpi.loss ? `${fmt(kpi.loss)} จาก ${fmt(kpi.n)} เที่ยว · กดดูรายการ` : "ไม่มีเที่ยวขาดทุน"}</span>
+          </button>
         </div>
         <TonKmScope f={f} />
-    </Pane>
-  );
 
-  return (
-    <>
-      <Pane deps={[rows]}>
-        {!summary && <>
-        {/* 3 */}
-        <div className="dz-cc">
-          <h4>เปรียบเทียบ รายได้ / ต้นทุน / กำไร · รายเดือน</h4>
-          <div className="dz-box tall">
+        {/* กราฟรายเดือน — ย้ายออกจากส่วน Profit Per Route มาอยู่กับ 6 กล่อง · ตั้งต้นเตี้ย กดขยายเป็นขนาดเดิม */}
+        <div className="dz-cc dm-month">
+          <div className="dm-month-h">
+            <h4>เปรียบเทียบ รายได้ / ต้นทุน / กำไร · รายเดือน</h4>
+            <button type="button" className="dm-month-btn" aria-expanded={chartBig} onClick={() => setChartBig((b) => !b)}>
+              {chartBig ? "ย่อกราฟ" : "ขยายกราฟ"}
+            </button>
+          </div>
+          <div className={"dz-box " + (chartBig ? "tall" : "dm-month-sm")}>
             <DLine data={monthly} xKey="mo" series={[
               { key: "รายได้", label: "รายได้", color: D.indigo },
               { key: "ต้นทุน", label: "ต้นทุน", color: D.rose },
@@ -346,9 +341,18 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
             ]} />
           </div>
         </div>
+    </Pane>
+    {showLoss && (
+      <TripsModal rt="เที่ยวที่ขาดทุน" trips={lossTrips} onClose={() => setShowLoss(false)} showRoute
+        note="ทุกเที่ยวที่กำไรติดลบ ตามตัวกรองที่เลือกอยู่ · เรียงขาดทุนมากสุดก่อน"
+        initialSort={{ key: "profit", dir: 1 }} />
+    )}
+    </>
+  );
 
-        </>}
-
+  return (
+    <>
+      <Pane deps={[rows]}>
         {!summary && mapBlock}
         {sgBlock}
         {summary && mapBlock}
