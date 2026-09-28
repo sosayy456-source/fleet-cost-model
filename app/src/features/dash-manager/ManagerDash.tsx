@@ -54,7 +54,7 @@ import { Hero, Note } from "../dash-fleet/parts";
 import { SortTable, fmt, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { useColFilters } from "./colFilter";
-import { MANAGER_TABS, clearManagerNav, clearManagerPending, peekManagerPending, registerManagerNav, setManagerActive } from "../../lib/ui/managerNav";
+import { clearManagerNav, clearManagerPending, peekManagerPending, registerManagerNav, setManagerActive } from "../../lib/ui/managerNav";
 import type { ManagerTabId } from "../../lib/ui/managerNav";
 
 const KIND_LABEL: Record<PeriodKind, string> = { day: "รายวัน", month: "รายเดือน", quarter: "รายไตรมาส", year: "รายปี" };
@@ -160,11 +160,7 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
     return clearManagerNav;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setManagerActive(tab); }, [tab]);
-  // หัวแคปซูล (เจ้าของงานสั่ง 28 ก.ย. 2569 · แบบเดียวกับ Executive Dashboard) — ตัวกรองอยู่ในแผงของปุ่มตัวกรอง
-  const tabs = MANAGER_TABS.map((t) => (
-    <button key={t.id} type="button" className={tab === t.id ? "on" : ""} aria-current={tab === t.id ? "true" : undefined}
-      onClick={() => setTab(t.id)}>{t.label}</button>
-  ));
+  // ปุ่ม Fleet Operations / Profit & Collections ในหัวแคปซูลเอาออกแล้ว (เจ้าของงานสั่ง 28 ก.ย. 2569 — หน้าเดียวแล้ว เลื่อนดูเอง)
 
   const m = cr.data?.manifest;
   const meta = m && (
@@ -231,7 +227,7 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
       <EtlBanner status={etlAll} />
       <DashShell sample={m?.isSample} meta={meta || undefined}
         onRefresh={cr.reload} loading={cr.loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่"
-        capsule={{ tabs, filters: true, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
+        capsule={{ tabs: null, filters: true, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
         <FilterBar>
           <div className="ff">
             <label>ช่วงเวลา</label>

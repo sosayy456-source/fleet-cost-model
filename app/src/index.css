@@ -3366,3 +3366,5 @@ html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
 #view-dash .mo-cost div{font-size:13px;color:var(--d-ink4)}
 #view-dash .mo-cost b{display:block;font-size:22px;color:var(--d-ink);font-family:var(--d-num)}
 #view-dash .mo-cost b.neg{color:#C0392B}
+/* หัวแคปซูลที่ไม่มีแท็บ (Manager Dashboard 28 ก.ย. 2569) — ช่องว่างแทนแถบแท็บ ดันปุ่มไปขวาเหมือนเดิม */
+.cap-gap{flex:1}

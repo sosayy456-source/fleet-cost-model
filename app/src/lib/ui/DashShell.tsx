@@ -229,7 +229,7 @@ function CapsuleHead({ title, isSample, meta, tabs, sub, tools, onRefresh, loadi
         <b>{title}</b>
         {sub && <small>{sub}</small>}
       </div>
-      <nav className="cap-tabs" aria-label="ส่วนของหน้า">{tabs}</nav>
+      {tabs ? <nav className="cap-tabs" aria-label="ส่วนของหน้า">{tabs}</nav> : <span className="cap-gap" aria-hidden="true" />}
       <div className="cap-tools">
         {tools}
         {/* แคปซูลที่ว่างน้อย — ปุ่มรีเฟรชเป็นไอคอน ข้อความอยู่ใน tooltip */}
