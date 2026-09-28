@@ -7,7 +7,8 @@
  *   เลือกเดือนเดียว = มีรายการเดียว คะแนนออกได้แค่ 0 / 5 / 10
  *   สถานะของหมวด (เกณฑ์ภายใน): ผ่านเกณฑ์ 15–20 · เฝ้าระวัง 10–14.99 · ไม่ผ่านเกณฑ์ < 10 (ตารางในไฟล์ · เท่าเดิม)
  *
- * ★ P75 มาจาก "ชุดอ้างอิง" ไม่คิดใหม่ตามตัวกรอง = KPI รายเดือนของภาพรวมบริษัท **12 เดือนล่าสุด (Rolling 12 Months)**
+ * ★ InDex_revised v2.md (28 ก.ย. 2569): ชุดอ้างอิง**ตามตัวกรองของหน้ายกเว้นเวลา** (ผู้เรียกตัดมาให้ผ่าน tripRefOf — เดิมภาพรวมบริษัทไม่ตามตัวกรอง)
+ * ★ P75 มาจาก "ชุดอ้างอิง" ไม่คิดใหม่จากชุดที่ให้คะแนน = KPI รายเดือน **12 เดือนล่าสุด (Rolling 12 Months)**
  *   นับย้อนจากเดือนล่าสุดที่ไฟล์ต้นทุนมี ทั้ง DR และ DIR (ไฟล์ "dashboard คชจ.md" 27 ก.ย. 2569) · PERCENTILE.INC ตัวเดียวกับแท็บ Damage
  *   ใช้รายเดือนไม่ใช่รายวัน × สาขา — ชุดตัวอย่างรายวัน × สาขา 96% ของกลุ่มไม่มีความเสียหาย P75 จึงเป็น 0 ใช้เป็นเกณฑ์ไม่ได้
  * ★ กรณีพิเศษ: เดือนที่รายได้ = 0 ไม่นับใน DR · เดือนที่เที่ยวน้อยกว่า 100 ÷ (2 × P75 ของ DIR) ไม่นับใน DIR
@@ -16,8 +17,8 @@
  */
 import { aggregateDamage, percentileInc, totalDamage } from "../damage/damage";
 import type { DamageTrip } from "../damage/damage";
-import { bandResult } from "./score";
-import type { Band, MetricResult } from "./score";
+import { bandResult, indexStatus, STATUS_LABEL } from "./score";
+import type { Band, IndexStatus, MetricResult } from "./score";
 
 /** P75 ของชุดอ้างอิง — เป็น 0 (เดือนส่วนใหญ่ไม่เสียหาย) ถอยไปใช้เฉพาะเดือนที่มีค่า > 0 */
 function refP75(values: number[]): number | null {
@@ -71,7 +72,7 @@ export function damageResults(trips: DamageTrip[], ref: DamageRef): [MetricResul
   const k = totalDamage(trips);
   const span = ref.from ? ` (${ref.from} ถึง ${ref.to})` : "";
   const basis = (p75: number | null, d: number) => (p75 == null ? `ชุดอ้างอิง ${ref.months} เดือนล่าสุดไม่มีความเสียหายเลย`
-    : `P75 = ${pctTxt(p75, d)} · 2 × P75 = ${pctTxt(2 * p75, d)} จาก KPI รายเดือนของทั้งบริษัท ${REF_MONTHS} เดือนล่าสุด${span} มีข้อมูล ${ref.months} เดือน`);
+    : `P75 = ${pctTxt(p75, d)} · 2 × P75 = ${pctTxt(2 * p75, d)} จาก KPI รายเดือน ${REF_MONTHS} เดือนล่าสุด (ตามตัวกรองยกเว้นเวลา)${span} มีข้อมูล ${ref.months} เดือน`);
 
   const drMonths = months.filter((m) => m.rate != null);
   const dr = !months.length ? bandResult("dr", null, { na: "ไม่มีเที่ยว", detail: "ไม่มีเที่ยวตามตัวกรอง" })
@@ -90,12 +91,7 @@ export function damageResults(trips: DamageTrip[], ref: DamageRef): [MetricResul
   return [dr, dir];
 }
 
-export type DamageStatus = "pass" | "watch" | "fail";
-export const DAMAGE_STATUS_LABEL: Record<DamageStatus, string> = { pass: "ผ่านเกณฑ์", watch: "เฝ้าระวัง", fail: "ไม่ผ่านเกณฑ์" };
-
-/** สถานะของ Damage Performance (เต็ม 20) · คิดเฉพาะเมื่อได้ครบทั้ง DR และ DIR — ขาดตัวหนึ่งเทียบ 15/10 ไม่ได้ */
-export function damageStatus(results: MetricResult[]): DamageStatus | null {
-  if (results.some((r) => r.score == null)) return null;
-  const total = results.reduce((s, r) => s + r.score!, 0);
-  return total >= 15 ? "pass" : total >= 10 ? "watch" : "fail";
-}
+/** สถานะของหมวด — ย้ายไปใช้ร่วมทุกหมวดที่ lib/pi/score.ts (indexStatus · 28 ก.ย. 2569) ชื่อเดิมไว้ให้ผู้เรียกเก่า */
+export type DamageStatus = IndexStatus;
+export const DAMAGE_STATUS_LABEL = STATUS_LABEL;
+export const damageStatus = (results: MetricResult[]): DamageStatus | null => indexStatus(results);

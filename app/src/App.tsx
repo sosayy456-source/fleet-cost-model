@@ -293,7 +293,7 @@ export default function App() {
         {/* บรรทัดท้ายหน้า — main มีอยู่นอก section ทุกหน้าจึงเห็นเหมือนกันหมด */}
         <p className="foot">
           ต่อยอดจากโมเดลเดิม · บันทึกลง Google Sheet ผ่าน Apps Script Web App ·
-          ข้อมูลสำรองในเครื่อง (localStorage)
+          ข้อมูลสำรองในเครื่อง (IndexedDB)
         </p>
       </main>
       {role === "manager" && !managerBranch && (

@@ -13,7 +13,7 @@
  * ★ ชุดเที่ยว = inProfitScope() ทุกเที่ยว ไม่กรอง (ตัวกรองหัวหน้ายังปิดไว้) · แท็บอื่นยังรอเชื่อมข้อมูล
  */
 import logoTiger from "../../assets/logo-tiger.webp";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
@@ -103,6 +103,13 @@ function TabContent({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
 export default function ExecutiveSummary() {
   const [tab, setTab] = useState<TabId>("summary");
   const page = useDashPage();
+  // เปลี่ยนแท็บย่อย = เด้งไปบนสุดของหน้าทันที (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมเลื่อนค้างตำแหน่งของแท็บก่อน)
+  // ครอบทุกทาง: กดแถบแท็บ · ลูกศร/Home/End · ลิงก์ในหน้า Summary (onTab) · ข้ามรอบแรกที่เพิ่งเปิดหน้า
+  const firstTab = useRef(true);
+  useEffect(() => {
+    if (firstTab.current) { firstTab.current = false; return; }
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [tab]);
   const tabs = <div className="es-tabs" role="tablist" aria-label="ส่วนของ Executive Summary"
     onKeyDown={(event) => {
       const current = TABS.findIndex((item) => item.id === tab);

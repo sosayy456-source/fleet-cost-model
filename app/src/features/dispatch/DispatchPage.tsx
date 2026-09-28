@@ -407,7 +407,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
               <div className="bill-grid dp-grid4">
                 <VehiclePickFields pick={hp} setPick={setHp} pool={heads} trailer={false}
                   kindNames={ACTIVE_VEHICLE_NAMES} anyKind="ทุกชนิดรถ" plateLabel="ทะเบียนรถ"
-                  noneLabel={(n) => (n ? `เลือกทะเบียน (${n} คัน)` : "ไม่พบรถตามที่เลือก")} />
+                  noneLabel={(n) => (n ? "เลือกทะเบียน" : "ไม่พบรถตามที่เลือก")} />
                 <div className="f"><label>วันปล่อยรถ</label>
                   <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} /></div>
               </div>

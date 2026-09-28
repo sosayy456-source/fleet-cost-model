@@ -167,9 +167,13 @@ export default function DemoDash() {
 
   const m = data?.manifest;
   /** เที่ยวที่กรองแล้วสำหรับกล่อง PI — null = ไฟล์ต้นทุนยังไม่มี/โหลดไม่ได้ (กล่องขึ้น "ไม่มีข้อมูล") */
-  const piTrips = m && !error ? trips : null;
-  /** ทุกเที่ยวในชุด ไม่ตามตัวกรอง — ชุดอ้างอิงของ P75 ใน Service Quality และชุดที่ Empty Return กรองเอง (ข้ามกลุ่มบริการ) */
+  // ช่วงที่ประเมินของ PI: ไม่เลือกปี = เดือนล่าสุดของไฟล์ (เจ้าของงานเลือก 28 ก.ย. 2569) — การ์ด/กราฟอื่นยังตามตัวกรองเดิม
+  const piEval = useMemo(() => (m && !error ? Pi.tripEvalOf(all, fv) : null), [m, error, all, fv]);
+  const piTrips = piEval?.trips ?? null;
+  /** ทุกเที่ยวในชุด ไม่ตามตัวกรอง — ชุดที่ Empty Return กรองเอง (ข้ามกลุ่มบริการ) */
   const piRef = m && !error ? all : null;
+  /** ชุดอ้างอิงของเกณฑ์ percentile = 12 เดือนล่าสุดของไฟล์ ตามตัวกรองยกเว้นเวลา (InDex_revised v2.md · lib/pi/baseline.ts) */
+  const piRefs = useMemo(() => (piRef ? Pi.tripRefOf(piRef, fv) : null), [piRef, fv]);
   const meta = m && (
     <Meta parts={[
       <><b>{fmt(all.length)}</b> เที่ยวที่นับกำไร (จับคู่บิลได้ {fmt(m.matched)} + เที่ยวเปล่าที่จับคู่ไม่ได้ {fmt(all.length - m.matched)}) จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
@@ -256,17 +260,18 @@ export default function DemoDash() {
         <PiReportProvider value={pi.report}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} /></>)}
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
-            <PiCost trips={piTrips} /></>)}
+            <PiCost trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("cust", <>
             <CustomerProfitTab f={fv} />
             {/* Service Quality (ซ้าย) + การ์ด Damage Rate (ขวา) ขนาดเท่ากัน */}
             <div className="pi-pair">
-              <PiService trips={piTrips} refTrips={piRef} />
-              <DamageRateBox trips={piTrips} />
+              <PiService trips={piTrips} refTrips={piRefs?.trips ?? null} period={piEval?.label} />
+              {/* การ์ด Damage Rate ใบเดียวกับแท็บ Damage — ตามตัวกรองของหน้า ไม่ใช่ช่วงที่ประเมินของ PI */}
+              <DamageRateBox trips={m && !error ? trips : null} />
             </div>
             <PiTotal reports={pi.reports} />
           </>)}

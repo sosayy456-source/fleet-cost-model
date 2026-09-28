@@ -61,6 +61,14 @@ const DEBT_RANK: Record<DebtStatus, number> = { notdue: 0, late30: 1, late60: 2,
 const periodIn = (p: MgrPeriod): string =>
   p.kind === "day" ? `วันที่ ${periodLabel(p)}` : p.kind === "month" ? `ในเดือน${periodLabel(p)}` : `ใน${periodLabel(p)}`;
 const share = (x: number, of: number) => (of > 0 ? `(${pct(x / of * 100, 0)})` : undefined);
+/**
+ * ยอดเงินบนการ์ดลูกหนี้ — หลักล้านเขียนเป็นล้านบาททศนิยม 2 ตำแหน่ง แบบ Executive Summary / ส่วน DSO
+ * (เจ้าของงานเลือก 28 ก.ย. 2569 · เดิมบาทเต็มยาวจนการ์ดแรกถูกตัด "12,552,9…") · ต่ำกว่าล้านเขียนเต็มเป็นบาท
+ */
+const money = (v: number): { v: string; unit: string } => (Math.abs(v) >= 1e6
+  ? { v: (v / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), unit: "ล้านบาท" }
+  : { v: fmt(Math.round(v)), unit: "บาท" });
+const moneyText = (v: number): string => { const m = money(v); return `${m.v} ${m.unit}`; };
 const custCode = (n: number | null): string => (n ? `CUS${String(n).padStart(7, "0")}` : "");
 
 /** records = ใบที่บันทึกใหม่ในโมเดล (useRecords ของ App) — ขึ้นเฉพาะใบที่ไฟล์ของบริษัทยังไม่มี */
@@ -521,15 +529,15 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
       ) : (
         <>
           <div className="dz-heroes dso-heroes">
-            <Hero kind="cust" l="ลูกหนี้คงค้างรวม" unit="บาท" v={fmt(Math.round(s.outstanding))}
-              s={`ยังไม่ถึงกำหนด ${fmt(Math.round(s.notdue))} บาท`}
+            <Hero kind="cust" l="ลูกหนี้คงค้างรวม" {...money(s.outstanding)}
+              s={`${fmt(s.n.all)} บิล · ยังไม่ถึงกำหนด ${moneyText(s.notdue)}`}
               onClick={() => { setPick(null); setPickCust(null); }} active={pick === null && open.length > 0} />
-            <Hero kind="warn" l="เกินกำหนด 1–30 วัน" unit="บาท" v={fmt(Math.round(s.late30))}
-              vSub={share(s.late30, s.outstanding)} s="กดเพื่อดูเฉพาะกลุ่มนี้" onClick={() => toggle("late30")} active={pick === "late30"} />
-            <Hero kind="loss" l="เกินกำหนด 31–60 วัน" unit="บาท" v={fmt(Math.round(s.late60))}
-              vSub={share(s.late60, s.outstanding)} s="กดเพื่อดูเฉพาะกลุ่มนี้" onClick={() => toggle("late60")} active={pick === "late60"} />
-            <Hero kind="loss" l="เกินกำหนด 61 วันขึ้นไป" unit="บาท" v={fmt(Math.round(s.late61))}
-              vSub={share(s.late61, s.outstanding)} s="กดเพื่อดูเฉพาะกลุ่มนี้" onClick={() => toggle("late61")} active={pick === "late61"} />
+            <Hero kind="warn" l="เกินกำหนด 1–30 วัน" {...money(s.late30)}
+              vSub={share(s.late30, s.outstanding)} s={`${fmt(s.n.late30)} บิล · กดเพื่อดูเฉพาะกลุ่มนี้`} onClick={() => toggle("late30")} active={pick === "late30"} />
+            <Hero kind="loss" l="เกินกำหนด 31–60 วัน" {...money(s.late60)}
+              vSub={share(s.late60, s.outstanding)} s={`${fmt(s.n.late60)} บิล · กดเพื่อดูเฉพาะกลุ่มนี้`} onClick={() => toggle("late60")} active={pick === "late60"} />
+            <Hero kind="loss" l="เกินกำหนด 61 วันขึ้นไป" {...money(s.late61)}
+              vSub={share(s.late61, s.outstanding)} s={`${fmt(s.n.late61)} บิล · กดเพื่อดูเฉพาะกลุ่มนี้`} onClick={() => toggle("late61")} active={pick === "late61"} />
             <Hero kind="fleet" l="อายุหนี้เฉลี่ย (DSO)" unit="วัน" v={s.dso == null ? "–" : fmt(Math.round(s.dso))}
               s={s.dso == null ? "ไม่มีบิลวางในช่วง — หารไม่ได้" : `คงค้าง ÷ วางบิลในช่วง × ${fmt(s.days)} วัน`} />
           </div>

@@ -410,6 +410,8 @@ export function outstandingAt(rows: DebtorRow[], asOf: string): MgrBill[] {
 
 export interface DebtSummary {
   outstanding: number; notdue: number; late30: number; late60: number; late61: number;
+  /** จำนวนบิลค้าง ทั้งหมด + รายช่วงอายุหนี้ (คู่กับยอดเงินข้างบน) */
+  n: { all: number; notdue: number; late30: number; late60: number; late61: number };
   /** วางบิลในช่วง / เก็บเงินได้ในช่วง (บาท + จำนวนบิล) */
   billed: number; billedN: number; collected: number; collectedN: number;
   /** null = ไม่มีบิลวางในช่วง (หารไม่ได้) */
@@ -419,8 +421,9 @@ export interface DebtSummary {
 /** open = outstandingAt(rows, r.end) · rows = บิลทั้งไฟล์ที่กรองสาขาแล้ว (ใช้หากระแสของช่วง) */
 export function debtSummary(open: MgrBill[], rows: DebtorRow[], r: Range): DebtSummary {
   const s: DebtSummary = { outstanding: 0, notdue: 0, late30: 0, late60: 0, late61: 0,
+    n: { all: 0, notdue: 0, late30: 0, late60: 0, late61: 0 },
     billed: 0, billedN: 0, collected: 0, collectedN: 0, dso: null, days: dayNum(r.end) - dayNum(r.start) + 1 };
-  for (const b of open) { s.outstanding += b.amount; s[b.status] += b.amount; }
+  for (const b of open) { s.outstanding += b.amount; s[b.status] += b.amount; s.n.all++; s.n[b.status]++; }
   for (const x of rows) {
     if (x.issue >= r.start && x.issue <= r.end) { s.billed += x.amount; s.billedN++; }
     if (x.close && x.close >= r.start && x.close <= r.end) { s.collected += x.amount; s.collectedN++; }

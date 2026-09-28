@@ -81,7 +81,8 @@ describe("ลูกหนี้ — ยอดคงค้าง ณ วันส
   it("อายุหนี้ · วางบิล/เก็บเงินในช่วง · DSO = คงค้าง ÷ วางบิลในช่วง × วัน", () => {
     const s = debtSummary(outstandingAt(rows, may.end), rows, may);
     expect(s).toMatchObject({ outstanding: 1649, notdue: 300, late30: 1099, late60: 200, late61: 50,
-      billed: 1000, billedN: 4, collected: 400, collectedN: 1, days: 31 });
+      billed: 1000, billedN: 4, collected: 400, collectedN: 1, days: 31,
+      n: { all: 5, notdue: 1, late30: 2, late60: 1, late61: 1 } });
     expect(s.dso).toBeCloseTo(1649 / 1000 * 31);
   });
   it("ไม่มีบิลวางในช่วง = DSO หารไม่ได้", () => {

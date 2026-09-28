@@ -77,7 +77,7 @@ export default function FleetUtilizationView({ rows, trips, use }: { rows: Fleet
 
     <div className="dz-cc fu-card">
       <h4>สัดส่วนการใช้รถในแต่ละกลุ่มบริการ</h4>
-      <p className="dz-note">สัดส่วนเที่ยวแยกตามประเภทรถ เพื่อใช้ประกอบการตัดสินใจจัดรถ</p>
+      <Note>สัดส่วนเที่ยวแยกตามประเภทรถ เพื่อใช้ประกอบการตัดสินใจจัดรถ</Note>
       {!mix.length ? <p className="dz-note">ไม่มีข้อมูลตามตัวกรองที่เลือก</p> : (
         <div className="fu-mix">
           {mix.map((g) => <div key={g.service} className="fu-mix-col">
@@ -106,13 +106,13 @@ export default function FleetUtilizationView({ rows, trips, use }: { rows: Fleet
             </li>;
           })}</ol>
         )}
-        <p className="dz-note">หน่วย: เที่ยว · {fmt(top.length)} เส้นทางรวม {fmt(topTrips)} เที่ยว ·
+        <Note>หน่วย: เที่ยว · {fmt(top.length)} เส้นทางรวม {fmt(topTrips)} เที่ยว ·
           คิดเป็น {pct(kpi.n ? topTrips / kpi.n * 100 : 0)} ของเที่ยวทั้งหมด · จากทั้งหมด {fmt(routes.length)} เส้นทาง ·
-          กดเส้นทางเพื่อดูทุกเที่ยว</p>
+          กดเส้นทางเพื่อดูทุกเที่ยว</Note>
       </div>
       <div className="dz-cc">
         <h4>สัดส่วนการใช้รถแต่ละประเภท</h4>
-        <p className="dz-note">รวม {fmt(typeTotal)} เที่ยว ในช่วงเวลาที่เลือก</p>
+        <Note>รวม {fmt(typeTotal)} เที่ยว ในช่วงเวลาที่เลือก</Note>
         {!types.length ? <p className="dz-note">ไม่มีข้อมูลตามตัวกรองที่เลือก</p> : <>
           <DDonut data={types.map((t) => ({ name: t.key, v: t.n }))} colors={types.map((t) => ftColor(t.key))}
             suffix=" เที่ยว" center={<><b>{fmt(typeTotal)}</b><span>เที่ยว</span></>} />
@@ -121,8 +121,8 @@ export default function FleetUtilizationView({ rows, trips, use }: { rows: Fleet
             <b>{pct(t.share, 0)} · {fmt(t.n)} เที่ยว</b>
           </li>)}</ul>
         </>}
-        {typeTotal > kpi.n && <p className="dz-note">ใบที่มีรถหลายประเภท (เช่น หัวรถบริษัท + หางรถร่วม) นับในทุกประเภทที่มี
-          ยอดรวมจึงมากกว่าจำนวนเที่ยว {fmt(kpi.n)} เที่ยวในการ์ดด้านบน</p>}
+        {typeTotal > kpi.n && <Note>ใบที่มีรถหลายประเภท (เช่น หัวรถบริษัท + หางรถร่วม) นับในทุกประเภทที่มี
+          ยอดรวมจึงมากกว่าจำนวนเที่ยว {fmt(kpi.n)} เที่ยวในการ์ดด้านบน</Note>}
       </div>
     </div>
 
@@ -186,7 +186,7 @@ function UseTable({ rows }: { rows: FleetSlice[] }) {
   return <div className="dz-cc fu-card">
     <div className="fu-thead"><h4>ตารางสรุป · เส้นทาง × กลุ่มบริการ × ชนิดรถ</h4>
       <span className="dz-note">{fmt(shown.length)} รายการ</span></div>
-    <p className="dz-note">เปรียบเทียบ Margin ของรถบริษัทและรถร่วมในแต่ละเส้นทางและชนิดรถ</p>
+    <Note>เปรียบเทียบ Margin ของรถบริษัทและรถร่วมในแต่ละเส้นทางและชนิดรถ</Note>
     <div className="dz-filters fu-tfilters">
       <ListFF label="เส้นทาง" all="ทุกเส้นทาง" value={f.rt} onChange={set("rt")} opts={duniq(all.map((r) => r.rt))} />
       <ListFF label="กลุ่มบริการ" all="ทั้งหมด" value={f.service} onChange={set("service")} opts={duniq(all.map((r) => r.service))} />

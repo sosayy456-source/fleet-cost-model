@@ -2,7 +2,7 @@
  * ชิ้นส่วนหน้าตาของแดชบอร์ด — ตรงกับคลาสที่ index.html บน main ใช้
  * แยกไฟล์ไว้เพราะทั้ง 6 แท็บใช้ร่วมกัน และจะได้ไม่ปนกับตรรกะการคำนวณ
  */
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { useNumFade } from "../../lib/chart/dashfx";
 
@@ -136,7 +136,23 @@ export function CC({ title, tall, children }: { title: string; tall?: boolean; c
 export const ZT = ({ children }: { children: ReactNode }) => <div className="dz-t">{children}</div>;
 
 /** ข้อความอธิบายวิธีคิดใต้ตาราง/กราฟ */
-export const Note = ({ children }: { children: ReactNode }) => <div className="dz-note">{children}</div>;
+/**
+ * คำอธิบาย/วิธีคิดใต้กราฟ ตาราง การ์ด — ยุบไว้หลังปุ่ม ⓘ กดเพื่อกาง กดซ้ำเพื่อพับ
+ * (เจ้าของงานสั่ง 28 ก.ย. 2569: คำอธิบายไม่จำเป็นต่อการอ่านตัวเลข ซ่อนไว้ให้หน้าสะอาด แต่ทีมที่ต้องตรวจสูตรยังเปิดดูได้)
+ * ★ ข้อความที่ผู้ใช้ต้องเห็นทันที (ไม่มีข้อมูล · error · ต้องรัน ETL) ห้ามใส่ใน Note — ใช้ <p className="dz-note"> ตรง ๆ
+ */
+export function Note({ children, className }: { children: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={"dz-note-wrap" + (open ? " open" : "") + (className ? ` ${className}` : "")}>
+      <button type="button" className="dz-note-i" aria-expanded={open} onClick={() => setOpen((o) => !o)}
+        title={open ? "ซ่อนคำอธิบาย" : "ดูคำอธิบาย"} aria-label={open ? "ซ่อนคำอธิบาย" : "ดูคำอธิบาย"}>
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" /><path d="M8 7.2v4.3M8 4.6v.1" /></svg>
+      </button>
+      {open && <div className="dz-note">{children}</div>}
+    </div>
+  );
+}
 
 /** ช่องตัวกรองหนึ่งช่อง */
 export function FF({ label, value, onChange, children, disabled }: {

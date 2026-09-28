@@ -107,6 +107,13 @@ td.name input{min-width:150px}
 
 /* กล่องหลักการ — แบบ .price-note ของแอป */
 .diagram-box{background:var(--accent-tint);border-radius:14px;padding:14px 18px;margin-top:18px}
+/* คำอธิบาย/หลักการ ยุบไว้หลังปุ่ม ⓘ (เจ้าของงานสั่ง 28 ก.ย. 2569 — แบบเดียวกับ Note ของแดชบอร์ดในแอป) */
+.note-i{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;margin:0 0 10px;border:none;border-radius:999px;
+  background:transparent;color:var(--ink-soft);cursor:pointer;vertical-align:middle;transition:background .15s,color .15s}
+.note-i svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+.note-i:hover,.note-i[aria-expanded="true"]{background:var(--accent-tint);color:var(--accent)}
+.note-i:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.note-i + .diagram-box{margin-top:0}
 .diagram-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px}
 .detail-list{font-size:13.5px;color:#8A5A61;line-height:1.7;margin:0;padding-left:18px}
 .detail-list li{margin-bottom:4px}
@@ -432,6 +439,22 @@ function calc(){
   profitEl.style.color = totalProfit>=0 ? 'var(--green)' : 'var(--red)';
   document.getElementById('sumLossCount').textContent = lossCount + ' / ' + data.length + ' บิล';
 }
+
+/* ยุบคำอธิบายใต้หัวข้อ (.hint) กับกล่องหลักการ (.diagram-box) ไว้หลังปุ่ม ⓘ — กดกาง/กดซ้ำพับ */
+document.querySelectorAll('.card > .hint:not(.sec), .diagram-box').forEach(el => {
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'note-i';
+  btn.setAttribute('aria-expanded', 'false'); btn.setAttribute('aria-label', 'ดูคำอธิบาย'); btn.title = 'ดูคำอธิบาย';
+  btn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M8 7.2v4.3M8 4.6v.1"/></svg>';
+  el.hidden = true;
+  btn.onclick = () => {
+    el.hidden = !el.hidden;
+    const open = !el.hidden;
+    btn.setAttribute('aria-expanded', String(open));
+    btn.title = open ? 'ซ่อนคำอธิบาย' : 'ดูคำอธิบาย'; btn.setAttribute('aria-label', btn.title);
+  };
+  el.before(btn);
+});
 
 addRow('บริษัท เอ จำกัด', 8000, 12, 320, 9200);
 addRow('บริษัท บี จำกัด', 2500, 4, 320, 2100);

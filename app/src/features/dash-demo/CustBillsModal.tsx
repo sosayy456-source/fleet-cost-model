@@ -8,6 +8,7 @@
  * ★ portal ไป #view-dash ด้วยเหตุผลเดียวกับ TripsModal — โทเคนสีของแดชบอร์ดอยู่ใต้ #view-dash เท่านั้น
  */
 import { useEffect, useMemo } from "react";
+import { Note } from "../dash-fleet/parts";
 import { createPortal } from "react-dom";
 import { thDateSafe } from "../../lib/record/date";
 import { ShortId } from "../../lib/custmap/ShortId";
@@ -73,13 +74,14 @@ export default function CustBillsModal({ row, bills, period, loading, error, onC
           <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(b, i) => `${b.bill}-${i}`}
             empty={loading ? "กำลังโหลดรายการบิล..." : error ? `โหลดรายการบิลไม่สำเร็จ: ${error}` : "ไม่มีบิลของลูกค้ารายนี้ในช่วงเวลาที่กรอง"}
             className={hasBreakdown ? "ta-tbl" : undefined} />
-          <p className="dz-note" style={{ marginTop: 8 }}>
-            {hasBreakdown
-              ? <>ต้นทุนจัดสรร = ต้นทุนเที่ยว × Metric ของบิล ÷ Metric รวมของทุกบิลในเที่ยว · CF = ความจุน้ำหนัก ÷ ความจุปริมาตร
+          {hasBreakdown ? (
+            <Note>ต้นทุนจัดสรร = ต้นทุนเที่ยว × Metric ของบิล ÷ Metric รวมของทุกบิลในเที่ยว · CF = ความจุน้ำหนัก ÷ ความจุปริมาตร
                   ของรถทุกคันในใบ · น้ำหนักเทียบเท่า = MAX(น้ำหนัก, ปริมาตร × CF) · Metric = น้ำหนักเทียบเท่า × ระยะทาง ·
-                  บิลที่น้ำหนัก/ขนาดเชื่อไม่ได้ปันตามรายได้</>
-              : "ไฟล์ปันส่วนรุ่นนี้ยังไม่มีที่มาของต้นทุนรายบิล — รัน python etl/build_alloc.py ใหม่"}
-          </p>
+                  บิลที่น้ำหนัก/ขนาดเชื่อไม่ได้ปันตามรายได้
+            </Note>
+          ) : (
+            <p className="dz-note" style={{ marginTop: 8 }}>ไฟล์ปันส่วนรุ่นนี้ยังไม่มีที่มาของต้นทุนรายบิล — รัน python etl/build_alloc.py ใหม่</p>
+          )}
         </div>
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>ปิด</button>
