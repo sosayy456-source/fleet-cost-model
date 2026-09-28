@@ -37,7 +37,7 @@ export interface DashShellProps {
    * หัวแบบแคปซูลยาว — tabs = ปุ่มแท็บ · sub = บรรทัดรองใต้หัวเรื่อง · tools = ปุ่มก่อนรีเฟรช
    * filters = ปุ่มตัวกรองมาตรฐาน: FilterBar ของแท็บที่เปิดอยู่ portal เข้าแผงของปุ่มนี้ (ตัวกรองเปลี่ยนตามแท็บเอง)
    */
-  capsule?: { tabs: ReactNode; sub?: ReactNode; tools?: ReactNode; filters?: boolean };
+  capsule?: { tabs: ReactNode; sub?: ReactNode; tools?: ReactNode; filters?: boolean; info?: ReactNode };
   children?: ReactNode;
 }
 
@@ -219,8 +219,8 @@ function CapFilter({ slot, slotRef }: { slot: HTMLElement | null; slotRef: (el: 
  * บรรทัดที่มาของข้อมูล + ป้าย "ข้อมูลตัวอย่าง" (หน้าสุด) อยู่ในแผงของปุ่มนั้น กดถึงจะโชว์ (เจ้าของงานสั่ง 28 ก.ย. 2569 รอบสาม ·
  * เดิมเป็นบรรทัดใต้แคปซูล) · ข้อมูลตัวอย่าง = ปุ่มมีจุดสีอำพันให้รู้โดยไม่ต้องกด
  */
-function CapsuleHead({ title, isSample, meta, tabs, sub, tools, onRefresh, loading, refreshTitle, onSwitchRole, roleLabel }: {
-  title?: string; isSample?: boolean; meta?: ReactNode; tabs: ReactNode; sub?: ReactNode; tools?: ReactNode;
+function CapsuleHead({ title, isSample, meta, info, tabs, sub, tools, onRefresh, loading, refreshTitle, onSwitchRole, roleLabel }: {
+  title?: string; isSample?: boolean; meta?: ReactNode; info?: ReactNode; tabs: ReactNode; sub?: ReactNode; tools?: ReactNode;
   onRefresh: () => void; loading?: boolean; refreshTitle?: string; onSwitchRole?: () => void; roleLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -233,7 +233,7 @@ function CapsuleHead({ title, isSample, meta, tabs, sub, tools, onRefresh, loadi
     document.addEventListener("keydown", esc);
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", esc); };
   }, [open]);
-  const hasInfo = !!meta || !!isSample;
+  const hasInfo = !!info || !!meta || !!isSample;
   return (
     <div className="cap-bar">
       <header className="cap">
@@ -264,7 +264,7 @@ function CapsuleHead({ title, isSample, meta, tabs, sub, tools, onRefresh, loadi
           {open && (
             <div id="cap-info-panel" className="cap-info-panel" role="region" aria-label="ที่มาของข้อมูล">
               {isSample && <span className="dh-sample"><i aria-hidden="true" />ข้อมูลตัวอย่าง — ไม่ใช่ยอดจริงของบริษัท</span>}
-              {meta && <p className="dh-meta">{meta}</p>}
+              {info ? <div className="cap-info-content">{info}</div> : meta && <p className="dh-meta">{meta}</p>}
             </div>
           )}
         </div>

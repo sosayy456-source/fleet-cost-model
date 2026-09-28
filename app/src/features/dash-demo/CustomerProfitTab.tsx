@@ -21,14 +21,14 @@
  *
  * ★ Demo รวมเป็นหน้ายาวหน้าเดียว (24 ก.ย. 2569) — ส่วนนี้ไม่มีตัวกรองของตัวเองแล้ว ใช้ ปี/เดือน จากตัวกรองของหน้า
  *   (ชุด alloc/ ยุบได้แค่ลูกค้า × เดือนตามวันที่บิล ตัวกรองอื่นขึ้นบรรทัดบอกผ่าน FilterScope)
- *   ส่วนที่ 2 (DSO) ใช้ตัวกรองสาขาของหน้า และมี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ที่หัวส่วนที่ 2
+ *   ส่วนที่ 2 (DSO) ใช้ตัวกรองสาขาของหน้า และมี "ข้อมูล ณ วันที่" ของตัวเอง · ช่วงข้อมูล + ข้อจำกัดอยู่ในปุ่มข้อมูลเมื่ออยู่บนส่วนนี้
  *   ป้ายตัวอย่าง/จริงของแต่ละส่วนอยู่ที่ SourceTag — สองชุดเลือก real/sample แยกกัน
  *
  * ★ ท้ายส่วน (25 ก.ย. 2569): กล่อง Customer Profitability & Cash Flow Index กล่องยาว (การ์ด Damage Rate ย้ายไปข้าง Service Quality)
  *   Customer Net Profit ให้สีรายลูกค้าจากชุดเดียวกับส่วนที่ 1 (rollupCustomers) · DSO ให้สีรายบิลจากไฟล์ลูกหนี้
  *   ณ "ข้อมูล ณ วันที่" เดียวกับส่วนที่ 2 (OverdueSection แจ้งวันที่ออกมาทาง onAsOf) · สูตรคะแนนอยู่ใน lib/pi/score.ts
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { collectionDays } from "../../lib/debtors/aging";
 import { INDEXES, metricResult } from "../../lib/pi/score";
 import type { MetricResult } from "../../lib/pi/score";
@@ -123,9 +123,23 @@ export function custPiResults(alloc: AllocData | null, debtors: DebtorData | nul
   ];
 }
 
-export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
+export default function CustomerProfitTab({ f, onProfitInfo, onDebtorInfo }: {
+  f: DemoFilter;
+  onProfitInfo?: (content: ReactNode, sample?: boolean) => void;
+  onDebtorInfo?: (content: ReactNode, sample?: boolean) => void;
+}) {
   const alloc = useAlloc();
   const debtors = useDebtors();
+  const allocSample = alloc.data?.manifest.isSample;
+  useEffect(() => {
+    onProfitInfo?.(<>
+      <h3>Customer Performance · กำไรลูกค้า</h3>
+      <p>ข้อมูลจากการปันต้นทุนเที่ยวให้บิลรายได้ ยุบเป็นรายลูกค้า × เดือนตามวันที่บิล{allocSample !== undefined && ` · ${allocSample ? "ข้อมูลตัวอย่าง" : "ข้อมูลจริง"}`}</p>
+      <p>รายละเอียดเปิดได้สูงสุด 100 บิลล่าสุดต่อรายในช่วงเวลาที่เลือก แต่ยอดรวมในตารางคำนวณจากทุกบิล</p>
+      <p>เมื่อบิลส่วนใหญ่ไม่มีน้ำหนัก/ขนาด หรือขนาดผิดปกติ ระบบปันต้นทุนตามสัดส่วนรายได้แทนน้ำหนัก × ระยะทาง และแสดงป้าย “ปันตามรายได้”</p>
+      <FilterScope f={f} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่มีสาขาและไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
+    </>, allocSample);
+  }, [onProfitInfo, allocSample, f]);
   /** "ข้อมูล ณ วันที่" ที่ส่วน DSO เลือกอยู่ — คะแนน DSO ใช้วันเดียวกัน */
   const [asOf, setAsOf] = useState<string | null>(null);
   const custPi = useMemo(() => custPiResults(alloc.data, debtors.data, asOf, f),
@@ -156,12 +170,13 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
           </p>
         </div>
       ) : (
-        <ProfitPart data={alloc.data} f={f} />
+        <><div data-demo-info="cust" className="dm-info-anchor" /><ProfitPart data={alloc.data} f={f} infoInHeader={!!onProfitInfo} /></>
       )}
 
       {/* ส่วนที่ 2 — เว้นบรรทัดจากส่วนแรกตามสเปก */}
       <div style={{ height: 28 }} />
-      <OverdueSection state={debtors} branch={f.br} onAsOf={setAsOf} />
+      <div data-demo-info="cust-debtors" className="dm-info-anchor" />
+      <OverdueSection state={debtors} branch={f.br} onAsOf={setAsOf} onInfo={onDebtorInfo} />
 
       {/* Performance Index — กล่องยาว */}
       <PiBox index={INDEXES.cust} results={custPi} />
@@ -170,7 +185,7 @@ export default function CustomerProfitTab({ f }: { f: DemoFilter }) {
 }
 
 /* ================================================================ ส่วนที่ 1 */
-function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
+function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoFilter; infoInHeader: boolean }) {
   // ใช้แค่ปี/เดือนของตัวกรองหน้า — แยกออกมาเป็น object เล็ก ตัวกรองอื่นเปลี่ยนแล้วจะได้ไม่คำนวณซ้ำ
   const f = useMemo<Period>(() => ({ year: page.year, from: page.from, to: page.to }), [page.year, page.from, page.to]);
   const [pick, setPick] = useState<Sel | null>(null);
@@ -283,8 +298,10 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
   return (
     <>
       <Pane deps={[rows]}>
-        <SourceTag block sample={data.manifest.isSample} what="ส่วนกำไรลูกค้า (ไฟล์ต้นทุน + บิลรายได้)" />
-        <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่มีสาขาและไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
+        {!infoInHeader && <>
+          <SourceTag block sample={data.manifest.isSample} what="ส่วนกำไรลูกค้า (ไฟล์ต้นทุน + บิลรายได้)" />
+          <FilterScope f={page} uses={["year", "month"]} why="ยอดกำไรลูกค้ายุบไว้เป็นรายลูกค้า × เดือนของบิล ไม่มีสาขาและไม่ได้แยกตามเส้นทาง/รถ/กลุ่มบริการ" />
+        </>}
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
           <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"
@@ -341,10 +358,9 @@ function ProfitPart({ data, f: page }: { data: AllocData; f: DemoFilter }) {
           />
           <Note>
             กดที่แถวของลูกค้าที่ติด <b>Top 100 กำไรสูงสุด/ขาดทุนมากสุด</b> หรือ <b>Top 10 ของแต่ละช่วง %Margin</b> เพื่อดูรายละเอียด ·
-            <b> ข้อจำกัดทางข้อมูล:</b> ดูได้สูงสุด 100 บิลล่าสุดต่อรายในช่วงเวลาที่เลือก ยอดรวมในตารางยังคำนวณจากทุกบิล ·
-            อัตรากำไร = กำไร ÷ รายได้ · รายได้ 0 แล้วขาดทุนคิดเป็น −100% ·
-            ป้าย <span className="cp-rev">ปันตามรายได้</span> = บิลส่วนใหญ่ของรายนี้ไม่มีน้ำหนัก/ขนาด หรือกรอกขนาดผิดปกติ
-            จึงปันต้นทุนตามสัดส่วนรายได้แทนน้ำหนัก × ระยะทาง
+            อัตรากำไร = กำไร ÷ รายได้ · รายได้ 0 แล้วขาดทุนคิดเป็น −100%
+            {!infoInHeader && <> · <b>ข้อจำกัดทางข้อมูล:</b> ดูได้สูงสุด 100 บิลล่าสุดต่อรายในช่วงเวลาที่เลือก ยอดรวมในตารางยังคำนวณจากทุกบิล ·
+              ป้าย <span className="cp-rev">ปันตามรายได้</span> = บิลส่วนใหญ่ของรายนี้ไม่มีน้ำหนัก/ขนาด หรือกรอกขนาดผิดปกติ จึงปันต้นทุนตามสัดส่วนรายได้แทนน้ำหนัก × ระยะทาง</>}
           </Note>
         </div>
       </Pane>

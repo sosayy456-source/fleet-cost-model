@@ -103,6 +103,9 @@ WASTE_COLS = [
     "ค่าน้ำมันนอกเส้นทาง(Fleet Card)",
     "ค่าน้ำมันรถวิ่งอ้อม",
 ]
+# ต้นทุนสูญเปล่ารายคอลัมน์ → คีย์ w_* ใน trips.json (แผงรายละเอียดต้นทุนแสดงชื่อค่าใช้จ่ายจริง แทนคำว่า "สูญเปล่า"
+# — เจ้าของงานสั่ง 28 ก.ย. 2569) · Σ w_* = waste
+WASTE_PARTS = {"off": "น้ำมันนอกเส้นทาง", "fleet": "ค่าน้ำมันนอกเส้นทาง(Fleet Card)", "detour": "ค่าน้ำมันรถวิ่งอ้อม"}
 FUEL_COLS = {
     "cash":   ["ค่าน้ำมันเดินทาง(เงินสด)"],
     "down":   ["ค่าน้ำมันเดินทางขาล่อง(บิลน้ำมัน)", "จำนวนเงินขาล่อง"],
@@ -530,6 +533,7 @@ def build(dataset: str) -> None:
             allow = {k: gsum(r, cs) for k, cs in ALLOW_COLS.items()}
             fee = {k: (0.0 if rent_row else gsum(r, cs)) for k, cs in FEE_COLS.items()}
             waste = gsum(r, WASTE_COLS)
+            waste_p = {k: gsum(r, [c]) for k, c in WASTE_PARTS.items()}
             repair = num(g(r, f"ค่าซ่อม{rent_side}" if rent_row else COL_REPAIR))
             dep = num(g(r, f"ค่าเสื่อม{rent_side}" if rent_row else COL_DEP))
             # ค่าเช่าอยู่ใน "ต้นทุน" เฉพาะแถวที่ หมายเหตุต้นทุน = ค่าเช่า (ต้นทุน = ค่าเช่ารวม ทั้งก้อน)
@@ -594,6 +598,7 @@ def build(dataset: str) -> None:
                 **{f"f_{k}": v for k, v in fuel.items()},
                 **{f"a_{k}": v for k, v in allow.items()},
                 **{f"fe_{k}": v for k, v in fee.items()},
+                **{f"w_{k}": v for k, v in waste_p.items()},
             })
 
     if not trips:
@@ -637,7 +642,7 @@ def build(dataset: str) -> None:
             for key in ("waste", "fuel", "allow", "fee", "repair", "dep", "rent"):
                 t[key] = round(t[key] * factor, 2)
             for key in list(t):
-                if key.startswith(("f_", "a_", "p_")):
+                if key.startswith(("f_", "a_", "p_", "w_")):
                     t[key] = round(t[key] * factor, 2)
             for vehicle in t["vs"]:
                 vehicle["c"] = round(vehicle["c"] * factor, 2)

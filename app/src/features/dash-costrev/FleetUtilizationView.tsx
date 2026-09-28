@@ -13,7 +13,7 @@ import { useMemo, useState } from "react";
 import { DDonut } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import {
-  fleetKpis, fleetTypeShare, routeServiceKindTable, routeUsage, serviceFleetMix, USE_ADVICE_LABEL,
+  EMPTY_SERVICE, fleetKpis, fleetTypeShare, routeServiceKindTable, routeUsage, serviceMixWithEmpty, USE_ADVICE_LABEL,
   type FleetSlice, type Share, type UseAdvice, type UseRow,
 } from "../../lib/fleetcompare/utilization";
 import { Hero, KC, Note } from "../dash-fleet/parts";
@@ -42,7 +42,11 @@ const TOP_ROUTES = 5;
 export default function FleetUtilizationView({ rows, trips, use }: { rows: FleetSlice[]; trips: Trip[]; use: FleetUse }) {
   const [openRt, setOpenRt] = useState<string | null>(null);
   const kpi = useMemo(() => fleetKpis(rows), [rows]);
-  const mix = useMemo(() => serviceFleetMix(rows), [rows]);
+  // เที่ยววิ่งเปล่าเป็นกลุ่มของตัวเองแทน "ไม่ระบุ / ยังแบ่งกลุ่มไม่ได้" · ที่ยังแบ่งไม่ได้จริงบอกเป็นตัวเล็ก (เจ้าของงานสั่ง 28 ก.ย. 2569)
+  const emptyIds = useMemo(() => new Set(trips.filter((t) => t.empty).map((t) => t.id)), [trips]);
+  const { mix, unknownN } = useMemo(() => serviceMixWithEmpty(rows, emptyIds), [rows, emptyIds]);
+  const unknownNote = unknownN > 0 && (
+    <p className="dz-note fu-unk">ยังแบ่งกลุ่มบริการไม่ได้อีก {fmt(unknownN)} เที่ยว (มีรายได้แต่ไฟล์ไม่มีรายได้แยกกลุ่มบริการ · ไม่ได้แสดงในกล่องใด)</p>);
   const routes = useMemo(() => routeUsage(rows), [rows]);
   const types = useMemo(() => fleetTypeShare(rows), [rows]);
   const top = routes.slice(0, TOP_ROUTES);
@@ -85,9 +89,11 @@ export default function FleetUtilizationView({ rows, trips, use }: { rows: Fleet
             <ShareBar parts={g.types} colorOf={ftColor} />
             <ShareLegend parts={g.types} colorOf={ftColor} />
             <p className="fu-main">ใช้{g.main}เป็นหลัก</p>
+            {g.service === EMPTY_SERVICE && unknownNote}
           </div>)}
         </div>
       )}
+      {!mix.some((g) => g.service === EMPTY_SERVICE) && unknownNote}
     </div>
 
     <div className="dz-row dz-2 fu-row">
