@@ -15,18 +15,23 @@
  *
  * ★ หน้าเดียว ตามไฟล์ "Dashboard ผู้จัดการสาขา.html" (เจ้าของงานส่ง 28 ก.ย. 2569 · ไม่มีแท็บแล้ว — ปุ่ม Fleet Operations /
  *   Profit & Collections ที่หัวกลายเป็นปุ่มเลื่อนไปส่วนนั้น · ส่วนเดิม "ห้ามตัดอะไรทิ้ง") เรียงตามความสำคัญของผู้บริหาร (เจ้าของงานเลือก 28 ก.ย. 2569):
- *   แถบสรุปสถานการณ์ + ต้องจัดการ → การเงินสาขา (การ์ด 4 · กราฟ 6 เดือน + ค่าใช้จ่ายตามหมวด) → หน้างานและกองรถ (การ์ดเที่ยว + เคลม ·
+ *   ต้องจัดการ (แถบสรุปสถานการณ์เอาออกแล้ว — เจ้าของงานสั่ง 28 ก.ย. 2569) → การเงินสาขา (การ์ด 4 · กราฟ 6 เดือน + ค่าใช้จ่ายตามหมวด) → หน้างานและกองรถ (การ์ดเที่ยว + เคลม ·
  *   สถานะรถ + ต้นทุน) → ลูกค้าและลูกหนี้ (อายุลูกหนี้ · รายได้แยกตามลูกค้า) → เปรียบเทียบรายสาขา (การ์ดเดียวสลับ การเงิน / สถานะเที่ยว)
  *   → ตารางเที่ยวที่กำลังวิ่ง → ลูกหนี้ค้างชำระ
  *   ส่วนในไฟล์ที่ไม่มีข้อมูล (ส่งตรงเวลา · พัสดุค้าง · COD · คนขับ · พรุ่งนี้) ไม่ทำ · สูตรภาพรวม lib/manager/overview.ts · หน้าตา Overview.tsx
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import TripBillsModal from "./TripBillsModal";
-import { AgingBox, CostBox, CostParts, CustRevenueBox, Delta, FleetBox, MonthChart, Verdict, money, moneyText } from "./Overview";
+import TodayBills, { todayBills } from "./TodayBills";
+import { useBills } from "../../lib/store/bills";
+import { AgingBox, CostBox, CostParts, CustRevenueBox, Delta, FleetBox, MonthChart, money, moneyText } from "./Overview";
 import {
   claimsIn, costByPart, costKpis, custRevenue, finTotals, fleetStatusAt, monthlyFin, pctChange, prevPeriod,
 } from "../../lib/manager/overview";
 import { useRoster } from "../../lib/store/roster";
+import { inWindow, refWindow } from "../../lib/pi/baseline";
+import { METRICS } from "../../lib/pi/score";
+import { collectionDays, collectionDaysBy, debtorFileEnd } from "../../lib/debtors/aging";
 import type { ReactNode } from "react";
 import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
@@ -43,9 +48,9 @@ import { thDateSafe } from "../../lib/record/date";
 import { loadSessionBranch } from "../../lib/store/sessionBranch";
 import {
   BAND_LABEL, DEBT_STATUS_LABEL, buildTrips, fileSrc, recordSrc, byBranch, byCustomer, debtSummary, finSummary, latestPeriod, outstandingAt,
-  BENCH_MIN, DUE_SOON_DAYS, OVER_BAHT, OVER_PCT, dueSoon, issueCounts, issueLabel, lfSummary, managerTodo, onRoad, periodLabel, periodOptions, periodRange, releasedIn,
+  BENCH_MIN, DUE_SOON_DAYS, OVER_BAHT, OVER_PCT, dueSoon, marginOf, tripThresholds, issueCounts, issueLabel, lfSummary, managerTodo, onRoad, periodLabel, periodOptions, periodRange, releasedIn,
 } from "../../lib/manager/manager";
-import type { DebtCust, DebtStatus, IssueKey, MgrBill, MgrPeriod, MgrSrc, MgrTrip, PeriodKind, Range, Todo } from "../../lib/manager/manager";
+import type { DebtCust, DebtStatus, IssueKey, MgrBill, MgrPeriod, MgrSrc, MgrTrip, PeriodKind, Range, Todo, TripThresholds } from "../../lib/manager/manager";
 import { branchOf } from "../../lib/manager/manager";
 import type { DebtorRow } from "../../lib/data/useDebtors";
 import type { RoleKey, TripRecord } from "../../types/record";
@@ -64,10 +69,16 @@ const ALL = "";
 const BAND_DOT: Record<string, string> = { g: "🟢", y: "🟡", r: "🔴", na: "⚪" };
 /** เรียงคอลัมน์สถานะ: มากไปน้อย = ผ่าน → ไม่ผ่าน */
 const BAND_RANK: Record<string, number> = { g: 3, y: 2, r: 1, na: 0 };
-const LF_OPTS = [
-  { v: "g", label: "🟢 ≥ 70%" }, { v: "y", label: "🟡 40–70%" }, { v: "r", label: "🔴 < 40%" }, { v: "na", label: "⚪ ไม่มี LF" },
-];
-const MARGIN_OPTS = [{ v: "g", label: "🟢 > 10%" }, { v: "y", label: "🟡 5–10%" }, { v: "r", label: "🔴 < 5%" }];
+/** ตัวเลขเกณฑ์ % ในป้าย/ตัวกรอง */
+const pc1 = (v: number): string => `${v.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
+/** เกณฑ์สีของเที่ยวเป็นข้อความ (เกณฑ์ PI) — ตัวกรองคอลัมน์ + หมายเหตุใต้ตาราง */
+const lfCrit = (th: TripThresholds) => (th.lf
+  ? { g: `> P70 (${pc1(th.lf.p70)})`, y: `P30–P70 (${pc1(th.lf.p30)}–${pc1(th.lf.p70)})`, r: `< P30 (${pc1(th.lf.p30)})` }
+  : { g: "ไม่มีเกณฑ์", y: "ไม่มีเกณฑ์", r: "ไม่มีเกณฑ์" });
+const marginCrit = (th: TripThresholds) => ({
+  g: th.margin ? `≥ P75 (${pc1(th.margin.p75)})` : "ไม่มีเกณฑ์",
+  y: th.margin ? `0 ถึง < P75` : "ไม่มีเกณฑ์", r: "ขาดทุน (< 0)",
+});
 const DEBT_DOT: Record<DebtStatus, string> = { notdue: "🟢", late30: "🟡", late60: "🟠", late61: "🔴" };
 /** เรียงคอลัมน์สถานะ: มากไปน้อย = ค้างนานสุดก่อน */
 const DEBT_RANK: Record<DebtStatus, number> = { notdue: 0, late30: 1, late60: 2, late61: 3 };
@@ -94,6 +105,8 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
   const locked = role === "manager" ? loadSessionBranch() : null;
   const [pickBr, setPickBr] = useState(ALL);
   const branch = role === "manager" ? locked ?? "" : pickBr;
+  const inBranch = <T extends { br: string }>(x: T): boolean =>
+    role === "manager" ? !!locked && x.br === locked : !branch || x.br === branch;
 
   /* ---------- เที่ยว = ไฟล์ต้นทุน + LF ---------- */
   const lfById = useMemo(() => new Map((lf.data?.trips ?? []).map((t) => [t.id, t.lf])), [lf.data]);
@@ -103,7 +116,17 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
   const newRows = useMemo(
     () => recordSrc(records, new Set((cr.data?.trips ?? []).map((t) => t.id)), fc),
     [records, cr.data, fc]);
-  const all = useMemo(() => buildTrips(fileRows, newRows), [fileRows, newRows]);
+  // เกณฑ์สีของเที่ยว = เกณฑ์ Performance Index (เจ้าของงานสั่ง 28 ก.ย. 2569) — percentile จาก 12 เดือนล่าสุดของแต่ละไฟล์
+  //   LF = ทุกเที่ยวในไฟล์ Load Factor (ไฟล์ไม่มีสาขา) · Margin = เที่ยวของไฟล์ต้นทุนในสาขาที่เลือก (ตามตัวกรองยกเว้นเวลา)
+  const th = useMemo(() => {
+    const lw = lf.data ? refWindow(lf.data.trips.map((t) => t.mo)) : null;
+    const lfRef = lf.data && lw ? lf.data.trips.filter((t) => inWindow(t.mo, lw)).map((t) => t.lf * 100) : [];
+    const cw = refWindow(fileRows.map((t) => t.d.slice(0, 7)));
+    const mRef = cw ? fileRows.filter((t) => inWindow(t.d.slice(0, 7), cw) && inBranch({ br: branchOf(t.br) }))
+      .flatMap((t) => { const m = marginOf(t.rev, t.profit); return m == null ? [] : [m]; }) : [];
+    return tripThresholds(lfRef, mRef);
+  }, [lf.data, fileRows, branch]); // eslint-disable-line react-hooks/exhaustive-deps
+  const all = useMemo(() => buildTrips(fileRows, newRows, th), [fileRows, newRows, th]);
   // ช่วงข้อมูล = ไฟล์ + ใบที่บันทึกใหม่ (เจ้าของงานเลือก 27 ก.ย. 2569 — ช่วงตั้งต้นเปิดที่ช่วงล่าสุดของทั้งสองแหล่ง)
   const newSpan = useMemo(() => newRows.reduce<[string, string]>(
     ([lo, hi], t) => [!lo || t.d < lo ? t.d : lo, t.d > hi ? t.d : hi], ["", ""]), [newRows]);
@@ -122,8 +145,6 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
   const range = useMemo(() => (period ? periodRange(period) : null), [period?.kind, period?.value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const branches = useMemo(() => [...new Set(all.map((t) => t.br))].sort((a, b) => a.localeCompare(b, "th")), [all]);
-  const inBranch = <T extends { br: string }>(x: T): boolean =>
-    role === "manager" ? !!locked && x.br === locked : !branch || x.br === branch;
 
   const running = useMemo(() => (range ? all.filter((t) => onRoad(t, range) && inBranch(t)) : []), [all, range, branch]); // eslint-disable-line react-hooks/exhaustive-deps
   const released = useMemo(() => (range ? all.filter((t) => releasedIn(t, range) && inBranch(t)) : []), [all, range, branch]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -141,6 +162,10 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
     [fileRows, newRows, branch]); // eslint-disable-line react-hooks/exhaustive-deps
   const prev = useMemo(() => (period ? periodRange(prevPeriod(period)) : null), [period?.kind, period?.value]); // eslint-disable-line react-hooks/exhaustive-deps
   const [roster] = useRoster();
+  // บิลที่ฝ่ายบริการลูกค้าบันทึกวันนี้ (กล่องข้าง "ต้องจัดการ") — ตามสาขาของหน้า
+  const billStore = useBills();
+  const today = useMemo(() => todayBills(billStore.bills, (br) => inBranch({ br: branchOf(br) })),
+    [billStore.bills, branch]); // eslint-disable-line react-hooks/exhaustive-deps
   const vehicles = useMemo(() => roster.filter((v) => (role === "manager" ? !!locked && (v.branches ?? []).includes(locked)
     : !branch || (v.branches ?? []).includes(branch))), [roster, branch]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -180,10 +205,13 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
     <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>
   ) : (
     <>
-      {/* ลำดับตามความสำคัญของผู้บริหาร (เจ้าของงานเลือก 28 ก.ย. 2569): สถานการณ์ + ต้องจัดการ → การเงิน → หน้างาน →
+      {/* ลำดับตามความสำคัญของผู้บริหาร (เจ้าของงานเลือก 28 ก.ย. 2569 · แถบสรุปสถานการณ์เอาออกแล้ว): ต้องจัดการ → การเงิน → หน้างาน →
           ลูกค้า/ลูกหนี้ → เทียบรายสาขา → ตารางรายละเอียด */}
-      <Verdict todo={todo} debts={!debtors.error && !!debtors.data} period={periodIn(period)} />
-      <TodoBox todo={todo} debts={!debtors.error && !!debtors.data} go={go} />
+      {/* ต้องจัดการ + บิลที่รับวันนี้ (เจ้าของงานเลือกวางข้างกัน 28 ก.ย. 2569) */}
+      <div className="mo-grid mo-fit mo-top">
+        <TodoBox todo={todo} debts={!debtors.error && !!debtors.data} go={go} />
+        <TodayBills bills={today} loading={billStore.loading} error={billStore.error} />
+      </div>
       <section id="mg-sec-fin" className="mg-sec">
         <FinTab trips={released} srcs={srcs} range={range} prev={prev} vs={PREV_WORD[period.kind]}
           open={open} debtError={debtors.error} />
@@ -216,9 +244,9 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
           : <CustRevenueBox {...custRevenue(debtRows, range, prev ?? range)} vs={PREV_WORD[period.kind]} />}
       </div>
       {!branch && <BranchCompare running={running} released={released} />}
-      <OpsTab trips={running} records={records} lfMissing={!!lf.error}
+      <OpsTab trips={running} records={records} th={th} lfMissing={!!lf.error}
         focus={focus?.tab === "ops" ? focus : null} onFocusDone={() => setFocus(null)} />
-      <DebtPart rows={debtRows} open={open} range={range} period={period} sample={debtors.data?.manifest.isSample} error={debtors.error}
+      <DebtPart rows={debtRows} fileRows={debtors.data?.rows ?? []} open={open} range={range} period={period} sample={debtors.data?.manifest.isSample} error={debtors.error}
         focus={focus?.tab === "fin" ? focus : null} onFocusDone={() => setFocus(null)} />
     </>
   );
@@ -341,13 +369,14 @@ function OpsHeroes({ trips, lfSample, srcs, range, prev, vs }: {
   );
 }
 
-function OpsTab({ trips, records, lfMissing, focus, onFocusDone }: {
-  trips: MgrTrip[]; records: TripRecord[]; lfMissing: boolean;
+function OpsTab({ trips, records, th, lfMissing, focus, onFocusDone }: {
+  trips: MgrTrip[]; records: TripRecord[]; th: TripThresholds; lfMissing: boolean;
   focus: OpsFocus | null; onFocusDone: () => void;
 }) {
   /** กดแถว = ป็อบอัพรายการบิลของเที่ยวนั้น (เจ้าของงานขอ 28 ก.ย. 2569) */
   const [billTrip, setBillTrip] = useState<MgrTrip | null>(null);
   // แถบสรุปปัญหา — กดชิป = กรองตารางเหลือเที่ยวที่มีปัญหานั้น กดซ้ำเพื่อยกเลิก
+  const lfc = lfCrit(th), mgc = marginCrit(th);
   const issues = useMemo(() => issueCounts(trips), [trips]);
   const [issue, setIssue] = useState<IssueKey | null>(null);
   const shown = useMemo(() => (issue ? trips.filter((t) => t.issues.includes(issue)) : trips), [trips, issue]);
@@ -383,8 +412,10 @@ function OpsTab({ trips, records, lfMissing, focus, onFocusDone }: {
     rev: { kind: "min", get: (t) => t.rev },
     profit: { kind: "select", get: (t) => (t.profit < 0 ? "loss" : "gain"),
       opts: [{ v: "gain", label: "กำไร" }, { v: "loss", label: "ขาดทุน" }] },
-    lf: { kind: "select", get: (t) => t.lfb ?? "na", opts: LF_OPTS },
-    margin: { kind: "select", get: (t) => t.mb ?? "na", opts: MARGIN_OPTS },
+    lf: { kind: "select", get: (t) => t.lfb ?? "na", opts: [
+      { v: "g", label: `🟢 ${lfc.g}` }, { v: "y", label: `🟡 ${lfc.y}` }, { v: "r", label: `🔴 ${lfc.r}` }, { v: "na", label: "⚪ ไม่มี LF" }] },
+    margin: { kind: "select", get: (t) => t.mb ?? "na", opts: [
+      { v: "g", label: `🟢 ${mgc.g}` }, { v: "y", label: `🟡 ${mgc.y}` }, { v: "r", label: `🔴 ${mgc.r}` }] },
     band: { kind: "select", get: (t) => t.band ?? "na",
       opts: (["g", "y", "r"] as const).map((k) => ({ v: k, label: `${BAND_DOT[k]} ${BAND_LABEL[k]}` })) },
     advice: { kind: "text", get: (t) => t.advice.join(" "), placeholder: "ค้นหา เช่น ค่าน้ำมัน" },
@@ -423,7 +454,9 @@ function OpsTab({ trips, records, lfMissing, focus, onFocusDone }: {
         {billTrip && <TripBillsModal trip={billTrip} records={records} onClose={() => setBillTrip(null)} />}
         <Note>
           สถานะ = คะแนน Load Factor + Margin (เขียว 1 · เหลือง 0.5 · แดง 0): ≥ 1.5 ผ่าน · 1 เฝ้าระวัง · ≤ 0.5 ไม่ผ่าน · ขาดทุน = ไม่ผ่านเสมอ ·
-          LF ≥ 70% / 40–70% / &lt; 40% · Margin &gt; 10% / 5–10% / &lt; 5% ·
+          เกณฑ์สีตาม Performance Index: LF เขียว {lfc.g} · เหลือง {lfc.y} · แดง {lfc.r} ·
+          Margin เขียว {mgc.g} · เหลือง {mgc.y} · แดง {mgc.r} ·
+          P30/P70 ของ LF จากทุกเที่ยวในไฟล์ Load Factor 12 เดือนล่าสุด · P75 ของ Margin จากเที่ยวในไฟล์ต้นทุน 12 เดือนล่าสุดของสาขาที่เลือก ·
           เที่ยวที่ไม่มีในไฟล์ Load Factor ให้สีตาม Margin อย่างเดียว · เที่ยววิ่งเปล่านับ LF 0% ·
           ใบที่บันทึกใหม่ในโมเดล (ป้าย "ใหม่") ขึ้นเฉพาะเลขที่ใบรายการที่ไฟล์ของบริษัทยังไม่มี · LF ของใบใหม่ = น้ำหนักบรรทุก ÷ ความจุ (กก.) จากหน้าจัดรถ ·
           ฝ่ายบัญชียังไม่กรอกค่าใช้จ่าย = ต้นทุนพยากรณ์ (ป้าย "พยากรณ์") ·
@@ -555,9 +588,10 @@ const pickOk = (p: DebtPick, b: MgrBill): boolean =>
  * ลูกหนี้คงค้าง ณ วันสิ้นช่วง (27 ก.ย. 2569) — การ์ด 5 ใบ (คงค้างรวม · 1–30 · 31–60 · 61+ · DSO) + กระแสของช่วง
  * + ตารางลูกค้าที่ค้าง (กดแถว = กรองตารางบิลเหลือลูกค้ารายนั้น กดซ้ำเพื่อยกเลิก) + ตารางบิลค้าง
  */
-function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone }: {
+function DebtPart({ rows, fileRows, open, range, period, sample, error, focus, onFocusDone }: {
   period: MgrPeriod; open: MgrBill[]; focus: FinFocus | null; onFocusDone: () => void;
-  rows: DebtorRow[]; range: { start: string; end: string }; sample?: boolean; error: string | null;
+  /** rows = บิลของสาขาที่เลือก · fileRows = ทั้งไฟล์ (หาช่วงอ้างอิง 12 เดือนล่าสุด + วันสุดท้ายของไฟล์ แบบ PI) */
+  rows: DebtorRow[]; fileRows: DebtorRow[]; range: { start: string; end: string }; sample?: boolean; error: string | null;
 }) {
   const [pick, setPick] = useState<DebtPick>(null);
   const [pickCust, setPickCust] = useState<string | null>(null);
@@ -574,6 +608,16 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
   const custs = useMemo(() => byCustomer(byStatus), [byStatus]);
   const shownBills = useMemo(() => (pickCust ? byStatus.filter((b) => b.cust === pickCust) : byStatus), [byStatus, pickCust]);
   const custName = (c: string) => custCode(numberForDebtor(c)) || c;
+  /* ---------- สี DSO รายลูกค้า = เกณฑ์ DSO ของ Performance Index (เจ้าของงานสั่ง 28 ก.ย. 2569) ----------
+     ค่าของลูกค้า = วันเก็บเงินเฉลี่ยของทุกบิลที่วางถึงวันสิ้นช่วง นับถึงวันสิ้นช่วง (collectionDays ของ PI) ·
+     P25/P75 = ลูกค้าที่วางบิลใน 12 เดือนล่าสุดของไฟล์ (สาขาที่เลือก) นับถึงวันสุดท้ายของไฟล์ · ≤ P25 เขียว · ≤ P75 เหลือง · > P75 แดง */
+  const dsoRule = useMemo(() => {
+    const w = refWindow(fileRows.map((r) => r.mo)), end = debtorFileEnd(fileRows);
+    return w && end ? METRICS.dso.rule!(collectionDays(rows.filter((r) => inWindow(r.mo, w)), end)) : null;
+  }, [rows, fileRows]);
+  const dsoBy = useMemo(() => collectionDaysBy(rows, range.end), [rows, range.end]);
+  const dsoOf = (c: string): number | null => dsoBy.get(c) ?? null;
+  const dsoBand = (c: string): "g" | "y" | "r" | "na" => { const v = dsoOf(c); return v == null || !dsoRule ? "na" : dsoRule.band(v); };
 
   /* ---------- ตารางลูกค้า ---------- */
   const custCols = useMemo<Col<DebtCust>[]>(() => [
@@ -582,12 +626,16 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
     { key: "br", label: "สาขา", get: (c) => c.br },
     { key: "n", label: "บิลค้าง", get: (c) => c.n, num: true },
     { key: "amount", label: "ยอดค้าง", get: (c) => c.amount, num: true, render: (c) => fmt(Math.round(c.amount)) },
+    { key: "dso", label: "DSO (วัน)", get: (c) => dsoOf(c.cust) ?? -1, num: true,
+      render: (c) => { const v = dsoOf(c.cust); return v == null ? "–"
+        : <span className={`mg-lf ${dsoBand(c.cust)}`} title="วันเก็บเงินเฉลี่ยของลูกค้า — เกณฑ์ DSO ของ Performance Index">
+          {BAND_DOT[dsoBand(c.cust)]} {v.toLocaleString("en-US", { maximumFractionDigits: 1 })}</span>; } },
     { key: "overdueAmt", label: "เลยกำหนดแล้ว", get: (c) => c.overdueAmt, num: true,
       render: (c) => (c.overdueAmt ? fmt(Math.round(c.overdueAmt)) : "–") },
     { key: "maxOver", label: "ค้างนานสุด (วัน)", get: (c) => c.maxOver, num: true,
       render: (c) => (c.maxOver ? <b style={{ color: c.maxOver > 60 ? "var(--red)" : c.maxOver > 30 ? "#B45309" : undefined }}>
         {fmt(c.maxOver)}</b> : "–") },
-  ], []); // eslint-disable-line react-hooks/exhaustive-deps
+  ], [dsoBy, dsoRule]); // eslint-disable-line react-hooks/exhaustive-deps
   const ccf = useColFilters(custs, {
     cust: { kind: "text", get: (c) => `${custName(c.cust)} ${c.cust}`, placeholder: "ค้นหาลูกค้า" },
     br: { kind: "text", get: (c) => c.br, placeholder: "ค้นหาสาขา" },
@@ -595,6 +643,8 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
     amount: { kind: "min", get: (c) => c.amount },
     overdueAmt: { kind: "min", get: (c) => c.overdueAmt },
     maxOver: { kind: "min", get: (c) => c.maxOver },
+    dso: { kind: "select", get: (c) => dsoBand(c.cust), opts: [
+      { v: "g", label: "🟢 ≤ P25" }, { v: "y", label: "🟡 P25–P75" }, { v: "r", label: "🔴 > P75" }, { v: "na", label: "⚪ ไม่มีข้อมูล" }] },
   });
   const cs = useSort(ccf.filtered, custCols, { key: "amount", dir: -1 });
 
@@ -652,7 +702,9 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
             <span>เก็บเงินได้{periodIn(period)} <b>{fmt(Math.round(s.collected))}</b> บาท ({fmt(s.collectedN)} บิล)</span>
           </div>
 
-          <div className="dz-cc" style={{ marginTop: 14 }} id="mg-debt-cust">
+          {/* ตารางลูกค้า + ตารางบิลวางข้างกัน (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมเรียงบนลงล่าง) */}
+          <div className="mo-grid mo-fit mg-debt2">
+          <div className="dz-cc" id="mg-debt-cust">
             <h4>
               ลูกค้าที่ค้างชำระ ({fmt(cs.sorted.length)} ราย)
               {pick && <span className="cp-pick"> · {PICK_LABEL[pick]}</span>}
@@ -675,10 +727,15 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
                 className: pickCust === c.cust ? "on" : undefined,
                 title: "กดเพื่อดูบิลของลูกค้ารายนี้ · กดซ้ำเพื่อยกเลิก",
               })} />
-            <Note>กดแถวเพื่อดูบิลของลูกค้ารายนั้นในตารางด้านล่าง · ค้างนานสุด = บิลที่เลยกำหนดนานที่สุดของลูกค้า</Note>
+            <Note>
+              กดแถวเพื่อดูบิลของลูกค้ารายนั้นในตารางบิลค้างชำระ · ค้างนานสุด = บิลที่เลยกำหนดนานที่สุดของลูกค้า ·
+              DSO = วันเก็บเงินเฉลี่ยของทุกบิลที่ลูกค้าวางถึง {thDateSafe(range.end)} (บิลที่ยังไม่ชำระนับถึงวันนั้น) · สีตามเกณฑ์ DSO ของ Performance Index:
+              ≤ P25 เขียว · P25–P75 เหลือง · &gt; P75 แดง {dsoRule ? `(${dsoRule.basis})` : "(ยังคิดเกณฑ์ไม่ได้)"} ·
+              P25/P75 จากลูกค้าที่วางบิลใน 12 เดือนล่าสุดของไฟล์ลูกหนี้ในสาขาที่เลือก นับถึงวันสุดท้ายของไฟล์
+            </Note>
           </div>
 
-          <div className="dz-cc" style={{ marginTop: 14 }}>
+          <div className="dz-cc">
             <h4>
               บิลค้างชำระ ({fmt(sorted.length)} บิล)
               {pick && <span className="cp-pick"> · {PICK_LABEL[pick]}</span>}
@@ -687,7 +744,7 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
             </h4>
             <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggleSort} rowKey={(b) => b.doc}
               empty={open.length ? "ไม่มีบิลตามตัวกรอง" : "ไม่มีบิลค้างชำระ ณ วันสิ้นช่วง"}
-              className="mg-tbl" filterRow={cf.filterRow} />
+              className="mg-tbl" filterRow={cf.filterRow} maxHeight="45vh" />
             <Note>
               ลูกหนี้คงค้าง = ทุกบิลที่วางแล้วและยังไม่ชำระ ณ วันสุดท้ายของช่วง ไม่ว่าวางบิลเมื่อไหร่ (รวมที่ยังไม่ถึงกำหนด) ·
               ค้างชำระ (วัน) = วันที่เลยกำหนด ณ วันนั้น · วางบิล/เก็บเงินได้ในช่วง = วันวางบิล/วันที่จบอยู่ในช่วง ·
@@ -695,6 +752,7 @@ function DebtPart({ rows, open, range, period, sample, error, focus, onFocusDone
               กดการ์ดเกินกำหนด/ปุ่มเหนือตารางลูกค้าเพื่อกรองทั้งสองตาราง กดซ้ำเพื่อยกเลิก ·
               ครบกำหนดใน {DUE_SOON_DAYS} วัน = ยังไม่ถึงกำหนด และครบภายใน {DUE_SOON_DAYS} วันหลังวันสิ้นช่วง
             </Note>
+          </div>
           </div>
         </>
       )}

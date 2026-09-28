@@ -1,6 +1,6 @@
 /**
  * ภาพรวมสาขาของ Manager Dashboard แบบหน้าเดียว — ตามไฟล์ "Dashboard ผู้จัดการสาขา.html" (เจ้าของงานส่ง 28 ก.ย. 2569)
- * เฉพาะส่วนที่ข้อมูลของโมเดลทำได้ (เจ้าของงานเลือก): แถบสรุปสถานการณ์ · KPI เคลม · การเงินเทียบช่วงก่อน · กราฟ 6 เดือน ·
+ * เฉพาะส่วนที่ข้อมูลของโมเดลทำได้ (เจ้าของงานเลือก · แถบสรุปสถานการณ์เอาออกแล้ว 28 ก.ย. 2569): KPI เคลม · การเงินเทียบช่วงก่อน · กราฟ 6 เดือน ·
  * ค่าใช้จ่ายตามหมวด · รายได้แยกตามลูกค้า · สถานะรถ · การ์ดต้นทุน — ส่วนในไฟล์ที่ไม่มีข้อมูล (ส่งตรงเวลา · พัสดุค้าง · COD ·
  * คนขับ · พรุ่งนี้) ไม่ทำ
  *
@@ -10,7 +10,7 @@ import { addDaysISO } from "../record/date";
 import { COST_PART_LABELS } from "../forecast/forecast";
 import type { CostParts } from "../forecast/forecast";
 import { latestPeriod, periodRange, runEnd } from "./manager";
-import type { MgrPeriod, MgrSrc, Range, Todo } from "./manager";
+import type { MgrPeriod, MgrSrc, Range } from "./manager";
 import type { DebtorRow } from "../data/useDebtors";
 
 export const inRange = (d: string, r: Range): boolean => d >= r.start && d <= r.end;
@@ -136,13 +136,4 @@ export function fleetStatusAt(vehicles: { plate: string; status: string }[], src
     else idle++;
   }
   return { total: vehicles.length, running, idle, down };
-}
-
-/* ---------------- แถบสรุปสถานการณ์ ---------------- */
-
-/** ระดับของช่วง: มีเรื่องแดง (ไม่ผ่านเกณฑ์/ค้างเกิน 30 วัน) = เสี่ยง · มีแค่เรื่องเหลือง = ควรติดตาม · ไม่มี = ปกติ */
-export function verdictOf(todo: Todo, debts: boolean): { level: "bad" | "warn" | "ok"; count: number } {
-  const red = (todo.fail ? 1 : 0) + (debts && todo.over30.bills ? 1 : 0);
-  const yellow = (todo.topIssue ? 1 : 0) + (todo.est ? 1 : 0) + (debts && todo.soon.bills ? 1 : 0);
-  return { level: red ? "bad" : yellow ? "warn" : "ok", count: red + yellow };
 }

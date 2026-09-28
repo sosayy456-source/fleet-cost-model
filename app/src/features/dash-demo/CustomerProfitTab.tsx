@@ -30,7 +30,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { evalPeriod, inWindow, refSet, refWindow } from "../../lib/pi/baseline";
-import { collectionDays } from "../../lib/debtors/aging";
+import { collectionDays, debtorFileEnd } from "../../lib/debtors/aging";
 import { INDEXES, metricResult, withPeriod } from "../../lib/pi/score";
 import type { MetricResult } from "../../lib/pi/score";
 import { PiBox } from "./PiIndex";
@@ -130,7 +130,7 @@ export function custPiResults(alloc: AllocData | null, debtors: DebtorData | nul
   if (debtors && rows) {
     const dw = refWindow(debtors.rows.map((r) => r.mo));
     // วันสุดท้ายของไฟล์ = วันวางบิล/วันที่จบที่ล่าสุด — บิลที่ยังค้างนับถึงวันนี้
-    const end = debtors.rows.reduce((m, r) => { const d = r.close && r.close > r.issue ? r.close : r.issue; return d > m ? d : m; }, "");
+    const end = debtorFileEnd(debtors.rows);
     if (dw && end) dsoRef = refSet(collectionDays(rows.filter((r) => inWindow(r.mo, dw)), end), "ลูกค้า", dw);
   }
   // ช่วงที่ประเมิน: ไม่เลือกปี = เดือนล่าสุดของไฟล์ปันส่วน · DSO ยังเป็น ณ วันที่ของส่วน DSO

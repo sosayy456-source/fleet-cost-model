@@ -37,6 +37,11 @@ export function ageBills(rows: DebtorRow[], asOf: string): Aged[] {
  * ต่อลูกค้า = ค่าเฉลี่ยของทุกบิลที่วางแล้ว ณ วันนั้น (เฉลี่ยตรง ๆ ไม่ถ่วงยอดเงิน) · ลูกค้า = รหัสลูกหนี้ (cust)
  */
 export function collectionDays(rows: DebtorRow[], asOf: string): number[] {
+  return [...collectionDaysBy(rows, asOf).values()];
+}
+
+/** เหมือน collectionDays แต่คืนรายลูกค้า (cust → วัน) — ตารางลูกค้าที่ค้างชำระของ Manager Dashboard ให้สีรายแถว */
+export function collectionDaysBy(rows: DebtorRow[], asOf: string): Map<string, number> {
   const d0 = dayNum(asOf);
   const acc = new Map<string, { sum: number; n: number }>();
   for (const r of rows) {
@@ -46,5 +51,10 @@ export function collectionDays(rows: DebtorRow[], asOf: string): number[] {
     a.sum += end - dayNum(r.issue); a.n++;
     acc.set(r.cust, a);
   }
-  return [...acc.values()].map((a) => a.sum / a.n);
+  return new Map([...acc].map(([c, a]) => [c, a.sum / a.n]));
+}
+
+/** วันสุดท้ายของไฟล์ลูกหนี้ = วันวางบิล/วันที่จบที่ล่าสุด — ชุดอ้างอิง DSO ของ PI นับบิลที่ยังค้างถึงวันนี้ */
+export function debtorFileEnd(rows: DebtorRow[]): string {
+  return rows.reduce((m, r) => { const d = r.close && r.close > r.issue ? r.close : r.issue; return d > m ? d : m; }, "");
 }

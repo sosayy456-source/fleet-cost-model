@@ -3339,11 +3339,6 @@ html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
 @media (max-width:1000px){#view-dash .mg-heroes4,#view-dash .mg-heroes5{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){#view-dash .mg-heroes4,#view-dash .mg-heroes5{grid-template-columns:1fr}}
 #view-dash .mo-sec-h{margin:22px 0 12px}
-#view-dash .mo-verdict{margin:0 0 16px;padding:14px 18px;border-radius:14px;font-size:16.5px;line-height:1.55;color:var(--d-ink);
-  background:#FBF0D9;border-left:6px solid #C8871F}
-#view-dash .mo-verdict.bad{background:#FBE7E6;border-left-color:var(--red,#C0392B)}
-#view-dash .mo-verdict.ok{background:#E3F2EA;border-left-color:var(--green,#1E7A4C)}
-#view-dash .mo-verdict b{font-weight:700}
 #view-dash .mo-d{font-size:12.5px;font-weight:700}
 #view-dash .mo-d.up{color:#1E7A4C}
 #view-dash .mo-d.dn{color:#C0392B}
@@ -3357,6 +3352,21 @@ html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
 #view-dash .mo-grid.mo-fit{align-items:stretch}
 #view-dash .mo-stack > .mg-todo{margin:0}
 #view-dash .mo-full{margin:0 0 14px}
+/* กล่อง "บิลที่รับวันนี้" ข้างกล่องต้องจัดการ (28 ก.ย. 2569) */
+#view-dash .mo-top{margin:0 0 16px;grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+#view-dash .mo-top > .mg-todo{margin:0}
+#view-dash .mo-today{margin:0;display:flex;flex-direction:column}
+#view-dash .mo-today-n{font-size:15px;font-weight:700;color:var(--d-ink2);margin:2px 0 10px}
+#view-dash .mo-today-n b{font-size:30px;font-weight:800;color:var(--d-ink);margin-right:4px}
+#view-dash .mo-today-kv{margin-bottom:12px}
+#view-dash .mo-today-kv b{font-size:17px}
+#view-dash .mo-today-kv b.warn{color:#B45309}
+#view-dash .mo-today-btn{margin-top:auto;align-self:flex-start}
+@media (max-width:900px){#view-dash .mo-top{grid-template-columns:1fr}}
+/* ลูกค้าที่ค้างชำระ + บิลค้างชำระ วางข้างกัน (28 ก.ย. 2569) — ตารางบิลคอลัมน์เยอะกว่าจึงกว้างกว่า · ในกล่องเลื่อนแนวนอนได้ */
+#view-dash .mg-debt2{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
+#view-dash .mg-debt2 > .dz-cc{margin:0;min-width:0}
+@media (max-width:1100px){#view-dash .mg-debt2{grid-template-columns:1fr}}
 /* กราฟ 6 เดือน */
 #view-dash .mo-chart{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;height:190px;align-items:end;padding-top:18px}
 #view-dash .mo-col{display:flex;flex-direction:column;align-items:center;height:100%;gap:6px;min-width:0}

@@ -2,7 +2,6 @@
  * ส่วนภาพรวมสาขาของ Manager Dashboard หน้าเดียว — เลย์เอาต์ตาม "Dashboard ผู้จัดการสาขา.html" (เจ้าของงานส่ง 28 ก.ย. 2569)
  * สี/การ์ดเป็นชุดของโมเดล (เจ้าของงานเลือก) · สูตรทั้งหมดอยู่ lib/manager/overview.ts
  *
- *   Verdict        แถบสรุปสถานการณ์บนสุด (จากกล่อง "ต้องจัดการ")
  *   MonthChart     รายได้ vs ค่าใช้จ่าย 6 เดือน (ล้านบาท)
  *   CostParts      ค่าใช้จ่ายแบ่งตามหมวด · เส้น = สัดส่วนเฉลี่ย 6 เดือนก่อน (ไม่มีงบ) · แดง = สูงกว่าเฉลี่ย
  *   CustRevenueBox รายได้แยกตามลูกค้า (ยอดวางบิลในไฟล์ลูกหนี้) เทียบช่วงก่อน + ป้ายเสี่ยงเสียลูกค้า
@@ -10,14 +9,13 @@
  *   FleetBox       สถานะรถของสาขา ณ วันสิ้นช่วง + LF เฉลี่ย · %เที่ยวเปล่า
  *   CostBox        ต้นทุนต่อเที่ยว · น้ำมันต่อ กม. · ต้นทุนต่อ กม. · Margin
  */
-import type { ReactNode } from "react";
 import { fmt, pct } from "../dash-costrev/common";
 import { ShortId } from "../../lib/custmap/ShortId";
 import { numberForDebtor } from "../../lib/custmap/debtorCodes";
-import { CUST_RISK_DROP, verdictOf } from "../../lib/manager/overview";
+import { CUST_RISK_DROP } from "../../lib/manager/overview";
 import type { CustRev } from "../../lib/manager/overview";
-import { DEBT_STATUS_LABEL, issueLabel } from "../../lib/manager/manager";
-import type { DebtStatus, MgrBill, Todo } from "../../lib/manager/manager";
+import { DEBT_STATUS_LABEL } from "../../lib/manager/manager";
+import type { DebtStatus, MgrBill } from "../../lib/manager/manager";
 
 /**
  * ยอดเงินบนการ์ด — หลักล้านเขียนเป็นล้านบาททศนิยม 2 ตำแหน่ง แบบ Executive Summary / ส่วน DSO
@@ -33,24 +31,6 @@ export function Delta({ v, vs, goodUp = true }: { v: number | null; vs: string; 
   if (v == null) return <span className="mo-d">ไม่มีข้อมูล{vs}ให้เทียบ</span>;
   const good = v === 0 ? null : (v > 0) === goodUp;
   return <span className={"mo-d" + (good == null ? "" : good ? " up" : " dn")}>{v > 0 ? "▲" : v < 0 ? "▼" : "±"} {pct(Math.abs(v))} จาก{vs}</span>;
-}
-
-/* ---------------- แถบสรุปสถานการณ์ ---------------- */
-export function Verdict({ todo, debts, period }: { todo: Todo; debts: boolean; period: string }) {
-  const v = verdictOf(todo, debts);
-  const bits: ReactNode[] = [];
-  if (todo.fail) bits.push(<>เที่ยวไม่ผ่านเกณฑ์ <b>{fmt(todo.fail)}</b> เที่ยว</>);
-  if (debts && todo.over30.bills) bits.push(<>ลูกค้าค้างเกิน 30 วัน <b>{fmt(todo.over30.cust)}</b> ราย</>);
-  if (todo.topIssue) bits.push(<>{issueLabel(todo.topIssue.key)} <b>{fmt(todo.topIssue.n)}</b> เที่ยว</>);
-  if (debts && todo.soon.bills) bits.push(<>บิลใกล้ครบกำหนด <b>{fmt(todo.soon.cust)}</b> ราย</>);
-  const head = v.level === "bad" ? "ช่วงนี้ค่อนข้างเสี่ยง" : v.level === "warn" ? "ช่วงนี้ควรติดตาม" : "ช่วงนี้อยู่ในเกณฑ์ปกติ";
-  return (
-    <div className={`mo-verdict ${v.level}`} role="status">
-      <b>{head}:</b>{" "}
-      {bits.length ? <>{bits.map((b, i) => <span key={i}>{i > 0 && " · "}{b}</span>)} — จัดการ {v.count} เรื่องในกล่อง "ต้องจัดการ" ด้านล่างก่อน</>
-        : <>ไม่มีเรื่องที่ต้องจัดการ{period}</>}
-    </div>
-  );
 }
 
 /* ---------------- กราฟ 6 เดือน ---------------- */

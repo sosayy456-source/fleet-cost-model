@@ -11,7 +11,9 @@
  *   วันที่คาดว่าถึงใช้กฎเดียวกับสถานะกองรถ (lib/record/tripEta.ts): + max(1, ⌈ระยะทาง ÷ 500⌉) วัน ·
  *   ไม่รู้ระยะทาง = วิ่งแค่วันปล่อยรถ
  *   แท็บการเงิน = เที่ยวที่ **ปล่อยรถ** ในช่วง (นับเข้าช่วงเดียว ไม่ซ้ำข้ามเดือน)
- * ★ เกณฑ์ Load Factor ของหน้านี้ ≥ 70% ผ่าน · 40–<70% เฝ้าระวัง · < 40% ไม่ผ่าน (ตามสเปก — ต่างจาก Performance Index 84/47)
+ * ★ เกณฑ์สีของ LF และ Margin = เกณฑ์ Performance Index (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิม LF 70/40 · Margin 10/5 ตายตัว):
+ *   LF > P70 เขียว · P30–P70 เหลือง · < P30 แดง · Margin ขาดทุน แดง · ≥ P75 เขียว · ที่เหลือเหลือง
+ *   percentile จากชุดอ้างอิง 12 เดือนล่าสุดของไฟล์ (tripThresholds · ผู้เรียกส่งค่ามา) — ดูหัวข้อเที่ยว
  * ★ ลูกหนี้ = ไฟล์ลูกหนี้ · ยอดคงค้าง ณ วันสิ้นช่วง แบ่งอายุหนี้ (lib/debtors/aging.ts ตัวเดียวกับ Customer Performance)
  *   DSO มาตรฐาน = ลูกหนี้คงค้าง ณ สิ้นช่วง ÷ ยอดวางบิลในช่วง × จำนวนวันในช่วง — ดูหัวข้อลูกหนี้ท้ายไฟล์
  */
@@ -21,6 +23,7 @@ import { ageBills, dayNum } from "../debtors/aging";
 import { COST_PART_LABELS, forecastFor, partsOf, recordParts } from "../forecast/forecast";
 import type { CostParts, ForecastTable } from "../forecast/forecast";
 import { roleDone } from "../record/roles";
+import { percentileInc } from "../damage/damage";
 import type { TripRecord } from "../../types/record";
 import type { Trip } from "../data/useCostRev";
 import type { DebtorRow } from "../data/useDebtors";
@@ -89,10 +92,24 @@ export function periodOptions(kind: "month" | "quarter" | "year", minDate: strin
 /* ---------------- เที่ยว ---------------- */
 
 export type Band = "g" | "y" | "r";
-/** เกณฑ์ LF ของหน้านี้ — LF เป็น % */
-export const lfBand = (lf: number): Band => (lf >= 70 ? "g" : lf >= 40 ? "y" : "r");
-/** เกณฑ์ Margin — ชุดเดียวกับ Performance Index (> 10 / 5–10 / < 5 · 10 พอดี = เหลือง) */
-export const marginBand = (m: number): Band => (m > 10 ? "g" : m >= 5 ? "y" : "r");
+
+/**
+ * เกณฑ์สีของเที่ยว = เกณฑ์ Performance Index (lib/pi/score.ts lfRule · marginRule · เจ้าของงานสั่ง 28 ก.ย. 2569)
+ * lf = P30/P70 ของ LF (%) · margin = P75 ของ Margin (%) — จากชุดอ้างอิง (ManagerDash: 12 เดือนล่าสุดของแต่ละไฟล์ ·
+ * LF จากไฟล์ Load Factor ทุกเที่ยว (ไฟล์ไม่มีสาขา) · Margin จากเที่ยวของไฟล์ต้นทุนในสาขาที่เลือก) · null = ไม่มีข้อมูลให้คิด
+ */
+export interface TripThresholds { lf: { p30: number; p70: number } | null; margin: { p75: number } | null }
+export function tripThresholds(lfRef: number[], marginRef: number[]): TripThresholds {
+  const lf = lfRef.filter(Number.isFinite), mg = marginRef.filter(Number.isFinite);
+  const p30 = percentileInc(lf, 0.3), p70 = percentileInc(lf, 0.7), p75 = percentileInc(mg, 0.75);
+  return { lf: p30 == null || p70 == null ? null : { p30, p70 }, margin: p75 == null ? null : { p75 } };
+}
+/** LF (%) — > P70 เขียว · P30 ถึง P70 เหลือง (ขอบพอดี = เหลือง) · < P30 แดง · ไม่มีเกณฑ์ = null */
+export const lfBand = (lf: number, th: TripThresholds): Band | null =>
+  !th.lf ? null : lf > th.lf.p70 ? "g" : lf >= th.lf.p30 ? "y" : "r";
+/** Margin (%) — ขาดทุน (< 0) แดง · ≥ P75 เขียว · 0 ถึง < P75 เหลือง · ไม่มีเกณฑ์ = ขาดทุนยังแดง ที่เหลือ null */
+export const marginBand = (m: number, th: TripThresholds): Band | null =>
+  m < 0 ? "r" : !th.margin ? null : m >= th.margin.p75 ? "g" : "y";
 /** Margin (%) ของเที่ยว — รายได้ 0 แล้วขาดทุน = −100 (กติกาเดียวกับ routeMargin) · รายได้ 0 ไม่ขาดทุน = null */
 export const marginOf = (rev: number, profit: number): number | null =>
   rev > 0 ? profit / rev * 100 : profit < 0 ? -100 : null;
@@ -213,7 +230,7 @@ export function tripAdvice(t: MgrSrc, lfb: Band | null, mb: Band | null, margin:
   else if (lfb === "y") { out.push("ยังเติมสินค้าได้อีก"); issues.push("lfMid"); }
   if (margin != null && margin < 0) issues.push("loss");
   if (mb && mb !== "g") {
-    const head = margin != null && margin < 0 ? "ขาดทุน" : mb === "r" ? "Margin ต่ำมาก" : "Margin ต่ำ";
+    const head = margin != null && margin < 0 ? "ขาดทุน" : "Margin ต่ำ"; // เกณฑ์ PI: แดง = ขาดทุนเท่านั้น
     const points: string[] = [];
     if (bench) {
       if (bench.rev > 0 && t.rev < bench.rev * (1 - UNDER_REV_PCT / 100)) {
@@ -250,7 +267,7 @@ export function issueLabel(k: IssueKey): string {
     const part = COST_PART_LABELS.find((x) => x.key === k.slice(5));
     return `${part?.label ?? k.slice(5)}สูงกว่าเฉลี่ย`;
   }
-  return ({ empty: "เที่ยววิ่งเปล่า", lfLow: "รถว่างมาก (LF < 40%)", lfMid: "ยังเติมสินค้าได้ (LF 40–70%)", loss: "ขาดทุน",
+  return ({ empty: "เที่ยววิ่งเปล่า", lfLow: "รถว่างมาก (LF ต่ำกว่า P30)", lfMid: "ยังเติมสินค้าได้ (LF P30–P70)", loss: "ขาดทุน",
     revLow: "รายได้ต่ำกว่าเฉลี่ย", price: "Margin ต่ำแต่ต้นทุนปกติ (ทบทวนราคา)", costEst: "รอฝ่ายบัญชีกรอกค่าใช้จ่าย" } as Record<string, string>)[k] ?? k;
 }
 /** นับเที่ยวต่อปัญหา มากไปน้อย */
@@ -332,12 +349,12 @@ export function recordSrc(records: TripRecord[], fileIds: ReadonlySet<string>, f
 }
 
 /** ให้สี + คำแนะนำ — ค่าเฉลี่ยที่ใช้เทียบคิดจากเที่ยวของไฟล์เท่านั้น (ยอดปิดบัญชีของบริษัท) */
-export function buildTrips(file: MgrSrc[], fresh: MgrSrc[] = []): MgrTrip[] {
+export function buildTrips(file: MgrSrc[], fresh: MgrSrc[], th: TripThresholds): MgrTrip[] {
   const bench = buildBench(file);
   return [...file, ...fresh].map((t) => {
-    const lfb = t.lf == null ? null : lfBand(t.lf);
+    const lfb = t.lf == null ? null : lfBand(t.lf, th);
     const margin = marginOf(t.rev, t.profit);
-    const mb = margin == null ? null : marginBand(margin);
+    const mb = margin == null ? null : marginBand(margin, th);
     return {
       id: t.id, br: branchOf(t.br), d: t.d, eta: runEnd(t.d, t.km), o: t.o, de: t.de, vk: t.vk,
       lf: t.lf, lfb, margin, mb, band: overallBand(lfb, mb, margin),
