@@ -29,6 +29,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from ..excluded_bills import is_excluded
+
 log = logging.getLogger(__name__)
 
 EXPECTED_COLUMNS = [
@@ -107,6 +109,9 @@ def read_one_file(path: str) -> pd.DataFrame:
         df = df.drop(columns=drop_cols)
 
     df = _strip_all_str_columns(df)
+    # บิลที่ข้อมูลผิดจนใช้ไม่ได้ (src/excluded_bills.py) — ชุดเดียวกับ build_costrev/build_alloc
+    if "เลขที่บิล" in df.columns:
+        df = df[~df["เลขที่บิล"].map(is_excluded)].reset_index(drop=True)
     df["source_file"] = os.path.basename(path)
     return df
 

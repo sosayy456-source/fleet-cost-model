@@ -29,8 +29,9 @@
  *   ณ "ข้อมูล ณ วันที่" เดียวกับส่วนที่ 2 (OverdueSection แจ้งวันที่ออกมาทาง onAsOf) · สูตรคะแนนอยู่ใน lib/pi/score.ts
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { collectionDays } from "../../lib/debtors/aging";
-import { INDEXES, metricResult } from "../../lib/pi/score";
+import { evalPeriod, inWindow, refSet, refWindow } from "../../lib/pi/baseline";
+import { collectionDays, debtorFileEnd } from "../../lib/debtors/aging";
+import { INDEXES, metricResult, withPeriod } from "../../lib/pi/score";
 import type { MetricResult } from "../../lib/pi/score";
 import { PiBox } from "./PiIndex";
 import { DBar, DPieSplit } from "../../lib/chart/dcharts";
@@ -90,11 +91,12 @@ const sameSel = (a: Sel | null, b: Sel): boolean => !!a && a.kind === b.kind && 
  * ยุบลูกค้า × เดือน → รายลูกค้าตามปี/เดือนที่เลือก — ใช้ทั้งส่วนที่ 1 และคะแนน Customer Net Profit
  * (ย้ายออกมาจาก ProfitPart 25 ก.ย. 2569 ให้สองที่นับลูกค้าชุดเดียวกัน)
  */
-export function rollupCustomers(data: AllocData, f: Period): CustRow[] {
+export function rollupCustomers(data: AllocData, f: Period, keep?: (mo: string) => boolean): CustRow[] {
   const acc = new Map<number, CustRow>();
   for (const r of data.custMonths ?? []) {
     // ปี + ช่วงเดือน (ตั้งแต่–ถึง) แบบ Damage Rate — ชุดเดียวกับตัวกรองของหน้า Demo
-    if (!inPeriod({ y: Number(r.mo.slice(0, 4)), mo: r.mo }, f)) continue;
+    // keep = เลือกเดือนเอง (ชุดอ้างอิง 12 เดือนของ Performance Index ข้ามปีได้ Period แทนไม่ได้)
+    if (keep ? !keep(r.mo) : !inPeriod({ y: Number(r.mo.slice(0, 4)), mo: r.mo }, f)) continue;
     let a = acc.get(r.ci);
     if (!a) {
       const c = data.customers[r.ci];
@@ -113,13 +115,30 @@ export function rollupCustomers(data: AllocData, f: Period): CustRow[] {
   return [...acc.values()];
 }
 
-/** Customer Net Profit (รายลูกค้า) + DSO (รายบิล ณ asOf) — ใช้ทั้งกล่อง PI ของส่วนนี้และ Executive Summary */
+/**
+ * Customer Net Profit (รายลูกค้า) + DSO (รายลูกค้า ณ asOf) — ใช้ทั้งกล่อง PI ของส่วนนี้และ Executive Summary
+ * เกณฑ์ percentile จากชุดอ้างอิง 12 เดือนล่าสุดของแต่ละไฟล์ (InDex_revised v2.md · lib/pi/baseline.ts):
+ *   Customer Net Profit = ทุกลูกค้าใน 12 เดือนล่าสุดของไฟล์ปันส่วน
+ *   DSO = ลูกค้าที่วางบิลใน 12 เดือนล่าสุดของไฟล์ลูกหนี้ (ตามสาขาที่เลือก) นับถึงวันสุดท้ายของไฟล์ — ไฟล์มีไม่ถึง 12 เดือนใช้เท่าที่มี (ชั่วคราว)
+ */
 export function custPiResults(alloc: AllocData | null, debtors: DebtorData | null, asOf: string | null, f: DemoFilter): MetricResult[] {
   const a = alloc?.custMonths ? alloc : null;
+  const aw = a ? refWindow(a.custMonths!.map((r) => r.mo)) : null;
+  const custRef = a && aw ? refSet(rollupCustomers(a, f, (mo) => inWindow(mo, aw)).map((r) => r.m), "ลูกค้า", aw) : null;
+  const rows = debtors ? debtors.rows.filter((r) => !f.br || r.br === f.br) : null;
+  let dsoRef = null;
+  if (debtors && rows) {
+    const dw = refWindow(debtors.rows.map((r) => r.mo));
+    // วันสุดท้ายของไฟล์ = วันวางบิล/วันที่จบที่ล่าสุด — บิลที่ยังค้างนับถึงวันนี้
+    const end = debtorFileEnd(debtors.rows);
+    if (dw && end) dsoRef = refSet(collectionDays(rows.filter((r) => inWindow(r.mo, dw)), end), "ลูกค้า", dw);
+  }
+  // ช่วงที่ประเมิน: ไม่เลือกปี = เดือนล่าสุดของไฟล์ปันส่วน · DSO ยังเป็น ณ วันที่ของส่วน DSO
+  const pf = a ? evalPeriod(f, a.custMonths!.map((r) => r.mo)) : f;
   return [
-    metricResult("custProfit", a ? rollupCustomers(a, f).map((r) => r.m) : null),
+    withPeriod(metricResult("custProfit", a ? rollupCustomers(a, pf).map((r) => r.m) : null, custRef), a ? periodText(pf) : undefined),
     // DSO = วันเก็บเงินเฉลี่ยรายลูกค้า (แก้ Performance Index.pdf 28 ก.ย. 2569 · เดิมวันที่จ่ายช้ารายบิล)
-    metricResult("dso", debtors && asOf ? collectionDays(debtors.rows.filter((r) => !f.br || r.br === f.br), asOf) : null),
+    withPeriod(metricResult("dso", rows && asOf ? collectionDays(rows, asOf) : null, dsoRef), asOf ? `ณ ${asOf}` : undefined),
   ];
 }
 

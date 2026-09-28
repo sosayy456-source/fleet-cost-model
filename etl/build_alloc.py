@@ -35,6 +35,11 @@
                       — คัดในนี้เพื่อให้ฝั่งแอปกับบิลที่แนบไปตรงกันเสมอ
     bills_00..3f.json  บิลล่าสุดสูงสุด 100 ใบต่อรายต่อเดือน เฉพาะลูกค้าที่เปิดดูได้
                       (ci · เลขที่บิล · วันที่ · เลขที่ใบรายการ · เส้นทาง · รายได้ · ต้นทุนจัดสรร)
+    trip_bills_XX.ndjson  บิลทุกใบของทุกเที่ยวที่จับคู่ได้ แยกไฟล์ตามเลขที่ใบรายการ (tripShard) — ป็อบอัพรายการบิล
+                      ของตาราง "เที่ยวรถที่กำลังวิ่ง" ใน Manager Dashboard (เจ้าของงานขอ 28 ก.ย. 2569) · 1 บรรทัด = 1 บิล
+                      [ใบรายการ, บิล, วันที่, ci (−1 = ไม่เข้าลูกค้า), เหตุที่ไม่เข้าลูกค้า, เส้นทาง, ประเภทสินค้า,
+                       น้ำหนัก กก., ปริมาตร ลบ.ม., รายได้, ต้นทุนจัดสรร, ส่วนที่ปันตามรายได้]
+                      เขียนต่อท้ายทีละไฟล์บิลระหว่างรอบสาม ไม่พักทั้งหมดในหน่วยความจำ (ข้อมูลจริง ~2 ล้านบิล)
 
 กติกาที่เจ้าของข้อมูลชี้ขาด (16 ก.ย. 2569):
     ลูกค้า = ผู้จ่ายเงิน — สด/เชื่อต้นทาง → ผู้ส่ง · สด/เชื่อปลายทาง → ผู้รับ
@@ -67,6 +72,7 @@ from build_costrev import find_header_row, iter_sheet, parse_date, utf8_stdout, 
 from src.capacity import CF_MEDIAN, Capacity
 from src.custcodes import resolve_codes
 from src.progress import report, span
+from src.excluded_bills import is_excluded
 from src.alloc import (
     DIST_EXACT,
     DIST_FALLBACK,
@@ -114,6 +120,42 @@ TOP_N = 100
 MARGIN_TOP_N = 10
 DETAIL_BILLS = 100
 BILL_SHARDS = 64
+#: จำนวนไฟล์ย่อยของ trip_bills — ชุดจริงบิลหลักล้านใบ แบ่งละเอียดให้แต่ละไฟล์ราว 1 MB · ชุดตัวอย่างไม่ต้องมาก
+TRIP_BILL_SHARDS = {"real": 256, "sample": 16}
+#: ป้ายของบิลที่ไม่มีผู้จ่ายเงิน (ประเภทการชำระไม่รู้จัก) — ไม่นับเป็นลูกค้า
+NO_PAYER = "ไม่มีผู้จ่าย"
+
+
+def trip_shard(doc: str, shards: int) -> int:
+    """ไฟล์ย่อยของเลขที่ใบรายการ — ผลรวมรหัสอักขระ ต้องตรงกับ tripShard() ใน app/src/lib/data/tripBills.ts"""
+    return sum(map(ord, doc)) % shards
+
+
+class TripBillWriter:
+    """เขียนบิลรายใบของทุกเที่ยวลง trip_bills_XX.ndjson แบบต่อท้าย — ลบไฟล์ชุดเก่าก่อนเริ่ม"""
+
+    def __init__(self, out: Path, shards: int) -> None:
+        out.mkdir(parents=True, exist_ok=True)
+        for old in out.glob("trip_bills_*.ndjson"):
+            old.unlink()
+        self.shards = shards
+        self.files = [open(out / f"trip_bills_{i:02x}.ndjson", "w", encoding="utf-8", newline="\n")
+                      for i in range(shards)]
+        self.bills = 0
+        self.docs: set[str] = set()
+
+    def write(self, rows) -> None:
+        for r in rows:
+            row = [r[0], r[1], r[2], r[3], r[4], r[5], r[6],
+                   round(r[7], 2), round(r[8], 4), round(r[9], 2), round(r[10], 2), round(r[11], 2)]
+            self.files[trip_shard(r[0], self.shards)].write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+            self.bills += 1
+            self.docs.add(r[0])
+
+    def close(self) -> dict:
+        for f in self.files:
+            f.close()
+        return {"shards": self.shards, "bills": self.bills, "docs": len(self.docs)}
 #: ขอบช่วง %Margin ต้องตรงกับ BUCKETS ใน CustomerProfitTab.tsx
 MARGIN_LIMITS = (-20, -10, 0, 10, 20, 30, 40)
 #: ลูกค้าที่รายได้จากรายการที่ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้) ≥ สัดส่วนนี้ = ติดป้าย "ปันตามรายได้" ในแอป
@@ -615,6 +657,9 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
         doc = txt(g("doc"))
         if not doc:
             continue
+        # บิลที่ข้อมูลผิดจนใช้ไม่ได้ (src/excluded_bills.py) — ทุกรอบของการปันส่วนอ่านผ่านตัวนี้
+        if is_excluded(g("bill")):
+            continue
         d = parse_date(g("date"))
         it = Item(
             doc=doc, bill=txt(g("bill")), origin=txt(g("origin")), dest=txt(g("dest")),
@@ -631,8 +676,9 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
 
 
 # ================================================================ ปันส่วนจากไฟล์ดิบ
-def from_raw(cost_files: list[Path], rev_files: list[Path], routes: dict[str, dict[str, float]],
-             numbers_of: Callable[[set[str]], dict[str, int]]) -> tuple[Rollup, dict, dict, list[list]]:
+def from_raw(cost_files: list[Path], rev_files: list[Path],
+             routes: dict[str, dict[str, float]], numbers_of: Callable[[set[str]], dict[str, int]],
+             trip_out: TripBillWriter) -> tuple[Rollup, dict, dict, list[list]]:
     """คำนวณเองจากไฟล์ดิบด้วยสูตรใน src/alloc.py — เดินไฟล์บิลสองรอบ
 
     ★ ไม่เก็บรายการไว้ในหน่วยความจำ ข้อมูลจริง 29 ไฟล์ = 5.2 ล้านแถว ถ้าอ่านค้าง
@@ -746,9 +792,13 @@ def from_raw(cost_files: list[Path], rev_files: list[Path], routes: dict[str, di
             wanted[order[ci]] = ci
     print(f"  ช่วงเวลา {len(top):,} ชุด · ลูกค้าที่ติดอันดับ {len(wanted):,} ราย")
 
-    print("รอบสาม: เก็บบิลรายใบของลูกค้าที่ติดอันดับ")
-    bills = collect_bills(rev_files, routes, trip_cost, ttype, divisor, fill_km, from_median, wanted, cfs, adj, alias)
-    print(f"  บิลที่เก็บ {len(bills):,} ใบ")
+    print("รอบสาม: เก็บบิลรายใบของลูกค้าที่ติดอันดับ + บิลทุกใบของทุกเที่ยว (trip_bills)")
+    cust_index = {k: i for i, k in enumerate(order)}
+    bills = collect_bills(rev_files, routes, trip_cost, ttype, divisor, fill_km, from_median, wanted, cfs, adj,
+                          alias, cust_index, trip_out)
+    trip_info = trip_out.close()
+    print(f"  บิลที่เก็บ {len(bills):,} ใบ · บิลรายเที่ยว {trip_info['bills']:,} ใบ จาก {trip_info['docs']:,} เที่ยว"
+          f" / {trip_info['shards']} ไฟล์")
 
     matched = sorted(docs_in_bills & set(trip_cost))
     info = {
@@ -773,6 +823,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path], routes: dict[str, di
             "tripsAdjusted": len(adj),
             "tripsOff": off,
         },
+        "tripBills": trip_info,
         "cost": {
             "inCostReport": round(sum(trip_cost.values()), 2),
             "allocatable": round(sum(trip_cost[d] for d in matched), 2),
@@ -804,8 +855,11 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
                   divisor: dict[str, tuple[float, str, float, float]], fill_km: dict[str, float],
                   from_median: dict[str, bool], wanted: dict[CustKey, int],
                   cfs: dict[str, float], adj: dict[tuple[int, int], float],
-                  alias: dict[str, str] | None = None) -> list[list]:
+                  alias: dict[str, str], cust_index: dict[CustKey, int],
+                  trip_out: TripBillWriter) -> list[list]:
     """บิลล่าสุดสูงสุด 100 ใบต่อรายต่อเดือน ใช้ตัวหาร/CF/ส่วนต่างปัดเศษชุดเดียวกับรอบสอง
+    + บิลทุกใบของทุกเที่ยวที่จับคู่ได้ → trip_out (รวมบิลเคลียร์/เที่ยวตีเปล่า/ไม่มีผู้จ่าย พร้อมป้ายเหตุ) — ต้นทุนของบิลทุกใบ
+      ในเที่ยวรวมกันเท่าต้นทุนเที่ยวพอดี (ส่วนต่างปัดเศษชุดเดียวกับรอบสอง)
 
     คืน [ci, เลขที่บิล, วันที่, เลขที่ใบรายการ, เส้นทาง, รายได้, ต้นทุนจัดสรร,
          น้ำหนัก กก., ปริมาตร ลบ.ม., ระยะทาง, CF, น้ำหนักเทียบเท่า กก., Metric กก.-กม., สัดส่วน, ต้นทุนส่วนที่ปันตามรายได้] ต่อบิล
@@ -818,14 +872,11 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
         n = 0
         # ต้องรวมรายการของบิลเดียวกันให้ครบก่อนคัด 100 ใบ จึงพักเฉพาะไฟล์ปัจจุบัน
         acc: dict[str, list] = {}
+        trip_acc: dict[tuple[str, str], list] = {}
         for it in item_reader(path):
             n += 1
             cost = trip_cost.get(it.doc)
-            if cost is None or exclusion_of(it, ttype.get(it.doc, "")):
-                continue
-            k = cust_key(it)
-            ci = wanted.get(("", (alias or {}).get(k[1], k[1])))
-            if ci is None:
+            if cost is None:
                 continue
             measure(it, routes, cfs[it.doc])
             if it.dist is None:
@@ -835,6 +886,27 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
             share = share_in_trip(it, *divisor[it.doc])
             alloc = round(cost * share, 2) + adj.get((fi, n), 0.0)
             by_rev = alloc if (it.flag and divisor[it.doc][2]) else 0.0
+            excluded = exclusion_of(it, ttype.get(it.doc, ""))
+            payer = payer_of(it)
+            key = ("", alias.get(payer[1], payer[1]))
+            # บิลทุกใบของเที่ยว (trip_bills) — ไม่ขึ้นกับการติดอันดับ
+            t = trip_acc.get((it.doc, it.bill))
+            if t is None:
+                tag = excluded or ("" if payer[1] else NO_PAYER)
+                route = f"{it.origin}→{it.dest}" if it.origin and it.dest else it.origin or it.dest or "(ไม่ระบุ)"
+                trip_acc[(it.doc, it.bill)] = [it.doc, it.bill, it.date, -1 if tag else cust_index.get(key, -1), tag,
+                                               route, it.goods, max(it.weight, 0.0), it.cbm, it.revenue, alloc, by_rev]
+            else:
+                t[7] += max(it.weight, 0.0)
+                t[8] += it.cbm
+                t[9] += it.revenue
+                t[10] += alloc
+                t[11] += by_rev
+            if excluded:
+                continue
+            ci = wanted.get(key)
+            if ci is None:
+                continue
             b = acc.get(it.bill)
             if b is None:
                 route = f"{it.origin}→{it.dest}" if it.origin and it.dest else it.origin or it.dest or "(ไม่ระบุ)"
@@ -851,6 +923,7 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
                 b[13] += share
                 b[14] += by_rev
         seq = keep_recent_bills(kept, list(acc.values()), seq)
+        trip_out.write(trip_acc.values())
     return [entry[3] for heap in kept.values() for entry in heap]
 
 
@@ -879,7 +952,8 @@ def build(dataset: str) -> None:
         numbers_of = lambda _codes: sample_nums  # noqa: E731
     else:
         numbers_of = lambda codes: resolve_codes(ROOT, codes)  # noqa: E731
-    roll, info, top, bills = from_raw(cost_files, rev_files, routes, numbers_of)
+    roll, info, top, bills = from_raw(cost_files, rev_files, routes, numbers_of,
+                                      TripBillWriter(out, TRIP_BILL_SHARDS[dataset]))
 
     manifest = {
         "dataset": dataset,

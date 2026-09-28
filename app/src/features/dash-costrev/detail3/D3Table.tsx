@@ -6,6 +6,7 @@
  * คลาสช่วยวาดเซลล์ (d3-tt-kind · d3-tt-id · d3-tt-neg/pos · d3-tt-cov) อยู่ในส่วนที่ 2 ของ index.css
  */
 import { useMemo, useRef, useState, type ReactNode } from "react";
+import { Note } from "../../dash-fleet/parts";
 import { fmt, SortTable, useSort, type Col } from "../common";
 
 export default function D3Table<T>({ title, unit, rows, cols, initial, rowKey, empty, search, placeholder, note, legend, actions, children }: {
@@ -50,7 +51,7 @@ export default function D3Table<T>({ title, unit, rows, cols, initial, rowKey, e
           onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาในตาราง" />}
       </div>}
     </div>
-    {note && <p className="dz-note d3-tt-note">{note}</p>}
+    {note && <Note className="d3-tt-note">{note}</Note>}
     <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={rowKey}
       empty={q ? "ไม่พบรายการที่ค้นหา" : empty} className="d3-nowrap d3-tt-tbl" />
     {children}

@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { BILL_STORE, storePutMany, storeTx } from "./records";
 import { getUrl, loadBills as loadBillsFromSheet, pushBills } from "../sheet/client";
-import { nowStamp, toISODate } from "../record/date";
+import { nowStamp, toISODate, toStamp } from "../record/date";
 import type { PendingBill } from "../../types/bill";
 
 export const getAllBills = (): Promise<PendingBill[]> =>
@@ -32,8 +32,13 @@ export function mergeBills(local: PendingBill[], sheet: PendingBill[]): PendingB
     if (b.synced === false || !byId.has(b.id)) byId.set(b.id, b);
   }
   // วันที่บิลทำเป็น ISO เสมอ — สำเนาในเครื่องที่ดึงจากชีตก่อนแก้ 24 ก.ย. 2569 อาจเก็บข้อความ Date ไว้ (หน้าจัดรถขึ้น NaN)
+  // เวลาบันทึก/แก้ก็เช่นกัน ชีตแปลงเป็นเซลล์วันที่ → 'YYYY-MM-DD HH:mm' (toStamp · 28 ก.ย. 2569 — บิลที่รับวันนี้หาไม่เจอ)
   return [...byId.values()]
-    .map((b) => { const d = toISODate(b.date); return d && d !== b.date ? { ...b, date: d } : b; })
+    .map((b) => {
+      const d = toISODate(b.date), c = toStamp(b.createdAt), u = toStamp(b.updatedAt);
+      return (d && d !== b.date) || c !== b.createdAt || u !== b.updatedAt
+        ? { ...b, date: d || b.date, createdAt: c, updatedAt: u } : b;
+    })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.no.localeCompare(a.no));
 }
 

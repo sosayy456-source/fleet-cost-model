@@ -37,6 +37,18 @@ export interface AllocManifest {
   months: string[];
   /** จำนวนชุดย่อยของบิล · ไม่มีในไฟล์รุ่นเก่าที่เก็บ bills.json ก้อนเดียว */
   billShards?: number;
+  /** บิลทุกใบของทุกเที่ยว (trip_bills_XX.ndjson · 28 ก.ย. 2569) · ไม่มี = ไฟล์รุ่นก่อน ต้องรัน build_alloc.py ใหม่ */
+  tripBills?: { shards: number; bills: number; docs: number };
+}
+
+/**
+ * บิล 1 ใบของเที่ยว (trip_bills) — ป็อบอัพรายการบิลของ Manager Dashboard
+ * ci = ดัชนีลูกค้าใน customers · −1 = ไม่เข้าลูกค้า (tag บอกเหตุ: บิลเคลียร์ · เที่ยวตีเปล่า · ไม่มีผู้จ่าย)
+ * cost = ต้นทุนเที่ยวที่ปันเข้าบิล (สูตรเดียวกับ Customer Performance) · byRevenue = ส่วนที่ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้)
+ */
+export interface TripBill {
+  doc: string; bill: string; date: string; ci: number; tag: string; route: string; goods: string;
+  weight: number; cbm: number; revenue: number; cost: number; byRevenue: number;
 }
 
 /** 1 ระเบียน = 1 ลูกค้า (ผู้จ่ายเงิน) */
@@ -229,6 +241,47 @@ function toBills(c: BillColumns | null): AllocBill[] | null {
   return out;
 }
 
+/** ไฟล์ย่อยของเลขที่ใบรายการ — ผลรวมรหัสอักขระ ต้องตรงกับ trip_shard() ใน etl/build_alloc.py */
+export const tripShard = (doc: string, shards: number): number => {
+  let s = 0;
+  for (let i = 0; i < doc.length; i++) s += doc.charCodeAt(i);
+  return s % shards;
+};
+
+const tripShardCache = new Map<string, Promise<string>>();
+/**
+ * บิลทุกใบของเที่ยวหนึ่งใบ — โหลดเฉพาะไฟล์ย่อยของเลขนั้น (ข้อมูลจริง ~1 MB/ไฟล์) · ไฟล์เป็น NDJSON จึงเช็คว่าไม่ใช่ HTML
+ * (Vite dev ตอบ 200 + text/html ให้ไฟล์ที่ไม่มี) · ไฟล์รุ่นก่อนไม่มี tripBills = null
+ */
+export async function loadTripBills(data: AllocData, doc: string): Promise<TripBill[] | null> {
+  const tb = data.manifest.tripBills;
+  if (!tb?.shards) return null;
+  const file = `trip_bills_${tripShard(doc, tb.shards).toString(16).padStart(2, "0")}.ndjson`;
+  const key = `${data.manifest.dataset}/${data.manifest.generatedAt}/${file}`;
+  let promise = tripShardCache.get(key);
+  if (!promise) {
+    promise = fetch(url(data.manifest.dataset, file), { cache: "no-cache" }).then(async (res) => {
+      const text = await res.text();
+      if (!res.ok || (res.headers.get("content-type") ?? "").includes("html") || text.trimStart().startsWith("<")) {
+        throw new Error(`โหลด alloc/${file} ไม่ได้ (HTTP ${res.status})`);
+      }
+      return text;
+    }).catch((error) => { tripShardCache.delete(key); throw error; });
+    tripShardCache.set(key, promise);
+  }
+  const text = await promise;
+  const out: TripBill[] = [];
+  // กรองด้วยข้อความก่อน parse — ไฟล์หนึ่งมีหลายพันเที่ยว
+  const needle = `["${doc}",`;
+  for (const line of text.split("\n")) {
+    if (!line.startsWith(needle)) continue;
+    const r = JSON.parse(line) as [string, string, string, number, string, string, string, number, number, number, number, number];
+    out.push({ doc: r[0], bill: r[1], date: r[2], ci: r[3], tag: r[4], route: r[5], goods: r[6],
+      weight: r[7], cbm: r[8], revenue: r[9], cost: r[10], byRevenue: r[11] });
+  }
+  return out;
+}
+
 let cache: Promise<AllocData> | null = null;
 const billShardCache = new Map<string, Promise<AllocBill[]>>();
 
@@ -281,7 +334,7 @@ export function useAlloc(): AllocState {
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
 
-  const reload = useCallback(() => { cache = null; billShardCache.clear(); resetAllocDataset(); setTick((t) => t + 1); }, []);
+  const reload = useCallback(() => { cache = null; billShardCache.clear(); tripShardCache.clear(); resetAllocDataset(); setTick((t) => t + 1); }, []);
 
   useEffect(() => {
     let alive = true;

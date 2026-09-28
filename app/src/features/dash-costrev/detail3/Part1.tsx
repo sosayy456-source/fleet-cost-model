@@ -61,7 +61,7 @@ function KindChart({ rows }: { rows: VRow[] }) {
   return <div className="dz-cc" style={{ marginTop: 14 }}>
     <div className="fl-tophead">
       <div><h4>1. ต้นทุนของรถแต่ละชนิด · {unit}</h4>
-        <p className="dz-note">GROUP BY ชนิดรถ, ประเภทรถ → SUM(ต้นทุน) ÷ SUM({metric === "trip" ? "เที่ยว" : metric === "km" ? "ระยะทาง" : "ตัน-กม."})</p></div>
+        <Note>GROUP BY ชนิดรถ, ประเภทรถ → SUM(ต้นทุน) ÷ SUM({metric === "trip" ? "เที่ยว" : metric === "km" ? "ระยะทาง" : "ตัน-กม."})</Note></div>
       <div className="fl-toggle" role="group" aria-label="หน่วยต้นทุน">
         {METRICS.map((m) => <button key={m.id} type="button" className={metric === m.id ? "on" : ""}
           aria-pressed={metric === m.id} onClick={() => setMetric(m.id)}>{m.label}</button>)}

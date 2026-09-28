@@ -86,6 +86,7 @@ from src.svcalloc import SvcAlloc  # noqa: E402
 from src.tripcols import encode as encode_trips  # noqa: E402
 from src.sheetcache import cached_rows  # noqa: E402
 from src.progress import report, span  # noqa: E402
+from src.excluded_bills import is_excluded  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -338,6 +339,7 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None,
     weight_kg: dict[str, float] = {}   # น้ำหนักสินค้ารวมของใบนั้น (line_weight_kg · ไม่นับบิลเคลียร์)
     service_revenue: dict[str, dict[str, float]] = {}  # ยอดรายได้รายกลุ่ม รวมทั้งบิลที่ชำระแล้ว
     rows_seen = 0
+    excluded_seen = 0
     paid_seen = 0
     paid_total = 0.0
     files = xlsx_files(rev_dir)
@@ -358,6 +360,10 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None,
             rows_seen += 1
             doc = text(g(r, "เลขที่ใบรายการ"))
             if not doc or doc not in want:
+                continue
+            # บิลที่ข้อมูลผิดจนใช้ไม่ได้ (src/excluded_bills.py) — ข้ามก่อนนับทุกอย่าง
+            if is_excluded(g(r, "เลขที่บิล")):
+                excluded_seen += 1
                 continue
             doc_set.add(doc)
             # มูลค่าความเสียหาย = ราคารวมของบิลที่ประเภทสินค้าเป็น "บิลเคลียร์" (นิยามเดียวกับ
@@ -429,6 +435,8 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None,
                 "billStatus": text(g(r, "สถานะบิล")),
             })
         print(f"  {p.name}: {rows_seen - n0:,} แถว (สะสม {len(doc_set):,} ใบที่ตรงกับไฟล์ต้นทุน)")
+    if excluded_seen:
+        print(f"  ข้ามบิลที่อยู่ในรายการตัดทิ้ง (src/excluded_bills.py) {excluded_seen:,} แถว")
     return (doc_set, bills, len(files), rows_seen,
             {"bills": paid_seen, "total": round(paid_total, 2)}, clr_amt, clr_n,
             goods, bill_n, payers, service_revenue, weight_kg)

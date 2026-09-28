@@ -41,3 +41,12 @@ export function serviceMarginValues(trips: MarginTrip[]): number[] {
   const m = sums(trips.filter((t) => (SERVICE_GROUPS as readonly string[]).includes(t.sg)), (t) => t.sg);
   return SERVICE_GROUPS.map((g) => { const a = m.get(g); return a?.rev ? a.profit / a.rev * 100 : NaN; });
 }
+
+/**
+ * Service Group Margin รายกลุ่ม × เดือน (เจ้าของงานเลือก 28 ก.ย. 2569) — 3 กลุ่มคิด percentile ไม่ได้ความหมาย
+ * ยุบเป็นกลุ่ม × เดือนทั้งชุดอ้างอิงและช่วงที่ประเมิน (12 เดือน ≈ 36 ค่า) · เดือนที่กลุ่มนั้นรายได้ 0 = ไม่นับ
+ */
+export function serviceMonthMarginValues(trips: (MarginTrip & { mo: string })[]): number[] {
+  const m = sums(trips.filter((t) => (SERVICE_GROUPS as readonly string[]).includes(t.sg)), (t) => `${t.sg}|${t.mo}`);
+  return [...m.values()].map((a) => (a.rev ? a.profit / a.rev * 100 : NaN));
+}
