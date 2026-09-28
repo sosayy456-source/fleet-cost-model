@@ -3286,3 +3286,83 @@ html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
 #view-dash .pi-dm-status{margin-top:10px}
 #view-dash .pi-dm-status th{text-align:left;padding:6px 10px;font-size:12.5px;color:var(--d-ink3);border-bottom:1px solid var(--d-line2)}
 #view-dash .pi-dm-refs{margin:0;padding-left:20px;font-size:12px;color:var(--d-ink3);display:flex;flex-direction:column;gap:4px;word-break:break-word}
+
+/* ===== ป็อบอัพรายการบิลของเที่ยว (Manager Dashboard · TripBillsModal · 28 ก.ย. 2569) ===== */
+#view-dash .mg-tb-tbl td{white-space:nowrap}
+#view-dash .mg-tb-tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--d-rail,#F1ECEE);color:var(--d-ink3,#6b5a60)}
+#view-dash .modal.mg-tb-modal{max-width:min(1320px,96vw);width:min(1320px,96vw)}
+
+/* ===== Manager Dashboard หน้าเดียว — เลย์เอาต์ตาม "Dashboard ผู้จัดการสาขา.html" (28 ก.ย. 2569 · สีชุดของโมเดล) ===== */
+#view-dash .mg-sec{scroll-margin-top:96px}
+#view-dash .mg-heroes5{grid-template-columns:repeat(5,minmax(0,1fr))}
+#view-dash .mg-heroes4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1200px){#view-dash .mg-heroes5{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1000px){#view-dash .mg-heroes4,#view-dash .mg-heroes5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){#view-dash .mg-heroes4,#view-dash .mg-heroes5{grid-template-columns:1fr}}
+#view-dash .mo-sec-h{margin:22px 0 12px}
+#view-dash .mo-verdict{margin:0 0 16px;padding:14px 18px;border-radius:14px;font-size:16.5px;line-height:1.55;color:var(--d-ink);
+  background:#FBF0D9;border-left:6px solid #C8871F}
+#view-dash .mo-verdict.bad{background:#FBE7E6;border-left-color:var(--red,#C0392B)}
+#view-dash .mo-verdict.ok{background:#E3F2EA;border-left-color:var(--green,#1E7A4C)}
+#view-dash .mo-verdict b{font-weight:700}
+#view-dash .mo-d{font-size:12.5px;font-weight:700}
+#view-dash .mo-d.up{color:#1E7A4C}
+#view-dash .mo-d.dn{color:#C0392B}
+#view-dash .dz-kc.hero .mo-d{color:inherit;opacity:.95}
+#view-dash .mo-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;margin-top:14px;align-items:start}
+#view-dash .mo-grid > .dz-cc,#view-dash .mo-grid > .mg-todo{margin:0}
+#view-dash .mo-stack{display:flex;flex-direction:column;gap:14px}
+#view-dash .mo-stack > .dz-cc{margin:0}
+@media (max-width:900px){#view-dash .mo-grid{grid-template-columns:1fr}}
+/* กล่องคู่ซ้ายขวาสูงเท่ากัน (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+#view-dash .mo-grid.mo-fit{align-items:stretch}
+#view-dash .mo-stack > .mg-todo{margin:0}
+#view-dash .mo-full{margin:0 0 14px}
+/* กราฟ 6 เดือน */
+#view-dash .mo-chart{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;height:190px;align-items:end;padding-top:18px}
+#view-dash .mo-col{display:flex;flex-direction:column;align-items:center;height:100%;gap:6px;min-width:0}
+#view-dash .mo-col > span{font-size:12.5px;color:var(--d-ink4)}
+#view-dash .mo-bars{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:4px}
+#view-dash .mo-bars i{position:relative;display:block;width:34%;max-width:24px;min-height:2px;border-radius:5px 5px 0 0}
+#view-dash .mo-bars i.rev{background:var(--mo-rev,#C9A56A)}
+#view-dash .mo-bars i.cost{background:var(--mo-cost,#B8A6C4)}
+#view-dash .mo-bars em{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:2px;font-style:normal;font-size:11px;color:var(--d-ink4);white-space:nowrap}
+#view-dash .mo-lg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px;color:var(--d-ink4)}
+#view-dash .mo-lg span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+#view-dash .mo-lg .rev{--c:var(--mo-rev,#C9A56A)}
+#view-dash .mo-lg .cost{--c:var(--mo-cost,#B8A6C4)}
+#view-dash .mo-lg .ok{--c:#1E9E6A}
+#view-dash .mo-lg .warn{--c:#D9A04A}
+#view-dash .mo-lg .late{--c:#E07B39}
+#view-dash .mo-lg .bad{--c:#C0392B}
+#view-dash .mo-lg .run{--c:var(--accent,#590212)}
+/* ค่าใช้จ่ายตามหมวด */
+#view-dash .mo-ex{display:grid;grid-template-columns:140px 1fr 110px;gap:10px;align-items:center;font-size:13.5px;margin:9px 0}
+#view-dash .mo-ex > span:last-child{text-align:right;color:var(--d-ink)}
+#view-dash .mo-tr{position:relative;height:10px;border-radius:5px;background:var(--d-rail,#EFE8EB)}
+#view-dash .mo-tr i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--mo-cost,#8E6E9A)}
+#view-dash .mo-tr i.over{background:#C0392B}
+#view-dash .mo-tr u{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--d-ink,#2A0A10)}
+/* แถบสัดส่วน (อายุลูกหนี้ · สถานะรถ) */
+#view-dash .mo-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:6px 0 4px;background:var(--d-rail,#EFE8EB)}
+#view-dash .mo-bar i{display:block}
+#view-dash .mo-bar i.ok{background:#1E9E6A}
+#view-dash .mo-bar i.warn{background:#D9A04A}
+#view-dash .mo-bar i.late{background:#E07B39}
+#view-dash .mo-bar i.bad{background:#C0392B}
+#view-dash .mo-bar i.run{background:var(--accent,#590212)}
+#view-dash .mo-note{margin:10px 0 0;font-size:12.5px;color:var(--d-ink4)}
+/* ตารางรายได้ลูกค้า */
+#view-dash .mo-scroll{overflow-x:auto}
+#view-dash .mo-tbl{width:100%;border-collapse:collapse;font-size:14px}
+#view-dash .mo-tbl th,#view-dash .mo-tbl td{text-align:left;padding:8px;border-top:1px solid var(--d-row,#EFE6E9);white-space:nowrap}
+#view-dash .mo-tbl th{border-top:0;font-size:12.5px;font-weight:600;color:var(--d-ink4)}
+#view-dash .mo-tbl .n{text-align:right}
+#view-dash .mo-tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px}
+#view-dash .mo-tag.bad{background:#FBE4E0;color:#C0392B}
+#view-dash .mo-tag.warn{background:#FBF0D9;color:#9A5F14}
+/* การ์ดต้นทุน */
+#view-dash .mo-cost{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+#view-dash .mo-cost div{font-size:13px;color:var(--d-ink4)}
+#view-dash .mo-cost b{display:block;font-size:22px;color:var(--d-ink);font-family:var(--d-num)}
+#view-dash .mo-cost b.neg{color:#C0392B}

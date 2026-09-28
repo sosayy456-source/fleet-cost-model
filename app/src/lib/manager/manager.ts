@@ -149,6 +149,8 @@ export const runEnd = (d: string, km: number | null): string =>
 export interface MgrSrc {
   id: string; br: string; d: string; km: number | null; o: string; de: string; rt: string; vk: string;
   rev: number; cost: number; profit: number; empty: boolean; parts: CostParts;
+  /** ทะเบียนรถคันที่ 1 · บิลเคลียร์ (จำนวนรายการ · มูลค่า) — ภาพรวมสาขา (lib/manager/overview.ts) · ใบใหม่ไม่มีบิลเคลียร์ = 0 */
+  pl: string; clrN: number; clrAmt: number;
   /** Load Factor (%) · null = ไม่มี */
   lf: number | null;
   src: MgrTrip["src"]; costEst: boolean;
@@ -290,6 +292,7 @@ export function fileSrc(trips: Trip[], lfById: ReadonlyMap<string, number>): Mgr
     return {
       id: t.id, br: t.br, d: t.d, km: t.km, o: t.o, de: t.de, rt: t.rt, vk: t.vk,
       rev: t.rev, cost: t.cost, profit: t.profit, empty: t.empty, parts: partsOf(t),
+      pl: t.pl ?? "", clrN: t.clrN ?? 0, clrAmt: t.clrAmt ?? 0,
       lf: t.empty ? 0 : raw == null ? null : raw * 100, src: "file", costEst: false,
     };
   });
@@ -321,6 +324,7 @@ export function recordSrc(records: TripRecord[], fileIds: ReadonlySet<string>, f
     out.push({
       id, br: r.branch ?? "", d, km: Number(r.dist) || null, o: r.origin, de: r.dest, rt: `${r.origin}-${r.dest}`,
       vk: r.vehicle, rev, cost, profit: rev - cost, empty: !!r.emptyLeg, parts,
+      pl: String(r.plate ?? ""), clrN: 0, clrAmt: 0,
       lf: r.emptyLeg ? 0 : cap > 0 ? load / cap * 100 : null, src: "new", costEst: !done && !!fc,
     });
   }
