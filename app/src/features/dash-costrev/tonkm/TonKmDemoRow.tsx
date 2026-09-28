@@ -18,6 +18,8 @@ import { readTargetPct } from "../../../lib/tonkm/prefs";
 import { openExecTab } from "../../../lib/ui/execTab";
 import { periodStr, rateStr } from "./TonKmCards";
 import { Hero } from "../../dash-fleet/parts";
+// รูปรถเข็นกล่องแทนเส้นตกแต่ง (เจ้าของงานสั่ง 28 ก.ย. 2569)
+import imgCart from "../../../assets/icons3d/cart.webp";
 import { fmt } from "../common";
 import SourceTag from "../../../lib/ui/SourceTag";
 import { FilterScope } from "../../dash-demo/filter";
@@ -50,7 +52,8 @@ export function TonKmHero({ f }: { f: DemoFilter }) {
       onClick={() => openExecTab("tonkm")}
       s={why ?? (!ov ? "กำลังโหลด…" : ov.change == null ? `ไม่มีข้อมูล${periodStr(ov.prev)}ให้เทียบ`
         : `${up ? "▲" : "▼"} ${fmt(Math.abs(ov.change), 1)}% เทียบ ${periodStr(ov.prev)}`)}
-      title={ov ? `ช่วง ${periodStr(ov.period)} · กดเพื่อดูรายละเอียดใน Overall Dashboard` : undefined} />
+      title={ov ? `ช่วง ${periodStr(ov.period)} · กดเพื่อดูรายละเอียดใน Overall Dashboard` : undefined}
+      art={<img className="hero-art-img" src={imgCart} alt="" />} />
   );
 }
 

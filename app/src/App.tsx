@@ -42,6 +42,7 @@ import BranchGate from "./features/dash-manager/BranchGate";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
 import { clearReturnPoints, goBack, hasReturnPoint } from "./lib/ui/returnPoint";
+import { PREVIEW_SCOPE } from "./lib/ui/themePreview";
 
 /* ไอคอนเส้นชุดเดียวกับ main */
 const I = {
@@ -141,6 +142,8 @@ export default function App() {
   const pages = PAGES.filter((p) => allowed.includes(p.id));
 
   const readHash = (): string => {
+    // กรอบตัวอย่างของหน้าตั้งค่าสี (lib/ui/themePreview.ts) — ตรึงหน้าตามแท็บที่กำลังตั้งสี
+    if (PREVIEW_SCOPE && allowed.includes(PREVIEW_SCOPE.page)) return PREVIEW_SCOPE.page;
     if (role === "manager" && !managerBranch) return "dash-fleet";
     const h = location.hash.replace(/^#\/?/, "");
     // ปุ่ม "แก้ไข" ในรายการทั้งหมด/ใบที่ยังไม่ครบ ส่งมาที่ #/entry — ผู้ดูแลระบบไม่มีหน้านั้นแล้ว ให้ไปหน้ารวมแทน

@@ -41,7 +41,7 @@ function Trend({ data }: { data: number[] }) {
  * onClick/active = การ์ดกดได้ (แท็บกำไรลูกค้าของ Demo ใช้กรองตาราง) — ไม่ส่ง = การ์ดธรรมดา
  * foot  = บรรทัดใต้ชิป s เช่น ยอดกำไรของกลุ่มนั้น (แท็บกำไรลูกค้าของ Demo) — ไม่ส่ง = ไม่มีบรรทัดนี้
  */
-export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, title }: {
+export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, title, art }: {
   /** warn = เหลืองอำพัน (Manager Dashboard: เฝ้าระวัง / ค้าง 1–30 วัน) */
   kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc" | "warn";
   l: string; v: string; s?: ReactNode;
@@ -53,6 +53,8 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
   foot?: ReactNode;
   /** tooltip ของทั้งการ์ด */
   title?: string;
+  /** ภาพแทนเส้นตกแต่ง SPARK มุมขวาล่าง (การ์ดกำไรของ Executive Dashboard = ลูกศรขึ้น/ลง) */
+  art?: ReactNode;
 }) {
   const cls = `dz-kc hero ${kind}` + (trend ? " has-trend" : "") + (onClick ? " clickable" : "") + (active ? " on" : "");
   const press = onClick ? {
@@ -85,7 +87,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
         <>
           {s && <div className="s">{s}</div>}
           {foot && <div className="ft">{foot}</div>}
-          {SPARK}
+          {art ? <div className="hero-art">{art}</div> : SPARK}
         </>
       )}
     </div>

@@ -36,6 +36,7 @@ import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
 import * as Pi from "./PiIndex";
 import { PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import ThemeScope from "../../lib/ui/ThemeScope";
 
 /*
  * ★ ทุกส่วนห่อ memo (26 ก.ย. 2569 · docs/แผนแก้-ข้อมูลจริงช้า.md ข้อ 2)
@@ -204,8 +205,11 @@ export default function DemoDash() {
 
   const part = (id: PartId, body: ReactNode) => (
     <section key={id} id={`demo-${id}`} className={stale ? "dm-part dm-stale" : "dm-part"} ref={(el) => { partRefs.current[id] = el; }}>
-      <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>
-      {body}
+      {/* สีรายส่วนจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) — ครอบหัวส่วนด้วย สีหัวข้อบนพื้นหลังจึงตั้งรายส่วนได้ */}
+      <ThemeScope scope={`demo:${id}`}>
+        <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>
+        {body}
+      </ThemeScope>
     </section>
   );
 
@@ -260,7 +264,7 @@ export default function DemoDash() {
         <PiReportProvider value={pi.report}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
