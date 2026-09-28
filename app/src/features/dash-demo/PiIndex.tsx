@@ -97,11 +97,11 @@ function subTitle(r: MetricResult): string | undefined {
     + ` → (${fmt(t.g)} + 0.5 × ${fmt(t.y)}) ÷ ${fmt(t.n)} × ${METRIC_MAX}` + (r.basis ? `\nเกณฑ์: ${r.basis}` : "");
 }
 
-/** ช่วงที่ประเมินของหมวด — ตัวชี้วัดคนละไฟล์อาจเป็นคนละเดือน */
+/** ช่วงที่ประเมินของหมวด — ตัวชี้วัดคนละไฟล์อาจเป็นคนละเดือน จึงรวมแบบไม่ซ้ำ */
 const periodsOf = (results: MetricResult[]): string =>
   [...new Set(results.flatMap((r) => (r.period ? [r.period] : [])))].join(" · ");
 
-/** ป้ายสถานะของหมวดตามเกณฑ์ Performance Index */
+/** ป้ายสถานะของหมวด (ผ่านเกณฑ์ 15–20 · เฝ้าระวัง 10–14.99 · ไม่ผ่านเกณฑ์ < 10) — ทุกหมวด ตาม InDex_revised v2.md */
 function StatusChip({ status }: { status: IndexStatus | null }) {
   if (!status) return null;
   return <i className={`pi-st ${status}`} title={`${STATUS_RANGE[status]} — ${STATUS_MEANING[status]}`}>{STATUS_LABEL[status]}</i>;
@@ -109,11 +109,9 @@ function StatusChip({ status }: { status: IndexStatus | null }) {
 
 /**
  * กล่อง PI ของหมวด Fleet · Cost · Customer · Service — ตั้งแต่ 28 ก.ย. 2569 ใช้เลย์เอาต์แถวเดียวแบบ Route & Service ทุกหมวด
- * (เจ้าของงานสั่ง "performance index 2–5 ให้ทำตามแบบที่ 1") จึงส่งต่อให้ PiRow
+ * (เจ้าของงานสั่ง "performance index 2–5 ให้ทำตามแบบที่ 1") จึงส่งต่อให้ PiRow · note = คำอธิบายหลังปุ่ม i (ป้ายสถานะขึ้นทุกหมวดจาก indexStatus · InDex_revised v2.md)
  */
-export function PiBox({ index, results, note }: {
-  index: IndexDef; results: MetricResult[]; note?: string;
-}) {
+export function PiBox({ index, results, note }: { index: IndexDef; results: MetricResult[]; note?: string }) {
   return <PiRow index={index} results={results} note={note} />;
 }
 
@@ -192,9 +190,7 @@ function PiRowMetric({ r }: { r: MetricResult }) {
  * กล่องคะแนน x/20 สั้น ๆ ซ้าย + ตัวชี้วัดเรียงไปทางขวา คอลัมน์ละตัว · ปุ่ม "รายละเอียด" กางวิธีคิดคะแนน
  * แจ้งผลขึ้นบรรทัดคะแนนรวมเหมือน PiBox (หมวดอื่นยังใช้ PiBox)
  */
-export function PiRow({ index, results, note }: {
-  index: IndexDef; results: MetricResult[]; note?: string;
-}) {
+export function PiRow({ index, results, note }: { index: IndexDef; results: MetricResult[]; note?: string }) {
   const report = useContext(PiReportCtx);
   useEffect(() => { report?.(index.id, results); }, [report, index.id, results]);
   const full = index.subs.length * METRIC_MAX;

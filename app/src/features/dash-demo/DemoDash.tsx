@@ -287,7 +287,8 @@ export default function DemoDash() {
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
           {part("route", <>{tripsState
             ? <><h2 className="dm-part-h">{ROUTE_LABEL}</h2>{tripsState}</>
-            : <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>, true)}
+            : <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" />
+            <PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>, true)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
             onInfo={registerItem2Info} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
@@ -300,6 +301,7 @@ export default function DemoDash() {
             {/* เส้นคั่นระหว่างกล่อง Customer PI กับแถว Damage Rate + Service Quality (เจ้าของงานขอ 28 ก.ย. 2569) */}
             <hr className="dm-pi-sep" />
             <div className="pi-pair">
+              {/* การ์ด Damage Rate ใบเดียวกับแท็บ Damage — ตามตัวกรองของหน้า ไม่ใช่ช่วงที่ประเมินของ PI */}
               <DamageRateBox trips={m && !error ? trips : null} />
               <PiService trips={piTrips} refTrips={piRefs?.trips ?? null} period={piEval?.label} />
             </div>

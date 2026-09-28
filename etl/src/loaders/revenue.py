@@ -29,7 +29,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from ..excluded_bills import is_excluded
+from ..excluded_bills import is_absurd_weight, is_excluded
 
 log = logging.getLogger(__name__)
 
@@ -112,6 +112,12 @@ def read_one_file(path: str) -> pd.DataFrame:
     # บิลที่ข้อมูลผิดจนใช้ไม่ได้ (src/excluded_bills.py) — ชุดเดียวกับ build_costrev/build_alloc
     if "เลขที่บิล" in df.columns:
         df = df[~df["เลขที่บิล"].map(is_excluded)].reset_index(drop=True)
+    # น้ำหนักบิลเกินพันตัน = กรอกผิดแน่ ตัดทิ้ง (is_absurd_weight — กติกาเดียวกับ build_costrev/build_alloc)
+    nums = {c: pd.to_numeric(df[c], errors="coerce").fillna(0) if c in df.columns else pd.Series(0.0, index=df.index)
+            for c in ("จำนวน", "น้ำหนักต่อหน่วย", "น้ำหนักรวม")}
+    absurd = [is_absurd_weight(q, u, t) for q, u, t in zip(nums["จำนวน"], nums["น้ำหนักต่อหน่วย"], nums["น้ำหนักรวม"])]
+    if any(absurd):
+        df = df[~pd.Series(absurd, index=df.index)].reset_index(drop=True)
     df["source_file"] = os.path.basename(path)
     return df
 

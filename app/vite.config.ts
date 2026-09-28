@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import type { Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { spawn } from "node:child_process";
-import { existsSync, readdirSync, rmSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { EtlBatch } from "./src/lib/data/etlBatch";
@@ -47,6 +47,32 @@ function autoEtl(): Plugin {
   const debtOut = resolve(revOut, "debtors");
   const lfDir = resolve(etlDir, "data", "Loadfactor");
   const lfOut = resolve(revOut, "loadfactor");
+  /**
+   * บิลที่ ETL ตัดทิ้ง (etl/src/excluded_bills.py) — เทียบกับ manifest.excludedBills ของผลลัพธ์ข้อมูลจริง
+   * ไม่ตรง = ผลลัพธ์แปลงด้วยรายการเก่า (เช่น เพิ่ง merge เลขบิลใหม่มา) → รันงาน cr + al ใหม่เอง (เจ้าของงานสั่ง 28 ก.ย. 2569)
+   * อ่านเลขด้วย regex บรรทัด `"<ตัวเลข>": …` ของ dict EXCLUDED_BILLS · อ่านไฟล์ไม่ได้ = null (ไม่สั่งงาน)
+   */
+  const exclFile = resolve(etlDir, "src", "excluded_bills.py");
+  const excludedInCode = (): string | null => {
+    try {
+      const src = readFileSync(exclFile, "utf8");
+      // + รุ่นกติกา (RULES_VERSION · เช่นเกณฑ์น้ำหนักเกินพันตัน) — เปลี่ยนกติกาแล้วผลลัพธ์เก่าต้องแปลงใหม่ด้วย
+      const ver = /^RULES_VERSION\s*=\s*(\d+)/m.exec(src)?.[1] ?? "1";
+      return [...src.matchAll(/^\s*"(\d+)"\s*:/gm)].map((m) => m[1]).sort().join(",") + `|v${ver}`;
+    } catch { return null; }
+  };
+  /** รายการที่ผลลัพธ์ใช้ตอนแปลง · ไม่มี manifest = null (ไม่ใช่งานของตัวเทียบนี้) · manifest รุ่นก่อนไม่มีคีย์ = "?" (ถือว่าไม่ตรง) */
+  const excludedInOutput = (out: string): string | null => {
+    try {
+      const m = JSON.parse(readFileSync(resolve(out, "manifest.json"), "utf8")) as { excludedBills?: string[]; excludeRules?: number };
+      return Array.isArray(m.excludedBills) ? [...m.excludedBills].sort().join(",") + `|v${m.excludeRules ?? 1}` : "?";
+    } catch { return null; }
+  };
+  /** ผลลัพธ์ของงานนี้แปลงด้วยรายการบิลที่ตัดทิ้งไม่ตรงกับโค้ดตอนนี้ */
+  const staleExcluded = (out: string): boolean => {
+    const code = excludedInCode(), done = excludedInOutput(out);
+    return code !== null && done !== null && code !== done;
+  };
   const isXlsx = (f: string) => /\.xlsx$/i.test(f) && !/^~\$/.test(f) && !/\.backup\./i.test(f);
   const hasXlsx = (dir: string) => existsSync(dir) && readdirSync(dir).some(isXlsx);
 
@@ -375,7 +401,18 @@ function autoEtl(): Plugin {
         rev: signature(revDir), cr: signature(costDir),
         al: signature(costDir), db: signature(debtDir), lf: signature(lfDir),
       };
+      // รายการบิลที่ตัดทิ้งเปลี่ยนระหว่างเปิด dev (แก้ไฟล์/merge) → แปลง cr + al ใหม่
+      let lastExcl = excludedInCode();
       const tick = () => {
+        const excl = excludedInCode();
+        if (excl !== null && excl !== lastExcl) {
+          lastExcl = excl;
+          if (hasXlsx(costDir) && hasXlsx(revDir)) {
+            log("รายการบิลที่ตัดทิ้ง (etl/src/excluded_bills.py) เปลี่ยน — แปลงต้นทุน+รายได้และปันส่วนต้นทุนใหม่");
+            request("cr", 2000); setStatus("cr", "running", QUEUED.cr);
+            request("al", 2500); setStatus("al", "running", QUEUED.al);
+          }
+        }
         for (const job of ["rev", "cr", "al", "db", "lf"] as Job[]) {
           const sig = signature(WATCH[job]);
           if (sig === null || sig === last[job]) continue;
@@ -405,10 +442,13 @@ function autoEtl(): Plugin {
       // รอให้ server ขึ้น banner ก่อน เพราะ Vite ล้างหน้าจอตอนสตาร์ท ข้อความก่อนหน้านั้นจะหาย
       const pendingRev = false;   // build_json.py ไม่รันอัตโนมัติแล้ว — ดูเหตุผลใน tick()
       // ตอนเปิด dev ใหม่ ให้ตรวจทั้งงานที่ยังไม่เคยแปลงและผลลัพธ์เก่าที่ไม่มีไฟล์ต้นทางแล้ว
-      const pendingCr = (hasXlsx(costDir) && hasXlsx(revDir))
-        !== existsSync(resolve(costOut, "manifest.json"));
-      const pendingAl = (hasXlsx(costDir) && hasXlsx(revDir))
-        !== existsSync(resolve(allocOut, "manifest.json"));
+      // + ผลลัพธ์ที่แปลงด้วยรายการบิลตัดทิ้งชุดเก่า (merge เลขบิลใหม่มา) = แปลงใหม่
+      const bothInputs = hasXlsx(costDir) && hasXlsx(revDir);
+      const pendingCr = bothInputs !== existsSync(resolve(costOut, "manifest.json")) || (bothInputs && staleExcluded(costOut));
+      const pendingAl = bothInputs !== existsSync(resolve(allocOut, "manifest.json")) || (bothInputs && staleExcluded(allocOut));
+      if (bothInputs && (staleExcluded(costOut) || staleExcluded(allocOut))) {
+        log("รายการบิลที่ตัดทิ้ง (etl/src/excluded_bills.py) เปลี่ยน — จะแปลงต้นทุน+รายได้และปันส่วนต้นทุนใหม่ให้เอง");
+      }
       const pendingDb = hasXlsx(debtDir) !== existsSync(resolve(debtOut, "manifest.json"));
       const pendingLf = hasXlsx(lfDir) !== existsSync(resolve(lfOut, "manifest.json"));
       if (pendingRev || pendingCr || pendingAl || pendingDb || pendingLf) {
