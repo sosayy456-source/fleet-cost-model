@@ -70,6 +70,7 @@ from build_costrev import find_header_row, iter_sheet, parse_date, utf8_stdout, 
 from src.capacity import CF_MEDIAN, Capacity
 from src.custcodes import resolve_codes
 from src.progress import report, span
+from src.excluded_bills import is_excluded
 from src.alloc import (
     DIST_EXACT,
     DIST_FALLBACK,
@@ -593,6 +594,9 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
 
         doc = txt(g("doc"))
         if not doc:
+            continue
+        # บิลที่ข้อมูลผิดจนใช้ไม่ได้ (src/excluded_bills.py) — ทุกรอบของการปันส่วนอ่านผ่านตัวนี้
+        if is_excluded(g("bill")):
             continue
         d = parse_date(g("date"))
         it = Item(
