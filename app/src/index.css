@@ -2881,52 +2881,74 @@ text.num-fd{transform-box:fill-box}
 #view-dash .mg-est{background:#FEF0D9;color:#B45309}
 
 /* ======================================================================================
-   ธีม "cherry" ของแดชบอร์ดทั้งหมด (เจ้าของงานส่งชุดสี + ตัวอย่าง "การแสดงผล.pdf" 27 ก.ย. 2569 · lib/ui/dashTheme.ts)
-   ชุดสี: #BF939F ม่วงหม่น · #E4CDD3 · #EBE0E6 ชมพูอ่อน · #C86253 ส้มอิฐ · #DDA39F · #590212 เบอร์กันดี
-   การ์ดเด่นตาม PDF (เจ้าของงานยืนยัน 27 ก.ย. 2569): **กำไร = เขียว · รายได้ = แชมเปญทอง (ตัวเข้ม) · ต้นทุน = มุกม่วงอ่อน (ตัวเข้ม)**
-   ลูกค้า = เบอร์กันดี · ขาดทุน = ชมพูกุหลาบเข้ม · พื้นมุกชมพู · หัวข้อแถบแชมเปญซ้าย
-   ตัวอักษรใหญ่ขึ้น ~15–20% ให้อ่านง่าย · ทุกกฎครอบด้วย html.theme-cherry (main.tsx ใส่คลาส) —
-   ถอดคลาส/ตั้ง localStorage dashTheme=classic = กลับสีเดิมทั้งหมด (กฎข้างบนไม่ถูกแก้)
+   ธีม "cherry" ของแดชบอร์ดทั้งหมด (lib/ui/dashTheme.ts) — ทุกกฎครอบด้วย html.theme-cherry (main.tsx ใส่คลาส)
+   ★ สีทุกจุดอ่านจากตัวแปร --th-* ที่ lib/ui/themeColors.ts เขียนลง <html> ตอนโหลดหน้า (ค่าตั้งต้น + ที่ผู้ใช้เลือกในหน้าการตั้งค่า)
+     ห้ามใส่รหัสสีตายตัวแทนตัวแปรที่มีอยู่แล้ว ไม่งั้นหน้าตั้งค่าเปลี่ยนจุดนั้นไม่ได้ · เพิ่มจุดใหม่ = เติม token ใน THEME_GROUPS แล้วอ้าง var(--th-…)
+   ค่าตั้งต้น 28 ก.ย. 2569 = "กรมท่า + ทราย" ตามภาพที่เจ้าของงานส่ง (พื้นกรมท่าเข้ม · เมนูทรายไล่เทา · หัวชมพูอ่อน ·
+   การ์ดเด่น กำไรทอง/รายได้เขียว/ต้นทุนแดง ตัวขาว) · ธีมชมพูเดิมเลือกได้จากชุดสำเร็จรูป "ชมพูเชอร์รี"
+   ตัวอักษรใหญ่ขึ้น ~15–20% ให้อ่านง่าย · ตั้ง localStorage dashTheme=classic = กลับสีเดิมทั้งหมด (กฎข้างบนไม่ถูกแก้)
    ====================================================================================== */
-html.theme-cherry{--accent:#590212;--accent-hover:#3F0110;--accent-tint:#F6ECEF;--accent-tint-2:#EBE0E6;--accent-line:#E4CDD3}
-html.theme-cherry body:has(#view-dash.active){background:linear-gradient(180deg,#F8F1F2 0%,#F3E9EC 100%) fixed}
-html.theme-cherry #view-dash{
-  --d-bg:#F6EEF0; --d-card:#FFFFFF; --d-soft:#FBF6F7; --d-rail:#EBE0E6;
+html.theme-cherry,html.theme-cherry [data-th-scope]{
+  --accent:var(--th-accent); --accent-hover:color-mix(in srgb,var(--th-accent) 78%,#000);
+  --accent-tint:color-mix(in srgb,var(--th-accent) 7%,#fff); --accent-tint-2:color-mix(in srgb,var(--th-accent) 12%,#fff);
+  --accent-line:color-mix(in srgb,var(--th-accent) 20%,#fff);
+  --sidebar-text:var(--th-sideText);
+  /* สีเดียว → ไล่เข้มไปอ่อนอัตโนมัติ (กลุ่มบริการ · หัวส่วน · Performance Index) */
+  --thg-sg1:linear-gradient(135deg,color-mix(in srgb,var(--th-sg1) 85%,#000) 0%,color-mix(in srgb,var(--th-sg1) 78%,#fff) 100%);
+  --thg-sg2:linear-gradient(135deg,color-mix(in srgb,var(--th-sg2) 85%,#000) 0%,color-mix(in srgb,var(--th-sg2) 78%,#fff) 100%);
+  --thg-sg3:linear-gradient(135deg,color-mix(in srgb,var(--th-sg3) 85%,#000) 0%,color-mix(in srgb,var(--th-sg3) 78%,#fff) 100%);
+  --thg-secA:linear-gradient(135deg,color-mix(in srgb,var(--th-secA) 85%,#000) 0%,color-mix(in srgb,var(--th-secA) 78%,#fff) 100%);
+  --thg-secB:linear-gradient(135deg,color-mix(in srgb,var(--th-secB) 85%,#000) 0%,color-mix(in srgb,var(--th-secB) 78%,#fff) 100%);
+  --thg-secC:linear-gradient(135deg,color-mix(in srgb,var(--th-secC) 85%,#000) 0%,color-mix(in srgb,var(--th-secC) 78%,#fff) 100%);
+  --thg-pi:linear-gradient(135deg,color-mix(in srgb,var(--th-piBg) 80%,#fff) 0%,var(--th-piBg) 50%,color-mix(in srgb,var(--th-piBg) 70%,#000) 100%);
+}
+html.theme-cherry body:has(#view-dash.active){background:linear-gradient(180deg,var(--th-pageTop) 0%,var(--th-pageBottom) 100%) fixed}
+/* [data-th-scope] = ตัวครอบแท็บที่ตั้งสีเอง (lib/ui/ThemeScope.tsx) — ต้องประกาศตัวแปรคิดต่อซ้ำ ไม่งั้นได้ค่าที่คิดจากสีรวมตั้งแต่ #view-dash */
+html.theme-cherry :is(#view-dash,[data-th-scope]){
+  --d-bg:var(--th-pageBottom); --d-card:var(--th-cardBg); --d-soft:color-mix(in srgb,var(--th-cardBg) 94%,var(--th-accent));
+  --d-rail:color-mix(in srgb,var(--th-cardBg) 88%,var(--th-accent));
   --d-line:rgba(89,2,18,.09); --d-line2:rgba(89,2,18,.13); --d-div:rgba(89,2,18,.1);
-  --d-row:#F3E8EC; --d-hover:rgba(89,2,18,.3);
-  --d-ink:#2A0A10; --d-ink2:#5A3A40; --d-ink3:#7A5A60; --d-ink4:#7A5A60; --d-ink5:#7A5A60;
-  --d-indigo:#590212; --d-emerald-d:#1B7A60; --d-amber-d:#A8472F; --d-rose-d:#B23A2E;
-  --ch-gold:linear-gradient(135deg,#9A7A3E 0%,#B8955A 55%,#CFAF7A 100%);
-  --ch-champ:linear-gradient(135deg,#F7EEDD 0%,#EDDDBE 55%,#D9B98A 100%);
-  --ch-pearl:linear-gradient(135deg,#F7F2F6 0%,#E9E0EA 55%,#D6CAD9 100%);
-  --ch-rose:linear-gradient(135deg,#9E2C42 0%,#BF4458 55%,#D9707E 100%);
-  --ch-green:linear-gradient(135deg,#0C5A45 0%,#1B7A60 55%,#34A07F 100%);
-  --ch-burgundy:linear-gradient(135deg,#7A1A2E 0%,#5E0718 50%,#3F0110 100%);
-  --ch-brick:linear-gradient(135deg,#8E2A20 0%,#B0473A 55%,#C86253 100%);
-  --ch-mauve:linear-gradient(135deg,#6E3F4C 0%,#8E5A68 55%,#A87583 100%);
-  --ch-blush:linear-gradient(135deg,#FBF4F6 0%,#EBE0E6 55%,#E4CDD3 100%);
-  --lf-used:linear-gradient(90deg,#590212,#8E2A3E); --lf-idle:linear-gradient(90deg,#B0473A,#C86253); --lf-used-c:#590212;
+  --d-row:color-mix(in srgb,var(--th-cardBg) 92%,var(--th-accent)); --d-hover:rgba(89,2,18,.3);
+  --d-ink:var(--th-cardValue); --d-ink2:color-mix(in srgb,var(--th-cardValue) 60%,var(--th-cardLabel));
+  --d-ink3:var(--th-cardLabel); --d-ink4:var(--th-cardLabel); --d-ink5:var(--th-cardLabel);
+  --d-indigo:var(--th-accent); --d-emerald-d:#1B7A60; --d-amber-d:#A8472F; --d-rose-d:#B23A2E;
+  --ch-gold:linear-gradient(135deg,var(--th-profitA) 0%,var(--th-profitB) 100%);
+  --ch-green:linear-gradient(135deg,var(--th-revA) 0%,var(--th-revB) 100%);
+  --ch-red:linear-gradient(135deg,var(--th-costA) 0%,var(--th-costB) 100%);
+  --ch-burgundy:linear-gradient(135deg,var(--th-custA) 0%,var(--th-custB) 100%);
+  --ch-rose:linear-gradient(135deg,var(--th-lossA) 0%,var(--th-lossB) 100%);
+  --ch-mauve:linear-gradient(135deg,color-mix(in srgb,var(--th-fleet) 80%,#000) 0%,color-mix(in srgb,var(--th-fleet) 75%,#fff) 100%);
+  --ch-brick:linear-gradient(135deg,color-mix(in srgb,var(--th-svc) 80%,#000) 0%,color-mix(in srgb,var(--th-svc) 75%,#fff) 100%);
+  --lf-used:linear-gradient(90deg,var(--th-accent),color-mix(in srgb,var(--th-accent) 70%,#fff));
+  --lf-idle:linear-gradient(90deg,#B0473A,#C86253); --lf-used-c:var(--th-accent);
 }
 
+/* ---- เมนูซ้าย ---- */
+html.theme-cherry .sidebar{background:linear-gradient(180deg,var(--th-sideTop) 0%,var(--th-sideBottom) 100%)}
+html.theme-cherry .navitem:hover{background:color-mix(in srgb,var(--th-sideActiveBg) 55%,transparent);color:var(--th-sideActiveText)}
+html.theme-cherry .navitem.active{background:var(--th-sideActiveBg);color:var(--th-sideActiveText);box-shadow:0 6px 16px -10px rgba(0,0,0,.45)}
+html.theme-cherry .navsubitem{color:var(--th-sideText)}
+html.theme-cherry .navsubitem:hover,html.theme-cherry .navsubitem.active{color:var(--th-sideActiveText)}
+
 /* ---- หัวแดชบอร์ด + แท็บ + ตัวกรอง ---- */
-html.theme-cherry .dh{background:#FBF6F7;border-color:#E4CDD3;border-top:6px solid #590212;box-shadow:0 24px 60px -34px rgba(89,2,18,.35)}
-html.theme-cherry .dh h1{color:#590212;font-size:44px}
-html.theme-cherry .dh-meta{font-size:15.5px;color:#7A5A60}
-html.theme-cherry .dh-meta b{color:#2A0A10}
-html.theme-cherry .dh-role{background:#EBE0E6}
-html.theme-cherry .dh-role span{font-size:15px;color:#5A3A40}
-html.theme-cherry .dh-role button{background:#590212;color:#FBF6F7;font-size:15px}
-html.theme-cherry .dh-role button:hover{background:#3F0110}
-html.theme-cherry .dh-refresh{font-size:15px;color:#5A3A40;border-color:#E4CDD3}
-html.theme-cherry .dh .dash-tabs{background:#EBE0E6}
-html.theme-cherry .dh .dtab{font-size:16.5px;color:#7A5A60}
-html.theme-cherry .dh .dtab.active,html.theme-cherry .dh .dtab:hover{color:#590212}
-html.theme-cherry .dh .dash-tabs .dink{box-shadow:0 2px 8px -2px rgba(89,2,18,.3)}
-html.theme-cherry .dh-filters .ff{border-color:#E4CDD3;padding:9px 13px}
-html.theme-cherry .dh-filters .ff:focus-within{border-color:#590212}
-html.theme-cherry .dh-filters label{font-size:13.5px;color:#7A5A60}
-html.theme-cherry .dh-filters select,html.theme-cherry .dh-filters input{font-size:15.5px;color:#2A0A10}
-html.theme-cherry .dh-clear{font-size:15px;color:#7A5A60}
+html.theme-cherry .dh{background:var(--th-headBg);border-color:var(--th-headLine);border-top:6px solid var(--th-headBorder);box-shadow:0 24px 60px -34px rgba(0,0,0,.55)}
+html.theme-cherry .dh h1{color:var(--th-headTitle);font-size:44px}
+html.theme-cherry .dh-meta{font-size:15.5px;color:var(--th-headMuted)}
+html.theme-cherry .dh-meta b{color:var(--th-headText)}
+html.theme-cherry .dh-role{background:color-mix(in srgb,var(--th-headLine) 70%,var(--th-headBg))}
+html.theme-cherry .dh-role span{font-size:15px;color:var(--th-headMuted)}
+html.theme-cherry .dh-role button{background:var(--th-accent);color:#FFFFFF;font-size:15px}
+html.theme-cherry .dh-role button:hover{background:var(--accent-hover)}
+html.theme-cherry .dh-refresh{font-size:15px;color:var(--th-headMuted);border-color:var(--th-headLine)}
+html.theme-cherry .dh .dash-tabs{background:color-mix(in srgb,var(--th-headLine) 70%,var(--th-headBg))}
+html.theme-cherry .dh .dtab{font-size:16.5px;color:var(--th-headMuted)}
+html.theme-cherry .dh .dtab.active,html.theme-cherry .dh .dtab:hover{color:var(--th-headTitle)}
+html.theme-cherry .dh .dash-tabs .dink{box-shadow:0 2px 8px -2px rgba(0,0,0,.25)}
+html.theme-cherry .dh-filters .ff{border-color:var(--th-headLine);padding:9px 13px}
+html.theme-cherry .dh-filters .ff:focus-within{border-color:var(--th-accent)}
+html.theme-cherry .dh-filters label{font-size:13.5px;color:var(--th-headMuted)}
+html.theme-cherry .dh-filters select,html.theme-cherry .dh-filters input{font-size:15.5px;color:var(--th-headText)}
+html.theme-cherry .dh-clear{font-size:15px;color:var(--th-headMuted)}
 
 /* ---- การ์ดเด่น: สีตามความหมาย + ตัวเลขใหญ่ ---- */
 html.theme-cherry #view-dash .dz-kc.hero .l{font-size:16px}
@@ -2936,93 +2958,227 @@ html.theme-cherry #view-dash .dz-heroes > .dz-kc.hero:first-child .v{font-size:6
 html.theme-cherry #view-dash .dz-heroes.cp-heroes > .dz-kc.hero:first-child .v{font-size:46px}
 html.theme-cherry #view-dash .dz-kc.hero .hf .s,html.theme-cherry #view-dash .dz-kc.hero .s{font-size:15px}
 html.theme-cherry #view-dash .dz-kc.hero .vs{font-size:18px}
-html.theme-cherry #view-dash .dz-kc.hero.profit{background:var(--ch-green);box-shadow:0 18px 36px -22px rgba(12,90,69,.75)}
-html.theme-cherry #view-dash .dz-kc.hero.cust{background:var(--ch-burgundy);box-shadow:0 18px 36px -22px rgba(89,2,18,.75)}
-html.theme-cherry #view-dash .dz-kc.hero.loss{background:var(--ch-rose);box-shadow:0 18px 36px -22px rgba(158,44,66,.7)}
+html.theme-cherry #view-dash .dz-kc.hero :is(.l,.v,.vs,.s,.ft){color:var(--th-heroText)}
+html.theme-cherry #view-dash .dz-kc.hero.profit{background:var(--ch-gold);box-shadow:0 18px 36px -22px rgba(0,0,0,.6)}
+html.theme-cherry #view-dash .dz-kc.hero.rev{background:var(--ch-green);box-shadow:0 18px 36px -22px rgba(0,0,0,.6)}
+html.theme-cherry #view-dash .dz-kc.hero.cost{background:var(--ch-red);box-shadow:0 18px 36px -22px rgba(0,0,0,.6)}
+html.theme-cherry #view-dash .dz-kc.hero.cust{background:var(--ch-burgundy);box-shadow:0 18px 36px -22px rgba(0,0,0,.6)}
+html.theme-cherry #view-dash .dz-kc.hero.loss{background:var(--ch-rose);box-shadow:0 18px 36px -22px rgba(0,0,0,.6)}
 html.theme-cherry #view-dash .dz-kc.hero.fleet{background:var(--ch-mauve)}
 html.theme-cherry #view-dash .dz-kc.hero.svc{background:var(--ch-brick)}
 html.theme-cherry #view-dash .dz-kc.hero.warn{background:linear-gradient(135deg,#9A5F14 0%,#B8762A 55%,#D9A04A 100%)}
-/* รายได้ = แชมเปญ · ต้นทุน = มุกม่วง — การ์ดสีอ่อน ตัวอักษรเข้ม (แบบ PDF) */
-html.theme-cherry #view-dash .dz-kc.hero.rev{background:var(--ch-champ);box-shadow:inset 0 0 0 1px #E6D3B0,0 18px 36px -24px rgba(154,122,62,.6)}
-html.theme-cherry #view-dash .dz-kc.hero.cost{background:var(--ch-pearl);box-shadow:inset 0 0 0 1px #DCD0DE,0 18px 36px -24px rgba(90,70,95,.45)}
-html.theme-cherry #view-dash .dz-kc.hero.rev :is(.l,.v,.vs,.ft){color:#4A3318}
-html.theme-cherry #view-dash .dz-kc.hero.rev :is(.s,.hf .s){color:#7A5C36}
-html.theme-cherry #view-dash .dz-kc.hero.rev .u{background:rgba(74,51,24,.1);color:#4A3318}
-html.theme-cherry #view-dash .dz-kc.hero.rev .trend polyline{stroke:rgba(74,51,24,.4)}
-html.theme-cherry #view-dash .dz-kc.hero.cost :is(.l,.v,.vs,.ft){color:#3A2B3C}
-html.theme-cherry #view-dash .dz-kc.hero.cost :is(.s,.hf .s){color:#6A5A6C}
-html.theme-cherry #view-dash .dz-kc.hero.cost .u{background:rgba(58,43,60,.1);color:#3A2B3C}
-html.theme-cherry #view-dash .dz-kc.hero.cost .trend polyline{stroke:rgba(58,43,60,.4)}
 
 /* ---- การ์ดรอง ---- */
-html.theme-cherry #view-dash .dz-kc:not(.hero){border-color:#EBDDE2;background:#FFFFFF}
-html.theme-cherry #view-dash .dz-kc:not(.hero) .l{font-size:16px;color:#7A5A60}
-html.theme-cherry #view-dash .dz-kc:not(.hero) .v{font-size:36px;color:#2A0A10}
-html.theme-cherry #view-dash .dz-kc:not(.hero) .s{font-size:15px;color:#7A5A60}
+html.theme-cherry #view-dash .dz-kc:not(.hero){border-color:var(--th-cardLine);background:var(--th-cardBg)}
+html.theme-cherry #view-dash .dz-kc:not(.hero) .l{font-size:16px;color:var(--th-cardLabel)}
+html.theme-cherry #view-dash .dz-kc:not(.hero) .v{font-size:36px;color:var(--th-cardValue)}
+html.theme-cherry #view-dash .dz-kc:not(.hero) .s{font-size:15px;color:var(--th-cardLabel)}
 
-/* ---- หัวข้อส่วน (แถบทองซ้ายแบบตัวอย่าง) · การ์ดกราฟ/ตาราง ---- */
-html.theme-cherry #view-dash .dm-part-h{font-size:28px;color:#590212;padding-left:14px;border-left:4px solid #C9A77A}
-html.theme-cherry #view-dash .dm-part-h::after{background:#E4CDD3}
-html.theme-cherry #view-dash .dz-t{font-size:22px;color:#590212;padding-left:12px;border-left:4px solid #C9A77A}
-html.theme-cherry #view-dash .dz-t::after{background:#E4CDD3}
-html.theme-cherry #view-dash .dz-cc{border-color:#EBDDE2;box-shadow:0 10px 30px -24px rgba(89,2,18,.35)}
-html.theme-cherry #view-dash .dz-cc h4{font-size:20px;color:#2A0A10}
+/* ---- หัวข้อส่วน (อยู่บนพื้นหลังหน้า) · การ์ดกราฟ/ตาราง ---- */
+html.theme-cherry #view-dash .dm-part-h{font-size:28px;color:var(--th-pageText)}
+html.theme-cherry #view-dash .dm-part-h::after{background:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
+html.theme-cherry #view-dash .dz-t{font-size:22px;color:var(--th-pageText)}
+html.theme-cherry #view-dash .dz-t::after{background:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
+html.theme-cherry #view-dash .dz-cc{background:var(--th-cardBg);border-color:var(--th-cardLine);box-shadow:0 10px 30px -24px rgba(0,0,0,.45)}
+html.theme-cherry #view-dash .dz-cc h4{font-size:20px;color:var(--th-boxTitle)}
 html.theme-cherry #view-dash .dz-tbl{font-size:16px}
-html.theme-cherry #view-dash .dz-tbl th{font-size:14.5px;color:#7A5A60}
-html.theme-cherry #view-dash .dz-note{font-size:14.5px;color:#7A5A60}
+html.theme-cherry #view-dash .dz-tbl th{font-size:14.5px;color:var(--th-cardLabel)}
+html.theme-cherry #view-dash .dz-note{font-size:14.5px;color:var(--th-cardLabel)}
+/* ข้อความที่วางบนพื้นหลังหน้าตรง ๆ (ไล่ด้วยสคริปต์ 28 ก.ย. 2569 — โน้ตใต้การ์ด · หัวส่วน cp-sec · ลูกหนี้ของ Manager · ชิปตัวกรอง LF)
+   ใช้สีบนพื้นหลัง · โน้ตในกล่อง/การ์ด/ป็อบอัพกลับเป็นสีของการ์ด */
+html.theme-cherry #view-dash .dz-note{color:var(--th-pageMuted)}
+html.theme-cherry #view-dash .dz-note b{color:var(--th-pageText)}
+html.theme-cherry #view-dash :is(.dz-cc,.dz-kc,.rp-wrap,.i3-sec,.i3-panel,.dm-panel,.modal,[class*="modal"],[role="dialog"],table) .dz-note{color:var(--th-cardLabel)}
+html.theme-cherry #view-dash :is(.dz-cc,.dz-kc,.rp-wrap,.i3-sec,.i3-panel,.dm-panel,.modal,[class*="modal"],[role="dialog"],table) .dz-note b{color:var(--th-cardValue)}
+html.theme-cherry #view-dash .cp-sec h3,html.theme-cherry #view-dash .mg-debt > .mg-h{color:var(--th-pageText)}
+html.theme-cherry #view-dash .cp-sec p,html.theme-cherry #view-dash .mg-debt > .mg-sub,
+html.theme-cherry #view-dash .mg-debt > .mg-flow,html.theme-cherry #view-dash .lf-chips > span:not(.lf-src){color:var(--th-pageMuted)}
+html.theme-cherry #view-dash .cp-sec p b,html.theme-cherry #view-dash .mg-debt > .mg-flow b{color:var(--th-pageText)}
+html.theme-cherry #view-dash :is(.dz-cc,.dz-kc,.modal,[class*="modal"]) .cp-sec :is(h3,p b){color:var(--th-cardValue)}
+html.theme-cherry #view-dash :is(.dz-cc,.dz-kc,.modal,[class*="modal"]) .cp-sec p{color:var(--th-cardLabel)}
+html.theme-cherry #view-dash .cp-sec p.dso-limit{color:#E6B868}
 
 /* ---- การ์ดอัตรากำไร 3 กลุ่มบริการ ---- */
-html.theme-cherry .dm-sg.c1{background:var(--ch-burgundy)}
-html.theme-cherry .dm-sg.c2{background:var(--ch-brick)}
-html.theme-cherry .dm-sg.c3{background:var(--ch-mauve)}
+html.theme-cherry .dm-sg.c1{background:var(--thg-sg1)}
+html.theme-cherry .dm-sg.c2{background:var(--thg-sg2)}
+html.theme-cherry .dm-sg.c3{background:var(--thg-sg3)}
 html.theme-cherry .dm-sg .l{font-size:16.5px}
 html.theme-cherry .dm-sg .v{font-size:46px}
 html.theme-cherry .dm-sg .s{font-size:14.5px}
 
 /* ---- Vehicle Utilization Cost (หัวส่วน/หัวตาราง) ---- */
-html.theme-cherry .i3-h.violet{background:var(--ch-burgundy);box-shadow:0 14px 30px -16px rgba(89,2,18,.55)}
-html.theme-cherry .i3-h.green{background:var(--ch-green);box-shadow:0 14px 30px -16px rgba(12,90,69,.55)}
-html.theme-cherry .i3-h.blue{background:var(--ch-mauve);box-shadow:0 14px 30px -16px rgba(110,63,76,.55)}
-html.theme-cherry .i3-sec:nth-child(1) .i3-tbl thead tr{background:var(--ch-burgundy)}
-html.theme-cherry .i3-sec:nth-child(2) .i3-tbl thead tr{background:var(--ch-green)}
+html.theme-cherry .i3-h.violet{background:var(--thg-secA);box-shadow:0 14px 30px -16px rgba(0,0,0,.5)}
+html.theme-cherry .i3-h.green{background:var(--thg-secB);box-shadow:0 14px 30px -16px rgba(0,0,0,.5)}
+html.theme-cherry .i3-h.blue{background:var(--thg-secC);box-shadow:0 14px 30px -16px rgba(0,0,0,.5)}
+html.theme-cherry .i3-sec:nth-child(1) .i3-tbl thead tr{background:var(--thg-secA)}
+html.theme-cherry .i3-sec:nth-child(2) .i3-tbl thead tr{background:var(--thg-secB)}
 
 /* ---- การ์ดแผนที่/จัดอันดับเส้นทาง ---- */
-html.theme-cherry .rp-ico.green{background:var(--ch-green);box-shadow:0 6px 14px -6px rgba(12,90,69,.7)}
-html.theme-cherry .rp-ico.violet{background:var(--ch-burgundy);box-shadow:0 6px 14px -6px rgba(89,2,18,.7)}
-html.theme-cherry .rp-ico.red{background:var(--ch-brick);box-shadow:0 6px 14px -6px rgba(176,71,58,.7)}
-html.theme-cherry .rp-tbl tbody tr.on td{background:#F8EEF1;box-shadow:inset 0 1px 0 #E4CDD3,inset 0 -1px 0 #E4CDD3}
-html.theme-cherry .rp-tbl tbody tr.on td:first-child{box-shadow:inset 1px 1px 0 #E4CDD3,inset 0 -1px 0 #E4CDD3}
-html.theme-cherry .rp-tbl tbody tr.on td:last-child{box-shadow:inset -1px 1px 0 #E4CDD3,inset 0 -1px 0 #E4CDD3}
-html.theme-cherry .rp-tbl tbody tr.on .rp-rank{background:var(--ch-green)}
+html.theme-cherry .rp-ico.green{background:var(--thg-secB);box-shadow:0 6px 14px -6px rgba(0,0,0,.5)}
+html.theme-cherry .rp-ico.violet{background:var(--thg-secA);box-shadow:0 6px 14px -6px rgba(0,0,0,.5)}
+html.theme-cherry .rp-ico.red{background:var(--thg-sg2);box-shadow:0 6px 14px -6px rgba(0,0,0,.5)}
+html.theme-cherry .rp-tbl tbody tr.on td{background:var(--th-rowOn);box-shadow:inset 0 1px 0 var(--th-cardLine),inset 0 -1px 0 var(--th-cardLine)}
+html.theme-cherry .rp-tbl tbody tr.on td:first-child{box-shadow:inset 1px 1px 0 var(--th-cardLine),inset 0 -1px 0 var(--th-cardLine)}
+html.theme-cherry .rp-tbl tbody tr.on td:last-child{box-shadow:inset -1px 1px 0 var(--th-cardLine),inset 0 -1px 0 var(--th-cardLine)}
+html.theme-cherry .rp-tbl tbody tr.on .rp-rank{background:var(--thg-secB)}
 
-/* ---- Performance Index: กล่องเบอร์กันดี + แถบทอง (แบบตัวอย่าง) ---- */
+/* ---- Performance Index ---- */
 html.theme-cherry #view-dash .pi-box.t-route,html.theme-cherry #view-dash .pi-box.t-fleet,
 html.theme-cherry #view-dash .pi-box.t-cost,html.theme-cherry #view-dash .pi-box.t-cust,
-html.theme-cherry #view-dash .pi-box.t-service,html.theme-cherry #view-dash .pi-total{background:var(--ch-burgundy)}
-html.theme-cherry #view-dash .pi-meter i,html.theme-cherry #view-dash .pi-bar i{background:linear-gradient(90deg,#E6CD8C,#F3E6C4)}
+html.theme-cherry #view-dash .pi-box.t-service,html.theme-cherry #view-dash .pi-total{background:var(--thg-pi)}
+html.theme-cherry #view-dash .pi-meter i,html.theme-cherry #view-dash .pi-bar i{background:linear-gradient(90deg,color-mix(in srgb,var(--th-piAccent) 75%,#B08A3E),var(--th-piAccent))}
 html.theme-cherry #view-dash .pi-t{font-size:19px}
-html.theme-cherry #view-dash .pi-score b{font-size:52px;color:#F3E6C4}
+html.theme-cherry #view-dash .pi-score b{font-size:52px;color:var(--th-piAccent)}
 
 /* ---- Executive Summary (หัว/แท็บของหน้าเอง) ---- */
-html.theme-cherry .es-header{background:#FFFFFF;border-color:#E4CDD3}
-html.theme-cherry .es-brand{font-size:20px;color:#590212}
+html.theme-cherry .es-header{background:var(--th-headBg);border-color:var(--th-headLine)}
+html.theme-cherry .es-brand{font-size:20px;color:var(--th-headTitle)}
 html.theme-cherry .es-tabs button{font-size:17px}
-html.theme-cherry .es-tabs button.active{background:#590212}
-html.theme-cherry .es-filterbar{background:#FBF6F7}
-html.theme-cherry .es-content h2{font-size:30px;color:#590212;padding-left:14px;border-left:5px solid #C9A77A}
-html.theme-cherry .es-sub{font-size:24px;color:#590212;padding-left:12px;border-left:4px solid #C9A77A}
+html.theme-cherry .es-tabs button.active{background:var(--th-accent)}
+html.theme-cherry .es-filterbar{background:var(--th-headBg)}
+html.theme-cherry .es-content h2{font-size:30px;color:var(--th-pageText);padding-left:14px;border-left:5px solid var(--th-profitB)}
+html.theme-cherry .es-sub{font-size:24px;color:var(--th-pageText);padding-left:12px;border-left:4px solid var(--th-profitB)}
 
 /* ---- Vehicle Utilization Cost › ภาพรวมการใช้ประโยชน์กองรถ (แผงกลุ่มบริการ + โดนัท · สีรถอยู่ที่ FT ใน Item3Tab.tsx) ---- */
-html.theme-cherry .i3-panel{background:#FFFFFF;border-color:#EBDDE2}
-html.theme-cherry .i3-donut-panel{background:#FFFFFF;border-color:#EBDDE2}
-html.theme-cherry .i3-panel.i3-link:hover{border-color:#DDA39F;box-shadow:0 14px 30px -22px rgba(89,2,18,.45)}
+html.theme-cherry .i3-panel{background:var(--th-cardBg);border-color:var(--th-cardLine)}
+html.theme-cherry .i3-donut-panel{background:var(--th-cardBg);border-color:var(--th-cardLine)}
+html.theme-cherry .i3-panel.i3-link:hover{border-color:#DDA39F;box-shadow:0 14px 30px -22px rgba(0,0,0,.45)}
 html.theme-cherry .i3-link tr:focus-visible,html.theme-cherry .i3-panel.i3-link:focus-visible{outline-color:#DDA39F}
-html.theme-cherry .i3-group{background:#F8EFF2;border-color:#F1E3E8}
-html.theme-cherry .i3-stack{background:#EBE0E6}
+html.theme-cherry .i3-group{background:var(--th-rowOn);border-color:var(--th-cardLine)}
+html.theme-cherry .i3-stack{background:color-mix(in srgb,var(--th-cardBg) 88%,var(--th-accent))}
 html.theme-cherry .i3-verdict.comp{background:#F1DDE2;color:#590212}
 html.theme-cherry .i3-verdict.part{background:#EFE4E9;color:#6E3F4C}
 html.theme-cherry .i3-panel-head b{font-size:18px}
 html.theme-cherry .i3-panel-head span{font-size:14.5px}
 html.theme-cherry .i3-group-head b{font-size:16px}
 html.theme-cherry .i3-group-head span,html.theme-cherry .i3-legend,html.theme-cherry .i3-verdict{font-size:13.5px}
-html.theme-cherry .i3-donut-total b{font-size:34px;color:#2A0A10}
+html.theme-cherry .i3-donut-total b{font-size:34px;color:var(--th-cardValue)}
+
+/* ---- ตัวครอบสีรายแท็บ + โหมดตัวอย่างในกรอบของหน้าการตั้งค่า (lib/ui/ThemeScope.tsx · lib/ui/themePreview.ts · 28 ก.ย. 2569) ---- */
+.th-scope{display:contents}
+html.th-preview .sidebar,html.th-preview .dh,html.th-preview .dm-floating-filter,html.th-preview .dm-filter-panel{display:none!important}
+html.th-preview main.app{margin-left:0!important;padding-top:18px!important}
+html.th-preview body{overflow-x:hidden}
+html.th-preview [data-th-scope] *{cursor:pointer!important}
+html.th-preview .th-hot{outline:3px solid #FFD43B!important;outline-offset:2px;box-shadow:0 0 0 7px rgba(255,212,59,.35)!important;
+  animation:thHot 1s ease-in-out infinite;position:relative;z-index:5}
+
+/* ---- หน้าการตั้งค่า › สีของแดชบอร์ด (features/settings/ThemeSettings.tsx · 28 ก.ย. 2569) ----
+   ตัวอย่างย่อ .thp-* อ่านตัวแปร --th-* ชุดเดียวกับแดชบอร์ดจริง · ส่วนที่มี data-th ตรงกับช่องที่ชี้ได้คลาส .th-hot (กระพริบ) */
+.thm-layout{display:grid;grid-template-columns:minmax(380px,560px) minmax(0,1fr);gap:20px;align-items:start}
+.thm-left{position:sticky;top:16px;display:flex;flex-direction:column;gap:12px}
+@media (max-width:1100px){.thm-layout{grid-template-columns:1fr}.thm-left{position:static}}
+.thm-pv{cursor:pointer}
+.thm-cap{font-size:13.5px;color:var(--ink-soft);padding:8px 12px;border-radius:10px;background:var(--bg);min-height:38px}
+.thm-cap.on{background:#FFF6D6;color:#5A4300}
+.thp{display:flex;border-radius:14px;overflow:hidden;border:1px solid var(--line);
+  background:linear-gradient(180deg,var(--th-pageTop),var(--th-pageBottom));font-size:11px;line-height:1.35}
+.thp-side{width:82px;flex:none;padding:10px 7px;display:flex;flex-direction:column;gap:5px;
+  background:linear-gradient(180deg,var(--th-sideTop),var(--th-sideBottom))}
+.thp-side span{display:block;padding:5px 7px;border-radius:6px;color:var(--th-sideText);font-size:10.5px;white-space:nowrap;overflow:hidden}
+.thp-side span.on{background:var(--th-sideActiveBg);color:var(--th-sideActiveText);font-weight:700}
+.thp-main{flex:1;min-width:0;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.thp-head{position:relative;background:var(--th-headBg);border-radius:9px;padding:9px 10px 8px;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+.thp-bar{position:absolute;left:0;right:0;top:0;height:3px;background:var(--th-headBorder)}
+.thp-hrow{display:flex;align-items:center;gap:6px}
+.thp-hrow b{color:var(--th-headTitle);font-size:15px;font-weight:800;flex:1}
+.thp-btn{background:var(--th-accent);color:#fff;border-radius:999px;padding:2px 9px;font-size:10px}
+.thp-meta{color:var(--th-headMuted);font-size:10.5px}
+.thp-meta b{color:var(--th-headText)}
+.thp-ff{display:flex;gap:5px}
+.thp-ff span{flex:1;padding:3px 6px;border-radius:5px;background:#fff;border:1px solid var(--th-headLine);font-size:10px;white-space:nowrap;overflow:hidden}
+.thp-ff small{color:var(--th-headMuted);font-size:9.5px}
+.thp-ff em{color:var(--th-headText);font-style:normal}
+.thp-h2{display:flex;align-items:center;gap:8px}
+.thp-h2 span{color:var(--th-pageText);font-weight:800;font-size:13px}
+.thp-h2 i{flex:1;height:1px;background:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
+.thp-heroes,.thp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.thp-heroes.sm{grid-template-columns:repeat(4,1fr)}
+.thp-heroes div{border-radius:9px;padding:7px 9px;display:flex;flex-direction:column}
+.thp-heroes small,.thp-heroes b{color:var(--th-heroText)}
+.thp-heroes b{font-size:16px;font-weight:800}
+.thp-heroes.sm div{padding:5px 8px}
+.thp-heroes .profit{background:linear-gradient(135deg,var(--th-profitA),var(--th-profitB))}
+.thp-heroes .rev{background:linear-gradient(135deg,var(--th-revA),var(--th-revB))}
+.thp-heroes .cost{background:linear-gradient(135deg,var(--th-costA),var(--th-costB))}
+.thp-heroes .cust{background:linear-gradient(135deg,var(--th-custA),var(--th-custB))}
+.thp-heroes .loss{background:linear-gradient(135deg,var(--th-lossA),var(--th-lossB))}
+.thp-heroes .fleet{background:linear-gradient(135deg,color-mix(in srgb,var(--th-fleet) 80%,#000),color-mix(in srgb,var(--th-fleet) 75%,#fff))}
+.thp-heroes .svc{background:linear-gradient(135deg,color-mix(in srgb,var(--th-svc) 80%,#000),color-mix(in srgb,var(--th-svc) 75%,#fff))}
+.thp-cards div{background:var(--th-cardBg);border:1px solid var(--th-cardLine);border-radius:9px;padding:6px 9px;display:flex;flex-direction:column}
+.thp-cards small{color:var(--th-cardLabel)}
+.thp-cards b{color:var(--th-cardValue);font-size:15px;font-weight:800}
+.thp-cards .thp-pi{background:var(--thg-pi,var(--th-piBg));border-color:transparent}
+.thp-cards .thp-pi small{color:#fff;opacity:.85}
+.thp-cards .thp-pi b{color:var(--th-piAccent)}
+.thp-cards .thp-pi i{display:block;height:4px;width:80%;border-radius:4px;background:var(--th-piAccent);margin-top:3px}
+.thp-sg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.thp-sg span{border-radius:8px;padding:5px 8px;color:#fff;font-weight:700}
+.thp-sg .s1{background:var(--thg-sg1,var(--th-sg1))}
+.thp-sg .s2{background:var(--thg-sg2,var(--th-sg2))}
+.thp-sg .s3{background:var(--thg-sg3,var(--th-sg3))}
+.thp-box{background:var(--th-cardBg);border:1px solid var(--th-cardLine);border-radius:9px;padding:7px 9px;display:flex;flex-direction:column;gap:5px}
+.thp-bt{color:var(--th-boxTitle);font-weight:800;font-size:12px}
+.thp-secs{display:flex;gap:5px}
+.thp-secs span{border-radius:6px;padding:2px 8px;color:#fff;font-size:10px;font-weight:700}
+.thp-secs .a{background:var(--thg-secA,var(--th-secA))}
+.thp-secs .b{background:var(--thg-secB,var(--th-secB))}
+.thp-secs .c{background:var(--thg-secC,var(--th-secC))}
+.thp-row{display:flex;justify-content:space-between;padding:4px 7px;border-radius:6px}
+.thp-row span:first-child{color:var(--th-cardValue);font-weight:700}
+.thp-row span:last-child{color:var(--th-cardLabel)}
+.thp-row.on{background:var(--th-rowOn);box-shadow:inset 0 0 0 1px var(--th-cardLine)}
+.thp-note{color:var(--th-pageMuted)}
+/* จุดที่กำลังแก้ — กรอบเหลืองกระพริบ (outline ไม่ดันเลย์เอาต์) */
+.thp .th-hot{outline:2.5px solid #FFD43B;outline-offset:1px;box-shadow:0 0 0 5px rgba(255,212,59,.35);animation:thHot 1s ease-in-out infinite;position:relative;z-index:1}
+.thp.th-hot{outline:3px solid #FFD43B;outline-offset:-3px;animation:thHot 1s ease-in-out infinite}
+.thp-side.th-hot,.thp-bar.th-hot{outline-offset:-2px}
+@keyframes thHot{50%{outline-color:rgba(255,212,59,.25);box-shadow:0 0 0 2px rgba(255,212,59,.15)}}
+@media (prefers-reduced-motion:reduce){.thp .th-hot,.thp.th-hot{animation:none}}
+.thm-sub{font-size:13px;font-weight:700;color:var(--ink-soft);margin-bottom:2px}
+.thm-presets{display:flex;flex-direction:column;gap:7px}
+.thm-preset,.thm-resetall{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);
+  background:#fff;cursor:pointer;font:inherit;font-size:14px;text-align:left;color:var(--ink)}
+.thm-preset:hover{border-color:var(--accent)}
+.thm-resetall{justify-content:center;color:var(--ink-soft)}
+.thm-resetall:disabled{opacity:.5;cursor:default}
+.thm-dots{display:inline-flex;flex:none}
+.thm-dots i{width:16px;height:16px;border-radius:50%;border:2px solid #fff;margin-left:-5px;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.thm-dots i:first-child{margin-left:0}
+.thm-groups{display:flex;flex-direction:column;gap:8px;min-width:0}
+.thm-group{border:1px solid var(--line);border-radius:12px;background:#fff}
+.thm-group summary{display:flex;align-items:center;gap:12px;padding:11px 14px;cursor:pointer;font-weight:700;font-size:15px;list-style:none}
+.thm-group summary::-webkit-details-marker{display:none}
+.thm-group summary::after{content:"▾";margin-left:auto;color:var(--ink-soft);transition:transform .15s}
+.thm-group[open] summary::after{transform:rotate(180deg)}
+.thm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px;padding:0 14px 14px}
+.thm-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid transparent;cursor:pointer}
+.thm-item.dirty{border-color:var(--accent-line)}
+.thm-item.hot{border-color:#E8B90F;background:#FFF9E3}
+.thm-item input[type=color]{width:38px;height:38px;flex:none;padding:0;border:none;border-radius:9px;background:none;cursor:pointer}
+.thm-item input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+.thm-item input[type=color]::-webkit-color-swatch{border:1px solid rgba(0,0,0,.12);border-radius:9px}
+.thm-lb{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.thm-lb b{font-size:14px;font-weight:700}
+.thm-lb small{font-size:12px;color:var(--ink-soft)}
+.thm-hex{width:78px;flex:none;font-family:ui-monospace,Consolas,monospace;font-size:13px;padding:5px 7px;text-transform:uppercase}
+.thm-undo{flex:none;width:28px;height:28px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink-soft)}
+.thm-undo:disabled{visibility:hidden}
+/* แถวเลือกขอบเขต (ทั้งระบบ · รายแท็บ) + กรอบตัวอย่างหน้าจริง (ThemePreviewFrame) */
+.thm-scopes{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;padding:12px 14px;border-radius:12px;background:var(--bg)}
+.thm-scope-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.thm-scope-dash{width:170px;flex:none;font-size:13px;font-weight:700;color:var(--ink-soft)}
+.thm-chip{position:relative;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;
+  font:inherit;font-size:13.5px;color:var(--ink)}
+.thm-chip:hover{border-color:var(--accent)}
+.thm-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+.thm-chip.all{align-self:flex-start;padding:7px 18px}
+.thm-chip.set::after{content:"";position:absolute;top:2px;right:2px;width:8px;height:8px;border-radius:50%;background:#E8B90F;box-shadow:0 0 0 2px #fff}
+@media (max-width:720px){.thm-scope-dash{width:100%}}
+.thm-layout.tab{grid-template-columns:minmax(420px,1.25fr) minmax(0,1fr)}
+@media (max-width:1100px){.thm-layout.tab{grid-template-columns:1fr}}
+.thm-frame{position:relative;height:68vh;min-height:420px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#0A1319}
+.thm-frame iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:transparent}
+.thm-frame-wait{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#E6E9EB;font-size:14px;
+  background:linear-gradient(180deg,var(--th-pageTop),var(--th-pageBottom))}
+.thm-lb small.thm-own{color:#9A6B00;font-weight:700}
