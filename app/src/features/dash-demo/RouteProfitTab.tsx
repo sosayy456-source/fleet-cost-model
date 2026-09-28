@@ -124,8 +124,10 @@ function marginP50(trips: Trip[]): number | null {
  * summary = โหมดของเมนู Executive Summary (แท็บ Route Profitability · เจ้าของงานเลือกส่วนจาก PDF 27 ก.ย. 2569) —
  * ตั้งแต่ 28 ก.ย. 2569 ทุกหน้าเรียง Service Category → แผนที่ + จัดอันดับ เหมือนกันแล้ว prop นี้จึงไม่เปลี่ยนอะไร (คงไว้ให้ผู้เรียกเดิม)
  */
-export default function RouteProfitTab({ trips, f, overview }: {
+export default function RouteProfitTab({ trips, f, overview, partTitle }: {
   trips: Trip[]; f: DemoFilter; summary?: boolean;
+  /** หัวข้อส่วน — วางใต้การ์ด Service Category เหนือแผนที่ (เจ้าของงานสั่ง 28 ก.ย. 2569) · ไม่ส่ง = ไม่มีหัวข้อ */
+  partTitle?: string;
   /** true = วาดเฉพาะ 6 กล่องภาพรวม (Executive Dashboard วางเหนือกรอบส่วน) · false = เนื้อหาส่วน (เริ่มที่กราฟรายเดือน) */
   overview?: boolean;
 }) {
@@ -385,6 +387,7 @@ export default function RouteProfitTab({ trips, f, overview }: {
       <Pane deps={[rows]}>
         {/* Service Category อยู่เหนือแผนที่ทุกหน้า (เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิม Executive Dashboard วางแผนที่ก่อน) */}
         {sgBlock}
+        {partTitle && <h2 className="dm-part-h dm-part-h-mid">{partTitle}</h2>}
         {mapBlock}
       </Pane>
 

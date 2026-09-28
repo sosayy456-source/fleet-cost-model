@@ -12,7 +12,7 @@
  * ต้องครอบทั้งหัวและเนื้อหา เพราะตัวกรองอยู่ในแท็บ (ลูกของ children) แต่ไปแสดงที่หัว
  * สถานะโหลด/พัง/ไม่มีข้อมูลก็ใช้โครงนี้ ปุ่มรีเฟรชกับ "เปลี่ยนหน้าที่" จึงกดได้ตลอด
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import RefreshBtn from "./RefreshBtn";
 import logo from "../../assets/logo-tiger.webp";
@@ -243,8 +243,24 @@ function CapsuleHead({ title, isSample, meta, info, tabs, sub, tools, onRefresh,
     if (next) setOpen(false);
     return next;
   });
+  // ปุ่มย่อ/ขยายอยู่นอกกรอบเนื้อหา กึ่งกลางช่องว่างฝั่งขวา (ขอบขวาของกรอบ → ขอบจอ · เจ้าของงานสั่ง 28 ก.ย. 2569)
+  // วัดจริงด้วย JS เพราะ 100vw ของ CSS นับแถบเลื่อนด้วย ปุ่มจะเยื้องจากกึ่งกลาง · ส่งเป็น --cap-gut (px) ให้ CSS วางตำแหน่ง
+  const bar = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const measure = () => {
+      const gut = Math.max(0, document.documentElement.clientWidth - el.getBoundingClientRect().right);
+      el.style.setProperty("--cap-gut", `${Math.round(gut)}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, []);
   return (
-    <div className={"cap-bar" + (mini ? " mini" : "")}>
+    <div ref={bar} className={"cap-bar" + (mini ? " mini" : "")}>
       <header className="cap">
         <img className="cap-logo" src={logo} alt="" aria-hidden="true" />
         <div className="cap-title">

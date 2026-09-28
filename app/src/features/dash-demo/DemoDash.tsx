@@ -55,6 +55,7 @@ const PiService = memo(Pi.PiService);
 const DamageRateBox = memo(Pi.DamageRateBox);
 
 const PARTS = DEMO_PARTS;
+const ROUTE_LABEL = PARTS.find((p) => p.id === "route")!.label;
 type PartId = (typeof PARTS)[number]["id"];
 type InfoId = PartId | "cust-debtors";
 type SectionInfo = { content: ReactNode; sample?: boolean };
@@ -218,11 +219,12 @@ export default function DemoDash() {
     </div>
   ) : null;
 
-  const part = (id: PartId, body: ReactNode) => (
+  // headInBody = ส่วนวางหัวข้อเอง (Profit Per Route วางใต้การ์ด Service Category — เจ้าของงานสั่ง 28 ก.ย. 2569)
+  const part = (id: PartId, body: ReactNode, headInBody = false) => (
     <section key={id} id={`demo-${id}`} className={stale ? "dm-part dm-stale" : "dm-part"} ref={(el) => { partRefs.current[id] = el; }}>
       {/* สีรายส่วนจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) — ครอบหัวส่วนด้วย สีหัวข้อบนพื้นหลังจึงตั้งรายส่วนได้ */}
       <ThemeScope scope={`demo:${id}`}>
-        <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>
+        {!headInBody && <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>}
         {body}
       </ThemeScope>
     </section>
@@ -279,7 +281,9 @@ export default function DemoDash() {
         <PiReportProvider value={pi.report}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} /></>)}
+          {part("route", <>{tripsState
+            ? <><h2 className="dm-part-h">{ROUTE_LABEL}</h2>{tripsState}</>
+            : <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} /></>, true)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
             onInfo={registerItem2Info} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}

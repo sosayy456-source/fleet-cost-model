@@ -3931,3 +3931,12 @@ html.theme-cherry .cap-mini-btn{border-color:#E4CDD3;color:#7A5A60}
 @media print{.scroll-top{display:none}}
 /* ย่อแล้วปุ่มโลโก้หลุดออกจากกรอบเนื้อหา ไปชิดขอบขวาของจอ แนวเดียวกับปุ่มขึ้นบนสุด (เจ้าของงานสั่ง 28 ก.ย. 2569) */
 .cap-bar.mini > .cap-mini-btn{position:fixed;top:10px;right:max(20px,env(safe-area-inset-right,0px));z-index:40}
+/* ปุ่มย่อ/ขยายแคปซูลอยู่นอกกรอบ กึ่งกลางช่องว่างฝั่งขวาทั้งสองสถานะ (เจ้าของงานสั่ง 28 ก.ย. 2569 — ทับตำแหน่งสองกฎก่อนหน้า)
+   --cap-gut = ระยะขอบขวาของกรอบถึงขอบจอ (DashShell วัดให้) · ช่องแคบกว่าปุ่ม (จอเล็ก) = ปุ่มชิดขอบจอ 4px */
+.cap-bar > .cap-mini-btn{position:absolute;top:50%;transform:translateY(-50%);
+  right:max(calc(4px - var(--cap-gut, 60px)), calc(var(--cap-gut, 60px) / -2 - 22px))}
+.cap-bar.mini > .cap-mini-btn{position:fixed;top:10px;transform:none;
+  right:max(4px, calc(var(--cap-gut, 60px) / 2 - 26px))}
+/* Profit Per Route: หัวข้อส่วนอยู่ใต้การ์ด Service Category เหนือแผนที่ (เจ้าของงานสั่ง 28 ก.ย. 2569) — Service Category จึงเป็นหัวแรกของกรอบ */
+#view-dash #demo-route .dm-sub-h:first-of-type{margin-top:0}
+#view-dash .dm-part-h.dm-part-h-mid{margin-top:30px}
