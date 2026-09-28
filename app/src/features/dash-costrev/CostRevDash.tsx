@@ -35,6 +35,7 @@ import Detail3Tab from "./detail3/Detail3Tab";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { OVERALL_TABS, clearOverallNav, clearOverallPending, peekOverallPending, registerOverallNav, setOverallActive } from "../../lib/ui/overallNav";
 import type { OverallTabId } from "../../lib/ui/overallNav";
+import ThemeScope from "../../lib/ui/ThemeScope";
 
 type TabId = OverallTabId;
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
@@ -90,6 +91,8 @@ export default function CostRevDash() {
         onRefresh={reload} loading={loading} refreshTitle={refreshTitle}
         capsule={{ tabs, filters: true, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
         <h2 className="dm-part-h">{tabLabel}</h2>
+        {/* สีรายแท็บจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) */}
+        <ThemeScope scope={`overall:${tab}`}>
         {STANDALONE.has(tab) ? (
           <>{tab === "lf" && <LoadFactorTab />}{tab === "tonkm" && <TonKmTab />}</>
         ) : error ? (
@@ -117,6 +120,7 @@ export default function CostRevDash() {
             {tab === "detail3" && <Detail3Tab trips={trips} />}
           </>
         )}
+        </ThemeScope>
       </DashShell>
     </>
   );

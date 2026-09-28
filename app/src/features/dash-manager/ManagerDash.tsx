@@ -43,6 +43,7 @@ import type { Col } from "../dash-costrev/common";
 import { useColFilters } from "./colFilter";
 import { MANAGER_TABS, clearManagerNav, clearManagerPending, peekManagerPending, registerManagerNav, setManagerActive } from "../../lib/ui/managerNav";
 import type { ManagerTabId } from "../../lib/ui/managerNav";
+import ThemeScope from "../../lib/ui/ThemeScope";
 
 const KIND_LABEL: Record<PeriodKind, string> = { day: "รายวัน", month: "รายเดือน", quarter: "รายไตรมาส", year: "รายปี" };
 const ALL = "";
@@ -210,7 +211,8 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
             </div>
           )}
         </FilterBar>
-        {body}
+        {/* สีรายแท็บจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) */}
+        <ThemeScope scope={`manager:${tab}`}>{body}</ThemeScope>
       </DashShell>
     </>
   );

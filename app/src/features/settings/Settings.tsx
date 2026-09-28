@@ -12,11 +12,14 @@ import ForecastSettings from "./ForecastSettings";
 import EnRouteSettings from "./EnRouteSettings";
 import SheetSettings from "./SheetSettings";
 import VehicleSpecTable from "./VehicleSpecTable";
+import ThemeSettings from "./ThemeSettings";
 
 export default function Settings() {
   return (
     <>
       <SheetSettings />
+      {/* สีของแดชบอร์ดรายจุด (28 ก.ย. 2569) */}
+      <ThemeSettings />
       <div className="settings-main-grid">
         <VehicleSpecTable />
         <PriceTable />

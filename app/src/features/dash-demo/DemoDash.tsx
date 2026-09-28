@@ -36,6 +36,7 @@ import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
 import * as Pi from "./PiIndex";
 import { PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import ThemeScope from "../../lib/ui/ThemeScope";
 
 /*
  * ★ ทุกส่วนห่อ memo (26 ก.ย. 2569 · docs/แผนแก้-ข้อมูลจริงช้า.md ข้อ 2)
@@ -200,8 +201,11 @@ export default function DemoDash() {
 
   const part = (id: PartId, body: ReactNode) => (
     <section key={id} id={`demo-${id}`} className={stale ? "dm-part dm-stale" : "dm-part"} ref={(el) => { partRefs.current[id] = el; }}>
-      <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>
-      {body}
+      {/* สีรายส่วนจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) — ครอบหัวส่วนด้วย สีหัวข้อบนพื้นหลังจึงตั้งรายส่วนได้ */}
+      <ThemeScope scope={`demo:${id}`}>
+        <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>
+        {body}
+      </ThemeScope>
     </section>
   );
 
