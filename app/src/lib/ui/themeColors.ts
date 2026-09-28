@@ -35,6 +35,8 @@ export const THEME_GROUPS: ThemeGroup[] = [
     tokens: [
       { key: "pageTop", label: "พื้นหลัง (บน)", def: "#1E2D37" , global: true },
       { key: "pageBottom", label: "พื้นหลัง (ล่าง)", def: "#0A1319" , global: true },
+      // แสงเรืองมุมบนซ้าย + ลำแสงทแยง (เจ้าของงานส่งภาพพื้นน้ำเงินเรืองแสง 28 ก.ย. 2569) — ค่าตั้งต้น = สีพื้นบน จึงแทบมองไม่เห็น
+      { key: "pageGlow", label: "แสงเรืองมุมบนซ้าย", hint: "ตั้งเท่าพื้นหลัง (บน) = ไม่มีแสง", def: "#1E2D37" , global: true },
       { key: "pageText", label: "หัวข้อบนพื้นหลัง", hint: "เช่น Route · หัวข้อส่วน", def: "#EEE8EA" , sel: ".dm-part-h, .dz-t, .cp-sec h3, .mg-debt > .mg-h" },
       { key: "pageMuted", label: "ข้อความรอง/เส้นคั่นบนพื้นหลัง", def: "#8E9BA3" , sel: ".dz-note, .cp-sec p" },
     ],
@@ -155,6 +157,15 @@ export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
       pageTop: "#14233A", pageBottom: "#070E19", sideTop: "#E9D8B4", sideBottom: "#C8CCD2", sideText: "#2F3441",
       sideActiveText: "#14233A", accent: "#14233A", headBg: "#F5F1E8", headBorder: "#B08A3E", headTitle: "#14233A",
       headLine: "#E3D9C4", piBg: "#14233A", sg1: "#14233A", secA: "#14233A",
+    },
+  },
+  {
+    // ตามภาพที่เจ้าของงานส่ง 28 ก.ย. 2569: ลำแสงน้ำเงินทแยงจากมุมบนซ้าย + เกรนละเอียด
+    // รอบสาม (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569): พื้นกรมท่าเข้ม + ลำแสงน้ำเงินสดเอียงแบบผ้าไหม ค้างกับจอตอนเลื่อน
+    // (รอบแรก ดำ #060A1C→#010207 · รอบสอง กรมท่าสว่าง #22386F→#1B2D5E)
+    name: "น้ำเงินเรืองแสง",
+    colors: {
+      pageTop: "#101737", pageBottom: "#0A0D22", pageGlow: "#1F52E0", pageText: "#EEF2FF", pageMuted: "#A7B4D8",
     },
   },
   {

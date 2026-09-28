@@ -41,6 +41,7 @@ import { TonKmHero, TonKmScope } from "../dash-costrev/tonkm/TonKmDemoRow";
 import type { Trip } from "../../lib/data/useCostRev";
 // กลุ่มบริการของการ์ดท้ายหน้า + %Margin รายเส้นทาง — ชุดเดียวกับ Performance Index (Route & Service)
 import { SERVICE_GROUPS, routeMargin } from "../../lib/pi/route";
+import { percentileInc } from "../../lib/damage/damage";
 import imgBox from "../../assets/icons3d/box.webp";
 import imgCloud from "../../assets/icons3d/cloud.webp";
 import imgSnow from "../../assets/icons3d/snow.webp";
@@ -99,8 +100,25 @@ interface RouteRow {
 
 /** ป้ายสั้นของกลุ่มบริการบนหัวตารางจัดอันดับ (ลำดับ SERVICE_GROUPS) */
 const SG_SHORT = ["ทั่วไป", "แช่เย็น", "แช่แข็ง"] as const;
-/** สีชิป %Margin รายกลุ่ม — เกณฑ์ตายตัว > 10% เขียว · 5–10% เหลือง · < 5% แดง (ชุดเดียวกับการ์ดอัตรากำไรใน Manager Dashboard) */
-const sgTone = (m: number): "g" | "y" | "r" => (m > 10 ? "g" : m >= 5 ? "y" : "r");
+/**
+ * สี %Margin ของตารางจัดอันดับ (ชิปรายกลุ่มบริการ + คอลัมน์อัตรากำไร) — เกณฑ์ percentile (เจ้าของงานสั่ง 28 ก.ย. 2569
+ * แทนเกณฑ์ตายตัว > 10% / 5–10% / < 5%): ขาดทุน (< 0) แดง · 0 ถึง < P50 เหลือง · ≥ P50 เขียว
+ * P50 = ค่ากลาง %Margin รายเที่ยวของทุกเที่ยวที่ผ่านตัวกรองของหน้า (marginP50) · ไม่มีเที่ยว = ไม่ขาดทุนเป็นเหลืองทั้งหมด
+ */
+const sgTone = (m: number, p50: number | null): "g" | "y" | "r" =>
+  (m < 0 ? "r" : p50 != null && m >= p50 ? "g" : "y");
+/** สีตัวอักษรของคอลัมน์อัตรากำไร — ชุดเดียวกับชิป (.rp-sgc.g/.y/.r) */
+const TONE_INK = { g: "#16775B", y: "#B26A12", r: "#B42A2A" } as const;
+
+/** P50 ของ %Margin รายเที่ยว (PERCENTILE.INC) · รายได้ 0 แล้วขาดทุน = −100% ตาม routeMargin · รายได้ 0 ไม่ขาดทุน = ไม่นับ */
+function marginP50(trips: Trip[]): number | null {
+  const ms: number[] = [];
+  for (const t of trips) {
+    const m = routeMargin(t.rev, t.profit);
+    if (m != null) ms.push(m);
+  }
+  return percentileInc(ms, 0.5);
+}
 
 /**
  * summary = โหมดของเมนู Executive Summary (แท็บ Route Profitability · เจ้าของงานเลือกส่วนจาก PDF 27 ก.ย. 2569) —
@@ -178,6 +196,7 @@ export default function RouteProfitTab({ trips, f, overview }: {
     return list;
   }, [rows, ends]);
 
+  const p50 = useMemo(() => marginP50(rows), [rows]);
   const cols = useMemo<Col<RouteRow>[]>(() => [
     { key: "rank", label: "#", get: (r) => r.rank,
       render: (r) => <span className="rp-rank">{String(r.rank).padStart(2, "0")}</span> },
@@ -190,13 +209,13 @@ export default function RouteProfitTab({ trips, f, overview }: {
         const m = r.sgMargin[i];
         return m == null
           ? <span className="rp-sgc na" title={`${g}: ไม่มีเที่ยวในเส้นทางนี้`}>N/A</span>
-          : <span className={`rp-sgc ${sgTone(m)}`} title={`${g}: อัตรากำไร ${pct(m)}`}>{m > 0 ? "+" : ""}{Math.round(m)}%</span>;
+          : <span className={`rp-sgc ${sgTone(m, p50)}`} title={`${g}: อัตรากำไร ${pct(m)}${p50 == null ? "" : ` · P50 ${pct(p50)}`}`}>{m > 0 ? "+" : ""}{Math.round(m)}%</span>;
       },
     })),
     { key: "margin", label: "อัตรากำไร", get: (r) => r.margin, num: true,
-      render: (r) => <span className="rp-margin" style={{ color: r.margin != null && r.margin < 0 ? RP.loss : RP.profit }}>
+      render: (r) => <span className="rp-margin" style={{ color: r.margin == null ? undefined : TONE_INK[sgTone(r.margin, p50)] }}>
         {r.margin == null ? "–" : pct(r.margin)}</span> },
-  ], []);
+  ], [p50]);
   // เรียงตั้งต้นตามอันดับกำไร/เที่ยว (# = 1 ขึ้นก่อน) — คอลัมน์กำไร/เที่ยวเอาออกแล้ว
   const { sorted, sort, toggle } = useSort(byRoute, cols, { key: "rank", dir: 1 });
 

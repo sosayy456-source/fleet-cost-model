@@ -2856,7 +2856,7 @@ text.num-fd{transform-box:fill-box}
 .dso2-ring-n{font-size:9.5px;font-weight:400}
 .dso2-leg b{text-align:right;font-family:var(--d-num)}
 .dso2-leg em{text-align:right;font-style:normal;color:var(--d-ink5);font-family:var(--d-num)}
-.dso2-rank{display:grid;grid-template-columns:40px minmax(90px,120px) minmax(0,1fr) 72px;gap:10px;align-items:center;padding:0;height:50px;box-sizing:border-box;
+.dso2-rank{display:grid;grid-template-columns:40px minmax(90px,120px) minmax(0,1fr) 72px;gap:10px;align-items:center;padding:0;height:58px;box-sizing:border-box;
   font-size:14px;color:var(--d-ink);border-bottom:1px solid var(--d-line)}
 .dso2-rank.th{font-size:12.5px;color:var(--d-ink5);height:auto;padding:0 12px 8px 0}
 .dso2-block>.scroll .dso2-rank{padding-right:12px}
@@ -3055,7 +3055,25 @@ html.theme-cherry,html.theme-cherry [data-th-scope]{
   --thg-secC:linear-gradient(135deg,color-mix(in srgb,var(--th-secC) 85%,#000) 0%,color-mix(in srgb,var(--th-secC) 78%,#fff) 100%);
   --thg-pi:linear-gradient(135deg,color-mix(in srgb,var(--th-piBg) 80%,#fff) 0%,var(--th-piBg) 50%,color-mix(in srgb,var(--th-piBg) 70%,#000) 100%);
 }
-html.theme-cherry body:has(#view-dash.active){background:linear-gradient(180deg,var(--th-pageTop) 0%,var(--th-pageBottom) 100%) fixed}
+/* พื้นหลังหน้า = ไล่สีบน→ล่าง + ลำแสงทแยงแบบผ้าไหม (--th-pageGlow) + เกรนละเอียด (SVG noise)
+   pageGlow ค่าตั้งต้น = สีพื้นบน ชุดเดิมจึงเกือบเท่าเดิม · ชุด "น้ำเงินเรืองแสง" ตั้งเป็นน้ำเงินสด
+   รอบสอง 28 ก.ย. 2569 (ภาพที่เจ้าของงานส่ง): ลำแสงหลายเส้นเอียงลงขวา · ขอบซ้ายสว่าง · เส้นบางสว่างฝั่งขวา
+   ★ พื้นหลังค้างกับจอ (ไม่เลื่อนตามหน้า) — ต้องตั้ง background-attachment แยก: "fixed" ใน shorthand หลายชั้นมีผลแค่ชั้นสุดท้าย */
+html.theme-cherry{
+  --thg-page:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    /* ขอบซ้ายสว่าง เข้มขึ้นช่วงล่าง */
+    radial-gradient(ellipse 16% 42% at 0% 78%,color-mix(in srgb,var(--th-pageGlow) 80%,transparent) 0%,transparent 75%),
+    linear-gradient(100deg,color-mix(in srgb,var(--th-pageGlow) 55%,transparent) 0%,transparent 9%),
+    /* ลำแสงกว้างจากบนซ้ายลงกลาง */
+    linear-gradient(112deg,transparent 14%,color-mix(in srgb,var(--th-pageGlow) 45%,transparent) 27%,color-mix(in srgb,var(--th-pageGlow) 20%,transparent) 34%,transparent 44%),
+    /* เส้นบางสว่างฝั่งขวา */
+    linear-gradient(112deg,transparent 50%,color-mix(in srgb,color-mix(in srgb,var(--th-pageGlow) 70%,#fff) 55%,transparent) 57%,transparent 63%),
+    /* แสงจางขอบบน */
+    radial-gradient(ellipse 55% 22% at 45% 0%,color-mix(in srgb,var(--th-pageGlow) 38%,transparent) 0%,transparent 80%),
+    linear-gradient(180deg,var(--th-pageTop) 0%,var(--th-pageBottom) 100%);
+}
+html.theme-cherry body:has(#view-dash.active){background:var(--thg-page);background-color:var(--th-pageBottom);background-attachment:fixed}
 /* [data-th-scope] = ตัวครอบแท็บที่ตั้งสีเอง (lib/ui/ThemeScope.tsx) — ต้องประกาศตัวแปรคิดต่อซ้ำ ไม่งั้นได้ค่าที่คิดจากสีรวมตั้งแต่ #view-dash */
 html.theme-cherry :is(#view-dash,[data-th-scope]){
   --d-bg:var(--th-pageBottom); --d-card:var(--th-cardBg); --d-soft:color-mix(in srgb,var(--th-cardBg) 94%,var(--th-accent));
@@ -3483,7 +3501,7 @@ html.th-preview .th-hot{outline:3px solid #FFD43B!important;outline-offset:2px;b
 .thm-cap{font-size:13.5px;color:var(--ink-soft);padding:8px 12px;border-radius:10px;background:var(--bg);min-height:38px}
 .thm-cap.on{background:#FFF6D6;color:#5A4300}
 .thp{display:flex;border-radius:14px;overflow:hidden;border:1px solid var(--line);
-  background:linear-gradient(180deg,var(--th-pageTop),var(--th-pageBottom));font-size:11px;line-height:1.35}
+  background:var(--thg-page,linear-gradient(180deg,var(--th-pageTop),var(--th-pageBottom)));font-size:11px;line-height:1.35}
 .thp-side{width:82px;flex:none;padding:10px 7px;display:flex;flex-direction:column;gap:5px;
   background:linear-gradient(180deg,var(--th-sideTop),var(--th-sideBottom))}
 .thp-side span{display:block;padding:5px 7px;border-radius:6px;color:var(--th-sideText);font-size:10.5px;white-space:nowrap;overflow:hidden}
@@ -3773,3 +3791,89 @@ html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(-
   #view-dash .i3-fleet-sec .i3-group-head b{font-size:18px}
   #view-dash .i3-fleet-sec .i3-donut-total b{font-size:40px}
 }
+
+/* ===== Executive Dashboard › Customer Performance: ตัวอักษรใหญ่ขึ้นทั้งส่วน รวมตาราง (เจ้าของงานสั่ง 28 ก.ย. 2569) =====
+   ครอบด้วย #demo-cust (กล่องส่วนใน DemoDash) — ไม่กระทบส่วนอื่น · id สองชั้นชนะกฎ html.theme-cherry #view-dash … */
+#view-dash #demo-cust .dz-cc h4,#view-dash #demo-cust .cp-th h4{font-size:23px}
+#view-dash #demo-cust .cp-th p,#view-dash #demo-cust .cp-sec p{font-size:16px}
+#view-dash #demo-cust .cp-sec h3{font-size:23px}
+#view-dash #demo-cust .dz-note{font-size:16.5px}
+#view-dash #demo-cust .cp-seg button{font-size:15.5px;padding:8px 14px}
+#view-dash #demo-cust .cp-tag{font-size:13.5px;padding:3px 10px}
+#view-dash #demo-cust .cp-rev{font-size:12.5px}
+#view-dash #demo-cust .cuscode{font-size:14px}
+#view-dash #demo-cust .cp-date input{font-size:16px}
+#view-dash #demo-cust .d3-tt-search{font-size:16px}
+/* กราฟแท่ง %Margin: ป้ายแกน + ค่าบนแท่ง (recharts ใส่ขนาดไว้ที่ element — ต้องทับด้วย CSS) */
+#view-dash #demo-cust .recharts-cartesian-axis-tick text{font-size:16px}
+#view-dash #demo-cust .recharts-label-list text,#view-dash #demo-cust .recharts-label{font-size:15px}
+/* ตารางลูกค้า (SortTable) */
+#view-dash #demo-cust .dz-tbl{font-size:18.5px}
+#view-dash #demo-cust .dz-tbl th{font-size:16.5px}
+#view-dash #demo-cust .fu-pill{font-size:15px}
+/* DSO: การ์ดสถานะ · โดนัท · รายการช่วงวัน · ตารางลูกหนี้จ่ายช้า */
+#view-dash #demo-cust .dso2-st-h{font-size:16.5px}
+#view-dash #demo-cust .dso2-st-v b{font-size:34px}
+#view-dash #demo-cust .dso2-st-v span,#view-dash #demo-cust .dso2-st-a{font-size:16px}
+#view-dash #demo-cust .dso2-st-a b{font-size:17.5px}
+#view-dash #demo-cust .dso2-ov-m span,#view-dash #demo-cust .dso2-ov-m em{font-size:16px}
+#view-dash #demo-cust .dso2-donut-h b{font-size:18px}
+#view-dash #demo-cust .dso2-donut-h span{font-size:15px}
+#view-dash #demo-cust .dso2-donut-m b{font-size:26px}
+#view-dash #demo-cust .dso2-donut-m span{font-size:14.5px}
+#view-dash #demo-cust .dso2-leg-row>button:first-child{font-size:17px;padding:9px 4px}
+#view-dash #demo-cust .dso2-leg small{font-size:14px}
+#view-dash #demo-cust .dso2-leg-go{font-size:15px}
+#view-dash #demo-cust .dso2-rank{font-size:17px;grid-template-columns:44px minmax(100px,136px) minmax(0,1fr) 84px}
+#view-dash #demo-cust .dso2-rank.th{font-size:15.5px;height:auto}
+#view-dash #demo-cust .dso2-bar b{font-size:16.5px;min-width:92px}
+#view-dash #demo-cust .dso2-revline{font-size:16px}
+/* การ์ดใหญ่ของ Customer Performance (3 ใบบน + 5 ใบ DSO): ชื่อการ์ดตัวหนาใหญ่แบบ 6 กล่องภาพรวมของ Profit Per Route (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+#view-dash #demo-cust .dz-kc.hero .l{font-size:23px;font-weight:700;line-height:1.3;text-wrap:balance}
+#view-dash #demo-cust .dz-kc.hero .u{font-size:15px;white-space:nowrap;flex:none}
+#view-dash #demo-cust .dz-kc.hero :is(.s,.hf .s){font-size:18px;line-height:1.5}
+#view-dash #demo-cust .dz-kc.hero .vs{font-size:21px}
+#view-dash #demo-cust .dz-kc.hero .ft{font-size:20px}
+@media (max-width:1400px){#view-dash #demo-cust .dso-heroes > .dz-kc.hero .l{font-size:20px}}
+
+/* ===== Executive Dashboard › Vehicle Utilization Cost: ข้อมูลในตารางใหญ่ขึ้นมาก (เจ้าของงานสั่ง 28 ก.ย. 2569) =====
+   ทุกตาราง .i3-tbl ในส่วนนี้ (ต้นทุนขนส่งแต่ละชนิดรถ · ความคุ้มค่าเสื่อม) — ไม่กระทบแท็บของ Overall Dashboard */
+#view-dash #demo-item3 .i3-tbl{font-size:20px}
+#view-dash #demo-item3 .i3-tbl th{font-size:16.5px;padding:15px 20px}
+#view-dash #demo-item3 .i3-tbl td{padding:16px 20px}
+#view-dash #demo-item3 .i3-kind{line-height:1.4}
+#view-dash #demo-item3 .i3-kind b{font-size:21px}
+#view-dash #demo-item3 .i3-kind span{font-size:16.5px}
+#view-dash #demo-item3 .i3-tbl .i3-pill{font-size:17px;padding:5px 14px;gap:8px}
+#view-dash #demo-item3 .i3-tbl .i3-pill.dot i{width:8px;height:8px}
+#view-dash #demo-item3 .i3-worth{gap:7px}
+#view-dash #demo-item3 .i3-worth-bar{height:16px}
+#view-dash #demo-item3 .i3-worth-lbl{font-size:17.5px}
+#view-dash #demo-item3 .i3-worth-verdict{gap:6px}
+#view-dash #demo-item3 .i3-worth-verdict small{font-size:15.5px}
+
+/* ===== Executive Dashboard › แถว Damage + Service Quality: กล่องซ้าย = กล่องแดงกล่องเดียว 4 ตัวเลขเรียงบนลงล่าง
+   ชุดเดียวกับหัวแท็บ Damage Rate (เจ้าของงานสั่ง 28 ก.ย. 2569 · DamageRateBox) — แต่ละแถวยืดเท่ากันให้เต็มความสูงกล่อง ===== */
+#view-dash .pi-pair > .pi-dmg4{display:flex;flex-direction:column;margin:0;padding:10px 28px}
+#view-dash .pi-dmg-row{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:14px 0;color:var(--th-heroText,#fff)}
+#view-dash .pi-dmg-row + .pi-dmg-row{border-top:1px solid rgba(255,255,255,.28)}
+#view-dash .pi-dmg-l{font-size:21px;font-weight:700;line-height:1.3}
+#view-dash .pi-dmg-v{font-family:var(--d-num);font-size:clamp(32px,2.8vw,46px);font-weight:800;line-height:1.1;letter-spacing:-.01em}
+#view-dash .pi-dmg-s{align-self:flex-start;font-size:16px;line-height:1.4;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18)}
+
+/* ===== Executive Dashboard › Vehicle Utilization Cost: แถบตัวเลขสรุป 4 ช่อง (.i3-stats) ใหญ่ขึ้น (เจ้าของงานสั่ง 28 ก.ย. 2569) ===== */
+#view-dash #demo-item3 .i3-stats>div{padding:20px 24px;gap:6px}
+#view-dash #demo-item3 .i3-stats span{font-size:18px}
+#view-dash #demo-item3 .i3-stats b{font-size:34px}
+#view-dash #demo-item3 .i3-stats b small{font-size:20px}
+#view-dash #demo-item3 .i3-stats small{font-size:17px}
+/* Customer Performance › DSO: เอาการ์ด "DSO · วันเก็บหนี้เฉลี่ย" ออก (เจ้าของงานสั่ง 28 ก.ย. 2569) เหลือ 4 ใบ — Manager Dashboard ยังใช้ .dso-heroes 5 ใบ */
+#view-dash #demo-cust .dz-heroes.dso-heroes{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1380px){#view-dash #demo-cust .dz-heroes.dso-heroes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){#view-dash #demo-cust .dz-heroes.dso-heroes{grid-template-columns:minmax(0,1fr)}}
+/* ตารางลูกหนี้จ่ายช้า: กดแถว = ป็อบอัพรายบิลของลูกค้ารายนั้น (CustBillsModal · 28 ก.ย. 2569) */
+#view-dash .dso2-rank.dso2-click{cursor:pointer;transition:background .15s}
+#view-dash .dso2-rank.dso2-click:hover{background:var(--d-rail)}
+#view-dash .dso2-rank.dso2-click:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+/* ป็อบอัพลูกหนี้: คอลัมน์ "ระยะเวลาเครดิต" จัดกลาง (เจ้าของงานสั่ง 28 ก.ย. 2569) — รายบิล = คอลัมน์ 3 · รายลูกค้าตามช่วงวัน = คอลัมน์ 2 */
+#view-dash .dz-tbl.cb-tbl :is(th,td):nth-child(3),#view-dash .dz-tbl.od-tbl :is(th,td):nth-child(2){text-align:center}

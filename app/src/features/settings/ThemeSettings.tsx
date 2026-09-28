@@ -24,7 +24,7 @@ import ThemePreviewFrame from "./ThemePreviewFrame";
 /** data-th = รายชื่อ token (คั่นด้วยช่องว่าง) ที่ส่วนนั้นใช้ */
 function Preview() {
   return (
-    <div className="thp" data-th="pageTop pageBottom">
+    <div className="thp" data-th="pageTop pageBottom pageGlow">
       <div className="thp-side" data-th="sideTop sideBottom">
         <span className="on" data-th="sideActiveBg sideActiveText">Executive</span>
         <span data-th="sideText">Overall</span>

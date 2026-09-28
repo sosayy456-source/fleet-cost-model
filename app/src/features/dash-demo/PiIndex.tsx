@@ -29,7 +29,6 @@ import { DAMAGE_STATUS_LABEL, damageRef, damageResults, damageStatus } from "../
 import type { DamageRef, DamageStatus } from "../../lib/pi/damage";
 import type { IndexDef, MetricKey, MetricResult } from "../../lib/pi/score";
 import type { Trip } from "../../lib/data/useCostRev";
-import { Hero } from "../dash-fleet/parts";
 import { fmt, pct } from "../dash-costrev/common";
 import { passDemo, passLfDemo } from "./filter";
 import type { DemoFilter } from "./filter";
@@ -245,9 +244,24 @@ export function PiCost({ trips }: { trips: Trip[] | null }) {
  */
 export function DamageRateBox({ trips }: { trips: Trip[] | null }) {
   const kpi = useMemo(() => (trips ? totalDamage(trips.filter((t) => t.m && !t.empty)) : null), [trips]);
+  // 4 ตัวเลขชุดเดียวกับหัวแท็บ Damage Rate ของ Overall Dashboard (DamageTab.tsx) รวมในกล่องแดงกล่องเดียว เรียงบนลงล่าง
+  // (เจ้าของงานสั่ง 28 ก.ย. 2569 — รุ่นแรกเป็น 4 การ์ด 2×2 แยกสี)
+  const rows: { l: string; v: string; s: string }[] = [
+    { l: "Damage Rate", v: kpi?.rate == null ? "–" : pct(kpi.rate, 3), s: kpi ? "มูลค่าบิลเคลียร์ ÷ รายได้รวม" : "ยังไม่มีไฟล์ต้นทุน" },
+    { l: "Damage Incidence Rate", v: kpi ? pct(kpi.incidence, 2) : "–", s: "เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมด" },
+    { l: "มูลค่าบิลเคลียร์", v: kpi ? fmt(kpi.clrAmt, 2) : "–", s: "บาท · มูลค่าความเสียหาย" },
+    { l: "จำนวนเที่ยวที่มีบิลเคลียร์", v: kpi ? fmt(kpi.dmgTrips) : "–", s: "เที่ยว · มีบิลเคลียร์อย่างน้อย 1 รายการ" },
+  ];
   return (
-    <Hero kind="loss" l="Damage Rate" v={kpi?.rate == null ? "–" : pct(kpi.rate, 3)}
-      s={kpi ? "มูลค่าบิลเคลียร์ ÷ รายได้รวม" : "ยังไม่มีไฟล์ต้นทุน"} />
+    <div className="dz-kc hero loss pi-dmg4">
+      {rows.map((r) => (
+        <div className="pi-dmg-row" key={r.l}>
+          <div className="pi-dmg-l">{r.l}</div>
+          <div className="pi-dmg-v num-fd" key={r.v}>{r.v}</div>
+          <div className="pi-dmg-s">{r.s}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
