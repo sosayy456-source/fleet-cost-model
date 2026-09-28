@@ -24,9 +24,10 @@
 import { useEffect, useMemo, type ReactNode } from "react";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import { summarize } from "../../lib/loadfactor/calc";
-import { Hero } from "../dash-fleet/parts";
-import EmptyHeroes from "../dash-costrev/EmptyHeroes";
+import { perMonth, useEmptyHeroData, ytdYoyText } from "../dash-costrev/EmptyHeroes";
 import { fmt, pct } from "../dash-costrev/common";
+import { isPartialYear } from "../../lib/filter/period";
+import { ytdLabel } from "../../lib/empty/ytd";
 import type { Trip } from "../../lib/data/useCostRev";
 import { openExecTab } from "../../lib/ui/dashJump";
 import { FilterScope, passLfDemo } from "./filter";
@@ -37,6 +38,26 @@ const baht = (n: number): string => fmt(Math.round(n));
 const pctOf = (x: number, d = 1): string => pct(x * 100, d);
 const toLf = (): void => openExecTab("lf");
 const toEmpty = (): void => openExecTab("empty");
+
+/**
+ * การ์ดของส่วนนี้ (ดีไซน์ที่เจ้าของงานส่ง 28 ก.ย. 2569 — แทน Hero): tone = dark (LF เฉลี่ย) · light (สองใบสีอ่อน) · red (% เที่ยวเปล่า)
+ * ชื่อ → ตัวเลขใหญ่ → บรรทัดรอง → ป้ายแคปซูล → หมายเหตุเล็ก · กดทั้งใบเปิดแท็บปลายทางของ Overall Dashboard
+ */
+function I2Card({ tone, cls, l, unit, v, sub, pill, note, onClick }: {
+  tone: "dark" | "light" | "red"; cls: string; l: string; unit?: string; v: string;
+  sub?: ReactNode; pill?: ReactNode; note?: ReactNode; onClick: () => void;
+}) {
+  return (
+    <div className={`i2c ${tone} ${cls}`} role="button" tabIndex={0} onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}>
+      <div className="i2c-h"><span className="i2c-l">{l}</span>{unit && <span className="i2c-u">{unit}</span>}</div>
+      <div className="i2c-v num-fd" key={v}>{v}</div>
+      {sub && <div className="i2c-sub">{sub}</div>}
+      {pill && <div className="i2c-pill">{pill}</div>}
+      {note && <div className="i2c-note">{note}</div>}
+    </div>
+  );
+}
 
 /**
  * all = ทุกเที่ยวในไฟล์ (กรองสาขา) · trips = กรองครบ · tripsAnyYear = กรองทุกตัวยกเว้นปี
@@ -73,37 +94,48 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f, costSample, onIn
     </>, lfSample || costSample);
   }, [onInfo, lfFiles, lfSample, costSample, f]);
 
+  /* ---- ฝั่งเที่ยวเปล่า (การ์ด 3-4) — ตัวเลขชุดเดียวกับการ์ดของแท็บ Empty Trips (useEmptyHeroData) ---- */
+  const em = useEmptyHeroData(all, trips, tripsAnyYear, f);
+  const gap = sum ? (sum.avgTg - sum.avgLf) * 100 : null;
+  // "YTD ม.ค.–พ.ค. 69" → ปี พ.ศ. เต็ม "2569" ตามภาพ
+  const ytdText = em.ytd ? ytdLabel(em.ytd.year, em.ytd.months, isPartialYear(f)).replace(/\d{2}$/, String(em.ytd.year + 543)) : "";
+
   return (
     <>
-      {/* สองกลุ่มซ้าย-ขวา หัวข้อมีเส้นใต้ยาวเต็มกลุ่ม คั่นด้วยเส้นประ (ดีไซน์ "1c" ที่เจ้าของงานส่ง 28 ก.ย. 2569) */}
-      <div className="i2-groups">
-      <section className="i2-group lf" aria-label="Load factor">
-        <h3 className="i2-gh"><b>Load factor</b></h3>
-      <div className="dz-heroes i2-pair">
-        <Hero kind="cust" l="Load Factor เฉลี่ย" onClick={toLf}
-          v={sum ? pctOf(sum.avgLf) : "–"}
-          vSub={sum ? `เป้า ${pctOf(sum.avgTg)}` : undefined}
-          s={sum
-            ? `เฉลี่ยต่อเที่ยวจาก ${fmt(sum.n)} เที่ยว · ห่างจากเป้า ${Math.round((sum.avgTg - sum.avgLf) * 100)} จุด`
-            : lfNote} />
-
-        <Hero kind="loss" l="ต้นทุนค่าเสียโอกาสจากการบรรทุกไม่เต็ม" unit="บาท" onClick={toLf}
-          v={sum ? baht(sum.idle) : "–"}
-          s={sum
-            ? `${pctOf(sum.share)} ของต้นทุนขนส่งรวม ${baht(sum.cost)} บาท`
-            : lfNote} />
-      </div>
+      {/* ดีไซน์ที่เจ้าของงานส่ง 28 ก.ย. 2569: สองแผงขาวซ้าย-ขวา หัวข้อสีแดงเข้ม · ใบแรกเข้ม ใบสองสีชมพูอ่อน
+          (แทนหัวข้อเส้นใต้ + เส้นประคั่นของดีไซน์ "1c") */}
+      <div className="i2-groups i2-v3">
+      <section className="i2-group lf" aria-label="Load Factor">
+        <h3 className="i2-gh"><b>Load Factor</b></h3>
+        <div className="i2-cards">
+          <I2Card tone="dark" cls="i2-lf" l="Load Factor เฉลี่ย" onClick={toLf}
+            v={sum ? pctOf(sum.avgLf) : "–"}
+            sub={sum ? `เป้าหมาย ${pctOf(sum.avgTg)}` : lfNote}
+            pill={gap == null ? undefined
+              : gap > 0 ? `ต่ำกว่าเป้าหมาย ${gap.toFixed(1)} จุดเปอร์เซ็นต์`
+              : gap < 0 ? `สูงกว่าเป้าหมาย ${Math.abs(gap).toFixed(1)} จุดเปอร์เซ็นต์` : "เท่ากับเป้าหมาย"} />
+          <I2Card tone="light" cls="i2-idle" l="ต้นทุนค่าเสียโอกาสจากการบรรทุกไม่เต็ม" unit="บาท" onClick={toLf}
+            v={sum ? baht(sum.idle) : "–"}
+            pill={sum ? <>{pctOf(sum.share)} ของต้นทุนขนส่งรวม<br />{baht(sum.cost)} บาท</> : undefined}
+            sub={sum ? undefined : lfNote}
+            note={sum ? "มูลค่าประเมินตามแบบจำลอง" : undefined} />
+        </div>
       </section>
-      <i className="i2-sep" aria-hidden="true" />
-      <section className="i2-group empty" aria-label="Empty trip">
-        <h3 className="i2-gh"><b>Empty trip</b></h3>
-      <div className="dz-heroes i2-pair">
-        {/* การ์ด 3-4 = สองใบเดียวกับแท็บเที่ยววิ่งเปล่าของ Executive Dashboard กดแล้วเปิดแท็บนั้น */}
-        <EmptyHeroes all={all} rows={trips} rowsAnyYear={tripsAnyYear} period={f} onOpen={toEmpty} />
-      </div>
+      <section className="i2-group empty" aria-label="Empty Trips">
+        <h3 className="i2-gh"><b>Empty Trips</b></h3>
+        <div className="i2-cards">
+          <I2Card tone="red" cls="i2-empty" onClick={toEmpty}
+            l={em.focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${em.focusY + 543}` : "% ต้นทุนเที่ยวเปล่า"}
+            v={em.focus ? pct(em.focus.share) : "–"}
+            sub={em.ytd && <>ต้นทุนเที่ยวเปล่าเฉลี่ย<br />{perMonth(em.ytd.avgPerMonth)}<br />{ytdText}</>}
+            pill={em.ytd && `เทียบ YoY (${em.ytd.year + 542}): ${ytdYoyText(em.ytd)}`} />
+          <I2Card tone="light" cls="i2-emptyc" onClick={toEmpty} l={`มูลค่าต้นทุนเที่ยวเปล่า · ${em.scope}`} unit="บาท"
+            v={fmt(em.emptyCost)}
+            pill={<>{fmt(em.empties.length)} เที่ยววิ่งเปล่า จาก {fmt(em.total)} เที่ยว<br />
+              {em.total ? pct(em.empties.length / em.total * 100) : "–"} ของเที่ยวทั้งหมด</>} />
+        </div>
       </section>
       </div>
-
     </>
   );
 }

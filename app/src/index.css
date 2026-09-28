@@ -2509,7 +2509,7 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .pi-info{width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);background:transparent;color:#fff;
   font:italic 700 14px/1 Georgia,'Times New Roman',serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
   transition:background .15s,color .15s}
-#view-dash .pi-info:hover,#view-dash .pi-info.on{background:#fff;color:var(--th-piBg,#590212)}
+#view-dash .pi-info:hover,#view-dash .pi-info.on{background:#fff;color:var(--th-piBox,#590212)}
 #view-dash .pi-info:focus-visible{outline:2px solid #fff;outline-offset:2px}
 #view-dash .pi-note-w .pi-note{margin-top:10px;font-size:13.5px}
 #view-dash .pi-pair > .dz-kc.hero .v{font-size:64px;line-height:1.1}
@@ -3053,7 +3053,14 @@ html.theme-cherry,html.theme-cherry [data-th-scope]{
   --thg-secA:linear-gradient(135deg,color-mix(in srgb,var(--th-secA) 85%,#000) 0%,color-mix(in srgb,var(--th-secA) 78%,#fff) 100%);
   --thg-secB:linear-gradient(135deg,color-mix(in srgb,var(--th-secB) 85%,#000) 0%,color-mix(in srgb,var(--th-secB) 78%,#fff) 100%);
   --thg-secC:linear-gradient(135deg,color-mix(in srgb,var(--th-secC) 85%,#000) 0%,color-mix(in srgb,var(--th-secC) 78%,#fff) 100%);
-  --thg-pi:linear-gradient(135deg,color-mix(in srgb,var(--th-piBg) 80%,#fff) 0%,var(--th-piBg) 50%,color-mix(in srgb,var(--th-piBg) 70%,#000) 100%);
+  /* กล่อง Index = เงินเงา (แถบแสงขาวทแยงกลางกล่อง) · กล่องคะแนนรวม = แชมเปญทองไล่อ่อน → เข้ม (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569) */
+  --thg-pi:linear-gradient(115deg,color-mix(in srgb,var(--th-piBox) 82%,#000) 0%,color-mix(in srgb,var(--th-piBox) 45%,#fff) 30%,
+    color-mix(in srgb,var(--th-piBox) 20%,#fff) 48%,var(--th-piBox) 70%,color-mix(in srgb,var(--th-piBox) 85%,#000) 100%);
+  /* รอบสอง (เจ้าของงานว่า "ไม่เห็นเหมือนทอง"): ทองแบบโลหะ = ไล่ เข้ม → กลาง → แสงอ่อน → กลาง → เข้ม → เข้มจัด แทนไล่อ่อน→เข้มทางเดียว */
+  --thg-piTotal:
+    radial-gradient(ellipse 45% 70% at 12% 0%,color-mix(in srgb,var(--th-piTotalA) 70%,transparent) 0%,transparent 70%),
+    linear-gradient(115deg,var(--th-piTotalBg) 0%,var(--th-piTotalM) 18%,var(--th-piTotalA) 34%,var(--th-piTotalM) 50%,
+      var(--th-piTotalBg) 72%,color-mix(in srgb,var(--th-piTotalBg) 72%,#6B4716) 100%);
 }
 /* พื้นหลังหน้า = ไล่สีบน→ล่าง + ลำแสงทแยงแบบผ้าไหม (--th-pageGlow) + เกรนละเอียด (SVG noise)
    pageGlow ค่าตั้งต้น = สีพื้นบน ชุดเดิมจึงเกือบเท่าเดิม · ชุด "น้ำเงินเรืองแสง" ตั้งเป็นน้ำเงินสด
@@ -3196,10 +3203,11 @@ html.theme-cherry .rp-tbl tbody tr.on .rp-rank{background:var(--thg-secB)}
 /* ---- Performance Index ---- */
 html.theme-cherry #view-dash .pi-box.t-route,html.theme-cherry #view-dash .pi-box.t-fleet,
 html.theme-cherry #view-dash .pi-box.t-cost,html.theme-cherry #view-dash .pi-box.t-cust,
-html.theme-cherry #view-dash .pi-box.t-service,html.theme-cherry #view-dash .pi-total{background:var(--thg-pi)}
-html.theme-cherry #view-dash .pi-meter i,html.theme-cherry #view-dash .pi-bar i{background:linear-gradient(90deg,color-mix(in srgb,var(--th-piAccent) 75%,#B08A3E),var(--th-piAccent))}
+html.theme-cherry #view-dash .pi-box.t-service{background:var(--thg-pi)}
+html.theme-cherry #view-dash .pi-total{background:var(--thg-piTotal)}
+html.theme-cherry #view-dash .pi-meter i,html.theme-cherry #view-dash .pi-bar i{background:var(--th-piBoxAccent)}
 html.theme-cherry #view-dash .pi-t{font-size:19px}
-html.theme-cherry #view-dash .pi-score b{font-size:52px;color:var(--th-piAccent)}
+html.theme-cherry #view-dash .pi-score b{font-size:52px;color:var(--th-piBoxAccent)}
 
 /* ---- Executive Summary (หัว/แท็บของหน้าเอง) ---- */
 html.theme-cherry .es-header{background:var(--th-headBg);border-color:var(--th-headLine)}
@@ -3537,10 +3545,14 @@ html.th-preview .th-hot{outline:3px solid #FFD43B!important;outline-offset:2px;b
 .thp-cards div{background:var(--th-cardBg);border:1px solid var(--th-cardLine);border-radius:9px;padding:6px 9px;display:flex;flex-direction:column}
 .thp-cards small{color:var(--th-cardLabel)}
 .thp-cards b{color:var(--th-cardValue);font-size:15px;font-weight:800}
-.thp-cards .thp-pi{background:var(--thg-pi,var(--th-piBg));border-color:transparent}
+.thp-cards .thp-pi{background:var(--thg-pi,var(--th-piBox));border-color:transparent}
 .thp-cards .thp-pi small{color:#fff;opacity:.85}
-.thp-cards .thp-pi b{color:var(--th-piAccent)}
-.thp-cards .thp-pi i{display:block;height:4px;width:80%;border-radius:4px;background:var(--th-piAccent);margin-top:3px}
+.thp-cards .thp-pi b{color:var(--th-piBoxAccent)}
+.thp-cards .thp-pi i{display:block;height:4px;width:80%;border-radius:4px;background:var(--th-piBoxAccent);margin-top:3px}
+.thp-cards .thp-pi small{color:var(--th-piInk);opacity:1}
+.thp-cards .thp-pit{background:var(--thg-piTotal,var(--th-piTotalBg));border-color:transparent}
+.thp-cards .thp-pit small,.thp-cards .thp-pit b{color:var(--th-piTotalInk)}
+.thp-cards .thp-pit i{display:block;height:4px;width:50%;border-radius:4px;background:var(--th-piTotalInk);margin-top:3px}
 .thp-sg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 .thp-sg span{border-radius:8px;padding:5px 8px;color:#fff;font-weight:700}
 .thp-sg .s1{background:var(--thg-sg1,var(--th-sg1))}
@@ -3617,7 +3629,8 @@ html.th-preview .th-hot{outline:3px solid #FFD43B!important;outline-offset:2px;b
 html.theme-cherry #view-dash .dm-sub-h{font-size:28px;padding-left:0;border-left:0}
 html.theme-cherry #view-dash .dm-sub-h::after{background:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
 /* กรอบแต่ละส่วน: ต่างจากพื้นหน้าเล็กน้อยทั้งพื้นสว่างและพื้นเข้ม */
-html.theme-cherry #view-dash .dm-part{background:color-mix(in srgb,var(--th-pageText) 5%,transparent);border-color:color-mix(in srgb,var(--th-pageText) 12%,transparent)}
+/* พื้น/ขอบกรอบส่วนตั้งได้ในหน้าการตั้งค่า (partBg · partAlpha % · partBorder · 28 ก.ย. 2569) — ค่าตั้งต้นเท่าหน้าตาเดิม */
+html.theme-cherry #view-dash .dm-part{background:color-mix(in srgb,var(--th-partBg) calc(var(--th-partAlpha) * 1%),transparent);border-color:var(--th-partBorder)}
 html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
 /* กราฟย่อในภาพจำลอง (สีเส้น/แท่งในกราฟ) + แถบแจ้งรีโหลด */
 .thp-chart svg{display:block;width:100%;height:56px}
@@ -3644,14 +3657,14 @@ html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(-
 #view-dash .pi-jump-h i{flex:none;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.2);font-style:normal;
   font-size:13px;display:inline-flex;align-items:center;justify-content:center}
 #view-dash .pi-jump-sc{font-family:var(--d-num);font-size:20px;color:rgba(255,255,255,.75)}
-#view-dash .pi-jump-sc b{font-size:38px;font-weight:800;margin-right:4px;color:var(--th-piAccent,#F3E6C4)}
+#view-dash .pi-jump-sc b{font-size:38px;font-weight:800;margin-right:4px;color:var(--th-piBoxAccent,#F3E6C4)}
 #view-dash .pi-jump .pi-bar{margin-top:0}
 @media (max-width:1200px){#view-dash .pi-jumps{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:700px){#view-dash .pi-jumps{grid-template-columns:1fr}#view-dash .pi-jump{min-height:0}}
 /* ปลายทางของการกด: เว้นที่หัวแคปซูลที่ติดบน + กระพริบกรอบ */
 #view-dash [id^="pi-box-"]{scroll-margin-top:110px}
 #view-dash .pi-flash{animation:piFlash 1.8s ease-out}
-@keyframes piFlash{0%,40%{box-shadow:0 0 0 4px var(--th-piAccent,#F3E6C4)}100%{box-shadow:0 0 0 0 transparent}}
+@keyframes piFlash{0%,40%{box-shadow:0 0 0 4px var(--th-piBoxAccent,#F3E6C4)}100%{box-shadow:0 0 0 0 transparent}}
 /* ตารางจัดอันดับเส้นทาง (Profit Per Route · 28 ก.ย. 2569 ตามภาพ): ชิป %Margin รายกลุ่มบริการ 3 คอลัมน์ + หัว "กลุ่มบริการ" คร่อมสามคอลัมน์
    (คอลัมน์ 3–5 · หัวคร่อมวาดด้วย ::before ของหัวคอลัมน์กลาง ไม่ต้องมีแถวหัวเพิ่ม) · เกณฑ์สี sgTone() ใน RouteProfitTab.tsx */
 .rp-tbl-sg thead th{padding-top:28px}
@@ -3821,8 +3834,10 @@ html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(-
 #view-dash #demo-cust .dso2-donut-h span{font-size:15px}
 #view-dash #demo-cust .dso2-donut-m b{font-size:26px}
 #view-dash #demo-cust .dso2-donut-m span{font-size:14.5px}
-#view-dash #demo-cust .dso2-leg-row>button:first-child{font-size:17px;padding:9px 4px}
-#view-dash #demo-cust .dso2-leg small{font-size:14px}
+#view-dash #demo-cust .dso2-leg-row>button:first-child{font-size:15px;padding:8px 4px}
+/* รายการช่วงวันใต้โดนัทจ่ายช้า: เล็กลงจากรอบขยาย (เจ้าของงานสั่ง 28 ก.ย. 2569) · คอลัมน์ % กว้างพอไม่ให้ยอดเงินชนจำนวนบิล */
+#view-dash #demo-cust .dso2-leg-row>button:first-child{grid-template-columns:minmax(0,1fr) auto 52px;gap:10px}
+#view-dash #demo-cust .dso2-leg small{font-size:12.5px}
 #view-dash #demo-cust .dso2-leg-go{font-size:15px}
 #view-dash #demo-cust .dso2-rank{font-size:17px;grid-template-columns:44px minmax(100px,136px) minmax(0,1fr) 84px}
 #view-dash #demo-cust .dso2-rank.th{font-size:15.5px;height:auto}
@@ -3835,6 +3850,20 @@ html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(-
 #view-dash #demo-cust .dz-kc.hero .vs{font-size:21px}
 #view-dash #demo-cust .dz-kc.hero .ft{font-size:20px}
 @media (max-width:1400px){#view-dash #demo-cust .dso-heroes > .dz-kc.hero .l{font-size:20px}}
+/* การ์ด 5 ใบของ DSO: ตัวอักษรขนาดเดียวกันทุกใบ · ชื่อจองที่ 2 บรรทัดเท่ากัน ตัวเลขจึงอยู่ระดับเดียวกัน ·
+   ป้ายคำอธิบายชิดล่างระดับเดียวกันบรรทัดเดียว (เจ้าของงานสั่ง 28 ก.ย. 2569) · การ์ด DSO ไม่มีป้ายคำอธิบาย */
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero{display:flex;flex-direction:column}
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero .hh{align-items:flex-start;min-height:calc(2 * 1.3em);font-size:21px}
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero .l{font-size:21px;line-height:1.3}
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero :is(.v,.vrow .v),
+html.theme-cherry #view-dash #demo-cust .dso-heroes > .dz-kc.hero :is(.v,.vrow .v){font-size:42px;line-height:1.15;margin-top:10px}
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero .vrow .vs{font-size:20px}
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero .s{margin-top:auto;padding-top:0;align-self:flex-start;white-space:nowrap;font-size:15.5px;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero .vrow + .s,#view-dash #demo-cust .dso-heroes > .dz-kc.hero .v + .s{margin-top:auto}
+#view-dash #demo-cust .dso-heroes > .dz-kc.hero .vrow,#view-dash #demo-cust .dso-heroes > .dz-kc.hero > .v{margin-bottom:14px}
+@media (max-width:1400px){#view-dash #demo-cust .dso-heroes > .dz-kc.hero .l{font-size:19px}
+  #view-dash #demo-cust .dso-heroes > .dz-kc.hero :is(.v,.vrow .v){font-size:36px}}
 
 /* ===== Executive Dashboard › Vehicle Utilization Cost: ข้อมูลในตารางใหญ่ขึ้นมาก (เจ้าของงานสั่ง 28 ก.ย. 2569) =====
    ทุกตาราง .i3-tbl ในส่วนนี้ (ต้นทุนขนส่งแต่ละชนิดรถ · ความคุ้มค่าเสื่อม) — ไม่กระทบแท็บของ Overall Dashboard */
@@ -3855,11 +3884,17 @@ html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(-
 /* ===== Executive Dashboard › แถว Damage + Service Quality: กล่องซ้าย = กล่องแดงกล่องเดียว 4 ตัวเลขเรียงบนลงล่าง
    ชุดเดียวกับหัวแท็บ Damage Rate (เจ้าของงานสั่ง 28 ก.ย. 2569 · DamageRateBox) — แต่ละแถวยืดเท่ากันให้เต็มความสูงกล่อง ===== */
 #view-dash .pi-pair > .pi-dmg4{display:flex;flex-direction:column;margin:0;padding:10px 28px}
-#view-dash .pi-dmg-row{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:14px 0;color:var(--th-heroText,#fff)}
-#view-dash .pi-dmg-row + .pi-dmg-row{border-top:1px solid rgba(255,255,255,.28)}
+/* พื้นแดงเรียบ ไล่สีอ่อน ๆ ไม่มีแถบแสงเงา (เจ้าของงานสั่ง 28 ก.ย. 2569 — ลองเงาแบบโลหะแล้วไม่เอา) · สีตั้งได้ dmgA/dmgB แยกจากสีขาดทุน */
+#view-dash .pi-pair > .pi-dmg4.dz-kc.hero,html.theme-cherry #view-dash .pi-pair > .pi-dmg4.dz-kc.hero{
+  /* รอบสาม: แดงอ่อนลง + เงาบาง ๆ (แถบแสงขาวจางทแยง + เส้นแสงขอบบน) — ไม่แรงแบบโลหะรอบแรก */
+  background:linear-gradient(115deg,transparent 18%,rgba(255,255,255,.22) 34%,rgba(255,255,255,.06) 46%,transparent 58%),
+    linear-gradient(145deg,var(--th-dmgA,#F59A9A) 0%,var(--th-dmgB,#E35D5D) 100%);
+  box-shadow:0 14px 30px -20px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.5)}
+#view-dash .pi-dmg-row{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:14px 0;color:var(--th-dmgInk,#141414)}
+#view-dash .pi-dmg-row + .pi-dmg-row{border-top:1px solid color-mix(in srgb,var(--th-dmgInk,#141414) 18%,transparent)}
 #view-dash .pi-dmg-l{font-size:21px;font-weight:700;line-height:1.3}
 #view-dash .pi-dmg-v{font-family:var(--d-num);font-size:clamp(32px,2.8vw,46px);font-weight:800;line-height:1.1;letter-spacing:-.01em}
-#view-dash .pi-dmg-s{align-self:flex-start;font-size:16px;line-height:1.4;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.18)}
+#view-dash .pi-dmg-s{align-self:flex-start;font-size:16px;line-height:1.4;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.45)}
 
 /* ===== Executive Dashboard › Vehicle Utilization Cost: แถบตัวเลขสรุป 4 ช่อง (.i3-stats) ใหญ่ขึ้น (เจ้าของงานสั่ง 28 ก.ย. 2569) ===== */
 #view-dash #demo-item3 .i3-stats>div{padding:20px 24px;gap:6px}
@@ -3867,13 +3902,136 @@ html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(-
 #view-dash #demo-item3 .i3-stats b{font-size:34px}
 #view-dash #demo-item3 .i3-stats b small{font-size:20px}
 #view-dash #demo-item3 .i3-stats small{font-size:17px}
-/* Customer Performance › DSO: เอาการ์ด "DSO · วันเก็บหนี้เฉลี่ย" ออก (เจ้าของงานสั่ง 28 ก.ย. 2569) เหลือ 4 ใบ — Manager Dashboard ยังใช้ .dso-heroes 5 ใบ */
-#view-dash #demo-cust .dz-heroes.dso-heroes{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:1380px){#view-dash #demo-cust .dz-heroes.dso-heroes{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:900px){#view-dash #demo-cust .dz-heroes.dso-heroes{grid-template-columns:minmax(0,1fr)}}
 /* ตารางลูกหนี้จ่ายช้า: กดแถว = ป็อบอัพรายบิลของลูกค้ารายนั้น (CustBillsModal · 28 ก.ย. 2569) */
 #view-dash .dso2-rank.dso2-click{cursor:pointer;transition:background .15s}
 #view-dash .dso2-rank.dso2-click:hover{background:var(--d-rail)}
 #view-dash .dso2-rank.dso2-click:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 /* ป็อบอัพลูกหนี้: คอลัมน์ "ระยะเวลาเครดิต" จัดกลาง (เจ้าของงานสั่ง 28 ก.ย. 2569) — รายบิล = คอลัมน์ 3 · รายลูกค้าตามช่วงวัน = คอลัมน์ 2 */
 #view-dash .dz-tbl.cb-tbl :is(th,td):nth-child(3),#view-dash .dz-tbl.od-tbl :is(th,td):nth-child(2){text-align:center}
+/* เส้นกราฟตกแต่ง (SPARK) ท้ายการ์ดใหญ่ เอาออกทุกแท็บ/ทุก Dashboard (เจ้าของงานสั่ง 28 ก.ย. 2569) — เส้นแนวโน้มจากข้อมูลจริง (.trend) ยังอยู่ */
+.dz-kc.hero .spark{display:none}
+/* ===== Executive Dashboard › Recommendation (PiRecommend · 28 ก.ย. 2569) — การ์ดตัวชี้วัด PI เรียงคะแนนน้อยไปมาก + แนวทาง ===== */
+#view-dash .pi-rec{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media(max-width:1000px){#view-dash .pi-rec{grid-template-columns:1fr}}
+#view-dash .pi-rec-card{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:start;text-align:left;
+  padding:18px 20px;border-radius:18px;border:1px solid var(--d-line,#e8e2dc);border-left:6px solid #9AA0A6;
+  background:var(--d-card,#fff);color:var(--d-ink,#1A1714);font:inherit;cursor:pointer;transition:transform .15s,box-shadow .15s}
+#view-dash .pi-rec-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.14)}
+#view-dash .pi-rec-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#view-dash .pi-rec-card.urgent{border-left-color:#D2304F}
+#view-dash .pi-rec-card.improve{border-left-color:#E0A21B}
+#view-dash .pi-rec-card.keep{border-left-color:#0C8A68}
+#view-dash .pi-rec-no{width:34px;height:34px;border-radius:50%;background:var(--d-rail,#F1EEEA);display:inline-flex;align-items:center;
+  justify-content:center;font-family:var(--d-num);font-weight:800;font-size:15px}
+#view-dash .pi-rec-main{display:flex;flex-direction:column;gap:5px;min-width:0}
+#view-dash .pi-rec-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#view-dash .pi-rec-h b{font-size:20px;font-weight:800}
+#view-dash .pi-rec-lv{font-style:normal;font-size:13.5px;font-weight:700;padding:3px 11px;border-radius:999px}
+#view-dash .pi-rec-lv.urgent{background:#FDE8EC;color:#B42A2A}
+#view-dash .pi-rec-lv.improve{background:#FFF4DB;color:#8A5A00}
+#view-dash .pi-rec-lv.keep{background:#E3F6EE;color:#0C6B51}
+#view-dash .pi-rec-main small{font-size:14px;color:var(--d-ink5,#8A8290)}
+#view-dash .pi-rec-a{font-size:16.5px;line-height:1.6;margin-top:4px}
+#view-dash .pi-rec-sc{font-family:var(--d-num);font-size:16px;color:var(--d-ink5,#8A8290);white-space:nowrap}
+#view-dash .pi-rec-sc b{font-size:30px;font-weight:800;color:var(--d-ink,#1A1714)}
+/* ตารางจัดอันดับเส้นทาง: กดชิปกลุ่มบริการ = รายละเอียดเฉพาะกลุ่มนั้น (28 ก.ย. 2569) */
+.rp-sgc.rp-sgc-btn{cursor:pointer;transition:transform .12s,box-shadow .12s}
+.rp-sgc.rp-sgc-btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.12)}
+.rp-sgc.rp-sgc-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rp-sgc.rp-sgc-btn.on{box-shadow:0 0 0 2.5px currentColor}
+.rp-dsg{display:inline-block;margin-left:10px;padding:3px 12px;border-radius:999px;font-size:14px;font-weight:700;vertical-align:middle;
+  background:color-mix(in srgb,var(--accent) 12%,#fff);color:var(--accent)}
+.rp-dall{border:0;background:none;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
+/* กล่องตัวชี้วัด PI (.pi-rm) สูงเท่ากันในแถว · ปุ่ม "รายละเอียด" ชิดล่างตำแหน่งเดียวกันทุกกล่อง (เจ้าของงานสั่ง 28 ก.ย. 2569)
+   ใช้กับทุกหมวด (PiRow) รวม Service Quality ในแถว Service Performance */
+#view-dash .pi-box.pi-row{align-items:stretch}
+#view-dash .pi-box.pi-row > .pi-row-sc{align-self:start}
+#view-dash .pi-rm-more{margin-top:auto}
+/* ชื่อส่วน "Profit Per Route" ที่อยู่เหนือแผนที่ (ต่อจาก Service Category) — เว้นระยะจากการ์ดกลุ่มบริการข้างบน (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+#view-dash .dm-sgs ~ .dm-part-h{margin-top:40px}
+/* แคปซูลหัว Executive Dashboard: ชี้แท็บที่ย่อ = ขึ้นชื่อเต็ม · แท็บที่เลือกใช้สี tabOn (แดง) แทนสีเน้น (28 ก.ย. 2569) */
+.cap-tabs .cap-t-f{display:none}
+.cap-tabs button:hover .cap-t-s,.cap-tabs button:focus-visible .cap-t-s{display:none}
+.cap-tabs button:hover .cap-t-f,.cap-tabs button:focus-visible .cap-t-f{display:inline}
+.cap-tabs button.on{background:var(--th-tabOn,var(--accent))}
+.thp-tab{background:var(--th-tabOn);color:#fff;border-radius:999px;padding:2px 9px;font-size:10px}
+/* ===== Executive Dashboard › Inefficient Transportation Cost รอบสาม (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569) =====
+   สองแผงขาวมุมมน (Load Factor | Empty Trips) หัวข้อแดงเข้ม ไม่มีเส้นใต้/เส้นประคั่น · การ์ด I2Card 4 ใบ
+   ใบ 1 เบอร์กันดีเข้ม · ใบ 2 และ 4 ชมพูอ่อนตัวเข้ม · ใบ 3 แดง — สีตั้งได้ที่ token i2* (หมวดการ์ดเด่น) */
+#view-dash .i2-groups.i2-v3{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+#view-dash .i2-v3 .i2-group{background:var(--th-cardBg,#fff);border:1px solid var(--th-cardLine,#EBDDE2);border-radius:22px;padding:20px 20px 22px;
+  box-shadow:0 10px 26px -18px rgba(0,0,0,.35)}
+#view-dash .i2-v3 .i2-gh,html.theme-cherry #view-dash .i2-v3 .i2-gh{border:0;padding:0;margin:0 0 16px;font-size:24px}
+#view-dash .i2-v3 .i2-gh b,html.theme-cherry #view-dash .i2-v3 .i2-gh b{color:var(--th-i2Title);font-weight:800}
+#view-dash .i2-v3 .i2-gh::after{display:none}
+#view-dash .i2-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;flex:1}
+@media(max-width:1100px){#view-dash .i2-groups.i2-v3{grid-template-columns:1fr}}
+@media(max-width:620px){#view-dash .i2-cards{grid-template-columns:1fr}}
+#view-dash .i2c{position:relative;display:flex;flex-direction:column;gap:10px;min-width:0;padding:20px 20px 18px;border-radius:18px;cursor:pointer;
+  color:#fff;box-shadow:0 14px 28px -18px rgba(60,0,15,.55);transition:transform .15s,box-shadow .15s}
+#view-dash .i2c:hover{transform:translateY(-2px);box-shadow:0 20px 34px -18px rgba(60,0,15,.6)}
+#view-dash .i2c:focus-visible{outline:2px solid var(--th-i2Title);outline-offset:3px}
+#view-dash .i2c.i2-lf{background:linear-gradient(145deg,var(--th-i2LfB) 0%,var(--th-i2LfA) 100%)}
+#view-dash .i2c.i2-idle{background:linear-gradient(145deg,var(--th-i2IdleA) 0%,var(--th-i2IdleB) 100%)}
+#view-dash .i2c.i2-empty{background:linear-gradient(145deg,var(--th-i2EmptyA) 0%,var(--th-i2EmptyB) 100%)}
+#view-dash .i2c.i2-emptyc{background:linear-gradient(145deg,var(--th-i2EmptyCostA) 0%,var(--th-i2EmptyCostB) 100%)}
+#view-dash .i2c.light{color:var(--th-i2LightInk);box-shadow:0 12px 24px -20px rgba(60,0,15,.45)}
+#view-dash .i2c-h{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
+#view-dash .i2c-l{font-size:16.5px;font-weight:700;line-height:1.45}
+#view-dash .i2c-u{flex:none;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.22);margin-top:2px}
+#view-dash .i2c.light .i2c-u{background:rgba(255,255,255,.75)}
+#view-dash .i2c-v{font-family:var(--d-num);font-size:clamp(34px,3vw,46px);font-weight:800;line-height:1.1;letter-spacing:-.01em;white-space:nowrap}
+#view-dash .i2c-sub{font-size:14.5px;line-height:1.55;font-weight:600}
+#view-dash .i2c-pill{align-self:flex-start;font-size:14px;line-height:1.55;padding:9px 14px;border-radius:14px;background:rgba(255,255,255,.14)}
+#view-dash .i2c.light .i2c-pill{background:rgba(255,255,255,.72)}
+#view-dash .i2c-note{font-size:13px;opacity:.85;margin-top:auto}
+.thp-heroes.sm{grid-template-columns:repeat(4,1fr)}
+.thp-heroes .i2lf{background:linear-gradient(135deg,var(--th-i2LfB),var(--th-i2LfA))}
+.thp-heroes .idle{background:linear-gradient(135deg,var(--th-i2IdleA),var(--th-i2IdleB))}
+.thp-heroes .idle small{color:var(--th-i2LightInk)}
+.thp-heroes .emptyc{background:linear-gradient(135deg,var(--th-i2EmptyA),var(--th-i2EmptyB))}
+.thp-heroes .emptyv{background:linear-gradient(135deg,var(--th-i2EmptyCostA),var(--th-i2EmptyCostB))}
+.thp-heroes .emptyv small{color:var(--th-i2LightInk)}
+.thp-heroes .dmg{background:linear-gradient(135deg,var(--th-dmgA),var(--th-dmgB))}
+.thp-heroes .dmg small{color:var(--th-dmgInk)}
+
+/* ===== Performance Index รอบสี (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569) =====
+   กล่อง Index 5 หมวด (.pi-box) = พื้นเงินเงา ตัวอักษรเข้ม (piInk) · คะแนน/แถบเทาเข้ม (piAccent) · กล่องตัวชี้วัดข้างในขาวใส
+   กล่องคะแนนรวม (.pi-total) = แชมเปญทอง · ตัวเลข/แถบ/ตัวอักษรเบอร์กันดี (piTotalInk) · กล่องย่อย 5 หมวดขาวครีมใส
+   เดิมทั้งสองเป็นพื้นเบอร์กันดีตัวขาว — กฎตัวขาวของเดิมยังอยู่ ธีมนี้ทับเฉพาะใต้ html.theme-cherry */
+.thp-cards{grid-template-columns:repeat(4,1fr)}
+html.theme-cherry #view-dash .pi-box{color:var(--th-piInk);box-shadow:0 14px 30px -20px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.7)}
+html.theme-cherry #view-dash .pi-box::after{background:rgba(255,255,255,.28)}
+html.theme-cherry #view-dash .pi-box :is(.pi-t,.pi-note,.pi-row-part,.pi-rm-h span,.pi-rm-h b,.pi-rm-count){color:var(--th-piInk)}
+html.theme-cherry #view-dash .pi-box .pi-score span{color:color-mix(in srgb,var(--th-piInk) 60%,transparent)}
+html.theme-cherry #view-dash .pi-box .pi-rm.na .pi-rm-h b{color:color-mix(in srgb,var(--th-piInk) 65%,transparent)}
+html.theme-cherry #view-dash .pi-box :is(.pi-meter,.pi-bar,.pi-rm-stack){background:color-mix(in srgb,var(--th-piInk) 14%,transparent)}
+html.theme-cherry #view-dash .pi-box .pi-rm{background:rgba(255,255,255,.55);box-shadow:inset 0 0 0 1px rgba(255,255,255,.7)}
+html.theme-cherry #view-dash .pi-box .pi-row-part,html.theme-cherry #view-dash .pi-box .pi-bsc{background:color-mix(in srgb,var(--th-piInk) 10%,transparent);color:var(--th-piInk)}
+html.theme-cherry #view-dash .pi-box .pi-rm-more{border-color:color-mix(in srgb,var(--th-piInk) 30%,transparent);background:rgba(255,255,255,.6);color:var(--th-piInk)}
+html.theme-cherry #view-dash .pi-box .pi-rm-more:hover{background:rgba(255,255,255,.9)}
+html.theme-cherry #view-dash .pi-box .pi-rm-more:focus-visible,html.theme-cherry #view-dash .pi-box .pi-info:focus-visible{outline-color:var(--th-piInk)}
+html.theme-cherry #view-dash .pi-box .pi-info{border-color:color-mix(in srgb,var(--th-piInk) 60%,transparent);color:var(--th-piInk)}
+html.theme-cherry #view-dash .pi-box .pi-info:hover,html.theme-cherry #view-dash .pi-box .pi-info.on{background:var(--th-piInk);color:#fff}
+html.theme-cherry #view-dash .pi-box .pi-tone{box-shadow:0 0 0 2px rgba(255,255,255,.9)}
+
+html.theme-cherry #view-dash .pi-total{box-shadow:0 18px 36px -22px rgba(0,0,0,.55)}
+html.theme-cherry #view-dash .pi-total::after{background:rgba(255,255,255,.22)}
+html.theme-cherry #view-dash .pi-total :is(.pi-total-l,.pi-note,.pi-jump,.pi-jump-h){color:var(--th-piTotalInk)}
+html.theme-cherry #view-dash .pi-total .pi-score b{color:var(--th-piTotalInk)}
+html.theme-cherry #view-dash .pi-total .pi-score span{color:color-mix(in srgb,var(--th-piTotalInk) 85%,transparent)}
+html.theme-cherry #view-dash .pi-total :is(.pi-meter,.pi-bar){background:color-mix(in srgb,var(--th-piTotalInk) 12%,transparent)}
+html.theme-cherry #view-dash .pi-total :is(.pi-meter,.pi-bar) i{background:var(--th-piTotalInk)}
+html.theme-cherry #view-dash .pi-total .pi-more{background:rgba(255,255,255,.5);color:var(--th-piTotalInk)}
+/* กล่องย่อย 5 หมวด: ขาวใสบาง ๆ ให้ทองของพื้นทะลุ (เจ้าของงานอยากได้ทอง ๆ 28 ก.ย. 2569) */
+html.theme-cherry #view-dash .pi-total .pi-jump{background:color-mix(in srgb,var(--th-piTotalA) 22%,transparent);
+  border-color:color-mix(in srgb,var(--th-piTotalA) 70%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
+html.theme-cherry #view-dash .pi-total .pi-jump:hover{background:color-mix(in srgb,var(--th-piTotalA) 40%,transparent);border-color:var(--th-piTotalA)}
+html.theme-cherry #view-dash .pi-total::after{background:rgba(255,255,255,.12)}
+html.theme-cherry #view-dash .pi-total{box-shadow:0 18px 36px -22px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(90,60,20,.35)}
+html.theme-cherry #view-dash .pi-total .pi-jump-h i{background:color-mix(in srgb,var(--th-piTotalInk) 12%,#fff);color:var(--th-piTotalInk)}
+html.theme-cherry #view-dash .pi-total .pi-jump-sc{color:color-mix(in srgb,var(--th-piTotalInk) 70%,transparent)}
+html.theme-cherry #view-dash .pi-total .pi-jump-sc b{color:var(--th-piTotalInk)}
+html.theme-cherry #view-dash .pi-total :is(.pi-total-main,.pi-jump):focus-visible{outline-color:var(--th-piTotalInk)}
+html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
+@keyframes piFlashInk{0%,40%{box-shadow:0 0 0 4px var(--th-piTotalInk)}100%{box-shadow:0 0 0 0 transparent}}

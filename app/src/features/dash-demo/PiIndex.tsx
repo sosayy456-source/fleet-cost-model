@@ -25,6 +25,7 @@ import { totalDamage } from "../../lib/damage/damage";
 import { INDEXES, METRICS, METRIC_MAX, TOTAL_MAX, metricResult, sumScores } from "../../lib/pi/score";
 import { routeMarginValues, serviceMarginValues } from "../../lib/pi/route";
 import { emptyResult } from "../../lib/pi/empty";
+import { REC_LEVEL_LABEL, recommendations } from "../../lib/pi/recommend";
 import { DAMAGE_STATUS_LABEL, damageRef, damageResults, damageStatus } from "../../lib/pi/damage";
 import type { DamageRef, DamageStatus } from "../../lib/pi/damage";
 import type { IndexDef, MetricKey, MetricResult } from "../../lib/pi/score";
@@ -438,5 +439,34 @@ function PiDetailModal({ groups, score, max, onClose }: {
       </div>
     </div>,
     host,
+  );
+}
+
+/**
+ * ส่วน "Recommendation" (เจ้าของงานสั่งเพิ่มแท็บ 28 ก.ย. 2569) — ตัวชี้วัด PI เรียงคะแนนน้อยไปมาก พร้อมแนวทาง
+ * อ่านผลชุดเดียวกับกล่องคะแนนรวม ไม่คิดใหม่ · ข้อความแนวทางอยู่ที่ lib/pi/recommend.ts (ร่างแรก)
+ * กดการ์ด = เลื่อนไปกล่อง Index ของตัวชี้วัดนั้น
+ */
+export function PiRecommend({ reports }: { reports: Record<string, MetricResult[]> }) {
+  const list = useMemo(() => recommendations(reports), [reports]);
+  if (!list.length) return <p className="dz-note">กำลังคิดคะแนน Performance Index… (ข้อเสนอแนะขึ้นเมื่อกล่อง PI คิดเสร็จ)</p>;
+  return (
+    <div className="pi-rec">
+      {list.map((r, i) => (
+        <button key={r.key} type="button" className={`pi-rec-card ${r.level}`} onClick={() => jumpToIndex(r.indexId)}
+          title={`ไปที่ ${r.indexTitle}`}>
+          <span className="pi-rec-no">{i + 1}</span>
+          <span className="pi-rec-main">
+            <span className="pi-rec-h">
+              <b>{r.label}</b>
+              <em className={`pi-rec-lv ${r.level}`}>{REC_LEVEL_LABEL[r.level]}</em>
+            </span>
+            <small>{r.indexTitle}{r.red != null && r.n ? ` · แดง ${fmt(r.red)} จาก ${fmt(r.n)} ${r.unit}` : ""}</small>
+            <span className="pi-rec-a">{r.action}</span>
+          </span>
+          <span className="pi-rec-sc"><b>{sc(r.score)}</b>/{METRIC_MAX}</span>
+        </button>
+      ))}
+    </div>
   );
 }

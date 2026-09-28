@@ -40,13 +40,11 @@ function YtdLines({ r, picked }: { r: EmptyYtd; picked: boolean }) {
   );
 }
 
-export default function EmptyHeroes({ all, rows, rowsAnyYear, period, onOpen }: {
-  all: Trip[]; rows: Trip[]; rowsAnyYear: Trip[];
-  /** ตัวกรองปี + ช่วงเดือนที่เลือก (ปีว่าง = ทุกปี) */
-  period: Period;
-  /** มี = กดการ์ดได้ (Demo → เปิดแท็บเที่ยววิ่งเปล่าของ Executive Dashboard) */
-  onOpen?: () => void;
-}) {
+/**
+ * ตัวเลขของการ์ดสองใบ — แยกออกมาให้ Executive Dashboard › Inefficient Transportation Cost วาดหน้าตาของตัวเอง
+ * (Item2Tab · ดีไซน์ที่เจ้าของงานส่ง 28 ก.ย. 2569) โดยคิดสูตรที่เดียวกับการ์ดของแท็บ Empty Trips
+ */
+export function useEmptyHeroData(all: Trip[], rows: Trip[], rowsAnyYear: Trip[], period: Period) {
   const yearShare = useMemo(() => yearShares(rowsAnyYear), [rowsAnyYear]);
   const { year, from, to } = period;
   const focusY = year ? Number(year) : yearShare[yearShare.length - 1]?.y;
@@ -57,6 +55,25 @@ export default function EmptyHeroes({ all, rows, rowsAnyYear, period, onOpen }: 
   const empties = useMemo(() => rows.filter((t) => t.empty), [rows]);
   const emptyCost = empties.reduce((s, t) => s + t.cost, 0);
   const scope = year ? `ปี ${periodLabel(period)}` : `รวม ${yearShare.length} ปี`;
+  return { yearShare, focusY, focus, ytd, empties, emptyCost, scope, total: rows.length };
+}
+
+/** YoY ของการ์ดใบแรก — ข้อความชุดเดียวกับ YtdLines */
+export function ytdYoyText(r: EmptyYtd): string {
+  return r.yoy != null
+    ? `${r.yoy > 0 ? "+" : r.yoy < 0 ? "−" : "±"}${Math.abs(r.yoy).toFixed(1)}%`
+    : r.prevEmpty == null ? "ไม่มีข้อมูลช่วงเดียวกัน" : "ปีก่อนช่วงเดียวกันไม่มีเที่ยวเปล่า";
+}
+export { perMonth };
+
+export default function EmptyHeroes({ all, rows, rowsAnyYear, period, onOpen }: {
+  all: Trip[]; rows: Trip[]; rowsAnyYear: Trip[];
+  /** ตัวกรองปี + ช่วงเดือนที่เลือก (ปีว่าง = ทุกปี) */
+  period: Period;
+  /** มี = กดการ์ดได้ (Demo → เปิดแท็บเที่ยววิ่งเปล่าของ Executive Dashboard) */
+  onOpen?: () => void;
+}) {
+  const { yearShare, focusY, focus, ytd, empties, emptyCost, scope } = useEmptyHeroData(all, rows, rowsAnyYear, period);
 
   return (
     <>
