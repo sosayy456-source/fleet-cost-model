@@ -1537,7 +1537,7 @@ body:has(#view-dash.active){background:#EDE7DF}
 /* การ์ดใหญ่ 3 ใบขนาดเท่ากัน — ยกเลิกกฎ 1.35fr/ตัวเลขใหญ่กว่าของใบแรกในแท็บกำไรรายเส้นทาง */
 #view-dash .dz-heroes.cp-heroes,
 #view-dash .dz-heroes.cp-heroes:has(> :nth-child(3):last-child){grid-template-columns:repeat(3,minmax(0,1fr))}
-#view-dash .dz-heroes.cp-heroes > .dz-kc.hero:first-child .v{font-size:40px;letter-spacing:-.02em;line-height:1.15}
+#view-dash .dz-heroes.cp-heroes > .dz-kc.hero.cust .v{font-size:40px;letter-spacing:-.02em;line-height:1.15}
 /* บรรทัดยอดเงินใต้ชิป (Hero foot) — อยู่เหนือเส้นตกแต่ง */
 #view-dash .dz-kc.hero .ft{margin-top:8px;font:700 17px/1.4 var(--font-num);color:#fff;position:relative;z-index:1}
 @media(max-width:900px){#view-dash .dz-heroes.cp-heroes,#view-dash .dz-heroes.cp-heroes:has(> :nth-child(3):last-child){grid-template-columns:1fr}}
@@ -3126,7 +3126,7 @@ html.theme-cherry #view-dash .dz-kc.hero .l{font-size:16px}
 html.theme-cherry #view-dash .dz-kc.hero .u{font-size:13.5px}
 html.theme-cherry #view-dash .dz-kc.hero .v{font-size:46px}
 html.theme-cherry #view-dash .dz-heroes > .dz-kc.hero:first-child .v{font-size:60px}
-html.theme-cherry #view-dash .dz-heroes.cp-heroes > .dz-kc.hero:first-child .v{font-size:46px}
+html.theme-cherry #view-dash .dz-heroes.cp-heroes > .dz-kc.hero.cust .v{font-size:46px}
 html.theme-cherry #view-dash .dz-kc.hero .hf .s,html.theme-cherry #view-dash .dz-kc.hero .s{font-size:15px}
 html.theme-cherry #view-dash .dz-kc.hero .vs{font-size:18px}
 html.theme-cherry #view-dash .dz-kc.hero :is(.l,.v,.vs,.s,.ft){color:var(--th-heroText)}
@@ -4062,3 +4062,130 @@ html.theme-cherry #view-dash .mo-sec-h{color:var(--th-pageText)}
 #view-dash .mo-today.mo-click{cursor:pointer;transition:box-shadow .15s,transform .15s}
 #view-dash .mo-today.mo-click:hover{box-shadow:0 6px 18px rgba(0,0,0,.12);transform:translateY(-1px)}
 #view-dash .mo-today.mo-click:focus-visible{outline:2px solid var(--accent,#590212);outline-offset:2px}
+/* Overall › Empty Trips: การ์ด 2 ใบหน้าตาเดียวกับกลุ่ม Empty trip ของ Executive Dashboard (.i2-pair · เจ้าของงานสั่ง 28 ก.ย. 2569)
+   ตัวหนังสือใหญ่ขึ้น · ตัดเส้นกราฟตกแต่ง/เส้นแนวโน้ม */
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero :is(.spark,.trend){display:none}
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero .hf{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero .l,html.theme-cherry #view-dash .dz-heroes.em-heroes > .dz-kc.hero .l{font-size:21px;font-weight:700;line-height:1.3;text-wrap:balance}
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero :is(.s,.hf .s),html.theme-cherry #view-dash .dz-heroes.em-heroes > .dz-kc.hero :is(.s,.hf .s){font-size:17px;line-height:1.5}
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero .vs,html.theme-cherry #view-dash .dz-heroes.em-heroes > .dz-kc.hero .vs{font-size:21px}
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero .u{white-space:nowrap;flex:none}
+/* Overall › Empty Trips: สีการ์ด 2 ใบเป็นคู่โทนเดียวกัน (เจ้าของงานสั่ง "เปลี่ยนสีให้สวย ๆ" 28 ก.ย. 2569)
+   ใบแรก % = ไวน์เข้ม → กุหลาบ · ใบสอง มูลค่า = แดงอิฐ → คอรัลส้ม · แสงเรืองมุมขวาบน + ขอบในบาง ๆ
+   อ่านสีจากตัวแปรธีม (--th-*) หน้าการตั้งค่าเปลี่ยนตามได้ */
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero.loss,
+html.theme-cherry #view-dash .dz-heroes.em-heroes > .dz-kc.hero.loss{
+  background:
+    radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.16) 0%,rgba(255,255,255,0) 55%),
+    linear-gradient(135deg,var(--th-custB,#3F0110) 0%,var(--th-custA,#7A1A2E) 50%,var(--th-lossA,#9E2C42) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 18px 36px -22px rgba(0,0,0,.65)}
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero.cost,
+html.theme-cherry #view-dash .dz-heroes.em-heroes > .dz-kc.hero.cost{
+  background:
+    radial-gradient(120% 90% at 100% 0%,rgba(255,255,255,.18) 0%,rgba(255,255,255,0) 55%),
+    linear-gradient(135deg,var(--th-costA,#9E1F22) 0%,var(--th-costB,#D2493F) 60%,color-mix(in srgb,var(--th-costB,#D2493F) 55%,#F2A65A) 100%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.12),0 18px 36px -22px rgba(0,0,0,.65)}
+/* ชิปบรรทัดรองบนพื้นเข้มขึ้น — พื้นขาวโปร่งอ่านง่ายกว่า */
+#view-dash .dz-heroes.em-heroes > .dz-kc.hero :is(.s .em-ytd,.s){color:rgba(255,255,255,.94)}
+
+/* ===== Overall Dashboard ทุกแท็บ: ตัวหนังสือเนื้อหาใหญ่เท่า Executive Dashboard (เจ้าของงานสั่ง 28 ก.ย. 2569) =====
+   ขนาดชุดเดียวกับที่ใช้ใน Executive › Customer Performance (#demo-cust) · ครอบด้วย main.app[data-page="exec-dash"] = เฉพาะหน้านี้
+   ชนะกฎ html.theme-cherry #view-dash … ด้วยความเฉพาะเจาะจง · ตัวเลขใหญ่ของการ์ดเด่นไม่แตะ (ขนาดเดิมใหญ่อยู่แล้ว) */
+main.app[data-page="exec-dash"] #view-dash .dz-t{font-size:26px}
+main.app[data-page="exec-dash"] #view-dash :is(.dz-cc h4,.tk-th h4){font-size:23px}
+main.app[data-page="exec-dash"] #view-dash :is(.tk-th p,.dz-cc > p){font-size:16px}
+main.app[data-page="exec-dash"] #view-dash .dz-note{font-size:16.5px}
+main.app[data-page="exec-dash"] #view-dash :is(.dz-tbl,.i3-tbl){font-size:18.5px}
+main.app[data-page="exec-dash"] #view-dash :is(.dz-tbl,.i3-tbl) th{font-size:16.5px}
+main.app[data-page="exec-dash"] #view-dash :is(.fu-pill,.i3-pill){font-size:15px}
+main.app[data-page="exec-dash"] #view-dash .cuscode{font-size:14px}
+main.app[data-page="exec-dash"] #view-dash :is(.d3-tt-search,.cp-seg button){font-size:16px}
+main.app[data-page="exec-dash"] #view-dash .recharts-cartesian-axis-tick text{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash :is(.recharts-label-list text,.recharts-label){font-size:15px}
+main.app[data-page="exec-dash"] #view-dash :is(.recharts-legend-wrapper,.recharts-legend-item-text){font-size:16px !important}
+main.app[data-page="exec-dash"] #view-dash .dz-kc.hero .l{font-size:23px;font-weight:700;line-height:1.3;text-wrap:balance}
+main.app[data-page="exec-dash"] #view-dash .dz-kc.hero .u{font-size:15px;white-space:nowrap;flex:none}
+main.app[data-page="exec-dash"] #view-dash .dz-kc.hero :is(.s,.hf .s){font-size:18px;line-height:1.5}
+main.app[data-page="exec-dash"] #view-dash .dz-kc.hero .vs{font-size:21px}
+main.app[data-page="exec-dash"] #view-dash .dz-kc.hero .ft{font-size:20px}
+main.app[data-page="exec-dash"] #view-dash .dz-kc:not(.hero) .l{font-size:18px}
+main.app[data-page="exec-dash"] #view-dash .dz-kc:not(.hero) .v{font-size:38px}
+main.app[data-page="exec-dash"] #view-dash .dz-kc:not(.hero) .s{font-size:16.5px;line-height:1.45}
+@media (max-width:1400px){main.app[data-page="exec-dash"] #view-dash .dz-kc.hero .l{font-size:20px}}
+
+/* ===== Overall › 3 แท็บ Inefficient Cost · Contribution · Utilization Cost: ตัวหนังสือเฉพาะของแท็บใหญ่ขึ้น 1.25 เท่า (เจ้าของงานสั่ง 28 ก.ย. 2569) =====
+   สร้างจากทุกกฎ font-size ของคลาสที่สามแท็บใช้ (lf-* · tk-* · d3-* · fl-* ฯลฯ) × 1.25 ครอบด้วย ThemeScope ของแท็บ [data-th-scope="overall:<แท็บ>"]
+   ของร่วม (หัวกล่อง/ตาราง/กราฟ/การ์ด) อยู่ในบล็อก "Overall Dashboard ทุกแท็บ" ข้างบน · แก้ขนาดต้นฉบับของคลาสแล้วต้องตามแก้ที่นี่ */
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .seg button{font-size:18px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .banner{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .cp-th p{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .cp-seg button{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-chips{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-chip button{font-size:19px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-src{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-hero h2{font-size:30px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-hero p{font-size:17px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-cargo .seg{font-size:19px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-cargo.sm .seg{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-legend{font-size:17px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-delta{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-take{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-rank .nm{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-rank .mt{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-rank .val small{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-cut{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-beaxis{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-be .nm{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-be .nm small{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-be .st small{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-pill{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-mode{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-mode select{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-qlist .q b{font-size:18px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-qlist .q .m{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-qlist .q .a{font-size:17px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-dlabel{font-size:19px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-dlabel b{font-size:27.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-presets button{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-wibar .cap{font-size:17px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-out .k{font-size:17px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-out .v{font-size:35px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] .lf-out .s{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .btn-ghost{font-size:17px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .modal-h{font-size:21px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .banner{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .sm-mh p{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .sm-x{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .sm-nums span{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .sm-nums b{font-size:25px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .sm-parts{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .dm-head .ff label{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .dm-head .ff select{font-size:17px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .cp-seg button{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .cp-sec h3{font-size:24px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .cp-sec p{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .tk-unit{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .tk-name{font-size:26px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .tk-tag{font-size:14.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .tk-base{font-size:14px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .tk-legend{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] .tk-clear{font-size:16px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .fl-legend{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .fl-toggle button{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-kb-th{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-kb-name b{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-kb-name small{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-kb-pct{font-size:19px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-kb-stack>span{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-kb-fcout{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-kb-total{font-size:19px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-adv-pills span{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-adv-panel h5{font-size:19.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-adv-panel header p{font-size:15.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-adv-th{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-adv-line>b{font-size:17.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-adv-line small{font-size:15px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] .d3-adv-panel li>strong{font-size:22.5px}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:lf"] :is(.recharts-label-list text,.recharts-label,.recharts-text.recharts-label){font-size:16px !important}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:tonkm"] :is(.recharts-label-list text,.recharts-label,.recharts-text.recharts-label){font-size:16px !important}
+main.app[data-page="exec-dash"] #view-dash [data-th-scope="overall:detail3"] :is(.recharts-label-list text,.recharts-label,.recharts-text.recharts-label){font-size:16px !important}

@@ -127,19 +127,19 @@ function QuadChart({ points, xLine, yLine, mode }: { points: (LfPoint & { q: Qua
       <ScatterChart margin={{ top: 12, right: 18, left: 0, bottom: 8 }}>
         <CartesianGrid {...gridProps(t)} />
         <XAxis {...axisProps(t)} type="number" dataKey="xr" domain={[x0, x1]} tickFormatter={xTick}
-          label={{ value: mode === "avg" ? "Max LF ของเที่ยว (%)" : "Max LF เทียบเป้าของกลุ่ม (จุด %)", position: "insideBottom", offset: -4, fill: t.ink2, fontFamily: DFONT, fontSize: 12 }} />
+          label={{ value: mode === "avg" ? "Max LF ของเที่ยว (%)" : "Max LF เทียบเป้าของกลุ่ม (จุด %)", position: "insideBottom", offset: -4, fill: t.ink2, fontFamily: DFONT, fontSize: 15 }} />
         <YAxis {...axisProps(t)} type="number" dataKey="yr" domain={[y0, y1]} ticks={yTicks} width={64} tickFormatter={fmtShort}
-          label={{ value: "กำไรต่อเที่ยว (บาท)", angle: -90, position: "insideLeft", fill: t.ink2, fontFamily: DFONT, fontSize: 12 }} />
+          label={{ value: "กำไรต่อเที่ยว (บาท)", angle: -90, position: "insideLeft", fill: t.ink2, fontFamily: DFONT, fontSize: 15 }} />
         <ZAxis type="number" dataKey="size" range={[50, 600]} />
         {/* พื้นสี่ช่อง — ชื่อกลุ่มอยู่มุมของแต่ละช่อง */}
         <ReferenceArea x1={x0} x2={xLine} y1={yLine} y2={y1} fill={QUAD_COLOR.value} fillOpacity={0.06}
-          label={{ value: QUAD.value.name, position: "insideTopLeft", fill: QUAD_COLOR.value, fontFamily: DFONT, fontSize: 12.5, fontWeight: 700 }} />
+          label={{ value: QUAD.value.name, position: "insideTopLeft", fill: QUAD_COLOR.value, fontFamily: DFONT, fontSize: 15.5, fontWeight: 700 }} />
         <ReferenceArea x1={xLine} x2={x1} y1={yLine} y2={y1} fill={QUAD_COLOR.star} fillOpacity={0.08}
-          label={{ value: QUAD.star.name, position: "insideTopRight", fill: QUAD_COLOR.star, fontFamily: DFONT, fontSize: 12.5, fontWeight: 700 }} />
+          label={{ value: QUAD.star.name, position: "insideTopRight", fill: QUAD_COLOR.star, fontFamily: DFONT, fontSize: 15.5, fontWeight: 700 }} />
         <ReferenceArea x1={x0} x2={xLine} y1={y0} y2={yLine} fill={QUAD_COLOR.waste} fillOpacity={0.12}
-          label={{ value: QUAD.waste.name, position: "insideBottomLeft", fill: QUAD_COLOR.waste, fontFamily: DFONT, fontSize: 12.5, fontWeight: 700 }} />
+          label={{ value: QUAD.waste.name, position: "insideBottomLeft", fill: QUAD_COLOR.waste, fontFamily: DFONT, fontSize: 15.5, fontWeight: 700 }} />
         <ReferenceArea x1={xLine} x2={x1} y1={y0} y2={yLine} fill={QUAD_COLOR.price} fillOpacity={0.06}
-          label={{ value: QUAD.price.name, position: "insideBottomRight", fill: QUAD_COLOR.price, fontFamily: DFONT, fontSize: 12.5, fontWeight: 700 }} />
+          label={{ value: QUAD.price.name, position: "insideBottomRight", fill: QUAD_COLOR.price, fontFamily: DFONT, fontSize: 15.5, fontWeight: 700 }} />
         <ReferenceLine x={xLine} stroke={t.ink2} strokeDasharray="5 4" />
         <ReferenceLine y={yLine} stroke={t.ink2} strokeDasharray="5 4" />
         <Tooltip cursor={{ strokeDasharray: "3 3" }} content={<PointTip />} />
@@ -155,7 +155,7 @@ function PointTip({ active, payload }: { active?: boolean; payload?: { payload: 
   const p = active && payload?.[0]?.payload;
   if (!p) return null;
   return (
-    <div style={{ background: "#17161A", color: "#fff", borderRadius: 10, padding: 11, fontFamily: DFONT, fontSize: 13.5,
+    <div style={{ background: "#17161A", color: "#fff", borderRadius: 10, padding: 11, fontFamily: DFONT, fontSize: 16.5,
                   boxShadow: "0 8px 24px -8px rgba(0,0,0,.35)", maxWidth: 280 }}>
       <div style={{ fontWeight: 600 }}>{p.name} <span style={{ color: QUAD_COLOR[p.q] }}>· {QUAD[p.q].name}</span></div>
       <div style={{ opacity: .8 }}>{p.sub}</div>

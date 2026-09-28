@@ -38,8 +38,8 @@ function Tip({ active, payload }: { active?: boolean; payload?: { payload: Pt }[
   if (!p) return null;
   return (
     <div style={{ background: "#17161A", color: "#fff", borderRadius: 12, padding: "10px 13px", fontFamily: DFONT,
-                  fontSize: 13.5, lineHeight: 1.6, boxShadow: "0 10px 28px -10px rgba(0,0,0,.45)" }}>
-      <div style={{ fontWeight: 700, fontSize: 14.5 }}>{p.vk}</div>
+                  fontSize: 16.5, lineHeight: 1.6, boxShadow: "0 10px 28px -10px rgba(0,0,0,.45)" }}>
+      <div style={{ fontWeight: 700, fontSize: 17.5 }}>{p.vk}</div>
       <div><b>{rateStr(p.rate)}</b> บาท/ตัน-กม. · {fmt(p.n)} เที่ยว</div>
       <div style={{ opacity: 0.8 }}>
         {p.target != null ? `เป้าหมาย ${rateStr(p.target)}` : "ไม่มีเป้าหมาย"}
@@ -72,7 +72,7 @@ export default function TonKmChart({ rows }: { rows: VkRow[] }) {
             {data.map((d) => <Cell key={d.vk} fill={STATUS_COLOR[d.status]} />)}
             <LabelList dataKey="rate" position="right" offset={8}
               formatter={(v: unknown) => (typeof v === "number" ? rateStr(v) : "")}
-              style={{ fontFamily: DFONT, fontSize: 13, fontWeight: 700, fill: t.ink }} />
+              style={{ fontFamily: DFONT, fontSize: 16, fontWeight: 700, fill: t.ink }} />
           </Bar>
           <Scatter dataKey="target" shape={<Tick />} isAnimationActive={false} />
         </ComposedChart>

@@ -34,10 +34,10 @@ import { FF, Hero, KC, Note, Pane, TableHead } from "../dash-fleet/parts";
 import { ListFF, PeriodFF, SortTable, duniq, fmt, isFiltered, monthLabel, pct, routeArrow, useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import {
-  LEVELS, MIN_TRIPS_ALERT, PERIOD_ALL, RECS, aggregateDamage, damageLevel, damageRec, damageThresholds, inPeriod,
-  isPartialYear, levelOf, recOf, totalDamage,
+  LEVELS, MIN_TRIPS_ALERT, PERIOD_ALL, aggregateDamage, damageLevel, damageThresholds, inPeriod,
+  isPartialYear, levelOf, totalDamage,
 } from "../../lib/damage/damage";
-import type { DamageAgg, DamageLevel, DamagePeriod, DamageRec, DamageThresholds } from "../../lib/damage/damage";
+import type { DamageAgg, DamageLevel, DamagePeriod, DamageThresholds } from "../../lib/damage/damage";
 import type { Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
 
@@ -85,8 +85,6 @@ const T0: TableFilter = { rt: "", ft: "", vk: "", level: "dmg" };
 interface GroupRow extends DamageAgg {
   route: string; ft: string; vk: string;
   level: DamageLevel | null;
-  /** คำแนะนำตาม logic ในไฟล์ (ชุดแยกจากระดับ) */
-  rec: DamageRec | null;
 }
 
 const rankOf = (l: DamageLevel | null): number => (l ? levelOf(l).rank : -1);
@@ -174,7 +172,7 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
     const g = aggregateDamage(timed.filter((t) => passDims(t, eff)), (t) => `${rtKey(t)}\u0000${t.ft}\u0000${t.vk}`);
     return g.map((a) => {
       const [route = "", ft = "", vk = ""] = a.key.split("\u0000");
-      return { ...a, route, ft, vk, level: damageLevel(a, th), rec: damageRec(a, th) };
+      return { ...a, route, ft, vk, level: damageLevel(a, th) };
     })
       // เรียงตั้งต้น: ระดับสูงก่อน แล้วตาม Damage Rate — useSort เรียงแบบ stable จึงคงลำดับรองนี้ไว้
       .sort((a, b) => rankOf(b.level) - rankOf(a.level) || (b.rate ?? 0) - (a.rate ?? 0));
@@ -203,8 +201,7 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
       render: (r) => pct(r.incidence, 2) },
     { key: "level", label: "ระดับความเสียหาย", get: (r) => rankOf(r.level),
       render: (r) => <LevelBadge level={r.level} /> },
-    { key: "rec", label: "คำแนะนำ", get: (r) => (r.rec ? RECS.findIndex((x) => x.key === r.rec) : -1),
-      render: (r) => <RecBadge rec={r.rec} /> },
+    // คอลัมน์ "คำแนะนำ" เอาออก (เจ้าของงานสั่ง 28 ก.ย. 2569 — ต่อจากการตัดตารางคำแนะนำ) · ระดับความเสียหายยังอยู่
   ], []);
   const { sorted, sort, toggle } = useSort(shown, cols, { key: "level", dir: -1 });
 
@@ -330,13 +327,11 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
             }))} />
         </div>
 
-        {/* คำแนะนำ (ต่อจาก Alert ของตารางตามไฟล์) + ระดับความเสียหาย — สองชุดเกณฑ์แยกกัน */}
-        <div className="dz-cc" style={{ marginTop: 14 }}>
-          <TableHead title="คำแนะนำและแนวทางการดำเนินการ" />
-          <RecTable th={th} />
-        </div>
+        {/* ระดับความเสียหาย · ตาราง "คำแนะนำและแนวทางการดำเนินการ" ตัดออกแล้ว (เจ้าของงานสั่ง 28 ก.ย. 2569) —
+            คอลัมน์คำแนะนำในตารางเส้นทางยังอยู่ · บรรทัดเกณฑ์ P75 ย้ายมาไว้หัวตารางระดับ */}
         <div className="dz-cc" style={{ marginTop: 14 }}>
           <TableHead title="ระดับความเสียหาย" />
+          <P75Line th={th} />
           <LevelTable />
         </div>
         <Note>
@@ -358,12 +353,6 @@ function LevelBadge({ level }: { level: DamageLevel | null }) {
   if (!level) return <span className="dmg-lv none" title="ใช้ P75 เป็นเกณฑ์ไม่ได้ (ช่วงที่เลือกมีข้อมูลเดือนเดียว)">–</span>;
   const l = levelOf(level);
   return <span className={`dmg-lv ${level}`} title={`${l.meaning} · ${l.action}`}>{l.label}</span>;
-}
-
-function RecBadge({ rec }: { rec: DamageRec | null }) {
-  if (!rec) return <span className="dmg-rec">–</span>;
-  const r = recOf(rec);
-  return <span className={`dmg-rec ${rec}`} title={r.action}>{r.label}</span>;
 }
 
 function EmptyChart({ text }: { text: string }) {
@@ -398,29 +387,15 @@ function AlertList({ title, items, empty, action }: {
   );
 }
 
-/** ตารางคำแนะนำ (ไฟล์ "dashboard คชจ.md") พร้อมค่า P75 ของช่วงที่เลือก ให้ผู้ใช้เห็นว่าตัดสินจากอะไร */
-function RecTable({ th }: { th: DamageThresholds }) {
+/** เกณฑ์ P75 ของช่วงที่เลือก ให้ผู้ใช้เห็นว่าระดับ/คำแนะนำตัดสินจากอะไร */
+function P75Line({ th }: { th: DamageThresholds }) {
   return (
-    <>
-      <div className="dmg-th">
-        เกณฑ์ P75 ของช่วงที่เลือก (ภาพรวมบริษัท {fmt(th.months)} เดือน):
-        {" "}Damage Rate <b>{th.p75Rate == null ? "–" : pct(th.p75Rate, 3)}</b>
-        {" "}· Damage Incidence Rate <b>{th.p75Incidence == null ? "–" : pct(th.p75Incidence, 2)}</b>
-        {th.months > 0 && !th.usable && " · เดือนเดียว ไม่ใช้เป็นเกณฑ์"}
-      </div>
-      <table className="dz-tbl">
-        <thead><tr><th>คำแนะนำ</th><th>เงื่อนไข</th><th>แนวทางการดำเนินการ</th></tr></thead>
-        <tbody>
-          {RECS.map((r) => (
-            <tr key={r.key}>
-              <td><RecBadge rec={r.key} /></td>
-              <td style={{ whiteSpace: "nowrap" }}>{r.when}</td>
-              <td>{r.action}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
+    <div className="dmg-th">
+      เกณฑ์ P75 ของช่วงที่เลือก (ภาพรวมบริษัท {fmt(th.months)} เดือน):
+      {" "}Damage Rate <b>{th.p75Rate == null ? "–" : pct(th.p75Rate, 3)}</b>
+      {" "}· Damage Incidence Rate <b>{th.p75Incidence == null ? "–" : pct(th.p75Incidence, 2)}</b>
+      {th.months > 0 && !th.usable && " · เดือนเดียว ไม่ใช้เป็นเกณฑ์"}
+    </div>
   );
 }
 

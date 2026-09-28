@@ -12,7 +12,6 @@
  *                              ส่วนที่ 1 กำไรลูกค้า alloc/ + ส่วนที่ 2 DSO debtors/ — ไม่ใช้ไฟล์ต้นทุน)
  * ★ ชุดเที่ยว = inProfitScope() ทุกเที่ยว ไม่กรอง (ตัวกรองหัวหน้ายังปิดไว้) · แท็บอื่นยังรอเชื่อมข้อมูล
  */
-import logoTiger from "../../assets/logo-tiger.webp";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
@@ -24,17 +23,19 @@ import { DEMO_F0 } from "../dash-demo/filter";
 import { EmptyMapSection } from "../dash-costrev/EmptyTab";
 import LoadFactorTab from "../dash-costrev/lf/LoadFactorTab";
 import CustomerProfitTab from "../dash-demo/CustomerProfitTab";
-import { useDashPage } from "../../lib/ui/dashContext";
+import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
+import { fmt } from "../dash-costrev/common";
 import SummaryTab from "./SummaryTab";
 import "./ExecutiveSummary.css";
 
+/** short = ชื่อบนแท็บของแคปซูล (ชื่อเต็มอยู่ใน tooltip + หัวข้อแท็บ แบบ Overall Dashboard) */
 const TABS = [
-  { id: "summary", label: "Executive Summary" },
-  { id: "route", label: "Route Profitability" },
-  { id: "fleet", label: "Fleet Utilization & Cost" },
-  { id: "customer", label: "Customer Profitability & Cash Flow" },
-  { id: "index", label: "Performance Index" },
-  { id: "recommendations", label: "Recommendations" },
+  { id: "summary", label: "Executive Summary", short: "Summary" },
+  { id: "route", label: "Route Profitability", short: "Route" },
+  { id: "fleet", label: "Fleet Utilization & Cost", short: "Fleet & Cost" },
+  { id: "customer", label: "Customer Profitability & Cash Flow", short: "Customer & Cash" },
+  { id: "index", label: "Performance Index", short: "Performance Index" },
+  { id: "recommendations", label: "Recommendations", short: "Recommendations" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -100,52 +101,44 @@ function TabContent({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
   }
 }
 
+/**
+ * หัวแคปซูลแบบเดียวกับ Executive · Overall · Manager Dashboard (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมมีหัวของตัวเอง
+ * โลโก้ + แถบแท็บ + ตัวกรองที่ปิดไว้) · บรรทัดรอง/ที่มาของข้อมูล/ป้ายตัวอย่าง = ไฟล์ต้นทุน (costrev/) ที่แท็บส่วนใหญ่ใช้ ·
+ * ยังไม่มีตัวกรอง (ตัวกรองเดิมเป็นช่องปิดไว้) จึงไม่มีปุ่มตัวกรองในแคปซูล
+ */
 export default function ExecutiveSummary() {
   const [tab, setTab] = useState<TabId>("summary");
-  const page = useDashPage();
+  const cr = useCostRev();
+  useAutoReloadOnEtl(useEtlStatus("costrev"), cr.reload);
+  const m = cr.data?.manifest;
   // เปลี่ยนแท็บย่อย = เด้งไปบนสุดของหน้าทันที (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมเลื่อนค้างตำแหน่งของแท็บก่อน)
-  // ครอบทุกทาง: กดแถบแท็บ · ลูกศร/Home/End · ลิงก์ในหน้า Summary (onTab) · ข้ามรอบแรกที่เพิ่งเปิดหน้า
+  // ครอบทุกทาง: กดแท็บในแคปซูล · ลิงก์ในหน้า Summary (onTab) · ข้ามรอบแรกที่เพิ่งเปิดหน้า
   const firstTab = useRef(true);
   useEffect(() => {
     if (firstTab.current) { firstTab.current = false; return; }
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [tab]);
-  const tabs = <div className="es-tabs" role="tablist" aria-label="ส่วนของ Executive Summary"
-    onKeyDown={(event) => {
-      const current = TABS.findIndex((item) => item.id === tab);
-      const next = event.key === "ArrowRight" ? (current + 1) % TABS.length
-        : event.key === "ArrowLeft" ? (current - 1 + TABS.length) % TABS.length
-          : event.key === "Home" ? 0 : event.key === "End" ? TABS.length - 1 : -1;
-      if (next < 0) return;
-      event.preventDefault();
-      setTab(TABS[next]!.id);
-      event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=tab]")[next]?.focus();
-    }}>
-    {TABS.map((item) => <button key={item.id} type="button" role="tab"
-      aria-selected={tab === item.id} aria-controls="es-tab-content"
-      tabIndex={tab === item.id ? 0 : -1}
-      className={tab === item.id ? "active" : ""}
-      onClick={() => setTab(item.id)}>{item.label}</button>)}
-  </div>;
+  const tabs = TABS.map((item) => (
+    <button key={item.id} type="button" className={tab === item.id ? "on" : ""} aria-current={tab === item.id ? "true" : undefined}
+      title={item.label} onClick={() => setTab(item.id)}>{item.short}</button>
+  ));
+  const meta = m && <Meta parts={[
+    <>ไฟล์ต้นทุน <b>{fmt(m.rows)}</b> เที่ยว · จับคู่รายได้ได้ {fmt(m.matched)}</>,
+    <span className="dh-num">{m.dateRange.min} → {m.dateRange.max}</span>,
+    "แท็บ Customer ใช้ชุดกำไรลูกค้า/ลูกหนี้ของตัวเอง",
+  ]} />;
+  const label = TABS.find((item) => item.id === tab)?.label;
 
-  return <>
-    <header className="es-header">
-      <div className="es-brandbar">
-        <img className="es-logo" src={logoTiger} alt="" aria-hidden="true" />
-        <div className="es-brand">นิ่มขนส่ง 1988<small>Executive Summary · รอเชื่อมข้อมูล</small></div>
-        {page && <button type="button" className="es-switch-role" onClick={page.onSwitchRole}>เปลี่ยนหน้าที่</button>}
+  return (
+    <DashShell title="Executive Summary" sample={m?.isSample} meta={meta || undefined}
+      onRefresh={cr.reload} loading={!cr.data && !cr.error} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่"
+      capsule={{ tabs, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
+      <div className={tab === "summary" || tab === "route" || tab === "fleet" || tab === "customer" ? "es-page es-wide" : "es-page"}>
+        <section id="es-tab-content" className="es-content" aria-label={label}>
+          <h2 className="dm-part-h">{tab === "recommendations" ? "Recommendations & Financial Impact" : label}</h2>
+          <TabContent tab={tab} onTab={setTab} />
+        </section>
       </div>
-      <nav className="es-tabbar" aria-label="แท็บ Executive Summary">{tabs}</nav>
-      <div className="es-filterbar" aria-label="ตัวกรอง Executive Summary">
-        <label><span className="es-visually-hidden">ช่วงเวลา</span><select disabled aria-label="ช่วงเวลา"><option>ทุกปี</option></select></label>
-        <label><span className="es-visually-hidden">กลุ่มบริการ</span><select disabled aria-label="กลุ่มบริการ"><option>ทุกกลุ่มบริการ</option></select></label>
-      </div>
-    </header>
-    <div className={tab === "summary" || tab === "route" || tab === "fleet" || tab === "customer" ? "es-page es-wide" : "es-page"}>
-      <section id="es-tab-content" className="es-content" role="tabpanel" aria-label={TABS.find((item) => item.id === tab)?.label}>
-        <h2>{tab === "recommendations" ? "Recommendations & Financial Impact" : TABS.find((item) => item.id === tab)?.label}</h2>
-        <TabContent tab={tab} onTab={setTab} />
-      </section>
-    </div>
-  </>;
+    </DashShell>
+  );
 }
