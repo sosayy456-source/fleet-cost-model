@@ -267,11 +267,15 @@ export default function DemoDash() {
             <PiCost trips={piTrips} /></>)}
           {part("cust", <>
             <CustomerProfitTab f={fv} />
-            {/* Service Quality (ซ้าย) + การ์ด Damage Rate (ขวา) ขนาดเท่ากัน */}
+                        {/* การ์ด Damage Rate (ซ้าย) + Service Quality (ขวา · แบ่งสองคอลัมน์ในกล่อง) — ตามภาพที่เจ้าของงานส่ง 28 ก.ย. 2569 */}
+            {/* เส้นคั่นระหว่างกล่อง Customer PI กับแถว Damage Rate + Service Quality (เจ้าของงานขอ 28 ก.ย. 2569) */}
+            <hr className="dm-pi-sep" />
             <div className="pi-pair">
-              <PiService trips={piTrips} refTrips={piRef} />
               <DamageRateBox trips={piTrips} />
+              <PiService trips={piTrips} refTrips={piRef} />
             </div>
+            {/* เส้นคั่นก่อนกล่องคะแนนรวม (เจ้าของงานขอ 28 ก.ย. 2569) */}
+            <hr className="dm-pi-sep" />
             <PiTotal reports={pi.reports} />
           </>)}
         </PiReportProvider>

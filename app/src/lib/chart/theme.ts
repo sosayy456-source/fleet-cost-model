@@ -15,7 +15,8 @@ export const DFONT = "'LINE Seed Sans TH', 'Noto Sans Thai', system-ui, sans-ser
 /** ระยะและจังหวะแอนิเมชัน — main: animation:{duration:950,easing:"easeOutQuart"} */
 export const DUR = 950;
 
-import { CHERRY, IS_CHERRY } from "../ui/dashTheme";
+import { IS_CHERRY } from "../ui/dashTheme";
+import { chartPalette } from "../ui/themeColors";
 
 /** สีตามชื่อที่ main เรียกใช้ตรง ๆ ในแต่ละกราฟ (ธีม classic) */
 const D_CLASSIC = {
@@ -36,23 +37,11 @@ const D_CLASSIC = {
 };
 
 /**
- * ธีม cherry (เจ้าของงานส่ง 27 ก.ย. 2569 · lib/ui/dashTheme.ts) — ชื่อคีย์เดิม ค่าสีใหม่ ทุกกราฟเปลี่ยนตามโดยไม่ต้องแก้ทีละไฟล์
- * indigo = รายได้ → **แชมเปญทอง** · emerald = กำไร → **เขียว** (ตาม PDF) · rose = ต้นทุน/ขาดทุน → ส้มอิฐ · violet → เบอร์กันดี · teal → ม่วงหม่น
+ * ธีม cherry — ชื่อคีย์เดิม ค่าสีมาจากหมวด "สีเส้น/แท่งในกราฟ" ของ lib/ui/themeColors.ts (ค่าตั้งต้น + ที่เลือกในหน้าการตั้งค่า)
+ * indigo = รายได้ · emerald = กำไร · rose = ต้นทุน/ขาดทุน ฯลฯ — ตัดสินครั้งเดียวตอนโหลดโมดูล เปลี่ยนสีแล้วต้องรีโหลดหน้า
  */
 const D_CHERRY: typeof D_CLASSIC = {
-  indigo: CHERRY.gold,
-  indigoDeep: CHERRY.goldDeep,
-  violet: CHERRY.burgundy,
-  rose: CHERRY.brick,
-  emerald: CHERRY.greenDeep,
-  emeraldLight: CHERRY.green,
-  amber: "#D9A04A",
-  pink: CHERRY.plum,
-  teal: CHERRY.mauve,
-  cyan: CHERRY.rose,
-  orange: "#A8472F",
-  slate: "#B7A6AC",
-  slateDeep: "#6B4A52",
+  ...chartPalette(),
   mint: ["#CDEBDD", "#8FD0B3", "#34A07F"],
 };
 

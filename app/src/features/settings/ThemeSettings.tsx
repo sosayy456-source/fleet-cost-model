@@ -7,6 +7,8 @@
  * ตัวอย่างย่อ (ค้างด้านซ้ายตอนเลื่อน) ใช้ตัวแปรชุดเดียวกับแดชบอร์ดจริง และมีครบทุกจุดใน THEME_GROUPS —
  * ชี้/โฟกัสช่องสี = จุดนั้นในตัวอย่างกระพริบ · กดจุดในตัวอย่าง = กระโดดไปช่องสีของจุดนั้น (เจ้าของงานขอ 28 ก.ย. 2569)
  * ★ เพิ่ม token ใหม่ต้องใส่ data-th ให้ส่วนที่ตรงกันใน <Preview> ด้วย ไม่งั้นชี้แล้วไม่มีอะไรกระพริบ
+ * สีเส้น/แท่งในกราฟ (หมวด chart · 28 ก.ย. 2569) = ชุด D อ่านตอนโหลดหน้า → กราฟย่อในภาพจำลองเปลี่ยนสด (ตัวแปร --th-ch*) ·
+ *   แดชบอร์ดจริงต้องรีโหลด หน้านี้ขึ้นแถบ "รีโหลดหน้าเลย" เมื่อค่าต่างจากตอนโหลด (CHART_AT_LOAD)
  *
  * ตั้งสีรายแท็บ (28 ก.ย. 2569): แถวขอบเขตบนสุด ทั้งระบบ · 12 แท็บของ 3 Dashboard — เลือกแท็บแล้วตัวอย่างเป็นหน้าจริงในกรอบ
  *   (ThemePreviewFrame) ช่องสีเหลือเฉพาะ token ที่ไม่ใช่ global · ค่าที่แสดง = สีของแท็บ ?? สีรวม · ↺ = กลับไปใช้สีรวม
@@ -14,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IS_CHERRY } from "../../lib/ui/dashTheme";
 import {
-  THEME_DEFAULTS, THEME_EVENT, THEME_GROUPS, THEME_PRESETS, THEME_SCOPES, THEME_TOKENS, isHex,
+  CHART_AT_LOAD, THEME_DEFAULTS, THEME_EVENT, THEME_GROUPS, THEME_PRESETS, THEME_SCOPES, THEME_TOKENS, isHex,
   loadAllScopeColors, loadThemeColors, saveScopeColors, saveThemeColors, type ThemeColors,
 } from "../../lib/ui/themeColors";
 import ThemePreviewFrame from "./ThemePreviewFrame";
@@ -75,6 +77,19 @@ function Preview() {
           </div>
           <div className="thp-row"><span data-th="cardValue">ตลาดไท-กองลอย</span><span data-th="cardLabel">32,006</span></div>
           <div className="thp-row on" data-th="rowOn"><span data-th="cardValue">แถวที่เลือก</span><span data-th="cardLabel">31,143</span></div>
+        </div>
+        <div className="thp-box thp-chart" data-th="cardBg cardLine">
+          <div className="thp-bt" data-th="boxTitle">กราฟ รายได้ / ต้นทุน / กำไร</div>
+          <svg viewBox="0 0 300 70" preserveAspectRatio="none" aria-hidden="true">
+            <polyline data-th="chRev" style={{ stroke: "var(--th-chRev)" }} points="0,40 40,22 80,34 120,14 160,26 200,10 240,20 300,8" />
+            <polyline data-th="chCost" style={{ stroke: "var(--th-chCost)" }} points="0,52 40,44 80,50 120,38 160,46 200,34 240,42 300,30" />
+            <polyline data-th="chProfit" style={{ stroke: "var(--th-chProfit)" }} points="0,62 40,52 80,58 120,46 160,54 200,44 240,50 300,40" />
+          </svg>
+          <div className="thp-bars">
+            {["chRevDeep", "chProfitLight", "chTeal", "chAmber", "chViolet", "chCyan", "chOrange", "chPink", "chSlate", "chSlateDeep"].map((k, i) => (
+              <i key={k} data-th={k} style={{ background: `var(--th-${k})`, height: `${40 + ((i * 37) % 60)}%` }} />
+            ))}
+          </div>
         </div>
         <div className="thp-note" data-th="pageMuted">โน้ตบนพื้นหลัง · ข้อความรอง</div>
       </div>
@@ -161,6 +176,8 @@ export default function ThemeSettings() {
     .map((g) => ({ ...g, tokens: scope ? g.tokens.filter((t) => !t.global) : g.tokens }))
     .filter((g) => g.tokens.length);
   const cur = THEME_SCOPES.find((s) => s.id === scope);
+  // สีกราฟ (D) อ่านครั้งเดียวตอนโหลดหน้า — เปลี่ยนแล้วแดชบอร์ดจริงยังเป็นสีเดิมจนกว่าจะรีโหลด
+  const chartStale = Object.entries(CHART_AT_LOAD).some(([k, v]) => (global[k] ?? "").toUpperCase() !== v);
   const ownN = Object.keys(own).length;
 
   const caption = hot
@@ -179,6 +196,13 @@ export default function ThemeSettings() {
       {!IS_CHERRY && (
         <div className="price-note">ตอนนี้เครื่องนี้ใช้ธีมสีเดิม (classic) — สีที่เลือกในส่วนนี้จะไม่แสดงจนกว่าจะล้างค่า
           <code> localStorage.dashTheme </code> แล้วรีโหลด</div>
+      )}
+
+      {chartStale && (
+        <div className="thm-reload" role="status">
+          เปลี่ยนสีเส้น/แท่งในกราฟแล้ว — กราฟในแดชบอร์ดจะใช้สีใหม่หลังรีโหลดหน้า (ตัวอย่างในหน้านี้เปลี่ยนให้ดูแล้ว)
+          <button type="button" onClick={() => location.reload()}>รีโหลดหน้าเลย</button>
+        </div>
       )}
 
       <div className="thm-scopes" role="tablist" aria-label="ตั้งสีให้">
@@ -275,7 +299,10 @@ export default function ThemeSettings() {
               </div>
             </details>
           ))}
-          <div className="hint" style={{ marginTop: 6 }}>สีในกราฟ (เส้น/แท่ง) ยังเป็นชุดเดิม เปลี่ยนจากหน้านี้ไม่ได้</div>
+          <div className="hint" style={{ marginTop: 6 }}>
+            {scope ? "สีเส้น/แท่งในกราฟตั้งได้ที่ \"ทั้งระบบ\" เท่านั้น (ใช้ร่วมทุกแท็บ)"
+              : "สีเส้น/แท่งในกราฟมีผลหลังรีโหลดหน้า · สีเส้นกลุ่มบริการ/กลุ่มต้นทุนในแผนที่เส้นทางยังเป็นชุดเดิม"}
+          </div>
         </div>
       </div>
     </div>

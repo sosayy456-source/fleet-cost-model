@@ -24,7 +24,8 @@
 import { useMemo } from "react";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import { summarize } from "../../lib/loadfactor/calc";
-import { Hero, Note } from "../dash-fleet/parts";
+import { Hero } from "../dash-fleet/parts";
+import InfoNote from "../../lib/ui/InfoNote";
 import EmptyHeroes from "../dash-costrev/EmptyHeroes";
 import { fmt, pct } from "../dash-costrev/common";
 import type { Trip } from "../../lib/data/useCostRev";
@@ -66,7 +67,11 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f }: {
     <>
       {/* การ์ด 1-2 อ่านชุด loadfactor/ ซึ่งเลือก real/sample แยกจากไฟล์ต้นทุนที่หัวหน้าใช้ */}
       <SourceTag block sample={lf?.manifest.isSample} what="กล่องที่ 1–2 (ไฟล์ Load Factor)" />
-      <div className="dz-heroes i2-heroes">
+      {/* สองกลุ่มซ้าย-ขวา หัวข้อมีเส้นใต้ยาวเต็มกลุ่ม คั่นด้วยเส้นประ (ดีไซน์ "1c" ที่เจ้าของงานส่ง 28 ก.ย. 2569) */}
+      <div className="i2-groups">
+      <section className="i2-group lf" aria-label="Load factor">
+        <h3 className="i2-gh"><b>Load factor</b></h3>
+      <div className="dz-heroes i2-pair">
         <Hero kind="cust" l="Load Factor เฉลี่ย" onClick={toLf}
           v={sum ? pctOf(sum.avgLf) : "–"}
           vSub={sum ? `เป้า ${pctOf(sum.avgTg)}` : undefined}
@@ -79,17 +84,25 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f }: {
           s={sum
             ? `${pctOf(sum.share)} ของต้นทุนขนส่งรวม ${baht(sum.cost)} บาท`
             : lfNote} />
-
+      </div>
+      </section>
+      <i className="i2-sep" aria-hidden="true" />
+      <section className="i2-group empty" aria-label="Empty trip">
+        <h3 className="i2-gh"><b>Empty trip</b></h3>
+      <div className="dz-heroes i2-pair">
         {/* การ์ด 3-4 = สองใบเดียวกับแท็บเที่ยววิ่งเปล่าของ Executive Dashboard กดแล้วเปิดแท็บนั้น */}
         <EmptyHeroes all={all} rows={trips} rowsAnyYear={tripsAnyYear} period={f} onOpen={toEmpty} />
       </div>
+      </section>
+      </div>
 
-      <Note>
+      {/* คำอธิบายยุบเป็นปุ่ม i (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
+      <InfoNote label="ดูที่มาของกล่องทั้ง 4">
         กล่องที่ 1–2 มาจากไฟล์ Load Factor ({lfFiles}) — ต้นทุนค่าเสียโอกาส = ต้นทุนรวม × (100% − Max LF)
         ของแต่ละเที่ยว · กล่องที่ 3–4 เป็นการ์ดชุดเดียวกับแท็บ Empty Trips ของ Overall Dashboard (กดเพื่อเปิดแท็บนั้น) มาจากไฟล์ต้นทุน
         <b> เที่ยวที่จับคู่ข้อมูลรายได้ได้ + เที่ยววิ่งเปล่า</b> (เที่ยวเปล่าไม่มีรายได้จึงไม่มีบิลให้จับคู่ แต่นับทุกเที่ยว) ·
         สองชุดนี้คนละไฟล์และมีจำนวนเที่ยวไม่เท่ากัน ตัวเลขจึงเทียบข้ามกล่องกันตรง ๆ ไม่ได้
-      </Note>
+      </InfoNote>
       <FilterScope f={f} uses={["year", "month", "ft", "vk"]} who="กล่องที่ 1–2 "
         why="ไฟล์ Load Factor ไม่มีสาขา ต้นทาง/ปลายทางแยก และกลุ่มบริการ — กล่องที่ 3–4 กรองครบทุกตัว" />
     </>

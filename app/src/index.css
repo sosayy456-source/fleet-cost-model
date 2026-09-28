@@ -920,6 +920,9 @@ input[type="checkbox"]{width:auto;padding:0}
   --font-num:var(--font-thai);
 }
 #view-dash{--d-num:var(--font-thai);font-family:var(--font-thai)}
+/* ตัวไทยใหญ่ขึ้น 110% เฉพาะหน้าแดชบอร์ด (ฟอนต์ "LINE Seed Thai L" ใน fonts.css · unicode-range ไทยอย่างเดียว ตัวเลข/อังกฤษขนาดเดิม · 28 ก.ย. 2569)
+   ทับโทเคนในขอบเขต #view-dash — ทุกอย่างที่อ้าง var(--font-thai)/var(--d-num) ข้างในได้ด้วย รวมป็อบอัพที่ portal มาที่นี่ */
+#view-dash{--font-thai:'LINE Seed Thai L','LINE Seed Sans TH','Noto Sans Thai',system-ui,sans-serif;--font-num:var(--font-thai)}
 .picker-ov,.rs-head h1,.rs-head p,.ropt .ix,.ropt .t,.ropt .d,.rs-cta{font-family:var(--font-thai)}
 
 /* ================= หัวแดชบอร์ด 1A "Command bar" + การ์ดชุดใหม่ (ทุกแดชบอร์ด) =================
@@ -2496,6 +2499,23 @@ body:has(#view-dash.active){background:#EDE7DF}
 #view-dash .pi-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;align-items:stretch}
 #view-dash .pi-pair > .pi-box{margin-top:0}
 @media (max-width: 760px){#view-dash .pi-pair{grid-template-columns:1fr}}
+/* กล่อง PI ทุกหมวดเป็นแถวเดียวแบบ Route & Service แล้ว (28 ก.ย. 2569 — ทับเลย์เอาต์สองคอลัมน์ของ Service ในคู่ก่อนหน้า)
+   Service อยู่ครึ่งกว้างใน .pi-pair จึงบีบคอลัมน์คะแนนซ้าย · ป้ายสถานะ/ปุ่ม i อยู่ในคอลัมน์คะแนน */
+#view-dash .pi-pair > .pi-box.pi-row{grid-template-columns:minmax(150px,.85fr) minmax(0,1.15fr);gap:12px}
+#view-dash .pi-pair > .pi-box.pi-row > .pi-row-sc{grid-row:span 2}
+#view-dash .pi-row-sc .pi-st{display:inline-block;margin:6px 0 2px}
+#view-dash .pi-row-sc .pi-note-w{margin-top:12px}
+#view-dash .pi-row-sc .pi-note-w .pi-note{position:relative;z-index:2}
+@media (max-width:1100px){#view-dash .pi-pair > .pi-box.pi-row{grid-template-columns:1fr}}
+/* ปุ่ม i ใต้กล่อง PI → กางคำอธิบาย (PiNote ใน PiIndex.tsx) */
+#view-dash .pi-note-w{position:relative;z-index:1;margin-top:16px}
+#view-dash .pi-info{width:26px;height:26px;border-radius:50%;border:1.5px solid rgba(255,255,255,.7);background:transparent;color:#fff;
+  font:italic 700 14px/1 Georgia,'Times New Roman',serif;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s}
+#view-dash .pi-info:hover,#view-dash .pi-info.on{background:#fff;color:var(--th-piBg,#590212)}
+#view-dash .pi-info:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#view-dash .pi-note-w .pi-note{margin-top:10px;font-size:13.5px}
+#view-dash .pi-pair > .dz-kc.hero .v{font-size:64px;line-height:1.1}
 #view-dash .pi-total-l{position:relative;z-index:1;font-size:15px;font-weight:700;color:rgba(255,255,255,.85)}
 #view-dash .pi-total .pi-score b{font-size:54px}
 /* Service Quality: ป้ายสถานะ Damage Performance (ผ่าน/เฝ้าระวัง/ไม่ผ่าน · lib/pi/damage.ts) — พื้นขาวบนกล่องสี */
@@ -2990,6 +3010,32 @@ text.num-fd{transform-box:fill-box}
 #view-dash .mg-new{background:#E3F0FA;color:#0369A1}
 #view-dash .mg-est{background:#FEF0D9;color:#B45309}
 
+/* ---- Executive Dashboard › Inefficient Transportation Cost: สองกลุ่ม Load factor | Empty trip (ดีไซน์ "1c" · 28 ก.ย. 2569) ----
+   หัวข้อกลุ่มมีเส้นใต้ยาวเต็มกลุ่ม · คั่นกลุ่มด้วยเส้นประแนวตั้ง · สีหัวข้อ/เส้นใต้อ่านตัวแปรธีม (--th-*) มีค่าถอยให้ธีม classic */
+#view-dash .i2-groups{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:0 28px;margin-bottom:14px;align-items:stretch}
+#view-dash .i2-group{min-width:0;display:flex;flex-direction:column}
+#view-dash .i2-gh{display:flex;align-items:baseline;gap:10px;margin:0 0 16px;padding-bottom:10px;font-size:28px;line-height:1.25;
+  border-bottom:3px solid color-mix(in srgb,var(--i2-line) 80%,var(--th-pageText,#1A1714))}
+#view-dash .i2-gh b{font-weight:800;color:color-mix(in srgb,var(--i2-line) 25%,var(--th-pageText,#1A1714))}
+#view-dash .i2-group.lf{--i2-line:var(--th-custA,#7A1A2E)}
+#view-dash .i2-group.empty{--i2-line:var(--th-costA,#B32A2A)}
+#view-dash .i2-sep{align-self:stretch;width:0;border-left:2px dashed color-mix(in srgb,var(--th-lossB,#D9707E) 70%,transparent);margin:6px 0 0}
+#view-dash .dz-heroes.i2-pair{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0;flex:1}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .v{overflow-wrap:anywhere}
+/* การ์ดแคบลงครึ่งหนึ่ง: เป้าอยู่ใต้ตัวเลข (ตามภาพ) · บรรทัดรอง/YTD เต็มกว้างแล้วเส้นแนวโน้มอยู่ล่าง ไม่บีบเป็นคอลัมน์แคบ */
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .v{overflow-wrap:normal;white-space:nowrap}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .vrow{flex-direction:column;align-items:flex-start;gap:2px}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .hf{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .hf .trend{width:100%;height:36px}
+@media(max-width:1100px){#view-dash .i2-groups{grid-template-columns:1fr;gap:22px 0}#view-dash .i2-sep{display:none}}
+@media(max-width:700px){#view-dash .dz-heroes.i2-pair{grid-template-columns:1fr}}
+/* การ์ด 4 ใบของสองกลุ่ม (28 ก.ย. 2569 เจ้าของงานสั่ง): ตัดเส้นกราฟตกแต่ง/เส้นแนวโน้มท้ายการ์ด · ตัวหนังสือไทยใหญ่เท่าการ์ด 6 กล่องภาพรวม */
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero :is(.spark,.trend){display:none}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .l,html.theme-cherry #view-dash .dz-heroes.i2-pair > .dz-kc.hero .l{font-size:21px;font-weight:700;line-height:1.3;text-wrap:balance}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero :is(.s,.hf .s),html.theme-cherry #view-dash .dz-heroes.i2-pair > .dz-kc.hero :is(.s,.hf .s){font-size:17px;line-height:1.5}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .vs,html.theme-cherry #view-dash .dz-heroes.i2-pair > .dz-kc.hero .vs{font-size:21px}
+#view-dash .dz-heroes.i2-pair > .dz-kc.hero .u{white-space:nowrap;flex:none}
+
 /* ======================================================================================
    ธีม "cherry" ของแดชบอร์ดทั้งหมด (lib/ui/dashTheme.ts) — ทุกกฎครอบด้วย html.theme-cherry (main.tsx ใส่คลาส)
    ★ สีทุกจุดอ่านจากตัวแปร --th-* ที่ lib/ui/themeColors.ts เขียนลง <html> ตอนโหลดหน้า (ค่าตั้งต้น + ที่ผู้ใช้เลือกในหน้าการตั้งค่า)
@@ -3414,7 +3460,9 @@ html.theme-cherry .i3-donut-total b{font-size:34px;color:var(--th-cardValue)}
 
 /* ---- ตัวครอบสีรายแท็บ + โหมดตัวอย่างในกรอบของหน้าการตั้งค่า (lib/ui/ThemeScope.tsx · lib/ui/themePreview.ts · 28 ก.ย. 2569) ---- */
 .th-scope{display:contents}
-html.th-preview .sidebar,html.th-preview .dh,html.th-preview .dm-floating-filter,html.th-preview .dm-filter-panel{display:none!important}
+/* .cap-bar = หัวแคปซูลของ Executive · .dm-overview = 6 กล่องภาพรวมนอกกรอบส่วน (มาจาก merge 28 ก.ย. 2569) */
+html.th-preview .sidebar,html.th-preview .dh,html.th-preview .cap-bar,html.th-preview .dm-overview,
+html.th-preview .dm-floating-filter,html.th-preview .dm-filter-panel,html.th-preview .dm-filter-toggle{display:none!important}
 html.th-preview main.app{margin-left:0!important;padding-top:18px!important}
 html.th-preview body{overflow-x:hidden}
 html.th-preview [data-th-scope] *{cursor:pointer!important}
@@ -3548,3 +3596,59 @@ html.theme-cherry #view-dash .dm-sub-h::after{background:color-mix(in srgb,var(-
 /* กรอบแต่ละส่วน: ต่างจากพื้นหน้าเล็กน้อยทั้งพื้นสว่างและพื้นเข้ม */
 html.theme-cherry #view-dash .dm-part{background:color-mix(in srgb,var(--th-pageText) 5%,transparent);border-color:color-mix(in srgb,var(--th-pageText) 12%,transparent)}
 html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
+/* กราฟย่อในภาพจำลอง (สีเส้น/แท่งในกราฟ) + แถบแจ้งรีโหลด */
+.thp-chart svg{display:block;width:100%;height:56px}
+.thp-chart polyline{fill:none;stroke-width:2.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.thp-bars{display:flex;align-items:flex-end;gap:4px;height:26px}
+.thp-bars i{flex:1;border-radius:3px 3px 0 0}
+.thm-reload{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;padding:10px 14px;border-radius:10px;
+  background:#FFF6D6;color:#5A4300;font-size:14px}
+.thm-reload button{margin-left:auto;padding:6px 14px;border-radius:999px;border:none;background:var(--accent);color:#fff;font:inherit;font-size:13.5px;cursor:pointer}
+/* outline ใช้กับเส้นใน SVG ไม่ได้ — จุดที่กำลังแก้เป็นเส้นกราฟ = หนาขึ้นแล้วกระพริบแทน */
+.thp polyline.th-hot{outline:none;box-shadow:none;stroke-width:6;animation:thLine 1s ease-in-out infinite}
+@keyframes thLine{50%{stroke-opacity:.35}}
+@media (prefers-reduced-motion:reduce){.thp polyline.th-hot{animation:none}}
+/* คะแนนรวม PI › กล่อง 5 หมวดกดไปกล่อง Index ของหมวดนั้น (PiTotal · 28 ก.ย. 2569 ตามภาพ) */
+#view-dash .pi-total-main{position:relative;z-index:1;cursor:pointer;border-radius:14px}
+#view-dash .pi-total-main:focus-visible{outline:2px solid #fff;outline-offset:6px}
+#view-dash .pi-jumps{position:relative;z-index:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:22px}
+#view-dash .pi-jump{display:flex;flex-direction:column;justify-content:space-between;gap:18px;min-height:150px;padding:16px 18px 18px;
+  border-radius:16px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.1);color:#fff;text-align:left;
+  font:inherit;cursor:pointer;transition:background .15s,transform .15s,border-color .15s}
+#view-dash .pi-jump:hover{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.3);transform:translateY(-2px)}
+#view-dash .pi-jump:focus-visible{outline:2px solid #fff;outline-offset:2px}
+#view-dash .pi-jump-h{display:flex;align-items:flex-start;gap:10px;font-size:15px;font-weight:700;line-height:1.4}
+#view-dash .pi-jump-h i{flex:none;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.2);font-style:normal;
+  font-size:13px;display:inline-flex;align-items:center;justify-content:center}
+#view-dash .pi-jump-sc{font-family:var(--d-num);font-size:20px;color:rgba(255,255,255,.75)}
+#view-dash .pi-jump-sc b{font-size:38px;font-weight:800;margin-right:4px;color:var(--th-piAccent,#F3E6C4)}
+#view-dash .pi-jump .pi-bar{margin-top:0}
+@media (max-width:1200px){#view-dash .pi-jumps{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:700px){#view-dash .pi-jumps{grid-template-columns:1fr}#view-dash .pi-jump{min-height:0}}
+/* ปลายทางของการกด: เว้นที่หัวแคปซูลที่ติดบน + กระพริบกรอบ */
+#view-dash [id^="pi-box-"]{scroll-margin-top:110px}
+#view-dash .pi-flash{animation:piFlash 1.8s ease-out}
+@keyframes piFlash{0%,40%{box-shadow:0 0 0 4px var(--th-piAccent,#F3E6C4)}100%{box-shadow:0 0 0 0 transparent}}
+/* ตารางจัดอันดับเส้นทาง (Profit Per Route · 28 ก.ย. 2569 ตามภาพ): ชิป %Margin รายกลุ่มบริการ 3 คอลัมน์ + หัว "กลุ่มบริการ" คร่อมสามคอลัมน์
+   (คอลัมน์ 3–5 · หัวคร่อมวาดด้วย ::before ของหัวคอลัมน์กลาง ไม่ต้องมีแถวหัวเพิ่ม) · เกณฑ์สี sgTone() ใน RouteProfitTab.tsx */
+.rp-tbl-sg thead th{padding-top:28px}
+.rp-tbl-sg thead th:nth-child(4)::before{content:"กลุ่มบริการ";position:absolute;top:8px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;font-size:12px;font-weight:700;color:#8A8290;pointer-events:none}
+.rp-tbl-sg thead th:nth-child(4){position:sticky}
+.rp-tbl-sg th:nth-child(3),.rp-tbl-sg th:nth-child(4),.rp-tbl-sg th:nth-child(5),
+.rp-tbl-sg td:nth-child(3),.rp-tbl-sg td:nth-child(4),.rp-tbl-sg td:nth-child(5){text-align:center;padding-left:4px;padding-right:4px}
+.rp-sgc{display:inline-flex;align-items:center;justify-content:center;min-width:62px;padding:6px 8px;border-radius:9px;
+  border:1.5px solid;font-size:13.5px;font-weight:800;font-variant-numeric:tabular-nums}
+.rp-sgc.g{border-color:#8FD3B6;background:#F0FAF5;color:#16775B}
+.rp-sgc.y{border-color:#F0C177;background:#FFF8EB;color:#B26A12}
+.rp-sgc.r{border-color:#F2A7A7;background:#FEF2F2;color:#B42A2A}
+.rp-sgc.na{border:1.5px dashed #D9D2D6;background:transparent;color:#A69CA3;font-weight:600}
+/* ปุ่ม i ของโน้ตบนพื้นหลังหน้า (lib/ui/InfoNote.tsx) — สีตามธีมของข้อความบนพื้นหลัง */
+.info-note{margin:12px 0 4px}
+.info-note-b{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--th-pageMuted,#8A8290);background:transparent;
+  color:var(--th-pageText,#1A1714);font:italic 700 14px/1 Georgia,'Times New Roman',serif;cursor:pointer;display:inline-flex;
+  align-items:center;justify-content:center;transition:background .15s,color .15s}
+.info-note-b:hover,.info-note-b.on{background:var(--th-pageText,#1A1714);color:var(--th-pageBottom,#fff)}
+.info-note-b:focus-visible{outline:2px solid var(--th-pageText,#1A1714);outline-offset:2px}
+.info-note-t{margin-top:8px}
+#view-dash .pi-rm-h > span{display:inline-flex;align-items:center;gap:6px}

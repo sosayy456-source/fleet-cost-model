@@ -103,7 +103,34 @@ export const THEME_GROUPS: ThemeGroup[] = [
       { key: "piAccent", label: "คะแนน/แถบใน Performance Index", def: "#F3E6C4" , sel: ".pi-score b, .pi-meter, .pi-bar" },
     ],
   },
+  {
+    // สีเส้น/แท่งในกราฟ = ชุด D ของ lib/chart/theme.ts (เจ้าของงานขอ 28 ก.ย. 2569) — ค่าตั้งต้นที่นี่คือแหล่งเดียวของ D ธีม cherry
+    // ★ D เป็นค่าคงที่ที่หลายไฟล์อ่านไปเก็บตอนโหลดโมดูล → เปลี่ยนแล้วต้องรีโหลดหน้า · ตั้งรายแท็บไม่ได้ (global)
+    title: "สีเส้น/แท่งในกราฟ (มีผลหลังรีโหลดหน้า)",
+    tokens: [
+      { key: "chRev", label: "รายได้", hint: "เส้น/แท่งรายได้ · สีชุดที่ 1 ของกราฟ", def: "#C29A5B", global: true },
+      { key: "chCost", label: "ต้นทุน / ขาดทุน", hint: "เส้นต้นทุน · ค่าที่แย่ลง", def: "#C86253", global: true },
+      { key: "chProfit", label: "กำไร", hint: "เส้นกำไรทุกกราฟ", def: "#0C5A45", global: true },
+      { key: "chProfitLight", label: "กำไร (อ่อน) / ดีขึ้น", def: "#1B7A60", global: true },
+      { key: "chRevDeep", label: "รายได้ (เข้ม)", def: "#9A7A3E", global: true },
+      { key: "chViolet", label: "สีชุดที่ 4", hint: "เส้นทาง/ชนิดรถลำดับที่ 4 · จุดการ์ด", def: "#590212", global: true },
+      { key: "chTeal", label: "สีชุดที่ 2 (รถร่วม)", hint: "รถร่วม · ลำดับที่ 2", def: "#8E5A68", global: true },
+      { key: "chAmber", label: "สีชุดที่ 3 (เตือน)", hint: "ลำดับที่ 3 · ค่าที่ต้องระวัง", def: "#D9A04A", global: true },
+      { key: "chCyan", label: "สีชุดที่ 5", hint: "Damage Incidence Rate · ลำดับที่ 5", def: "#DDA39F", global: true },
+      { key: "chOrange", label: "สีชุดที่ 6", def: "#A8472F", global: true },
+      { key: "chPink", label: "สีชุดที่ 7", def: "#8E5A68", global: true },
+      { key: "chSlate", label: "เทา (อื่น ๆ/แรเงา)", def: "#B7A6AC", global: true },
+      { key: "chSlateDeep", label: "เทาเข้ม", def: "#6B4A52", global: true },
+    ],
+  },
 ];
+
+/** token สีกราฟ → คีย์ใน D (lib/chart/theme.ts) */
+export const CHART_KEY_OF = {
+  chRev: "indigo", chCost: "rose", chProfit: "emerald", chProfitLight: "emeraldLight", chRevDeep: "indigoDeep",
+  chViolet: "violet", chTeal: "teal", chAmber: "amber", chCyan: "cyan", chOrange: "orange", chPink: "pink",
+  chSlate: "slate", chSlateDeep: "slateDeep",
+} as const;
 
 export const THEME_TOKENS: ThemeToken[] = THEME_GROUPS.flatMap((g) => g.tokens);
 export const THEME_DEFAULTS: Record<string, string> = Object.fromEntries(THEME_TOKENS.map((t) => [t.key, t.def]));
@@ -181,6 +208,18 @@ export function saveThemeColors(colors: ThemeColors): void {
 }
 
 export const isHex = (v: string): boolean => HEX.test(v);
+
+/** สีกราฟที่ใช้จริงตอนโหลดหน้า (ค่าตั้งต้น + ที่เลือก) ในรูปคีย์ของ D — lib/chart/theme.ts เรียกครั้งเดียวตอนโหลดโมดูล */
+export function chartPalette(): Record<(typeof CHART_KEY_OF)[keyof typeof CHART_KEY_OF], string> {
+  const c = { ...THEME_DEFAULTS, ...loadThemeColors() };
+  const out = {} as Record<(typeof CHART_KEY_OF)[keyof typeof CHART_KEY_OF], string>;
+  for (const [tok, dk] of Object.entries(CHART_KEY_OF)) out[dk] = c[tok]!;
+  return out;
+}
+
+/** สีกราฟตอนโหลดหน้านี้ — หน้าตั้งค่าเทียบกับค่าปัจจุบันเพื่อบอกว่าต้องรีโหลด */
+export const CHART_AT_LOAD: Record<string, string> = Object.fromEntries(
+  Object.keys(CHART_KEY_OF).map((k) => [k, (loadThemeColors()[k] ?? THEME_DEFAULTS[k]!).toUpperCase()]));
 
 /* ======================================================================================
    สีรายแท็บ (เจ้าของงานขอ 28 ก.ย. 2569 — ตั้งสีแยกได้ทุกแท็บของทั้ง 3 Dashboard)
