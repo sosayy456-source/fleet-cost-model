@@ -31,7 +31,7 @@ export interface MapRoute {
  * ในชื่ออยู่แล้ว โหลดซ้ำแค่ index.html 4–5 KB
  */
 const srcOf = (dark: boolean) =>
-  `${import.meta.env.BASE_URL}map/index.html?v=${Date.now()}#embed&bare&thai${dark ? "&dark" : ""}&tab=top`;
+  `${import.meta.env.BASE_URL}map/index.html?v=${Date.now()}#embed&bare&thai&txt=1.35${dark ? "&dark" : ""}&tab=top`;
 
 /**
  * ปุ่มซูมเข้า · ซูมออก · กลับมุมเริ่มต้น ใต้ปุ่ม ขาว/ดำ มุมขวาบนของแผนที่ (เจ้าของงานขอ 26 ก.ย. 2569 — ทุกแผนที่ในแอป)

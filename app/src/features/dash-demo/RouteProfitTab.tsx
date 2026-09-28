@@ -26,7 +26,7 @@
 import { useMemo, useState } from "react";
 import { DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
-import { Hero, KC, Note, Pane } from "../dash-fleet/parts";
+import { Hero, KC, Pane } from "../dash-fleet/parts";
 import {
   SortTable, fmt, groupBy, monthLabel, pct, signed, useSort,
 } from "../dash-costrev/common";
@@ -251,12 +251,6 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
                 : <p className="rp-foot rp-pad">เลือกเส้นทางจากรายการด้านบน</p>}
             </section>
         </RouteMapCard>
-        <Note>
-          ปุ่ม <b>i</b> เปิดรายการทุกเที่ยวของเส้นทางนั้นตามตัวกรองด้านบน · ต้นทุนแยกตามการจัดประเภท: <b>ต้นทุนปกติ</b>
-          (ผันแปร + กึ่งผันแปร + คงที่ + ค่าเช่า + อื่น ๆ) และ <b>ต้นทุนสูญเปล่า</b> ·
-          % ของกำไรเทียบรายได้ · % ของต้นทุนแต่ละกลุ่มเทียบต้นทุนรวม · แนวเส้นบนแผนที่ตามทางหลวงหลักโดยประมาณ ไม่ใช่เส้นทาง GPS จริง
-        </Note>
-
       </>
   );
   const sgBlock = (
@@ -280,7 +274,8 @@ export default function RouteProfitTab({ trips, f, summary, overview }: {
             </button>
           ))}
         </div>
-        {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup} />}
+        {openGroup && <ServicePanel trips={rowsNoSg} groups={SERVICE_GROUPS} picked={openGroup}
+          tone={SG_STYLE[SERVICE_GROUPS.indexOf(openGroup as (typeof SERVICE_GROUPS)[number])]?.cls} />}
       </>
   );
 

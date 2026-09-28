@@ -293,11 +293,6 @@ export default function App() {
           </ErrorBoundary>
         </section>
 
-        {/* บรรทัดท้ายหน้า — main มีอยู่นอก section ทุกหน้าจึงเห็นเหมือนกันหมด */}
-        <p className="foot">
-          ต่อยอดจากโมเดลเดิม · บันทึกลง Google Sheet ผ่าน Apps Script Web App ·
-          ข้อมูลสำรองในเครื่อง (localStorage)
-        </p>
       </main>
       {role === "manager" && !managerBranch && (
         <BranchGate onPick={pickManagerBranch} onBack={() => setRole(null)} />

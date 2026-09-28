@@ -3,7 +3,7 @@
  * (ไฟล์ "ข้อมูลการรับชำระ_วิเคราะห์ 99.xlsx" · etl/build_debtors.py) สเปกข้อ 5–7 ของ "ปรับปรุงโมเดล.pdf"
  * แก้ตามสเปกรุ่นแก้ 23 ก.ย. 2569 ("ใช้ข้อมูลทั้งที่รับชำระแล้ว และยังไม่ได้รับชำระ")
  *
- *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา **ค่าเริ่มต้น = 31/05/2026 (DEFAULT_AS_OF · เจ้าของงานสั่ง 24 ก.ย. 2569)**
+ *   5. ตัวกรอง "ข้อมูล ณ วันที่" อยู่ริมขวา **ค่าเริ่มต้น = 13/07/2026 (DEFAULT_AS_OF · เจ้าของงานสั่ง 28 ก.ย. 2569)**
  *      ถ้าไฟล์เริ่มหลังวันนั้น (ข้อมูลชุดอื่น) ถอยไปใช้วันที่อ้างอิงในชีตสรุปวิเคราะห์ (manifest.refDate) → asOf (วันล่าสุดในไฟล์)
  *      **ไม่ขึ้นกับตัวกรองปี/เดือนของส่วนที่ 1**
  *   6. การ์ดใหญ่ไล่สี 5 ใบ (แบบเดียวกับการ์ดของส่วนที่ 1 — เจ้าของงานสั่ง 23 ก.ย. 2569)
@@ -35,9 +35,9 @@
  *     อยู่ในขอบเขต   = วางบิลไม่เกินวันที่เลือก           ชำระแล้ว = วันที่จบ ≤ วันที่เลือก
  *     ค้างชำระ       = ยังไม่จบ และครบกำหนดก่อนวันที่เลือก  ยังไม่ถึงกำหนด = ยังไม่จบ และครบกำหนดตั้งแต่วันที่เลือกขึ้นไป
  *   เทียบวันที่เป็นสตริง ISO ได้ตรง ๆ เพราะ ETL เขียนเป็น YYYY-MM-DD ทุกช่อง
- * ★ ข้อจำกัดที่ต้องเขียนกำกับ (สเปกสั่ง): ข้อมูลชุดใหม่มีแค่ 7 เดือน และจับคู่กับข้อมูลในอดีตไม่ได้ครบ
+ * ★ ข้อจำกัดที่ต้องเขียนกำกับ: ช่วงข้อมูลลูกหนี้อาจไม่ครบปี และจับคู่กับข้อมูลในอดีตไม่ได้ครบ
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { numberForDebtor, useDebtorCodes } from "../../lib/custmap/debtorCodes";
 import { ShortId } from "../../lib/custmap/ShortId";
@@ -107,8 +107,8 @@ function prevMonthISO(iso: string): string {
   return `${py}-${String(pm).padStart(2, "0")}-${String(Math.min(d, last)).padStart(2, "0")}`;
 }
 
-/** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 24 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
-const DEFAULT_AS_OF = "2026-05-31";
+/** ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" (ISO) — เจ้าของงานสั่ง 28 ก.ย. 2569 · ผู้ใช้เปลี่ยนเองได้ที่ช่องวันที่ */
+const DEFAULT_AS_OF = "2026-07-13";
 
 /**
  * ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
@@ -119,7 +119,10 @@ export function defaultAsOf(min: string | null, m: Pick<DebtorManifest, "refDate
 }
 
 /** onAsOf = แจ้ง "ข้อมูล ณ วันที่" ที่เลือกอยู่ออกไป — คะแนน DSO ของ Performance Index ใช้วันเดียวกับส่วนนี้ */
-export default function OverdueSection({ state, branch, onAsOf }: { state: DebtorState; branch: string; onAsOf?: (iso: string) => void }) {
+export default function OverdueSection({ state, branch, onAsOf, onInfo }: {
+  state: DebtorState; branch: string; onAsOf?: (iso: string) => void;
+  onInfo?: (content: ReactNode, sample?: boolean) => void;
+}) {
   const { data, error } = state;
   const rows = useMemo(() => data ? (branch ? data.rows.filter((r) => r.br === branch) : data.rows) : [], [data, branch]);
   const range = useMemo(() => {
@@ -132,6 +135,18 @@ export default function OverdueSection({ state, branch, onAsOf }: { state: Debto
     }
     return { min, max };
   }, [data, branch, rows]);
+  const limit = range.min && range.max ? coverageLimit(range.min, range.max) : null;
+  const isSample = data?.manifest.isSample;
+  useEffect(() => {
+    onInfo?.(<>
+      <h3>Customer Performance · ลูกหนี้</h3>
+      <p>ข้อมูลจากไฟล์ลูกหนี้{isSample !== undefined && ` · ${isSample ? "ข้อมูลตัวอย่าง" : "ข้อมูลจริง"}`} · ใบวางบิลช่วง {thDateSafe(range.min)} – {thDateSafe(range.max)}</p>
+      <p>ส่วนนี้ใช้สาขาที่เลือกและ “ข้อมูล ณ วันที่” ของตัวเอง โดยไม่ใช้ตัวกรองปี/เดือนและตัวกรองอื่นด้านบน</p>
+      {limit && <p className="cap-info-limit">{limit}</p>}
+      <p>ข้อมูลชุดใหม่ยังจับคู่กับข้อมูลในอดีตได้ไม่ครบถ้วน จึงอาจกระทบความครบถ้วนของการวิเคราะห์</p>
+      <p>ยอดจ่ายช้า = จ่ายช้าแต่จ่ายแล้ว + จ่ายช้าแต่ยังไม่ได้จ่าย · % ต่อรายได้เทียบยอดวางบิลทุกใบตั้งแต่ 1 ม.ค. ถึงวันที่เลือก · DSO = ยอดค้าง ÷ ยอดวางบิล × จำนวนวันจากใบแรกถึงวันที่เลือก</p>
+    </>, isSample);
+  }, [onInfo, isSample, range.min, range.max, limit]);
   if (error || !data) {
     return (
       <div className="dz-cc">
@@ -148,7 +163,7 @@ export default function OverdueSection({ state, branch, onAsOf }: { state: Debto
   }
   const start = defaultAsOf(range.min, data.manifest);
   return <OverdueBody rows={rows} refDate={start}
-    range={range} isSample={data.manifest.isSample} onAsOf={onAsOf} />;
+    range={range} isSample={data.manifest.isSample} infoInHeader={!!onInfo} onAsOf={onAsOf} />;
 }
 
 /**
@@ -164,8 +179,9 @@ function coverageLimit(min: string, max: string): string | null {
   return `ข้อจำกัดด้านข้อมูล: ไฟล์ลูกหนี้${what} ยังไม่ครบทั้งปี — ยอดค้าง ยอดชำระ และ DSO ในส่วนนี้คิดจากช่วงนี้เท่านั้น`;
 }
 
-function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
-  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null }; isSample: boolean;
+function OverdueBody({ rows, refDate, range, isSample, infoInHeader, onAsOf }: {
+  rows: DebtorRow[]; refDate: string; range: { min: string | null; max: string | null };
+  isSample: boolean; infoInHeader: boolean;
   onAsOf?: (iso: string) => void;
 }) {
   useDebtorCodes();
@@ -252,8 +268,8 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
   const pickedRows = useMemo(
     () => (picked == null ? [] : aged.filter((a) => bucketOf(a.over) === picked.i)),
     [aged, picked]);
-
   const limit = range.min && range.max ? coverageLimit(range.min, range.max) : null;
+
   const pctOf = (n: number, d: number): string => (d ? pct(n / d * 100) : "–");
   const onTime = cats[0]!, late = cats[1]!, lateUnpaid = cats[2]!;
   const dsoDiff = kpi.dso != null && kpi.prevDso != null ? Math.round(kpi.dso) - Math.round(kpi.prevDso) : null;
@@ -262,10 +278,9 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
     <Pane deps={[aged]}>
       <div className="cp-sec">
         <div>
-          <h3>สถานะการชำระเงินของลูกหนี้ และลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด<SourceTag sample={isSample} what="ไฟล์ลูกหนี้" /></h3>
-          <p>แยกประเภทบิลจ่ายช้า: จ่ายช้าแต่จ่ายแล้ว / จ่ายช้าแต่ยังไม่ได้จ่าย · ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)} ·
-            ส่วนนี้ไม่ขึ้นกับตัวกรองด้านบน ใช้ "ข้อมูล ณ วันที่" ทางขวาแทน</p>
-          {limit && <p className="dso-limit">{limit}</p>}
+          <h3>สถานะการชำระเงินของลูกหนี้ และลูกหนี้ที่จ่ายช้าจนกระทบกระแสเงินสด{!infoInHeader && <SourceTag sample={isSample} what="ไฟล์ลูกหนี้" />}</h3>
+          <p>แยกประเภทบิลจ่ายช้า: จ่ายช้าแต่จ่ายแล้ว / จ่ายช้าแต่ยังไม่ได้จ่าย{!infoInHeader && <> · ไฟล์มีใบวางบิล {thDateSafe(range.min)} – {thDateSafe(range.max)} · ส่วนนี้ไม่ขึ้นกับตัวกรองด้านบน ใช้ "ข้อมูล ณ วันที่" ทางขวาแทน</>}</p>
+          {!infoInHeader && limit && <p className="dso-limit">{limit}</p>}
         </div>
         <label className="cp-date">
           <span>ข้อมูล ณ วันที่</span>
@@ -354,11 +369,11 @@ function OverdueBody({ rows, refDate, range, isSample, onAsOf }: {
               <span className="fu-pill low">{pct(c.share, 2)}</span>
             </div>
           ))} /> : <p className="dz-note">{topCust.length ? `ไม่พบลูกค้าที่ตรงกับ "${custQ.trim()}"` : "ไม่มีลูกหนี้ที่จ่ายช้า ณ วันที่เลือก"}</p>}
-          <Note>ยอดจ่ายช้า = จ่ายช้าแต่จ่ายแล้ว + จ่ายช้าแต่ยังไม่ได้จ่าย · ทั้งหมด {fmt(topCust.length)} ราย เรียงยอดมากไปน้อย (เลื่อนในกล่องเพื่อดูต่อ) ·
-            % ต่อรายได้ = ยอดจ่ายช้าของลูกหนี้รายนั้น ÷ รายได้รวมทั้งหมดตั้งแต่ 1 ม.ค. ถึงวันที่เลือก (ยอดวางบิลทุกใบในไฟล์ลูกหนี้) · DSO = ยอดค้าง ÷ ยอดวางบิล × {fmt(kpi.days)} วัน
-            (ตั้งแต่ใบวางบิลใบแรกในไฟล์ถึงวันที่เลือก) ·
-            <b> ข้อจำกัดของส่วนนี้:</b> ข้อมูลที่ใช้วิเคราะห์เป็นข้อมูลชุดใหม่ซึ่งมีระยะเวลาเพียง 7 เดือน และไม่สามารถจับคู่กับข้อมูลในอดีต
-            ได้อย่างครบถ้วน จึงอาจส่งผลให้การวิเคราะห์มีข้อจำกัดด้านความแม่นยำและความครบถ้วนของผลลัพธ์</Note>
+          <Note>ทั้งหมด {fmt(topCust.length)} ราย เรียงยอดมากไปน้อย (เลื่อนในกล่องเพื่อดูต่อ)
+            {!infoInHeader && <> · % ต่อรายได้ = ยอดจ่ายช้าของลูกหนี้รายนั้น ÷ รายได้รวมทั้งหมดตั้งแต่ 1 ม.ค. ถึงวันที่เลือก (ยอดวางบิลทุกใบในไฟล์ลูกหนี้) ·
+              DSO = ยอดค้าง ÷ ยอดวางบิล × {fmt(kpi.days)} วัน (ตั้งแต่ใบวางบิลใบแรกในไฟล์ถึงวันที่เลือก) ·
+              <b> ข้อจำกัดของส่วนนี้:</b> ข้อมูลชุดใหม่ยังจับคู่กับข้อมูลในอดีตได้ไม่ครบถ้วน</>}
+          </Note>
         </div>
       </div>
 

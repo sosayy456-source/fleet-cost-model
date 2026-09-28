@@ -47,6 +47,8 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
      1.5 หน่วย viewBox (1000 หน่วย) ≈ 1 พิกเซลบนจอของกล่องกว้าง ~600px · หน้าแผนที่เต็ม (ไม่มี #embed) ใช้ความละเอียดเดิม */
   const HASH0 = new URLSearchParams(decodeURIComponent(location.hash.slice(1)));
   const THIN = HASH0.has("embed") ? 1.5 : 0;
+  // ตัวคูณขนาดป้ายชื่อ (#txt=1.35) — แผนที่เส้นทางใน Executive Dashboard ขอตัวหนังสือใหญ่ขึ้น (เจ้าของงานสั่ง 28 ก.ย. 2569) · ไม่ส่ง = 1
+  const TXT = Math.min(2, Math.max(0.5, Number(HASH0.get("txt")) || 1));
   const snap = (out, g) => {
     let px = NaN, py = NaN;
     return {
@@ -114,7 +116,7 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
   /* ---------- ตัวช่วยวาดป้ายชื่อ (มี halo สีขาว) ---------- */
   const label = (sel, t, x, y, o = {}) => sel.append("text").text(t)
     .attr("x", x).attr("y", y).attr("text-anchor", o.anchor || "middle")
-    .attr("font-size", o.size || 13).attr("font-weight", o.weight || 500)
+    .attr("font-size", (o.size || 13) * TXT).attr("font-weight", o.weight || 500)
     .attr("fill", o.fill || "var(--ink-2)").attr("letter-spacing", o.ls || 0)
     .attr("paint-order", "stroke").attr("stroke", o.halo || "rgba(255,255,255,.9)")
     .attr("stroke-width", o.haloW || 3.5).attr("stroke-linejoin", "round")
