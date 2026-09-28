@@ -33,7 +33,7 @@ import { collectionDays } from "../../lib/debtors/aging";
 import { INDEXES, metricResult } from "../../lib/pi/score";
 import type { MetricResult } from "../../lib/pi/score";
 import { PiBox } from "./PiIndex";
-import { DBar } from "../../lib/chart/dcharts";
+import { DBar, DPieSplit } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { ShortId, shortIdText } from "../../lib/custmap/ShortId";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
@@ -293,6 +293,35 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
   const pickLabel = !pick ? null
     : pick.kind === "all" ? "ลูกค้าทั้งหมด" : pick.kind === "gain" ? "ลูกค้าที่ทำกำไร"
     : pick.kind === "loss" ? "ลูกค้าที่ขาดทุน" : `ช่วง %Margin ${BUCKETS[pick.i]?.label ?? ""}`;
+  /* ---------- วงกลมสัดส่วน Top 10 (เจ้าของงานส่งภาพ 28 ก.ย. 2569) ----------
+   * กำไร = Σกำไรของ Top 10 กำไรสูงสุด ÷ กำไรรวมของลูกค้าที่มีกำไร (ตัวเลขเดียวกับ foot ของการ์ด "ลูกค้าที่มีกำไร")
+   * ขาดทุน = Σขาดทุนของ Top 10 ขาดทุนมากสุด ÷ ขาดทุนรวมของลูกค้าที่ขาดทุน
+   * Top 10 = ชุดเดียวกับป้าย "Top 10" ในตาราง (top.json ของ ETL) · ไฟล์รุ่นก่อนไม่มีคีย์ช่วง → จัดอันดับจาก rows เอง */
+  const [pieSide, setPieSide] = useState<"gain" | "loss">("gain");
+  const pie = useMemo(() => {
+    const gains = rows.filter((r) => r.profit >= 0), losses = rows.filter((r) => r.profit < 0);
+    const topOf = (list: CustRow[], set: Set<number>, desc: boolean): CustRow[] => top
+      ? list.filter((r) => set.has(r.ci))
+      : [...list].sort((a, b) => (desc ? b.profit - a.profit : a.profit - b.profit) || a.ci - b.ci).slice(0, 10);
+    const sum = (list: CustRow[]) => list.reduce((s, r) => s + Math.abs(r.profit), 0);
+    const gTop = topOf(gains, gainSet, true), lTop = topOf(losses, lossSet, false);
+    return {
+      gain: { top: sum(gTop), rest: sum(gains) - sum(gTop), n: gTop.length, all: gains.length },
+      loss: { top: sum(lTop), rest: sum(losses) - sum(lTop), n: lTop.length, all: losses.length },
+    };
+  }, [rows, top, gainSet, lossSet]);
+  const pieNow = pie[pieSide];
+  const pieTotal = pieNow.top + pieNow.rest;
+  // เขียว/แดงชุดเดียวกับการ์ดรายได้/ต้นทุนของธีม (revA/revB · costA/costB) · Top 10 = เข้ม · ลูกค้าอื่น = อ่อน ·
+  // กรอบ = เฉดเข้มกว่าของฝั่งนั้น (เจ้าของงานสั่ง 28 ก.ย. 2569 — แทนกรอบดำ)
+  const pieColors = pieSide === "gain" ? ["#0C5A45", "#34A07F"] : ["#8E1B1B", "#D44C45"];
+  const pieStroke = pieSide === "gain" ? "#073628" : "#5A0F0F";
+  const pieData = useMemo(() => [
+    { name: pieSide === "gain" ? "Top 10 กำไรสูงสุด" : "Top 10 ขาดทุนมากสุด", v: pieNow.top },
+    { name: "ลูกค้าอื่น", v: pieNow.rest },
+  ], [pieSide, pieNow]);
+  const pieShare = (v: number) => pieTotal ? pct(v / pieTotal * 100, 2) : "–";
+
   const periodLabel = periodText(f);
 
   return (
@@ -315,8 +344,33 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
             onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
         </div>
 
-        {/* 4 — กราฟช่วง %Margin */}
-        <div className="dz-cc" style={{ marginTop: 14 }}>
+        {/* 4 — วงกลมสัดส่วน Top 10 (ซ้าย) + กราฟช่วง %Margin (ขวา) */}
+        <div className="cp-dist">
+        <div className="dz-cc cp-pie">
+          {/* หัวข้อไม่เปลี่ยนตามฝั่ง ปุ่มสลับจึงอยู่ที่เดิมเสมอ — ชื่อฝั่งไปอยู่บรรทัดใต้หัวแทน */}
+          <div className="cp-pie-h">
+            <h4>สัดส่วน Top 10</h4>
+            <div className="cp-seg cp-pie-seg" role="group" aria-label="เลือกฝั่ง">
+              <button type="button" className={pieSide === "gain" ? "on" : ""} aria-pressed={pieSide === "gain"} onClick={() => setPieSide("gain")}>กำไร</button>
+              <button type="button" className={pieSide === "loss" ? "on" : ""} aria-pressed={pieSide === "loss"} onClick={() => setPieSide("loss")}>ขาดทุน</button>
+            </div>
+          </div>
+          <div className={"cp-pie-cap " + pieSide}>
+            {pieSide === "gain" ? "กำไรทั้งหมด" : "ขาดทุนทั้งหมด"} <b>{fmt(Math.round(pieTotal))}</b> บาท
+          </div>
+          {pieTotal > 0 ? <>
+            <div className="cp-pie-box"><DPieSplit data={pieData} colors={pieColors} stroke={pieStroke} /></div>
+            <ul className="cp-pie-legend">
+              {pieData.map((d, i) => <li key={d.name}>
+                <i style={{ background: pieColors[i] }} />
+                <span>{i === 0 ? d.name : `ลูกค้าอื่น (${fmt(Math.max(0, pieNow.all - pieNow.n))} ราย)`}</span>
+                <b>{pieShare(d.v)}</b>
+                <em>{fmt(Math.round(d.v))} บาท</em>
+              </li>)}
+            </ul>
+          </> : <p className="muted cp-pie-empty">ไม่มีลูกค้าที่{pieSide === "gain" ? "มีกำไร" : "ขาดทุน"}ในช่วงนี้</p>}
+        </div>
+        <div className="dz-cc cp-hist">
           <h4>การกระจายตัวของอัตรากำไร · จำนวนลูกค้าในแต่ละช่วง %Margin</h4>
           <div className="dz-box">
             <DBar data={hist} xKey="label" suffix=" ราย" colors={BUCKETS.map((b) => b.color)}
@@ -329,6 +383,7 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
               activeIndex={pick?.kind === "bucket" ? pick.i : null} />
           </div>
           <Note>กดแท่งเพื่อดูรายลูกค้าในช่วงนั้นที่ตารางข้างล่าง กดซ้ำเพื่อยกเลิก · การ์ดสามใบด้านบนกดได้เหมือนกัน</Note>
+        </div>
         </div>
 
         {/* ตารางกำไรรายลูกค้า */}

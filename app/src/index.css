@@ -3877,3 +3877,57 @@ html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(-
 #view-dash .dso2-rank.dso2-click:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 /* ป็อบอัพลูกหนี้: คอลัมน์ "ระยะเวลาเครดิต" จัดกลาง (เจ้าของงานสั่ง 28 ก.ย. 2569) — รายบิล = คอลัมน์ 3 · รายลูกค้าตามช่วงวัน = คอลัมน์ 2 */
 #view-dash .dz-tbl.cb-tbl :is(th,td):nth-child(3),#view-dash .dz-tbl.od-tbl :is(th,td):nth-child(2){text-align:center}
+
+/* Customer Performance › วงกลมสัดส่วน Top 10 กำไร/ขาดทุน (ซ้าย) ข้างกราฟช่วง %Margin ที่แคบลง (เจ้าของงานส่งภาพ 28 ก.ย. 2569) */
+#view-dash .cp-dist{display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,2fr);gap:14px;margin-top:14px;align-items:stretch}
+#view-dash .cp-dist > .dz-cc{margin:0}
+#view-dash .cp-pie{display:flex;flex-direction:column}
+#view-dash .cp-pie-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:nowrap}
+#view-dash .cp-pie-h h4{margin:0;white-space:nowrap}
+/* ปุ่มกว้างคงที่ สลับแล้วไม่ขยับ */
+#view-dash .cp-pie-seg{flex:none}
+#view-dash .cp-pie-seg button{width:76px;padding:7px 0;font-size:14px;text-align:center}
+#view-dash .cp-pie-cap{margin-top:12px;text-align:center;font-size:15px;color:var(--d-ink2)}
+#view-dash .cp-pie-cap b{font-family:var(--d-num);font-size:22px;margin:0 2px}
+#view-dash .cp-pie-cap.gain b{color:#15803D}
+#view-dash .cp-pie-cap.loss b{color:#B91C1C}
+#view-dash .cp-pie-box{height:260px;margin:4px 0 10px}
+#view-dash .cp-pie-legend{list-style:none;margin:auto 0 0;padding:0;display:grid;gap:8px}
+#view-dash .cp-pie-legend li{display:grid;grid-template-columns:14px 1fr auto;column-gap:10px;row-gap:2px;align-items:center;
+  padding:9px 12px;border-radius:10px;background:var(--d-soft)}
+#view-dash .cp-pie-legend i{width:14px;height:14px;border-radius:4px}
+#view-dash .cp-pie-legend span{font-size:15px;color:var(--d-ink)}
+#view-dash .cp-pie-legend b{font-family:var(--d-num);font-size:19px;color:var(--d-ink)}
+#view-dash .cp-pie-legend em{grid-column:2 / 4;font-style:normal;font-size:14px;color:var(--d-ink3)}
+#view-dash .cp-pie-empty{margin:40px 0;text-align:center;font-size:15px}
+@media(max-width:900px){#view-dash .cp-dist{grid-template-columns:1fr}}
+/* กราฟช่วง %Margin ยืดเต็มความสูงของกล่องวงกลมข้าง ๆ — เดิมสูงตายตัว 270px เหลือที่ว่างใต้กราฟ */
+#view-dash .cp-hist{display:flex;flex-direction:column}
+#view-dash .cp-hist > .dz-box{flex:1 1 auto;height:auto;min-height:270px}
+
+/* ปุ่มย่อ/ขยายแคปซูล ขวาสุดถัดจาก ⓘ (28 ก.ย. 2569) · ย่อ = ซ่อนแคปซูลกับ ⓘ เหลือปุ่มโลโก้ปุ่มเดียวชิดขวา
+   แถบที่ย่อแล้วไม่รับคลิก (ยังติดขอบบนเต็มความกว้าง) มีแค่ปุ่มที่กดได้ เนื้อหาข้างใต้จึงยังคลิกได้ */
+.cap-mini-btn{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(26,23,20,.1);background:#fff;color:#4A4238;box-shadow:0 10px 30px -18px rgba(26,23,20,.35)}
+.cap-mini-btn svg{width:20px;height:20px}
+.cap-mini-btn img{width:34px;height:34px;object-fit:contain}
+.cap-mini-btn:hover{background:#F3EEE8;color:#1A1714}
+.cap-mini-btn:focus-visible{outline:2px solid #4B2ED4;outline-offset:2px}
+html.theme-cherry .cap-mini-btn{border-color:#E4CDD3;color:#7A5A60}
+.cap-bar.mini{justify-content:flex-end;pointer-events:none}
+.cap-bar.mini > .cap,.cap-bar.mini > .cap-info{display:none}
+.cap-bar.mini > .cap-mini-btn{pointer-events:auto;width:52px;height:52px}
+
+/* ปุ่มขึ้นบนสุด มุมขวาล่างของจอ ทุกหน้า */
+.scroll-top{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));z-index:40;
+  display:grid;place-items:center;width:48px;height:48px;padding:0;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(26,23,20,.12);background:#fff;color:#1A1714;box-shadow:0 12px 28px -12px rgba(0,0,0,.45);
+  opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s,transform .2s,background-color .15s}
+.scroll-top.show{opacity:1;transform:none;pointer-events:auto}
+.scroll-top svg{width:22px;height:22px}
+.scroll-top:hover{background:#F3EEE8}
+.scroll-top:focus-visible{outline:2px solid #4B2ED4;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.scroll-top{transition:none}}
+@media print{.scroll-top{display:none}}
+/* ย่อแล้วปุ่มโลโก้หลุดออกจากกรอบเนื้อหา ไปชิดขอบขวาของจอ แนวเดียวกับปุ่มขึ้นบนสุด (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+.cap-bar.mini > .cap-mini-btn{position:fixed;top:10px;right:max(20px,env(safe-area-inset-right,0px));z-index:40}

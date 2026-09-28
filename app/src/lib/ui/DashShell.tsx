@@ -234,8 +234,17 @@ function CapsuleHead({ title, isSample, meta, info, tabs, sub, tools, onRefresh,
     return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", esc); };
   }, [open]);
   const hasInfo = !!info || !!meta || !!isSample;
+  // ปุ่มย่อ/ขยายแคปซูล ขวาสุดถัดจาก ⓘ (เจ้าของงานสั่ง 28 ก.ย. 2569) · ย่อ = เหลือปุ่มไอคอนเดียว ขยายด้วยปุ่มเดิม ·
+  // จำใน localStorage ของเครื่องนั้น (ความสะดวกรายเครื่อง — อ่าน/เขียนไม่ได้ก็ใช้ค่าตั้งต้น = ขยาย)
+  const [mini, setMini] = useState<boolean>(() => { try { return localStorage.getItem(CAP_MINI_KEY) === "1"; } catch { return false; } });
+  const toggleMini = () => setMini((m) => {
+    const next = !m;
+    try { localStorage.setItem(CAP_MINI_KEY, next ? "1" : "0"); } catch { /* ไม่จำก็ได้ */ }
+    if (next) setOpen(false);
+    return next;
+  });
   return (
-    <div className="cap-bar">
+    <div className={"cap-bar" + (mini ? " mini" : "")}>
       <header className="cap">
         <img className="cap-logo" src={logo} alt="" aria-hidden="true" />
         <div className="cap-title">
@@ -269,9 +278,19 @@ function CapsuleHead({ title, isSample, meta, info, tabs, sub, tools, onRefresh,
           )}
         </div>
       )}
+      <button type="button" className="cap-mini-btn" onClick={toggleMini} aria-expanded={!mini}
+        aria-label={mini ? "ขยายแถบหัว" : "ย่อแถบหัว"} title={mini ? "ขยายแถบหัว" : "ย่อแถบหัว"}>
+        {mini
+          ? <img src={logo} alt="" aria-hidden="true" />
+          : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 7l5 5-5 5" /><path d="M13 7l5 5-5 5" />
+            </svg>}
+      </button>
     </div>
   );
 }
+
+const CAP_MINI_KEY = "capMini";
 
 /** บรรทัดรองในแคปซูล — "2024-01-01", "2026-05-31" → "ข้อมูล 01/01/2024-31/05/2026" */
 export function dataRangeText(min: string | null | undefined, max: string | null | undefined): string {

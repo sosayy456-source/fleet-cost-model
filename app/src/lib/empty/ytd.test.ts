@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyYtd, prevYY, ytdLabel, ytdMonths } from "./ytd";
+import { emptyAllYears, emptyYtd, prevYY, ytdLabel, ytdMonths } from "./ytd";
 import type { YtdTrip } from "./ytd";
 
 const t = (mo: string, cost: number, empty: boolean): YtdTrip => ({ y: Number(mo.slice(0, 4)), mo, cost, empty });
@@ -44,5 +44,25 @@ describe("มูลค่าเที่ยววิ่งเปล่า YTD �
     expect(ytdLabel(2026, [3, 4, 5], true)).toBe("มี.ค.–พ.ค. 69");
     expect(ytdLabel(2026, [1], false)).toBe("YTD ม.ค. 69");
     expect(prevYY(2026)).toBe("68");
+  });
+});
+
+describe("emptyAllYears — ไม่เลือกปี รวมทุกปี ไม่เทียบ YoY", () => {
+  it("เฉลี่ยต่อเดือนหารด้วยจำนวนปี-เดือนที่มีเที่ยว และ % ของต้นทุนรวมทุกปี", () => {
+    const rows: YtdTrip[] = [
+      { y: 2025, mo: "2025-01", cost: 100, empty: true },
+      { y: 2025, mo: "2025-01", cost: 300, empty: false },
+      { y: 2026, mo: "2026-01", cost: 200, empty: true },
+      { y: 2026, mo: "2026-02", cost: 400, empty: false },
+    ];
+    const r = emptyAllYears(rows);
+    expect(r.years).toEqual([2025, 2026]);
+    expect(r.months).toBe(3);
+    expect(r.emptyCost).toBe(300);
+    expect(r.avgPerMonth).toBe(100);
+    expect(r.share).toBe(30);
+  });
+  it("ไม่มีเที่ยว = share null", () => {
+    expect(emptyAllYears([]).share).toBeNull();
   });
 });

@@ -41,6 +41,7 @@ import { loadSessionBranch, saveSessionBranch } from "./lib/store/sessionBranch"
 import BranchGate from "./features/dash-manager/BranchGate";
 import type { RoleKey } from "./types/record";
 import TruckLoader from "./lib/ui/TruckLoader";
+import ScrollTopButton from "./lib/ui/ScrollTopButton";
 import { clearReturnPoints, goBack, hasReturnPoint } from "./lib/ui/returnPoint";
 import { PREVIEW_SCOPE } from "./lib/ui/themePreview";
 
@@ -294,6 +295,7 @@ export default function App() {
         </section>
 
       </main>
+      {!PREVIEW_SCOPE && <ScrollTopButton />}
       {role === "manager" && !managerBranch && (
         <BranchGate onPick={pickManagerBranch} onBack={() => setRole(null)} />
       )}
