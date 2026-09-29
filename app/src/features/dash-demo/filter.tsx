@@ -14,7 +14,11 @@ import type { Trip } from "../../lib/data/useCostRev";
 import { inPeriod, isPartialYear } from "../../lib/filter/period";
 import type { LfTrip } from "../../lib/data/useLoadFactor";
 
-export interface DemoFilter extends BaseFilter { br: string; sg: string }
+export interface DemoFilter extends BaseFilter {
+  br: string; sg: string;
+  /** ตัวกรองของกล่อง PI เท่านั้น: true = ไม่เทียบ Baseline ประเมินตามช่วงของตัวกรองรวม (DemoDash piF · 30 ก.ย. 2569) */
+  noBase?: boolean;
+}
 /** คีย์ที่ FilterScope พูดถึง — "month" = ช่วงเดือน (from–to) */
 export type DemoKey = "year" | "month" | "br" | "o" | "de" | "ft" | "vk" | "sg";
 export const DEMO_F0: DemoFilter = { ...BASE_F0, br: "", sg: "" };

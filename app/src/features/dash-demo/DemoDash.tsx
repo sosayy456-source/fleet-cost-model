@@ -36,8 +36,9 @@ import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
 import * as Pi from "./PiIndex";
 import { firstDay, minEvalStart } from "../../lib/pi/baseline";
-import { PiDailyProvider, PiRecommend, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
-import { hasDays } from "../../lib/filter/period";
+import { PiDailyProvider, PiPeriodProvider, PiRecommend, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import { PERIOD_ALL, hasDays } from "../../lib/filter/period";
+import type { Period } from "../../lib/filter/period";
 import ThemeScope, { useThemeScope } from "../../lib/ui/ThemeScope";
 
 /*
@@ -186,12 +187,18 @@ export default function DemoDash() {
   const minStart = useMemo(() => { const d = firstDay(all); return d ? minEvalStart(d) : null; }, [all]);
   /** เที่ยวที่กรองแล้วสำหรับกล่อง PI — null = ไฟล์ต้นทุนยังไม่มี/โหลดไม่ได้ (กล่องขึ้น "ไม่มีข้อมูล") */
   // ช่วงที่ประเมินของ PI: ไม่เลือกปี = เดือนล่าสุดของไฟล์ (เจ้าของงานเลือก 28 ก.ย. 2569) — การ์ด/กราฟอื่นยังตามตัวกรองเดิม
-  const piEval = useMemo(() => (m && !error ? Pi.tripEvalOf(all, fv) : null), [m, error, all, fv]);
+  // ช่วงประเมินของ PI แยกจากตัวกรองรวม (30 ก.ย. 2569) — piF = ตัวกรองรวม แต่ปี/เดือน/วัน ของ PI
+  const [piPeriod, setPiPeriod] = useState<Period>(PERIOD_ALL);
+  // ช่องช่วงประเมินว่าง = ตามช่วงของตัวกรองรวม (ทุกปีได้) ไม่เทียบ Baseline · เลือกช่วง = เทียบ Baseline 12 เดือน (เจ้าของงานสั่ง 30 ก.ย. 2569)
+  const piF = useMemo<DemoFilter>(() => (!piPeriod.year ? { ...fv, noBase: true }
+    : { ...fv, year: piPeriod.year, from: piPeriod.from, to: piPeriod.to, d1: piPeriod.d1, d2: piPeriod.d2 }), [fv, piPeriod]);
+  const piCtl = useMemo(() => ({ value: piPeriod, set: setPiPeriod, trips: all, minStart: minStart ?? undefined }), [piPeriod, all, minStart]);
+  const piEval = useMemo(() => (m && !error ? Pi.tripEvalOf(all, piF) : null), [m, error, all, piF]);
   const piTrips = piEval?.trips ?? null;
   /** ทุกเที่ยวในชุด ไม่ตามตัวกรอง — ชุดที่ Empty Return กรองเอง (ข้ามกลุ่มบริการ) */
   const piRef = m && !error ? all : null;
   /** ชุดอ้างอิงของเกณฑ์ percentile = 12 เดือนล่าสุดของไฟล์ ตามตัวกรองยกเว้นเวลา (InDex_revised v2.md · lib/pi/baseline.ts) */
-  const piRefs = useMemo(() => (piRef ? Pi.tripRefOf(piRef, fv) : null), [piRef, fv]);
+  const piRefs = useMemo(() => (piRef ? Pi.tripRefOf(piRef, piF) : null), [piRef, piF]);
   const meta = m && (
     <Meta parts={[
       <><b>{fmt(all.length)}</b> เที่ยวที่นับกำไร (จับคู่บิลได้ {fmt(m.matched)} + เที่ยวเปล่าที่จับคู่ไม่ได้ {fmt(all.length - m.matched)}) จาก <b>{fmt(m.rows)}</b> เที่ยวในไฟล์</>,
@@ -242,7 +249,7 @@ export default function DemoDash() {
 
   const renderFilters = () => <>
     {/* ปี → เดือน → วัน · วันที่ที่ไฟล์ต้นทุนมีข้อมูลย้อนหลังไม่ครบ 12 เดือนเลือกไม่ได้ (Baseline ของ PI ไม่ครบ · Methodology 29 ก.ย. 2569) */}
-    <PeriodFF trips={all} value={f} onChange={setF} days minStart={minStart ?? undefined} />
+    <PeriodFF trips={all} value={f} onChange={setF} days />
     <ListFF label="สาขา" all="ทุกสาขา" value={f.br} onChange={set("br")} opts={branches} />
     <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={filterOptions.origins} />
     <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={filterOptions.dests} />
@@ -298,18 +305,19 @@ export default function DemoDash() {
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่"
         capsule={{ tabs: partTabs, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined, tools: filterTool, info: infoContent }}>
         <PiReportProvider value={pi.report}>
-        <PiDailyProvider value={hasDays(fv)}>
+        <PiPeriodProvider value={piCtl}>
+        <PiDailyProvider value={!piF.noBase && hasDays(piF)}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
           {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" />
             <PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
             onInfo={registerItem2Info} />}
-            <PiFleet f={fv} all={piRef} /></>)}
+            <PiFleet f={piF} all={piRef} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
             <PiCost trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("cust", <>
-            <CustomerProfitTab f={fv}
+            <CustomerProfitTab f={fv} piF={piF}
               onProfitInfo={registerProfitInfo} onDebtorInfo={registerDebtorInfo} />
           </>)}
           {/* 3 ส่วนท้ายแยกเป็นแท็บของตัวเอง (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมอยู่ท้าย Customer Performance) */}
@@ -322,6 +330,7 @@ export default function DemoDash() {
           {part("pi", <PiTotal reports={pi.reports} />)}
           {part("rec", <PiRecommend reports={pi.reports} />)}
         </PiDailyProvider>
+        </PiPeriodProvider>
         </PiReportProvider>
       </DashShell>
     </>

@@ -163,6 +163,15 @@ export function baselineLabel(b: Baseline): string {
 }
 
 /**
+ * โหมดไม่เทียบ Baseline (เจ้าของงานสั่ง 30 ก.ย. 2569): ช่องช่วงประเมินในกล่อง PI ว่าง = PI ตามตัวกรองรวมของหน้า (ทุกปีได้)
+ * เกณฑ์ percentile คิดจากรายการในช่วงที่เลือกเอง · ไม่มี period → ไม่มีคะแนน Baseline / ป้าย +/− · scope ว่าง = ไม่มีป้ายระดับ
+ */
+export function selfRefSet(values: number[], unit: string): { values: number[]; label: string; ok: boolean; scope: string } {
+  const n = values.filter(Number.isFinite).length;
+  return { values, label: `ไม่เทียบ Baseline — เกณฑ์คิดจาก ${n.toLocaleString("en-US")} ${unit} ในช่วงที่เลือก`, ok: true, scope: "" };
+}
+
+/**
  * ชุด Baseline ของตัวชี้วัด → RefSet ของ metricResult
  * partialOk = DSO ใช้เท่าที่มี (ไฟล์เริ่มหลังวันแรกของ Baseline ก็ยังคิด) · ไม่มีรายการเลย = N/A เสมอ
  */

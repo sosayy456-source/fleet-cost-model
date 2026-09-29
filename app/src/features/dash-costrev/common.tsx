@@ -33,15 +33,17 @@ export const monthName = (m: string): string => TH_MONTHS[Number(m) - 1] ?? m;
 export const marginOf = (t: Trip): number | null => (t.rev ? t.profit / t.rev * 100 : null);
 
 /* ---------------- ตัวกรองมาตรฐานของทั้งสามแท็บ ---------------- */
-export function YearFF({ trips, value, onChange, isLocked }: {
+export function YearFF({ trips, value, onChange, isLocked, allLabel = "ทุกปี" }: {
   trips: { y: number }[]; value: string; onChange: (v: string) => void;
+  /** ข้อความของตัวเลือกปีว่าง — ช่วงประเมิน PI ใช้ "เดือนล่าสุดของไฟล์" (ปีว่าง = ประเมินเดือนล่าสุด ไม่ใช่ทุกปี) */
+  allLabel?: string;
   /** ปีที่เลือกไม่ได้ (ช่วงประเมินที่ Baseline ไม่ครบ — PeriodFF minStart) */
   isLocked?: (y: string) => boolean;
 }) {
   const years = [...new Set(trips.map((t) => String(t.y)))].sort();
   return (
     <FF label="ปี" value={value} onChange={onChange}>
-      <option value="">ทุกปี</option>
+      <option value="">{allLabel}</option>
       {years.map((y) => <option key={y} value={y} disabled={isLocked?.(y)}>พ.ศ. {+y + 543}{isLocked?.(y) ? " (Baseline ไม่ครบ)" : ""}</option>)}
     </FF>
   );
@@ -60,7 +62,7 @@ export function MonthFF({ value, onChange }: { value: string; onChange: (v: stri
  * ปี + ช่วงเดือน ตั้งแต่–ถึง — แบบเดียวกับแท็บ Damage Rate (เจ้าของงานสั่ง 24 ก.ย. 2569)
  * เดือนเลือกได้เมื่อเลือกปีแล้ว · ล้างปี = ช่วงเดือนกลับเป็นทั้งปี · "ถึงเดือน" มีเฉพาะเดือนที่ไม่ก่อนเดือนเริ่ม
  */
-export function PeriodFF<T extends Period>({ trips, value, onChange, days, minStart }: {
+export function PeriodFF<T extends Period>({ trips, value, onChange, days, minStart, allLabel }: {
   trips: { y: number }[]; value: T; onChange: (p: T) => void;
   /** เลือกถึงรายวันได้ (ปี → เดือน → วัน · Executive Dashboard เจ้าของงานสั่ง 29 ก.ย. 2569) */
   days?: boolean;
@@ -69,6 +71,8 @@ export function PeriodFF<T extends Period>({ trips, value, onChange, days, minSt
    * ปี/เดือน/วันที่ทำให้วันเริ่มก่อนวันนี้เลือกไม่ได้ · เลือกปีแล้ววันเริ่มยังก่อน = ขยับวันเริ่มมาที่วันนี้ให้เอง
    */
   minStart?: string;
+  /** ส่งต่อให้ YearFF */
+  allLabel?: string;
 }) {
   const lockY = minStart ? (y: string) => `${y}-12-31` < minStart : undefined;
   // วันเริ่มก่อน minStart → ขยับเดือน/วันเริ่มมาที่ minStart (เฉพาะปีเดียวกัน · ปีก่อนหน้าถูกล็อกไว้แล้ว)
@@ -84,7 +88,7 @@ export function PeriodFF<T extends Period>({ trips, value, onChange, days, minSt
   const lockM = (m: string) => !!minStart && `${value.year}-${m}-${String(daysIn(value.year, m)).padStart(2, "0")}` < minStart;
   const dayOpts = (mm: string) => Array.from({ length: daysIn(value.year, mm) }, (_, i) => String(i + 1).padStart(2, "0"));
   return <>
-    <YearFF trips={trips} value={value.year} onChange={(y) => set(withYear(value, y))} isLocked={lockY} />
+    <YearFF trips={trips} value={value.year} onChange={(y) => set(withYear(value, y))} isLocked={lockY} allLabel={allLabel} />
     <FF label="ตั้งแต่เดือน" value={value.from} disabled={!value.year} onChange={(m) => set(withFrom(value, m))}>
       {MONTHS.map((m) => <option key={m} value={m} disabled={lockM(m)}>{monthName(m)}</option>)}
     </FF>

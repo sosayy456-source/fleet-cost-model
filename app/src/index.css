@@ -4572,3 +4572,25 @@ html.theme-cherry #view-dash .pi-box .pi-rm-h b .pi-delta.flat{color:#6B7280}
 #view-dash .hero-i:focus-visible{outline:2px solid #fff;outline-offset:2px}
 #view-dash .hero-pop{position:fixed;z-index:1000;width:min(360px,calc(100vw - 16px));padding:12px 14px;border-radius:12px;
   background:#fff;color:#2b1d20;font-size:15px;font-weight:400;line-height:1.55;text-align:left;box-shadow:0 10px 28px rgba(0,0,0,.28)}
+/* ปุ่ม "ช่วงประเมิน" ของกล่อง PI (ใช้ร่วมทุกกล่อง · แยกจากตัวกรองรวม — เจ้าของงานสั่ง 30 ก.ย. 2569) */
+#view-dash .pi-pp{display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:2px 8px;align-self:flex-start;margin:6px 0 2px;padding:7px 12px;
+  border-radius:12px;border:1.5px solid color-mix(in srgb,var(--th-piInk,#fff) 35%,transparent);background:rgba(255,255,255,.55);
+  color:var(--th-piInk,#2b1d20);font:inherit;font-size:14px;line-height:1.3;cursor:pointer;text-align:left;max-width:100%}
+#view-dash .pi-pp span{font-size:12.5px;opacity:.75}
+#view-dash .pi-pp b{font-weight:800}
+#view-dash .pi-pp i{font-style:normal;opacity:.6}
+#view-dash .pi-pp:hover,#view-dash .pi-pp.on{background:rgba(255,255,255,.85)}
+#view-dash .pi-pp:focus-visible{outline:2px solid var(--th-piInk,#2b1d20);outline-offset:2px}
+#view-dash .pi-total-pp{display:flex;justify-content:flex-end;margin:0 0 6px}
+#view-dash .pi-pp-pop{position:absolute;z-index:1000;width:min(392px,calc(100vw - 16px));padding:14px 16px 16px;border-radius:14px;background:#fff;
+  color:var(--d-ink);box-shadow:0 14px 34px rgba(0,0,0,.28);border:1px solid rgba(0,0,0,.08)}
+#view-dash .pi-pp-h{font-size:16px;font-weight:800;margin-bottom:4px}
+#view-dash .pi-pp-note{margin:0 0 10px;font-size:13px;line-height:1.45;color:var(--d-ink3,#6B7280)}
+#view-dash .pi-pp-f{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+#view-dash .pi-pp-reset{margin-top:12px;border:0;background:none;padding:0;color:var(--accent,#590212);font:inherit;font-size:13.5px;font-weight:700;
+  cursor:pointer;text-decoration:underline}
+#view-dash .pi-pp-reset:disabled{opacity:.4;cursor:default;text-decoration:none}
+/* ปุ่มช่วงประเมิน: 3 บรรทัด (หัว · ช่วง + ▾ · เทียบ/ไม่เทียบ Baseline) ไม่ตัดกลางคำ */
+#view-dash .pi-pp{flex-direction:column;align-items:flex-start;gap:1px}
+#view-dash .pi-pp b{white-space:nowrap}
+#view-dash .pi-pp small{font-size:12.5px;font-weight:700;opacity:.7;white-space:nowrap}

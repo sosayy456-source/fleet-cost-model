@@ -27,9 +27,10 @@ import { vehicleRows } from "../../lib/detail3/calc";
 import type { VRow } from "../../lib/detail3/calc";
 import { totalDamage } from "../../lib/damage/damage";
 import { BAND_MEANING, DAILY_NA, INDEXES, METRICS, METRIC_MAX, STATUS_LABEL, STATUS_MEANING, STATUS_RANGE, TOTAL_MAX, asDaily, indexStatus, metricResult, sumScores, withPeriod } from "../../lib/pi/score";
-import { BASELINE_TITLE, BRANCH_MIN_MONTHLY, baselineOf, evalPeriod, evalRange, firstDay, inRange, refSet, scopedValues } from "../../lib/pi/baseline";
+import { BASELINE_TITLE, BRANCH_MIN_MONTHLY, baselineOf, evalPeriod, evalRange, firstDay, inRange, refSet, scopedValues, selfRefSet } from "../../lib/pi/baseline";
 import { coverageByVehicleMonth, tkmByVehicleMonth } from "../../lib/pi/cost";
-import { periodLabel } from "../../lib/filter/period";
+import { PERIOD_ALL, periodLabel } from "../../lib/filter/period";
+import type { Period } from "../../lib/filter/period";
 import type { Baseline } from "../../lib/pi/baseline";
 import { SERVICE_GROUPS, routeMargin, routeMarginValues, serviceMonthMarginValues } from "../../lib/pi/route";
 import { routeRates } from "../../lib/empty/routeScore";
@@ -39,7 +40,7 @@ import { damageRef, damageResults } from "../../lib/pi/damage";
 import type { DamageRef } from "../../lib/pi/damage";
 import type { IndexDef, IndexStatus, MetricKey, MetricResult } from "../../lib/pi/score";
 import type { Trip } from "../../lib/data/useCostRev";
-import { fmt, pct } from "../dash-costrev/common";
+import { PeriodFF, fmt, pct } from "../dash-costrev/common";
 import { passDemo, passLfDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 
@@ -51,10 +52,13 @@ export interface TripRef {
   trips: Trip[]; b: Baseline | null;
   /** สาขาที่เลือก + เที่ยวของสาขาใน Baseline (เลือกสาขาแล้ว Baseline ตามสาขาได้ · 29 ก.ย. 2569) · ไม่เลือก = "" / null */
   br: string; branch: Trip[] | null;
+  /** ไม่เทียบ Baseline — trips = เที่ยวของช่วงที่ประเมินเอง เกณฑ์คิดจากชุดนี้ (f.noBase) */
+  self?: boolean;
 }
 
 /** ค่า Baseline ระดับสาขา/บริษัท → RefSet (ถึงขั้นต่ำใช้สาขา ไม่ถึงใช้บริษัท + ป้าย) */
 function scopedRef(ref: TripRef, valuesOf: (trips: Trip[]) => number[], unit: string, min?: number) {
+  if (ref.self) return selfRefSet(valuesOf(ref.trips), unit);
   const sv = scopedValues(valuesOf(ref.trips), ref.branch && valuesOf(ref.branch), ref.br, unit, min);
   return refSet(sv.values, unit, ref.b, false, sv.scope);
 }
@@ -65,10 +69,13 @@ function scopedRef(ref: TripRef, valuesOf: (trips: Trip[]) => number[], unit: st
  * · label = ป้ายช่วงที่ติดไปกับผล · all = ทุกเที่ยวในชุดกำไร (ไม่กรอง)
  */
 export function tripEvalOf(all: Trip[], f: DemoFilter): { trips: Trip[]; label: string } {
+  // ไม่เทียบ Baseline = ช่วงของตัวกรองรวมตรง ๆ (ไม่เลือกปี = ทุกปี ไม่ใช่เดือนล่าสุด)
+  if (f.noBase) return { trips: all.filter((t) => passDemo(t, f)), label: noBaseLabel(f) };
   const pf = evalPeriod(f, all.map((t) => t.mo));
   return { trips: all.filter((t) => passDemo(t, pf)), label: periodLabel(pf) };
 }
 export function tripRefOf(all: Trip[], f: DemoFilter): TripRef {
+  if (f.noBase) return { trips: all.filter((t) => passDemo(t, f)), b: null, br: "", branch: null, self: true };
   const mos = all.map((t) => t.mo);
   const ev = evalRange(f, mos);
   if (!ev) return { trips: [], b: null, br: f.br, branch: null };
@@ -76,6 +83,9 @@ export function tripRefOf(all: Trip[], f: DemoFilter): TripRef {
   const trips = all.filter((t) => inRange(t, b, "inside"));
   return { trips, b, br: f.br, branch: f.br ? trips.filter((t) => t.br === f.br) : null };
 }
+
+/** ป้ายช่วงของโหมดไม่เทียบ Baseline — "ทุกปี" หรือช่วงของตัวกรองรวม */
+export const noBaseLabel = (f: DemoFilter): string => (f.year ? periodLabel(f) : "ทุกปี");
 
 /** %Margin รวมของชุดเที่ยว (Actual) — Σกำไร ÷ Σรายได้ */
 const marginAll = (trips: { rev: number; profit: number }[]): number | null => {
@@ -96,6 +106,66 @@ export const PiReportProvider = PiReportCtx.Provider;
  */
 const PiDailyCtx = createContext(false);
 export const PiDailyProvider = PiDailyCtx.Provider;
+
+/**
+ * ช่วงประเมินของ PI แยกจากตัวกรองรวมของหน้า (เจ้าของงานสั่ง 30 ก.ย. 2569 — เดิม PI ใช้ปี/เดือนของตัวกรองรวม
+ * ตัวกรองรวมจึงถูกล็อกเดือนที่ Baseline ไม่ครบ และไม่เลือกปี = ประเมินแค่เดือนล่าสุด)
+ * ค่าเดียวใช้ร่วมทุกกล่อง PI + คะแนนรวม (เจ้าของงานเลือก "ชุดเดียวคุมทุกกล่อง") · ปุ่มอยู่ทุกกล่อง กดกล่องไหนก็เปลี่ยนทั้งหมด
+ * value.year ว่าง = เดือนล่าสุดของแต่ละไฟล์ (evalPeriod) · ตัวกรองอื่น (สาขา · ประเภทรถ ฯลฯ) ยังตามตัวกรองรวม
+ * ไม่มี Provider (Executive Summary) = ไม่มีปุ่ม
+ */
+export interface PiPeriodCtl { value: Period; set: (p: Period) => void; trips: { y: number }[]; minStart?: string }
+const PiPeriodCtx = createContext<PiPeriodCtl | null>(null);
+export const PiPeriodProvider = PiPeriodCtx.Provider;
+
+/** ปุ่ม "ช่วงประเมิน" ของกล่อง PI — กางแผงเลือก ปี → เดือน → วัน (ล็อกช่วงที่ Baseline ไม่ครบ 12 เดือน) ลอยใต้ปุ่ม */
+function PiPeriodPick() {
+  const ctl = useContext(PiPeriodCtx);
+  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!at) return;
+    const close = () => setAt(null);
+    const off = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!pop.current?.contains(t) && !btn.current?.contains(t)) close();
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    document.addEventListener("mousedown", off);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("resize", close);
+    return () => { document.removeEventListener("mousedown", off); document.removeEventListener("keydown", esc); window.removeEventListener("resize", close); };
+  }, [at]);
+  if (!ctl) return null;
+  // บรรทัดหลัก + บรรทัดรอง แยกกัน ไม่ให้คำถูกตัดกลางคำในคอลัมน์แคบ (เจ้าของงานแจ้ง 30 ก.ย. 2569)
+  const label = ctl.value.year ? periodLabel(ctl.value) : "ตามตัวกรองของหน้า";
+  const sub = ctl.value.year ? "เทียบ Baseline 12 เดือน" : "ไม่เทียบ Baseline";
+  const toggle = () => {
+    if (at) return setAt(null);
+    const r = btn.current!.getBoundingClientRect();
+    // position absolute ใน #view-dash (เลื่อนหน้าแล้วแผงไปกับปุ่ม) — พิกัดหน้า = จอ + scroll
+    setAt({ top: r.bottom + window.scrollY + 8, left: Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - 400) });
+  };
+  const host = document.getElementById("view-dash") ?? document.body;
+  return <>
+    <button type="button" ref={btn} className={"pi-pp" + (at ? " on" : "")} aria-expanded={!!at} onClick={toggle}
+      title="เลือกช่วงประเมินของ Performance Index — ใช้ร่วมทุกกล่อง PI แยกจากตัวกรองของหน้า">
+      <span>ช่วงประเมิน</span><b>{label} <i aria-hidden="true">▾</i></b><small>{sub}</small>
+    </button>
+    {at && createPortal(
+      <div className="pi-pp-pop" ref={pop} style={{ top: at.top, left: Math.max(8, at.left) }} role="dialog" aria-label="ช่วงประเมิน Performance Index">
+        <div className="pi-pp-h">ช่วงประเมิน Performance Index</div>
+        <p className="pi-pp-note">ใช้ร่วมทุกกล่อง PI · ไม่เลือก = ตามตัวกรองของหน้า (ทุกปีได้) ไม่เทียบ Baseline เกณฑ์คิดจากช่วงนั้นเอง ·
+          เลือกช่วง = เทียบ Baseline 12 เดือนก่อนเดือนแรกของช่วง (ช่วงที่ย้อนหลังไม่ครบ 12 เดือนเลือกไม่ได้)</p>
+        <div className="dz-filters pi-pp-f">
+          <PeriodFF trips={ctl.trips} value={ctl.value} onChange={ctl.set} days minStart={ctl.minStart} allLabel="ตามตัวกรองของหน้า" />
+        </div>
+        <button type="button" className="pi-pp-reset" disabled={!ctl.value.year} onClick={() => ctl.set(PERIOD_ALL)}>
+          กลับไปตามตัวกรองของหน้า (ไม่เทียบ Baseline)</button>
+      </div>, host)}
+  </>;
+}
 
 /** ผลของทุกหมวดที่กล่องแจ้งขึ้นมา — DemoDash ถือไว้ให้บรรทัดคะแนนรวม */
 export function usePiReports() {
@@ -358,6 +428,7 @@ export function PiRow({ index, results: raw, note }: { index: IndexDef; results:
         <Meter v={score} max={full} cls="pi-meter" />
         {daily ? <em className="pi-row-part">{DAILY_NA}</em>
           : max > 0 && max < full && <em className="pi-row-part">คิดได้ {max} จาก {full}</em>}
+        <PiPeriodPick />
         {periodsOf(results) && <em className="pi-row-part">ประเมิน: {periodsOf(results)}</em>}
         {note && <PiNote text={note} />}
       </div>
@@ -375,6 +446,10 @@ export function PiRow({ index, results: raw, note }: { index: IndexDef; results:
 export const serviceRef = (ref: TripRef | null): DamageRef | null => {
   if (!ref) return null;
   const ok = (ts: Trip[]) => ts.filter((t) => t.m && !t.empty);
+  if (ref.self) {
+    const d = damageRef(ok(ref.trips), null);
+    return { ...d, ref: selfRefSet(d.dirValues, "เดือน") };
+  }
   // สาขามีเดือนใน Baseline ถึง 12 = P75 จาก KPI รายเดือนของสาขา · ไม่ถึง = บริษัท
   const base = ok(ref.trips), bra = ref.branch ? ok(ref.branch) : null;
   const ones = (ts: Trip[]) => [...new Set(ts.map((t) => t.mo))].map(() => 1);
@@ -403,6 +478,11 @@ export function PiService({ trips, refs, period }: { trips: Trip[] | null; refs:
  */
 export function lfPiResult(lf: LfData | null, f: DemoFilter): MetricResult {
   if (!lf) return metricResult("lf", null);
+  if (f.noBase) {
+    const vals = lf.trips.filter((t) => passLfDemo(t, f)).map((t) => t.lf);
+    const mean = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+    return withPeriod(metricResult("lf", vals, selfRefSet(vals, "เที่ยว"), mean), noBaseLabel(f));
+  }
   // Baseline = 12 เดือนก่อนเดือนที่ประเมินของไฟล์ Load Factor (ไฟล์ LF มีช่วงเดือนของตัวเอง) · ระดับบริษัท ไม่ตามตัวกรอง
   // ไฟล์ LF ที่ยังไม่มีวันที่ = เทียบรายเดือน (inRange "inside")
   const mos = lf.trips.map((t) => t.mo);
@@ -420,6 +500,10 @@ export function lfPiResult(lf: LfData | null, f: DemoFilter): MetricResult {
 /** all = ทุกเที่ยวในชุดกำไร (ไม่กรอง) · ให้สีตามตัวกรองยกเว้นกลุ่มบริการ · P25/P75 จาก 12 เดือนล่าสุดตามตัวกรองยกเว้นเวลาและกลุ่มบริการ */
 export function emptyPiResult(all: Trip[] | null, f: DemoFilter): MetricResult {
   if (!all) return emptyResult(null, null, null);
+  if (f.noBase) {
+    const ev = tripEvalOf(all, { ...f, sg: "" });
+    return withPeriod(emptyResult(ev.trips, ev.trips, selfRefSet(routeRates(ev.trips).map((r) => r.pct), "เส้นทาง")), ev.label);
+  }
   const ref = tripRefOf(all, f);
   const ev = tripEvalOf(all, { ...f, sg: "" });
   const rates = (ts: Trip[]) => routeRates(ts).map((r) => r.pct);
@@ -448,6 +532,7 @@ export function costPiResults(trips: Trip[] | null, ref: TripRef | null, period?
   const refRows = ref ? vehicleRows(ref.trips) : null;
   const branchRows = ref?.branch ? vehicleRows(ref.branch) : null;
   const sref = (f: (r: VRow[]) => number[]) => {
+    if (ref!.self) return selfRefSet(f(refRows!), "คัน × เดือน");
     const sv = scopedValues(f(refRows!), branchRows && f(branchRows), ref!.br, "คัน × เดือน");
     return refSet(sv.values, "คัน × เดือน", ref!.b, false, sv.scope);
   };
@@ -522,6 +607,7 @@ export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }
   const baseLabel = (reports[INDEXES.route.id]?.[0]?.baseline ?? "").split(" · ").slice(0, 2).join(" · ");
   return (
     <>
+      <div className="pi-total-pp"><PiPeriodPick /></div>
       <section className="pi-total">
         {/* ส่วนบน (ชื่อ · คะแนน · แถบ) กดแล้วเปิดที่มาของคะแนน · กล่อง 5 หมวดข้างล่างเป็นปุ่มแยก — ห้ามซ้อนปุ่มในปุ่ม */}
         <div className="pi-total-main pi-click" role="button" tabIndex={0} aria-haspopup="dialog"
@@ -538,7 +624,9 @@ export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }
           </i>}
         </div>
         <Meter v={score} max={TOTAL_MAX} cls="pi-meter" />
-        <p className="pi-note pi-bl">{BASELINE_TITLE}{baseLabel && <> · {baseLabel}</>}</p>
+        <p className="pi-note pi-bl">{baseLabel.startsWith("ไม่เทียบ Baseline")
+          ? <>ไม่เทียบ Baseline — เกณฑ์ percentile คิดจากรายการในช่วงของตัวกรองหน้า · เลือก "ช่วงประเมิน" เพื่อเทียบ Baseline 12 เดือน</>
+          : <>{BASELINE_TITLE}{baseLabel && <> · {baseLabel}</>}</>}</p>
         {daily ? <p className="pi-note"><b>{DAILY_NA}</b> — ช่วงที่เลือกไม่เต็มเดือน (Daily View) ใช้ติดตามงาน · สี/Actual ยังดูได้ในแต่ละกล่อง ·
           เลือกทั้งเดือนหรือหลายเดือนเต็มเพื่อดูคะแนน Performance Index</p>
         : max < TOTAL_MAX && (

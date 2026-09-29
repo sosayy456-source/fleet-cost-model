@@ -29,7 +29,7 @@
  *   ณ "ข้อมูล ณ วันที่" เดียวกับส่วนที่ 2 (OverdueSection แจ้งวันที่ออกมาทาง onAsOf) · สูตรคะแนนอยู่ใน lib/pi/score.ts
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { baselineOf, evalPeriod, evalRange, firstDay, inRange, partialMonths, refSet, scopedValues } from "../../lib/pi/baseline";
+import { baselineOf, evalPeriod, evalRange, firstDay, inRange, partialMonths, refSet, scopedValues, selfRefSet } from "../../lib/pi/baseline";
 import type { Range } from "../../lib/pi/baseline";
 import { collectionDays } from "../../lib/debtors/aging";
 import { INDEXES, metricResult, withPeriod } from "../../lib/pi/score";
@@ -158,9 +158,37 @@ export function custDayMonths(alloc: AllocData | null, f: Period): string[] {
  *         Baseline ทุกสาขา · ไฟล์ลูกหนี้ยังไม่ครบปี = ใช้เท่าที่มี (ไม่มีบิลก่อนช่วงเลย = N/A)
  * _asOf คงไว้ให้ผู้เรียกเดิม — ไม่ใช้แล้ว
  */
+/**
+ * ไม่เทียบ Baseline (ช่องช่วงประเมินในกล่อง PI ว่าง · 30 ก.ย. 2569): ลูกค้าตามช่วงของตัวกรองรวม (ไม่เลือกปี = ทุกปี)
+ * เกณฑ์คิดจากลูกค้าชุดเดียวกัน · DSO = ลูกค้าที่วางบิลในช่วง นับถึงวันสุดท้ายของช่วง (ไม่เลือกปี = วันที่ล่าสุดในไฟล์)
+ */
+function custNoBase(alloc: AllocData | null, debtors: DebtorData | null, f: DemoFilter): MetricResult[] {
+  const label = f.year ? periodText(f) : "ทุกปี";
+  let cust = metricResult("custProfit", null);
+  if (alloc?.custMonths) {
+    const rows = rollupCustomers(alloc, f);
+    let rev = 0, profit = 0;
+    for (const r of rows) { rev += r.revenue; profit += r.profit; }
+    const vals = rows.map((r) => r.m);
+    cust = withPeriod(metricResult("custProfit", vals, selfRefSet(vals, "ลูกค้า"), rows.length ? marginOf(rev, profit) : null), label);
+  }
+  let dso = metricResult("dso", null);
+  if (debtors && debtors.rows.length) {
+    const b = periodBounds(f);
+    const last = debtors.rows.reduce((m, r) => (r.issue > m ? r.issue : m), "");
+    const end = b ? b.end : last;
+    const rows = debtors.rows.filter((r) => (!f.br || r.br === f.br) && (!b || (r.issue >= b.start && r.issue <= b.end)));
+    const days = collectionDays(rows, end);
+    dso = withPeriod(metricResult("dso", days, selfRefSet(days, "ลูกค้า"),
+      days.length ? days.reduce((s, v) => s + v, 0) / days.length : null), label);
+  }
+  return [cust, dso];
+}
+
 export function custPiResults(alloc: AllocData | null, debtors: DebtorData | null, _asOf: string | null, f: DemoFilter,
   /** รายวันของเดือนที่ช่วงประเมิน/Baseline คร่อมไม่เต็มเดือน (custDayMonths) · ไม่ส่ง = ระดับเดือน */
   days?: Map<string, AllocCustDay[]>): MetricResult[] {
+  if (f.noBase) return custNoBase(alloc, debtors, f);
   let cust = metricResult("custProfit", null);
   const a = alloc?.custMonths ? alloc : null;
   if (a) {
@@ -200,8 +228,10 @@ export function custPiResults(alloc: AllocData | null, debtors: DebtorData | nul
   return [cust, dso];
 }
 
-export default function CustomerProfitTab({ f, onProfitInfo, onDebtorInfo }: {
+export default function CustomerProfitTab({ f, piF, onProfitInfo, onDebtorInfo }: {
   f: DemoFilter;
+  /** ตัวกรองของกล่อง PI (ช่วงประเมินแยกจากตัวกรองรวม · 30 ก.ย. 2569) — ไม่ส่ง = ใช้ f */
+  piF?: DemoFilter;
   onProfitInfo?: (content: ReactNode, sample?: boolean) => void;
   onDebtorInfo?: (content: ReactNode, sample?: boolean) => void;
 }) {
@@ -219,10 +249,11 @@ export default function CustomerProfitTab({ f, onProfitInfo, onDebtorInfo }: {
   }, [onProfitInfo, allocSample, f]);
   /** "ข้อมูล ณ วันที่" ที่ส่วน DSO เลือกอยู่ — คะแนน DSO ใช้วันเดียวกัน */
   const [asOf, setAsOf] = useState<string | null>(null);
-  const dayMonths = useMemo(() => custDayMonths(alloc.data, f), [alloc.data, f.year, f.from, f.to, f.d1, f.d2]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pf = piF ?? f;
+  const dayMonths = useMemo(() => custDayMonths(alloc.data, pf), [alloc.data, pf.year, pf.from, pf.to, pf.d1, pf.d2]); // eslint-disable-line react-hooks/exhaustive-deps
   const days = useCustDays(alloc.data, dayMonths);
-  const custPi = useMemo(() => custPiResults(alloc.data, debtors.data, asOf, f, days ?? undefined),
-    [alloc.data, debtors.data, asOf, f.year, f.from, f.to, f.d1, f.d2, f.br, days]); // eslint-disable-line react-hooks/exhaustive-deps
+  const custPi = useMemo(() => custPiResults(alloc.data, debtors.data, asOf, pf, days ?? undefined),
+    [alloc.data, debtors.data, asOf, pf.year, pf.from, pf.to, pf.d1, pf.d2, pf.br, days]); // eslint-disable-line react-hooks/exhaustive-deps
   // ETL ของสองชุดนี้แยกกัน (วางไฟล์คนละโฟลเดอร์) — รีเฟรชเฉพาะชุดที่เปลี่ยน
   const etlAlloc = useEtlStatus("alloc");
   const etlDebt = useEtlStatus("debtors");
