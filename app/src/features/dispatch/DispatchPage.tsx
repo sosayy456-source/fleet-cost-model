@@ -26,7 +26,7 @@
  *     3. ใบสร้างแล้วแต่สถานะบิลไปไม่ถึงชีต = splitStuckBills() ซ่อนบิลนั้นจากรายการที่จัดได้
  *        แล้วมีแถบให้กดอัปเดตสถานะ (useBills ก็ลองส่งบิลที่ค้างให้เองทุกครั้งที่เปิดหน้า)
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ACTIVE_VEHICLE_NAMES, REF, ROUTES, TRAILER_VEHICLE_NAMES, costFleetType, distanceFor } from "../../lib/refdata";
 import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { useOverrides } from "../../lib/store/overrides";
@@ -45,6 +45,7 @@ import { pendingAllocItems } from "../../lib/alloc/recordAlloc";
 import type { ForecastResult, ForecastTable } from "../../lib/forecast/forecast";
 import { newDocNo } from "../../lib/bill/number";
 import { genId, nowStamp, thDateSafe, todayISO } from "../../lib/record/date";
+import { truckStop } from "../../lib/record/tripEta";
 import { emptyRecord } from "../entry/emptyRecord";
 import { saveRecord } from "../../lib/store/save";
 import { remove as removeRecord } from "../../lib/store/records";
@@ -53,7 +54,7 @@ import { stampRole } from "../../lib/record/roles";
 import GrowBox from "../../lib/ui/GrowBox";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import type { RecordsState } from "../../lib/store/useRecords";
-import type { RoleKey } from "../../types/record";
+import type { RoleKey, TripRecord } from "../../types/record";
 import type { PendingBill } from "../../types/bill";
 import { randomDispatch } from "./randomDispatch";
 
@@ -163,6 +164,20 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   const mixedRoute = !isEmpty && (origins.length > 1 || dests.length > 1);
   /** ตัวเลือกของโหมดเที่ยวเปล่า — ต้นทาง/ปลายทางตามตารางเส้นทาง (คู่ที่รู้ระยะทาง) */
   const routeOrigins = useMemo(() => uniq(Object.keys(ROUTES)), []);
+  /**
+   * ต้นทางของเที่ยวเปล่า = ตำแหน่งปัจจุบันของรถที่เลือก (เจ้าของงานสั่ง 29 ก.ย. 2569) — ปลายทางของเที่ยวล่าสุดที่ออกไปแล้ว
+   * กฎเดียวกับหน้าสถานะกองรถ (`truckStop`) · ใบใหม่ + ข้อมูลเก่า · ไม่มีประวัติ/ไม่มีในตารางเส้นทาง = เลือกต้นทางเองแบบปกติ
+   */
+  const truckLoc = useMemo(() => (hp.plate
+    ? truckStop([...state.records, ...(state.oldRecords as unknown as TripRecord[])], hp.plate) : null),
+  [hp.plate, state.records, state.oldRecords]);
+  const locOk = !!truckLoc && !!ROUTES[truckLoc];
+  const autoOrigin = useRef(false);
+  useEffect(() => {
+    if (!isEmpty) return;
+    if (locOk) { autoOrigin.current = true; setEOrigin(truckLoc!); setEDest((d) => (ROUTES[truckLoc!]?.[d] != null ? d : "")); }
+    else if (autoOrigin.current) { autoOrigin.current = false; setEOrigin(""); setEDest(""); }
+  }, [isEmpty, locOk, truckLoc]);
   const routeDests = useMemo(() => uniq(Object.keys(ROUTES[eOrigin] ?? {})), [eOrigin]);
 
   const forecast: ForecastResult | null = fc && origin && dest && kind
@@ -394,10 +409,18 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
                   <span className="hint">ไม่ต้องใส่บิล · เลือกจากตารางเส้นทาง</span></div>
                 <div className="bill-grid dp-grid2">
                   <div className="f"><label>ต้นทาง</label>
-                    <select value={eOrigin} onChange={(e) => { setEOrigin(e.target.value); setEDest(""); }}>
-                      <option value="">เลือกต้นทาง</option>
-                      {routeOrigins.map((x) => <option key={x} value={x}>{x}</option>)}
-                    </select></div>
+                    {locOk ? <>
+                      <select value={truckLoc!} disabled title="ตำแหน่งปัจจุบันของรถที่เลือก"><option value={truckLoc!}>{truckLoc}</option></select>
+                      <span className="hint">ตำแหน่งปัจจุบันของ {hp.plate} (จุดลงของเที่ยวล่าสุด)</span>
+                    </> : <>
+                      <select value={eOrigin} onChange={(e) => { setEOrigin(e.target.value); setEDest(""); }}>
+                        <option value="">เลือกต้นทาง</option>
+                        {routeOrigins.map((x) => <option key={x} value={x}>{x}</option>)}
+                      </select>
+                      {hp.plate && <span className="hint">{truckLoc
+                        ? `ตำแหน่งปัจจุบัน "${truckLoc}" ไม่มีในตารางเส้นทาง — เลือกต้นทางเอง`
+                        : `ไม่พบตำแหน่งปัจจุบันของ ${hp.plate} — เลือกต้นทางเอง`}</span>}
+                    </>}</div>
                   <div className="f"><label>ปลายทาง</label>
                     <select value={eDest} onChange={(e) => setEDest(e.target.value)} disabled={!eOrigin}>
                       <option value="">{eOrigin ? "เลือกปลายทาง" : "เลือกต้นทางก่อน"}</option>

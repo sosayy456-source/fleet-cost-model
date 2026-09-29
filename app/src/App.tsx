@@ -116,7 +116,8 @@ const PAGES: PageDef[] = [
 ];
 
 /** หน้าที่อ่าน state.oldRecords / oldDebtors / fileOld — หน้าอื่นไม่โหลดไฟล์ข้อมูลเก่า (useRecords) */
-const FILE_OLD_PAGES = new Set(["records", "debtors", "fleet-status"]);
+// dispatch/entry-all: ต้นทางเที่ยวเปล่า = ตำแหน่งปัจจุบันของรถ ต้องเห็นเที่ยวในข้อมูลเก่าเหมือนหน้าสถานะกองรถ (29 ก.ย. 2569)
+const FILE_OLD_PAGES = new Set(["records", "debtors", "fleet-status", "dispatch", "entry-all"]);
 
 export default function App() {
   // เปิดเว็บใหม่ต้องเลือกตำแหน่งเสมอ ไม่จำลงเครื่อง (ตรงตาม main:2129)

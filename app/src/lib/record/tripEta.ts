@@ -65,3 +65,22 @@ export function tripProgress(r: Partial<TripRecord>, today = todayISO()): TripPr
   const upcoming = !done && !!start && today < start;
   return { start, dist, eta, done, moving, upcoming };
 }
+
+/**
+ * เที่ยวล่าสุดของรถที่ออกวิ่งไปแล้ว (วันเริ่ม ≤ today) — จุดลงของเที่ยวนี้ = ที่ที่รถน่าจะอยู่ตอนนี้
+ * ใบที่ลงวันปล่อยรถไว้ล่วงหน้ายังไม่พารถไปไหน จึงไม่นับ · ใช้ร่วม: หน้าสถานะกองรถ (ตำแหน่งปัจจุบัน) + หน้าจัดรถ (ต้นทางของเที่ยวเปล่า)
+ */
+export function lastDeparted<T extends Partial<TripRecord>>(trips: T[], today = todayISO()): T | null {
+  let best: T | null = null, bestStart = "";
+  for (const r of trips) {
+    const s = tripStart(r);
+    if (s && s <= today && s > bestStart) { best = r; bestStart = s; }
+  }
+  return best;
+}
+
+/** ตำแหน่งปัจจุบันของรถทะเบียนนี้ = ปลายทางของเที่ยวล่าสุดที่ออกไปแล้ว · null = ไม่มีประวัติ/ไม่ระบุปลายทาง */
+export function truckStop(records: Partial<TripRecord>[], plate: string, today = todayISO()): string | null {
+  if (!plate) return null;
+  return lastDeparted(records.filter((r) => r.plate === plate), today)?.dest || null;
+}
