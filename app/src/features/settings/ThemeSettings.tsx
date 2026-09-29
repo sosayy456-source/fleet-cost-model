@@ -109,6 +109,16 @@ const GROUP_OF: Record<string, string> = Object.fromEntries(THEME_GROUPS.flatMap
 
 const DASHES = [...new Set(THEME_SCOPES.map((s) => s.dash))];
 
+/** ดาวน์โหลดสีที่ตั้งไว้ในเครื่องนี้ — { colors: สีรวม, scopes: สีรายแท็บ } เฉพาะจุดที่ต่างจากค่าตั้งต้น */
+function exportTheme(): void {
+  const data = { exportedAt: new Date().toISOString(), colors: loadThemeColors(), scopes: loadAllScopeColors() };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  a.download = "theme-export.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
 export default function ThemeSettings() {
   const [colors, setColors] = useState<ThemeColors>(loadThemeColors);
   const [scopes, setScopes] = useState(loadAllScopeColors);
@@ -266,6 +276,8 @@ export default function ThemeSettings() {
               <button type="button" className="thm-resetall" disabled={!changed} onClick={() => usePreset({})}>
                 ↺ กลับค่าตั้งต้นทั้งหมด{changed ? ` (แก้ไว้ ${changed} จุด)` : ""}
               </button>
+              {/* ส่งออกสีที่ตั้งไว้ในเครื่องนี้ (สีรวม + รายแท็บ) เป็นไฟล์ — ใช้ส่งให้นักพัฒนาตั้งเป็นค่าตั้งต้นของทุกเครื่อง (29 ก.ย. 2569) */}
+              <button type="button" className="thm-resetall" onClick={exportTheme}>⬇ ส่งออกธีมของเครื่องนี้ (.json)</button>
             </div>
           )}
         </div>
