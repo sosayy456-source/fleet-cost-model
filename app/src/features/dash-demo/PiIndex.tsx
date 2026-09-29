@@ -347,6 +347,9 @@ export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }
         </div>
         <div className="pi-score">
           <b>{max ? sc(score) : "–"}</b><span>/{TOTAL_MAX} คะแนน</span>
+          {max > 0 && <i className={`pi-st pi-total-status ${score < 50 ? "fail" : score < 75 ? "watch" : "pass"}`}>
+            {score < 50 ? "ไม่ผ่านเกณฑ์" : score < 75 ? "เฝ้าระวัง" : "ผ่านเกณฑ์"}
+          </i>}
         </div>
         <Meter v={score} max={TOTAL_MAX} cls="pi-meter" />
         {max < TOTAL_MAX && (

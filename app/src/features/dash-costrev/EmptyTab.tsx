@@ -34,19 +34,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  Area, CartesianGrid, ComposedChart, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area, CartesianGrid, ComposedChart, Legend, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
+import { percentileInc } from "../../lib/damage/damage";
 import { DBar } from "../../lib/chart/dcharts";
-import { anim, axisProps, dFade, gridProps, legendProps } from "../../lib/chart/primitives";
+import { anim, axisProps, gridProps, legendProps } from "../../lib/chart/primitives";
 import { D, DFONT, useChartTheme } from "../../lib/chart/theme";
 import { thDateSafe } from "../../lib/record/date";
-import { Note, Pane } from "../dash-fleet/parts";
+import { Note, Pane, TableHead } from "../dash-fleet/parts";
 import { BASE_F0, isFiltered, ListFF, PeriodFF, SortTable, duniq, fmt, monthLabel, passBase, pct,
          useSort } from "./common";
 import FilterBar, { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import type { BaseFilter, Col } from "./common";
 import type { Trip } from "../../lib/data/useCostRev";
-import EmptyHeroes from "./EmptyHeroes";
+import { EmptyCards } from "./EmptyHeroes";
 import { GRADES, emptyScore, emptyThresholds, routeRates } from "../../lib/empty/routeScore";
 import { CostBreakdown, RP, RouteMapCard, buildCostTree, useRouteEnds } from "../dash-demo/routeMapParts";
 import type { MapRoute } from "../dash-demo/RouteMap";
@@ -57,6 +58,15 @@ const TOP_N = 10;
 const YEARS_SHOWN = 3;
 const YEAR_COLORS = [D.slate, D.indigo, D.emerald];
 const MONTH_SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
+const yearColor = (years: number[], y: number): string =>
+  YEAR_COLORS[(YEAR_COLORS.length - years.length + years.indexOf(y)) % YEAR_COLORS.length]!;
+/** โซนเกณฑ์ของกราฟรายเดือน — พื้นสีอ่อน + เส้นประ P25 (เขียว) / P75 (แดง) */
+const ZONE = {
+  green: { fill: "rgba(34,197,94,.10)", line: "#16A34A" },
+  yellow: { fill: "rgba(234,179,8,.12)", line: "#CA8A04" },
+  red: { fill: "rgba(239,68,68,.10)", line: "#DC2626" },
+};
 
 const pctOf = (a: number, b: number): number => (b ? a / b * 100 : 0);
 /** ป้ายแกน % — ภาพรวมบริษัทอยู่ราว 2–3% ปัดเป็นจำนวนเต็มแล้วทุกขีดจะซ้ำกัน */
@@ -136,6 +146,16 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
     }).filter((r) => years.some((y) => r[`c${y}`] != null));
     return { years, data };
   }, [rowsAnyYear, inRoute]);
+  /** ปีที่ซ่อนในกราฟ (ปุ่มขวาบนแบบกราฟ Damage Rate) — เหลืออย่างน้อย 1 ปีเสมอ */
+  const [hiddenYears, setHiddenYears] = useState<number[]>([]);
+  const toggleYear = (y: number) => setHiddenYears((p) =>
+    (p.includes(y) ? p.filter((x) => x !== y) : yearly.years.filter((x) => !p.includes(x)).length > 1 ? [...p, y] : p));
+  /** P25/P75 = PERCENTILE.INC ของ % รายเดือนทุกจุดในกราฟ (ทุกปีที่แสดง ไม่ตามปุ่มซ่อนปี · ตามเส้นทางที่เลือก) */
+  const band = useMemo(() => {
+    const vs = yearly.data.flatMap((r) => yearly.years.map((y) => r[String(y)])).filter((v): v is number => typeof v === "number");
+    const p25 = percentileInc(vs, 0.25), p75 = percentileInc(vs, 0.75);
+    return p25 == null || p75 == null ? null : { p25, p75 };
+  }, [yearly]);
   const openMonth = (mo: string) => setDetail({
     title: `${curRoute || "ทุกเส้นทาง"} · ${monthLabel(mo)}`,
     scope: inRoute.filter((t) => t.mo === mo),
@@ -182,24 +202,41 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
 
       <Pane deps={[rows]}>
         {/* KPI — 2 ใบขนาดเท่ากัน · เส้นในการ์ดแรกเป็น % รายปีจริง ไม่ใช่ลายตกแต่ง */}
-        <div className="dz-heroes em-heroes">
-          <EmptyHeroes all={trips} rows={rows} rowsAnyYear={rowsAnyYear} period={f} />
+        {/* การ์ดสองใบหน้าตาเดียวกับ Executive Dashboard (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
+        <div className="i2-cards em-cards">
+          <EmptyCards rows={rows} />
         </div>
 
         {/* [1] รายเดือน */}
         <div className="dz-cc" style={{ marginTop: 14 }}>
-          <div className="cp-th">
-            <div>
-              <h4 style={{ margin: 0 }}>% ต้นทุนเที่ยวเปล่ารายเดือน เทียบแต่ละปี</h4>
-              <p>% ต้นทุนเที่ยวเปล่า ÷ ต้นทุนวิ่งรถทั้งหมด · {yearly.years.length} ปีล่าสุด · กดจุดบนเส้นเพื่อดูรายการเที่ยววิ่งเปล่าของเดือนนั้น</p>
+          {/* หน้าตาแบบกราฟแนวโน้มของแท็บ Damage Rate: ปุ่มเปิด-ปิดเส้นรายปี + เลือกเส้นทาง มุมขวาบน · โซน P25/P75 (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
+          <TableHead title="% ต้นทุนเที่ยวเปล่ารายเดือน เทียบแต่ละปี">
+            <div className="dmg-lines" role="group" aria-label="เลือกปีที่แสดง">
+              {yearly.years.map((y) => {
+                const on = !hiddenYears.includes(y);
+                return (
+                  <button key={y} type="button" className={"dmg-line" + (on ? " on" : "")}
+                    style={{ "--c": yearColor(yearly.years, y) } as React.CSSProperties} aria-pressed={on}
+                    onClick={() => toggleYear(y)}>
+                    <i />พ.ศ. {y + 543}
+                  </button>
+                );
+              })}
+              <select className="dmg-line on em-route" style={{ "--c": "var(--d-ink)" } as React.CSSProperties} value={curRoute} onChange={(e) => setRoute(e.target.value)} aria-label="เส้นทาง">
+                <option value="">ทุกเส้นทาง</option>
+                {emptyRoutes.map((r) => <option key={r.route} value={r.route}>{r.route}</option>)}
+              </select>
+              <ZoneInfo />
             </div>
-            <ListFF label="เส้นทาง" all="ทุกเส้นทาง" value={curRoute} onChange={setRoute}
-              opts={emptyRoutes.map((r) => r.route)} />
-          </div>
+          </TableHead>
           <div className="dz-box tall">
-            {yearly.data.length ? <YearChart data={yearly.data} years={yearly.years} onPick={openMonth} /> : <NoData />}
+            {yearly.data.length
+              ? <YearChart data={yearly.data} years={yearly.years} hidden={hiddenYears} band={band} onPick={openMonth} />
+              : <NoData />}
           </div>
-          <Note>เทียบเดือนเดียวกันของแต่ละปีเพื่อตัดผลของฤดูกาล · ส่วนนี้ไม่ตามตัวกรองปี (ตามช่วงเดือน ประเภทรถ ชนิดรถ ต้นทาง/ปลายทาง และเส้นทางที่เลือก)</Note>
+          <Note>% ต้นทุนเที่ยวเปล่า ÷ ต้นทุนวิ่งรถทั้งหมด · {yearly.years.length} ปีล่าสุด · กดจุดบนเส้นเพื่อดูรายการเที่ยววิ่งเปล่าของเดือนนั้น ·
+            โซนสี: ≤ P25 เขียว · P25–P75 เหลือง · &gt; P75 แดง — P25/P75 = PERCENTILE.INC ของ % รายเดือนทุกจุดในกราฟ (ทุกปีที่แสดง ตามเส้นทางที่เลือก) ·
+            ส่วนนี้ไม่ตามตัวกรองปี (ตามช่วงเดือน ประเภทรถ ต้นทาง/ปลายทาง และเส้นทางที่เลือก)</Note>
         </div>
 
         {/* [2] Top 10 — กรอบเดียว ปุ่มสลับ */}
@@ -415,27 +452,68 @@ function GradeBadge({ g, th }: { g: EmptyGrade; th: EmptyThresholds }) {
   );
 }
 
-type YearRow = { mo: string; mm: string } & Record<string, string | number | null>;
+/** ปุ่ม i ขวาบนของกราฟรายเดือน — เกณฑ์ประเมินโซนสี (เจ้าของงานสั่ง 29 ก.ย. 2569) */
+function ZoneInfo() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [open]);
+  return (
+    <span className="em-zi">
+      <button type="button" className={"em-zi-b" + (open ? " on" : "")} aria-expanded={open} aria-label="เกณฑ์ประเมิน"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>i</button>
+      {open && (
+        <div className="em-zi-pop" role="dialog" onClick={(e) => e.stopPropagation()}>
+          <b>เกณฑ์ประเมิน</b>
+          <span><i style={{ background: ZONE.red.line }} />สีแดง: ค่า &gt; P75</span>
+          <span><i style={{ background: ZONE.yellow.line }} />สีเหลือง: ค่า &gt; P25 แต่ ≤ P75</span>
+          <span><i style={{ background: ZONE.green.line }} />สีเขียว: ค่า ≤ P25</span>
+        </div>
+      )}
+    </span>
+  );
+}
+
+type YearRow ={ mo: string; mm: string } & Record<string, string | number | null>;
 
 /**
  * เส้น % ต้นทุนเที่ยวเปล่าต่อปี แกน ม.ค.–ธ.ค. (หน้าตาเดียวกับ DLine ของกราฟ LF เทียบแต่ละปี — เส้นมีพื้นจางใต้เส้น)
  * กดจุดบนเส้นของปีไหน = เปิดป็อบอัพเดือนนั้นของปีนั้น (activeDot เป็นปุ่ม)
  */
-function YearChart({ data, years, onPick }: { data: YearRow[]; years: number[]; onPick: (mo: string) => void }) {
+function YearChart({ data, years, hidden, band, onPick }: {
+  data: YearRow[]; years: number[]; hidden: number[]; band: { p25: number; p75: number } | null; onPick: (mo: string) => void;
+}) {
   const t = useChartTheme();
+  const shown = years.filter((y) => !hidden.includes(y));
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 14, right: 18, left: 0, bottom: 0 }}>
         <CartesianGrid {...gridProps(t)} />
         <XAxis {...axisProps(t)} dataKey="mo" />
-        <YAxis {...axisProps(t)} width={52} domain={[0, "auto"]} tickFormatter={pctTick} />
-        <Tooltip cursor={{ stroke: t.grid, strokeWidth: 1 }} content={<YearTip years={years} />} />
-        <Legend {...legendProps} />
-        {years.map((y, i) => {
-          const color = YEAR_COLORS[(YEAR_COLORS.length - years.length + i) % YEAR_COLORS.length]!;
+        {/* แกนบนพอดีข้อมูล (สูงสุด + ~10% ปัดขึ้นทีละ 0.5) — เดิม "auto" ปัดไปถึง 8% ครึ่งบนว่าง (เจ้าของงานขอ 29 ก.ย. 2569) */}
+        <YAxis {...axisProps(t)} width={52} domain={[0, (m: number) => Math.max(0.5, Math.ceil(m * 1.1 * 2) / 2)]}
+          allowDataOverflow tickFormatter={pctTick} />
+        <Tooltip cursor={{ stroke: t.grid, strokeWidth: 1 }} content={<YearTip years={shown} />} />
+        <Legend {...legendProps} height={undefined} payload={[
+          ...shown.map((y) => ({ value: `พ.ศ. ${y + 543}`, type: "circle" as const, color: yearColor(years, y), id: String(y) })),
+        ]} />
+        {/* โซนสีอ่อน: ≤ P25 เขียว · P25–P75 เหลือง · > P75 แดง (เจ้าของงานสั่ง 29 ก.ย. 2569) · y ที่ไม่ระบุ = ขอบกราฟ */}
+        {band && <ReferenceArea y2={band.p25} fill={ZONE.green.fill} fillOpacity={1} ifOverflow="extendDomain" />}
+        {band && <ReferenceArea y1={band.p25} y2={band.p75} fill={ZONE.yellow.fill} fillOpacity={1} ifOverflow="extendDomain" />}
+        {band && <ReferenceArea y1={band.p75} fill={ZONE.red.fill} fillOpacity={1} />}
+        {/* ป้ายเกณฑ์อยู่บนเส้นประชิดซ้าย "P25 2.25%" — ป้ายสีข้างล่างเหลือแต่ปี (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
+        {band && <ReferenceLine y={band.p25} stroke={ZONE.green.line} strokeDasharray="5 5" strokeWidth={1.4} ifOverflow="extendDomain"
+          label={{ value: `P25 , ${pct(band.p25, 2)}`, position: "insideTopLeft", fill: ZONE.green.line, fontSize: 13, fontWeight: 700, fontFamily: DFONT }} />}
+        {band && <ReferenceLine y={band.p75} stroke={ZONE.red.line} strokeDasharray="5 5" strokeWidth={1.4} ifOverflow="extendDomain"
+          label={{ value: `P75 , ${pct(band.p75, 2)}`, position: "insideTopLeft", fill: ZONE.red.line, fontSize: 13, fontWeight: 700, fontFamily: DFONT }} />}
+        {years.map((y) => {
+          const color = yearColor(years, y);
           return (
-            <Area key={y} type="monotone" dataKey={String(y)} name={`พ.ศ. ${y + 543}`}
-              stroke={color} strokeWidth={2.4} fill={dFade(color)} fillOpacity={1} dot={false} connectNulls {...anim}
+            <Area key={y} type="monotone" dataKey={String(y)} name={`พ.ศ. ${y + 543}`} hide={hidden.includes(y)}
+              stroke={color} strokeWidth={2.4} fill="none" dot={{ r: 2.5, fill: color, strokeWidth: 0 }} connectNulls {...anim}
               activeDot={(p: { cx?: number; cy?: number; payload?: YearRow }) => (
                 <circle cx={p.cx} cy={p.cy} r={6} fill={color} stroke="#fff" strokeWidth={2} style={{ cursor: "pointer" }}
                   onClick={() => p.payload && onPick(`${y}-${p.payload.mm}`)} />

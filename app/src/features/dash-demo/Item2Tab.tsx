@@ -3,8 +3,8 @@
  *
  *   1. LF เฉลี่ย                              ┐ ชุด loadfactor/ (ชื่อไฟล์ในปุ่มข้อมูลอ่านจาก manifest)
  *   2. ต้นทุนค่าเสียโอกาสจากการบรรทุกไม่เต็ม   ┘ = Idle Cost
- *   3. % ต้นทุนเที่ยวเปล่า + มูลค่า YTD         ┐ ชุด costrev/ — การ์ด 2 ใบเดียวกับแท็บเที่ยววิ่งเปล่าของ
- *   4. มูลค่าต้นทุนเที่ยวเปล่า + % เที่ยวเปล่า   ┘ Executive Dashboard (EmptyHeroes.tsx · เจ้าของงานสั่ง 24 ก.ย. 2569)
+ *   3. % จำนวนเที่ยวเปล่า (เที่ยวเปล่า ÷ เที่ยวทั้งหมด)   ┐ ชุด costrev/ ตามตัวกรองของหน้า · ไม่มี YoY
+ *   4. % ต้นทุนเที่ยวเปล่า (Σต้นทุนเปล่า ÷ Σต้นทุนทั้งหมด) ┘ (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิม % ต้นทุนปีล่าสุด + YoY / มูลค่าต้นทุน)
  *
  * ★ สองชุดข้อมูลคนละไฟล์ คนละตัวหาร — **ห้ามเอาตัวเลขข้ามฝั่งมาหารกัน** เช่นเอา idle ของ loadfactor
  *   ไปหารด้วยต้นทุนของ costrev จำนวนเที่ยวไม่เท่ากัน (ไฟล์ LF กรองสถานะข้อมูลทิ้งไปส่วนหนึ่ง)
@@ -21,19 +21,15 @@
  *   การ์ด 3-4 ผู้เรียกส่งเที่ยวที่กรองครบทุกตัวมาแล้ว · การ์ด 1-2 กรองไฟล์ LF เองด้วย ปี · เดือน · ประเภทรถ · ชนิดรถ
  *   (ไฟล์ LF มีแค่ "เส้นทางมาตรฐาน" ไม่มีต้นทาง/ปลายทางแยก และไม่มีกลุ่มบริการ — FilterScope บอกไว้)
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import { summarize } from "../../lib/loadfactor/calc";
-import { perMonth, useEmptyHeroData, ytdYoyText } from "../dash-costrev/EmptyHeroes";
+import { EmptyCards } from "../dash-costrev/EmptyHeroes";
 import { fmt, pct } from "../dash-costrev/common";
-import { isPartialYear } from "../../lib/filter/period";
-import { ytdLabel } from "../../lib/empty/ytd";
-import { useFitText } from "../../lib/ui/useFitText";
+import I2Card from "./I2Card";
 // รูป 3 มิติของการ์ด 4 ใบ (เจ้าของงานส่ง 29 ก.ย. 2569 · ตัดจากภาพที่ส่งมา ลบพื้นขาว)
 import imgTruckFull from "../../assets/icons3d/truck-full.webp";
 import imgTruckHalf from "../../assets/icons3d/truck-half.webp";
-import imgTruckEmpty from "../../assets/icons3d/truck-empty.webp";
-import imgCalcCost from "../../assets/icons3d/calc-cost.webp";
 import type { Trip } from "../../lib/data/useCostRev";
 import { openExecTab } from "../../lib/ui/dashJump";
 import { FilterScope, passLfDemo } from "./filter";
@@ -46,47 +42,9 @@ const toLf = (): void => openExecTab("lf");
 const toEmpty = (): void => openExecTab("empty");
 
 /**
- * การ์ดของส่วนนี้ (ดีไซน์ที่เจ้าของงานส่ง 28 ก.ย. 2569 — แทน Hero): tone = dark (LF เฉลี่ย) · light (สองใบสีอ่อน) · red (% เที่ยวเปล่า)
- * ชื่อ → ตัวเลขใหญ่ → บรรทัดรอง → ป้ายแคปซูล → หมายเหตุเล็ก · กดทั้งใบเปิดแท็บปลายทางของ Overall Dashboard
+ * trips = กรองครบ · all/tripsAnyYear ยังรับไว้ตามผู้เรียก แต่การ์ดเที่ยวเปล่ารุ่น 29 ก.ย. 2569 ไม่ใช้แล้ว (ไม่มี YoY)
  */
-function I2Card({ tone, cls, l, unit, v, sub, pill, note, info, art, onClick }: {
-  tone: "dark" | "light" | "red"; cls: string; l: string; unit?: string; v: string; art?: string;
-  sub?: ReactNode; pill?: ReactNode; note?: ReactNode;
-  /** รายละเอียดรองที่ย้ายเข้าปุ่ม i เล็กซ้ายล่างของการ์ด (เจ้าของงานสั่ง 29 ก.ย. 2569) */
-  info?: ReactNode;
-  onClick: () => void;
-}) {
-  // ตัวเลขใหญ่ย่อเองให้พอดีการ์ดเสมอ (ข้อมูลจริงตัวเลขยาวกว่าชุดตัวอย่าง · เจ้าของงานขอ 29 ก.ย. 2569)
-  const vRef = useFitText<HTMLDivElement>([v]);
-  const [showInfo, setShowInfo] = useState(false);
-  return (
-    <div className={`i2c ${tone} ${cls}`} role="button" tabIndex={0} onClick={onClick}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}>
-      <div className="i2c-h"><span className="i2c-l">{l}</span>{unit && <span className="i2c-u">{unit}</span>}</div>
-      {/* รูปประกอบข้างตัวเลข (เจ้าของงานส่งรูป 29 ก.ย. 2569) — ตัวเลขย่อเองถ้าที่เหลือไม่พอ (useFitText) */}
-      {art && <img className="i2c-art" src={art} alt="" aria-hidden="true" />}
-      <div className="i2c-vrow">
-        <div className="i2c-v num-fd" key={v} ref={vRef}>{v}</div>
-      </div>
-      {sub && <div className="i2c-sub">{sub}</div>}
-      {pill && <div className="i2c-pill">{pill}</div>}
-      {note && <div className="i2c-note">{note}</div>}
-      {info && <>
-        {/* ปุ่ม i ไม่เปิดแท็บปลายทาง (หยุด event ไม่ให้ถึงการ์ด) */}
-        <button type="button" className={"i2c-i" + (showInfo ? " on" : "")} aria-expanded={showInfo} aria-label="รายละเอียดเพิ่มเติม"
-          onClick={(e) => { e.stopPropagation(); setShowInfo((o) => !o); }}
-          onKeyDown={(e) => e.stopPropagation()}>i</button>
-        {showInfo && <div className="i2c-info" onClick={(e) => e.stopPropagation()}>{info}</div>}
-      </>}
-    </div>
-  );
-}
-
-/**
- * all = ทุกเที่ยวในไฟล์ (กรองสาขา) · trips = กรองครบ · tripsAnyYear = กรองทุกตัวยกเว้นปี
- * (การ์ดใบ % ต้องเทียบปีก่อนและวาดเส้นรายปี — ดู EmptyHeroes.tsx)
- */
-export default function Item2Tab({ all, trips, tripsAnyYear, f, costSample, onInfo }: {
+export default function Item2Tab({ trips, f, costSample, onInfo }: {
   all: Trip[]; trips: Trip[]; tripsAnyYear: Trip[]; f: DemoFilter; costSample?: boolean;
   onInfo: (content: ReactNode, sample?: boolean) => void;
 }) {
@@ -117,11 +75,7 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f, costSample, onIn
     </>, lfSample || costSample);
   }, [onInfo, lfFiles, lfSample, costSample, f]);
 
-  /* ---- ฝั่งเที่ยวเปล่า (การ์ด 3-4) — ตัวเลขชุดเดียวกับการ์ดของแท็บ Empty Trips (useEmptyHeroData) ---- */
-  const em = useEmptyHeroData(all, trips, tripsAnyYear, f);
   const gap = sum ? (sum.avgTg - sum.avgLf) * 100 : null;
-  // "YTD ม.ค.–พ.ค. 69" → ปี พ.ศ. เต็ม "2569" ตามภาพ
-  const ytdText = em.ytd ? ytdLabel(em.ytd.year, em.ytd.months, isPartialYear(f)).replace(/\d{2}$/, String(em.ytd.year + 543)) : "";
 
   return (
     <>
@@ -148,15 +102,8 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f, costSample, onIn
       <section className="i2-group empty" aria-label="Empty Trips">
         <h3 className="i2-gh"><b>Empty Trips</b></h3>
         <div className="i2-cards">
-          <I2Card tone="red" cls="i2-empty" onClick={toEmpty} art={imgTruckEmpty}
-            l={em.focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${em.focusY + 543}` : "% ต้นทุนเที่ยวเปล่า"}
-            v={em.focus ? pct(em.focus.share) : "–"}
-            pill={em.ytd && `เทียบ YoY (${em.ytd.year + 542}): ${ytdYoyText(em.ytd)}`}
-            info={em.ytd && <>ต้นทุนเที่ยวเปล่าเฉลี่ย {perMonth(em.ytd.avgPerMonth)}<br />{ytdText}</>} />
-          <I2Card tone="light" cls="i2-emptyc" onClick={toEmpty} art={imgCalcCost} l={`มูลค่าต้นทุนเที่ยวเปล่า · ${em.scope}`} unit="บาท"
-            v={fmt(em.emptyCost)}
-            pill={`${fmt(em.empties.length)} เที่ยววิ่งเปล่า`}
-            info={<>จาก {fmt(em.total)} เที่ยว<br />{em.total ? pct(em.empties.length / em.total * 100) : "–"} ของเที่ยวทั้งหมด</>} />
+          {/* 29 ก.ย. 2569 (เจ้าของงานสั่ง): ใบแรก % จำนวนเที่ยว ไม่มี YoY · ใบสอง % ต้นทุน — ตัวเดียวกับแท็บ Empty Trips */}
+          <EmptyCards rows={trips} onOpen={toEmpty} />
         </div>
       </section>
       </div>
