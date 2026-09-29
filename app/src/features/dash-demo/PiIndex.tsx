@@ -23,7 +23,8 @@ import type { LfData } from "../../lib/data/useLoadFactor";
 import { depreciation, vehicleRows } from "../../lib/detail3/calc";
 import { totalDamage } from "../../lib/damage/damage";
 import { INDEXES, METRICS, METRIC_MAX, TOTAL_MAX, metricResult, sumScores } from "../../lib/pi/score";
-import { routeMarginValues, serviceMarginValues } from "../../lib/pi/route";
+import { routeMarginValues, serviceBaseValues, serviceMarginValues } from "../../lib/pi/route";
+import { baseSpan, lastMonths } from "../../lib/pi/baseline";
 import { emptyResult } from "../../lib/pi/empty";
 import { REC_LEVEL_LABEL, recommendations } from "../../lib/pi/recommend";
 import { DAMAGE_STATUS_LABEL, damageRef, damageResults, damageStatus } from "../../lib/pi/damage";
@@ -103,14 +104,17 @@ const waitingOf = (index: IndexDef): MetricResult[] =>
 
 /**
  * Route & Service — %Margin รายเส้นทาง + 3 กลุ่มบริการ (lib/pi/route.ts) ชุดเดียวกับตาราง/การ์ดของ Profit Per Route
- * trips = เที่ยวที่กรองตามหน้าแล้ว · null = ไฟล์ต้นทุนยังไม่มี
+ * trips = เที่ยวที่กรองตามหน้าแล้ว (ให้สี) · ref = ทุกเที่ยวของทั้งบริษัท (คิดชุดฐาน 12 เดือนล่าสุด) · null = ไฟล์ต้นทุนยังไม่มี
  */
-export const routePiResults = (trips: Trip[] | null): MetricResult[] => [
-  metricResult("route", trips ? routeMarginValues(trips) : null),
-  metricResult("service", trips ? serviceMarginValues(trips) : null),
-];
-export function PiRoute({ trips }: { trips: Trip[] | null }) {
-  const results = useMemo(() => routePiResults(trips), [trips]);
+export function routePiResults(trips: Trip[] | null, ref: Trip[] | null): MetricResult[] {
+  const b = ref ? lastMonths(ref, (t) => t.mo) : null;
+  return [
+    metricResult("route", trips ? routeMarginValues(trips) : null, b && { values: routeMarginValues(b.rows), span: baseSpan(b) }),
+    metricResult("service", trips ? serviceMarginValues(trips) : null, b && { values: serviceBaseValues(b.rows), span: baseSpan(b) }),
+  ];
+}
+export function PiRoute({ trips, refTrips }: { trips: Trip[] | null; refTrips: Trip[] | null }) {
+  const results = useMemo(() => routePiResults(trips, refTrips), [trips, refTrips]);
   return <PiRow index={INDEXES.route} results={results} />;
 }
 
@@ -208,15 +212,20 @@ export function PiService({ trips, refTrips }: { trips: Trip[] | null; refTrips:
  *   ให้สีตามตัวกรองของหน้า**ยกเว้นกลุ่มบริการ** (เที่ยวเปล่าไม่มีกลุ่มบริการ เลือกแล้วเที่ยวเปล่าหายหมด = เขียวทุกเส้นทาง)
  *   P25/P75 ไม่ตามต้นทาง/ปลายทาง กติกาเดียวกับแท็บ Empty Trips
  */
-export const lfPiResult = (lf: LfData | null, f: DemoFilter): MetricResult =>
-  metricResult("lf", lf ? lf.trips.filter((t) => passLfDemo(t, f)).map((t) => t.lf) : null);
-export const emptyPiResult = (all: Trip[] | null, f: DemoFilter): MetricResult => (all
-  ? emptyResult(all.filter((t) => passDemo(t, { ...f, sg: "" })), all.filter((t) => passDemo(t, { ...f, o: "", de: "", sg: "" })))
+export function lfPiResult(lf: LfData | null, f: DemoFilter): MetricResult {
+  // ฐาน = ทุกเที่ยวในไฟล์ LF 12 เดือนล่าสุด ไม่ตามตัวกรอง (29 ก.ย. 2569)
+  const b = lf ? lastMonths(lf.trips, (t) => t.mo) : null;
+  return metricResult("lf", lf ? lf.trips.filter((t) => passLfDemo(t, f)).map((t) => t.lf) : null,
+    b && { values: b.rows.map((t) => t.lf), span: baseSpan(b) });
+}
+/** all = เที่ยวที่ให้สี (ก่อนตัวกรองอื่น) · ref = ทุกเที่ยวของทั้งบริษัท → ชุดฐาน P25/P75 = 12 เดือนล่าสุด ไม่ตามตัวกรอง (29 ก.ย. 2569) */
+export const emptyPiResult = (all: Trip[] | null, f: DemoFilter, ref: Trip[] | null): MetricResult => (all && ref
+  ? emptyResult(all.filter((t) => passDemo(t, { ...f, sg: "" })), lastMonths(ref, (t) => t.mo).rows)
   : emptyResult(null, null));
-export function PiFleet({ f, all }: { f: DemoFilter; all: Trip[] | null }) {
+export function PiFleet({ f, all, refAll }: { f: DemoFilter; all: Trip[] | null; refAll: Trip[] | null }) {
   const { data: lf, error } = useLoadFactor();
   const lfResult = useMemo(() => lfPiResult(error ? null : lf, f), [lf, error, f]);
-  const empty = useMemo(() => emptyPiResult(all, f), [all, f]);
+  const empty = useMemo(() => emptyPiResult(all, f, refAll), [all, f, refAll]);
   const results = useMemo(() => [lfResult, empty], [lfResult, empty]);
   return <PiBox index={INDEXES.fleet} results={results} />;
 }
@@ -226,16 +235,21 @@ export function PiFleet({ f, all }: { f: DemoFilter; all: Trip[] | null }) {
  *   Cost per Ton-km = VRow.perTkm (คันที่ไม่มีน้ำหนัก/ระยะทางไม่นับ) · Coverage = Contribution ÷ ค่าเสื่อม ของ depreciation()
  *   (รถบริษัทที่มีค่าเสื่อมเท่านั้น) · trips null = ไฟล์ต้นทุนยังไม่มี
  */
-export function costPiResults(trips: Trip[] | null): MetricResult[] {
+export function costPiResults(trips: Trip[] | null, ref: Trip[] | null): MetricResult[] {
   if (!trips) return [metricResult("tkm", null), metricResult("coverage", null)];
+  const perTkm = (rs: ReturnType<typeof vehicleRows>) => rs.flatMap((r) => (r.perTkm == null ? [] : [r.perTkm]));
   const rows = vehicleRows(trips);
+  // ฐาน = รายคันของทั้งบริษัท 12 เดือนล่าสุด (29 ก.ย. 2569)
+  const b = ref ? lastMonths(ref, (t) => t.mo) : null;
+  const baseRows = b ? vehicleRows(b.rows) : null;
   return [
-    metricResult("tkm", rows.flatMap((r) => (r.perTkm == null ? [] : [r.perTkm]))),
-    metricResult("coverage", depreciation(rows).list.map((r) => r.coverage)),
+    metricResult("tkm", perTkm(rows), b && baseRows && { values: perTkm(baseRows), span: baseSpan(b) }),
+    metricResult("coverage", depreciation(rows).list.map((r) => r.coverage),
+      b && baseRows && { values: depreciation(baseRows).list.map((r) => r.coverage), span: baseSpan(b) }),
   ];
 }
-export function PiCost({ trips }: { trips: Trip[] | null }) {
-  const results = useMemo(() => costPiResults(trips), [trips]);
+export function PiCost({ trips, refTrips }: { trips: Trip[] | null; refTrips: Trip[] | null }) {
+  const results = useMemo(() => costPiResults(trips, refTrips), [trips, refTrips]);
   return <PiBox index={INDEXES.cost} results={results} />;
 }
 

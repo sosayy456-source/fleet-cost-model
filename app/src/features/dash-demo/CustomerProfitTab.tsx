@@ -31,6 +31,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { collectionDays } from "../../lib/debtors/aging";
 import { INDEXES, metricResult } from "../../lib/pi/score";
+import { baseSpan, lastMonths } from "../../lib/pi/baseline";
 import type { MetricResult } from "../../lib/pi/score";
 import { PiBox } from "./PiIndex";
 import { DBar } from "../../lib/chart/dcharts";
@@ -91,10 +92,15 @@ const sameSel = (a: Sel | null, b: Sel): boolean => !!a && a.kind === b.kind && 
  * (ย้ายออกมาจาก ProfitPart 25 ก.ย. 2569 ให้สองที่นับลูกค้าชุดเดียวกัน)
  */
 export function rollupCustomers(data: AllocData, f: Period): CustRow[] {
+  // ปี + ช่วงเดือน (ตั้งแต่–ถึง) แบบ Damage Rate — ชุดเดียวกับตัวกรองของหน้า Demo
+  return rollupCustomersBy(data, (mo) => inPeriod({ y: Number(mo.slice(0, 4)), mo }, f));
+}
+
+/** ยุบลูกค้าตามเงื่อนไขเดือนที่ให้ — rollupCustomers ใช้ตัวกรองของหน้า · ชุดฐาน PI ใช้ 12 เดือนล่าสุด */
+export function rollupCustomersBy(data: AllocData, keep: (mo: string) => boolean): CustRow[] {
   const acc = new Map<number, CustRow>();
   for (const r of data.custMonths ?? []) {
-    // ปี + ช่วงเดือน (ตั้งแต่–ถึง) แบบ Damage Rate — ชุดเดียวกับตัวกรองของหน้า Demo
-    if (!inPeriod({ y: Number(r.mo.slice(0, 4)), mo: r.mo }, f)) continue;
+    if (!keep(r.mo)) continue;
     let a = acc.get(r.ci);
     if (!a) {
       const c = data.customers[r.ci];
@@ -116,10 +122,17 @@ export function rollupCustomers(data: AllocData, f: Period): CustRow[] {
 /** Customer Net Profit (รายลูกค้า) + DSO (รายบิล ณ asOf) — ใช้ทั้งกล่อง PI ของส่วนนี้และ Executive Summary */
 export function custPiResults(alloc: AllocData | null, debtors: DebtorData | null, asOf: string | null, f: DemoFilter): MetricResult[] {
   const a = alloc?.custMonths ? alloc : null;
+  // ชุดฐาน = 12 เดือนล่าสุดของทั้งบริษัท ไม่ตามตัวกรอง (lib/pi/baseline.ts · 29 ก.ย. 2569)
+  const cb = a ? lastMonths(a.custMonths!, (r) => r.mo) : null;
+  const custBase = a && cb && cb.from
+    ? { values: rollupCustomersBy(a, (mo) => mo >= cb.from && mo <= cb.to).map((r) => r.m), span: baseSpan(cb) } : null;
+  // DSO: ฐาน = บิลที่วางใน 12 เดือนก่อน "ข้อมูล ณ วันที่" ของทุกสาขา นับวันเก็บถึงวันเดียวกัน
+  const db = debtors && asOf ? lastMonths(debtors.rows.filter((r) => r.issue <= asOf), (r) => r.issue.slice(0, 7)) : null;
+  const dsoBase = db && db.from && asOf ? { values: collectionDays(db.rows, asOf), span: baseSpan(db) } : null;
   return [
-    metricResult("custProfit", a ? rollupCustomers(a, f).map((r) => r.m) : null),
+    metricResult("custProfit", a ? rollupCustomers(a, f).map((r) => r.m) : null, custBase),
     // DSO = วันเก็บเงินเฉลี่ยรายลูกค้า (แก้ Performance Index.pdf 28 ก.ย. 2569 · เดิมวันที่จ่ายช้ารายบิล)
-    metricResult("dso", debtors && asOf ? collectionDays(debtors.rows.filter((r) => !f.br || r.br === f.br), asOf) : null),
+    metricResult("dso", debtors && asOf ? collectionDays(debtors.rows.filter((r) => !f.br || r.br === f.br), asOf) : null, dsoBase),
   ];
 }
 

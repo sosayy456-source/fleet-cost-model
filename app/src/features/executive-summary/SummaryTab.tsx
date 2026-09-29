@@ -51,9 +51,10 @@ export default function SummaryTab({ onRecommend }: { onRecommend: () => void })
   const reports = useMemo(() => {
     const asOf = debtors.data ? defaultAsOf(debtors.data.manifest.dateRange.min, debtors.data.manifest) : null;
     return {
-      [INDEXES.route.id]: routePiResults(all),
-      [INDEXES.fleet.id]: [lfPiResult(lf.error ? null : lf.data, DEMO_F0), emptyPiResult(all, DEMO_F0)],
-      [INDEXES.cost.id]: costPiResults(all),
+      // ฐาน PI = 12 เดือนล่าสุดของทั้งบริษัท (ref = ทุกเที่ยว) เหมือน Executive Dashboard
+      [INDEXES.route.id]: routePiResults(all, all),
+      [INDEXES.fleet.id]: [lfPiResult(lf.error ? null : lf.data, DEMO_F0), emptyPiResult(all, DEMO_F0, all)],
+      [INDEXES.cost.id]: costPiResults(all, all),
       [INDEXES.cust.id]: custPiResults(alloc.data, debtors.data, asOf, DEMO_F0),
       [INDEXES.service.id]: servicePiResults(all, serviceRef(all)),
     };

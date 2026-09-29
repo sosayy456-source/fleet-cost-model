@@ -291,12 +291,12 @@ export default function DemoDash() {
         <PiReportProvider value={pi.report}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
-          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} partTitle={PARTS.find((p) => p.id === "route")!.label} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} /></>)}
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} partTitle={PARTS.find((p) => p.id === "route")!.label} />}<hr className="dm-pi-sep" /><PiRoute trips={piTrips} refTrips={piRef} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
             onInfo={registerItem2Info} />}
-            <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
+            <PiFleet f={fv} all={piRef ? branchTrips : null} refAll={piRef} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
-            <PiCost trips={piTrips} /></>)}
+            <PiCost trips={piTrips} refTrips={piRef} /></>)}
           {part("cust", <>
             <CustomerProfitTab f={fv}
               onProfitInfo={registerProfitInfo} onDebtorInfo={registerDebtorInfo} />

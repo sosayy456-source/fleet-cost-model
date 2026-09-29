@@ -36,6 +36,15 @@ export function routeMarginValues(trips: MarginTrip[]): number[] {
   return [...sums(trips, (t) => t.rt).values()].map((a) => routeMargin(a.rev, a.profit) ?? NaN);
 }
 
+/**
+ * ชุดฐานของ Service Group Margin — %Margin ของ **เส้นทาง × กลุ่มบริการ** (เฉพาะ 3 กลุ่ม) ในชุดฐาน 12 เดือน
+ * (3 ค่าของ 3 กลุ่มน้อยเกินไปสำหรับ percentile — ข้อเสนอที่เจ้าของงานเห็นด้วย 29 ก.ย. 2569)
+ */
+export function serviceBaseValues(trips: MarginTrip[]): number[] {
+  const m = sums(trips.filter((t) => (SERVICE_GROUPS as readonly string[]).includes(t.sg)), (t) => `${t.rt}|${t.sg}`);
+  return [...m.values()].map((a) => routeMargin(a.rev, a.profit) ?? NaN);
+}
+
 /** %Margin ของ 3 กลุ่มบริการ — กลุ่มที่ไม่มีเที่ยว/รายได้ 0 = NaN (ไม่นับ) ตรงกับการ์ดที่ขึ้น "–" */
 export function serviceMarginValues(trips: MarginTrip[]): number[] {
   const m = sums(trips.filter((t) => (SERVICE_GROUPS as readonly string[]).includes(t.sg)), (t) => t.sg);
