@@ -366,7 +366,11 @@ export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }
               <button key={g.index.id} type="button" className="pi-jump" onClick={() => jumpToIndex(g.index.id)}
                 title={`ไปที่ ${g.index.title}`}>
                 <span className="pi-jump-h"><i>{i + 1}</i>{g.index.title}</span>
-                <span className="pi-jump-sc"><b>{r.max ? sc(r.score) : "–"}</b>/{full}</span>
+                {/* คะแนน + ป้ายสถานะต่อท้ายตัวเลข (ชุดเดียวกับกล่อง Index ของหมวด · เจ้าของงานสั่ง 29 ก.ย. 2569) */}
+                <span className="pi-jump-row">
+                  <span className="pi-jump-sc"><b>{r.max ? sc(r.score) : "–"}</b>/{full}</span>
+                  <StatusChip status={indexStatus(g.results)} />
+                </span>
                 <Meter v={r.score} max={full} cls="pi-bar" />
               </button>
             );

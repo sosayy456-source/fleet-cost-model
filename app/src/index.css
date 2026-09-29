@@ -4281,3 +4281,34 @@ html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
 .rp-tbl.rp-tbl-sg .rp-sgc{min-width:52px;padding:5px 6px;font-size:13px}
 .rp-tbl.rp-tbl-sg .rp-margin{white-space:nowrap}
 .rp-tbl.rp-tbl-sg thead th{white-space:nowrap}
+/* ป้ายสถานะของกล่อง Index: พื้นสีตามสถานะ (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิมพื้นขาวตัวสี) */
+#view-dash .pi-st.pass,html.theme-cherry #view-dash .pi-st.pass{background:#16A34A;color:#fff}
+#view-dash .pi-st.watch,html.theme-cherry #view-dash .pi-st.watch{background:#F2B705;color:#3A2A00}
+#view-dash .pi-st.fail,html.theme-cherry #view-dash .pi-st.fail{background:#DC2626;color:#fff}
+/* ป้ายสถานะในกล่องย่อย 5 หมวดของคะแนนรวม — ชิดซ้าย ใต้ชื่อหมวด */
+/* กล่องย่อย 5 หมวด: ชื่อหมวดจองที่ 4 บรรทัดเท่ากันทุกกล่อง → ป้ายสถานะและคะแนนอยู่ระดับเดียวกัน (29 ก.ย. 2569) */
+#view-dash .pi-total .pi-jump{justify-content:flex-start;gap:14px}
+#view-dash .pi-total .pi-jump-h{min-height:calc(4 * 1.35em)}
+#view-dash .pi-total .pi-jump .pi-bar{margin-top:auto}
+/* ป้ายสถานะมีเงานูน: เงาใต้ป้าย + แสงขอบบน + ไล่สีเล็กน้อย (ทั้งกล่อง Index และกล่องย่อย) */
+#view-dash .pi-st.pass,html.theme-cherry #view-dash .pi-st.pass{background:linear-gradient(180deg,#22C55E,#15803D)}
+#view-dash .pi-st.watch,html.theme-cherry #view-dash .pi-st.watch{background:linear-gradient(180deg,#FCD34D,#E3A008)}
+#view-dash .pi-st.fail,html.theme-cherry #view-dash .pi-st.fail{background:linear-gradient(180deg,#EF4444,#B91C1C)}
+#view-dash .pi-st.pass,#view-dash .pi-st.watch,#view-dash .pi-st.fail{
+  box-shadow:0 6px 14px -4px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.45),inset 0 -2px 0 rgba(0,0,0,.12);
+  text-shadow:0 1px 1px rgba(0,0,0,.25)}
+#view-dash .pi-st.watch{text-shadow:none}
+/* คะแนน + ป้ายสถานะแถวเดียวกัน ป้ายต่อท้ายตัวเลข (29 ก.ย. 2569) */
+/* บังคับอยู่บรรทัดเดียวข้างตัวเลขเสมอ (เจ้าของงานสั่ง — ไม่ตกไปบรรทัดใหม่) · ป้ายชิดขวาของกล่อง */
+#view-dash .pi-total .pi-jump-row{display:flex;align-items:center;flex-wrap:nowrap;justify-content:space-between;gap:8px;min-width:0}
+#view-dash .pi-total .pi-jump-sc{white-space:nowrap}
+#view-dash .pi-total .pi-jump .pi-st{margin:0;flex:none;white-space:nowrap;font-size:15px;padding:4px 11px}
+@media(max-width:1400px){#view-dash .pi-total .pi-jump-sc b{font-size:30px}#view-dash .pi-total .pi-jump .pi-st{font-size:13px;padding:3px 9px}}
+/* ป้ายสถานะในกล่องย่อย: กว้างเท่ากันทุกป้าย และไม่ล้นกรอบ (เจ้าของงานสั่ง 29 ก.ย. 2569)
+   ใช้หน่วยตามความกว้างกล่อง (cqi) — กล่อง 5 ใบกว้างเท่ากัน ป้ายจึงกว้างเท่ากัน · ตัวเลข/ป้ายย่อตามกล่องเสมอ */
+#view-dash .pi-total .pi-jump{container-type:inline-size}
+#view-dash .pi-total .pi-jump-row{gap:4cqi}
+#view-dash .pi-total .pi-jump-sc{font-size:clamp(13px,7cqi,20px);min-width:0}
+#view-dash .pi-total .pi-jump-sc b{font-size:clamp(22px,14cqi,38px)}
+#view-dash .pi-total .pi-jump .pi-st{flex:0 0 46cqi;width:46cqi;min-width:0;box-sizing:border-box;text-align:center;
+  font-size:clamp(11px,6.4cqi,16px);padding:.4em .3em;overflow:hidden;text-overflow:ellipsis}
