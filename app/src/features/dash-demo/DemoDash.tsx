@@ -37,7 +37,7 @@ import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPendi
 import * as Pi from "./PiIndex";
 import { firstDay, minEvalStart } from "../../lib/pi/baseline";
 import { PiDailyProvider, PiPeriodProvider, PiRecommend, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
-import { PERIOD_ALL, hasDays } from "../../lib/filter/period";
+import { PERIOD_ALL, hasDays, periodBounds } from "../../lib/filter/period";
 import type { Period } from "../../lib/filter/period";
 import ThemeScope, { useThemeScope } from "../../lib/ui/ThemeScope";
 
@@ -189,6 +189,14 @@ export default function DemoDash() {
   // ช่วงที่ประเมินของ PI: ไม่เลือกปี = เดือนล่าสุดของไฟล์ (เจ้าของงานเลือก 28 ก.ย. 2569) — การ์ด/กราฟอื่นยังตามตัวกรองเดิม
   // ช่วงประเมินของ PI แยกจากตัวกรองรวม (30 ก.ย. 2569) — piF = ตัวกรองรวม แต่ปี/เดือน/วัน ของ PI
   const [piPeriod, setPiPeriod] = useState<Period>(PERIOD_ALL);
+  // ตัวกรองรวมเปลี่ยนช่วงเวลา → ช่วงประเมินของ PI ตามให้อัตโนมัติ (เจ้าของงานสั่ง 30 ก.ย. 2569):
+  // ช่วงของตัวกรองรวมเทียบ Baseline ได้ (วันแรก ≥ minStart) = ใช้ช่วงนั้นแบบเทียบ Baseline · เทียบไม่ได้/ทุกปี = ไม่เทียบ Baseline
+  // ผู้ใช้ยังเปลี่ยนในแผงของ PI เองได้ จนกว่าจะเปลี่ยนช่วงของตัวกรองรวมอีกครั้ง
+  useEffect(() => {
+    const b = periodBounds(fv);
+    const ok = !!b && !!minStart && b.start >= minStart;
+    setPiPeriod(ok ? { year: fv.year, from: fv.from, to: fv.to, d1: fv.d1, d2: fv.d2 } : PERIOD_ALL);
+  }, [fv.year, fv.from, fv.to, fv.d1, fv.d2, minStart]); // eslint-disable-line react-hooks/exhaustive-deps
   // ช่องช่วงประเมินว่าง = ตามช่วงของตัวกรองรวม (ทุกปีได้) ไม่เทียบ Baseline · เลือกช่วง = เทียบ Baseline 12 เดือน (เจ้าของงานสั่ง 30 ก.ย. 2569)
   const piF = useMemo<DemoFilter>(() => (!piPeriod.year ? { ...fv, noBase: true }
     : { ...fv, year: piPeriod.year, from: piPeriod.from, to: piPeriod.to, d1: piPeriod.d1, d2: piPeriod.d2 }), [fv, piPeriod]);
