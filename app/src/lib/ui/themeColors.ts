@@ -176,10 +176,10 @@ export type ThemeColors = Record<string, string>;
 
 /** ชุดสำเร็จรูป — เลือกแล้วเขียนทับทุกจุด (แก้รายจุดต่อได้) */
 export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
-  // ค่าตั้งต้นเปลี่ยน 29 ก.ย. 2569 ตามไฟล์ theme-export.json ที่เจ้าของงานส่ง (พื้นสว่าง · เมนูแดง · หัวกรมท่า + สีรายแท็บ DEFAULT_SCOPE_COLORS)
-  { name: "ค่าตั้งต้น (สว่าง · เมนูแดง)", colors: {} },
-  // ค่าตั้งต้นเดิมก่อน 29 ก.ย. 2569 — เก็บไว้เลือกกลับได้
-  { name: "กรมท่า + ทราย (ค่าตั้งต้นเดิม)", colors: { pageTop: "#1E2D37", pageBottom: "#0A1319", pageGlow: "#1E2D37", pageText: "#EEE8EA", pageMuted: "#8E9BA3", partBg: "#EEE8EA", partBorder: "#3A474F", sideTop: "#E7CBA9", sideBottom: "#BEC2C3", sideText: "#4B3B3B", sideActiveBg: "#FFFFFF", sideActiveText: "#590212", accent: "#590212", headBg: "#FCEFF2", headBorder: "#590212", headTitle: "#6A0F1B", headLine: "#E4CDD3", sg1: "#5E0718", secA: "#5E0718" } },
+  // ค่าตั้งต้นรอบ 29 ก.ย. 2569 = ดีไซน์ที่เจ้าของงานปรับเองในหน้านี้ (ย้ายจาก localStorage ของเครื่องเจ้าของงานมาเป็นโค้ด)
+  { name: "ค่าตั้งต้น (ดีไซน์ปัจจุบัน)", colors: {} },
+  // ค่าตั้งต้นเดิม 28 ก.ย. 2569 เก็บไว้เป็นชุดให้เลือกกลับได้
+  { name: "กรมท่า + ทราย (เดิม)", colors: { pageTop: "#1E2D37", pageBottom: "#0A1319", pageGlow: "#1E2D37", pageText: "#EEE8EA", pageMuted: "#8E9BA3", partBg: "#EEE8EA", partBorder: "#3A474F", sideTop: "#E7CBA9", sideBottom: "#BEC2C3", sideText: "#4B3B3B", sideActiveBg: "#FFFFFF", sideActiveText: "#590212", accent: "#590212", headBg: "#FCEFF2", headBorder: "#590212", headTitle: "#6A0F1B", headLine: "#E4CDD3", sg1: "#5E0718", secA: "#5E0718" } },
   {
     name: "ชมพูเชอร์รี (ธีมก่อนหน้า)",
     colors: {
@@ -317,6 +317,49 @@ export const DEFAULT_SCOPE_COLORS: Record<string, ThemeColors> = {
 };
 const SCOPE_OK = new Set(SCOPE_TOKENS.map((t) => t.key));
 
+/**
+ * สีรายแท็บตั้งต้นของทุกเครื่อง = ที่เจ้าของงานปรับเองในหน้านี้ (ย้ายจาก localStorage มาเป็นโค้ด 29 ก.ย. 2569)
+ * ใช้เมื่อเครื่องนั้นยังไม่เคยบันทึกสีรายแท็บ (ไม่มีคีย์ dashThemeScopes) — เคยบันทึกแล้ว = ใช้ของเครื่องนั้นทั้งก้อน
+ */
+export const DEFAULT_SCOPE_COLORS: Record<string, ThemeColors> = {
+  "demo:route": {
+    "partBorder": "#6C6519",
+    "pageMuted": "#EBEBEB",
+    "partBg": "#C7C7C7",
+    "pageText": "#344783",
+    "partAlpha": "0"
+  },
+  "demo:item2": {
+    "pageText": "#2243A5",
+    "partAlpha": "100",
+    "partBg": "#FFFFFF",
+    "custA": "#660505",
+    "lossA": "#FF2E2E",
+    "costA": "#E0298B",
+    "lossB": "#FA0526"
+  },
+  "demo:cust": {
+    "lossA": "#C52645",
+    "profitA": "#B28024"
+  },
+  "demo:svc": {
+    "lossA": "#D08686",
+    "lossB": "#DA5D80",
+    "i2EmptyCostA": "#E1A8B4",
+    "i2EmptyCostB": "#DB9EAC",
+    "fleet": "#A1455D",
+    "custB": "#B7526C",
+    "dmgInk": "#4C1A1A"
+  },
+  "demo:pi": {
+    "piTotalBg": "#E8D4B1"
+  },
+  "overall:detail3": {
+    "fleet": "#DDA836",
+    "svc": "#459EB0"
+  }
+};
+
 /** สีที่ตั้งเองของทุกแท็บ — คีย์ scope/token ที่ไม่รู้จักหรือค่าเพี้ยนทิ้งเงียบ ๆ */
 export function loadAllScopeColors(): Record<string, ThemeColors> {
   try {
@@ -349,7 +392,7 @@ export function saveScopeColors(scope: string, colors: ThemeColors): void {
   if (Object.keys(c).length) all[scope] = c;
   else delete all[scope];
   try {
-    // ว่างก็เก็บ "{}" — ลบคีย์ทิ้งแล้วสีรายแท็บตั้งต้น (DEFAULT_SCOPE_COLORS) จะกลับมาเอง
+    // เก็บเสมอแม้ว่าง ("{}") — ลบคีย์ทิ้งจะทำให้สีตั้งต้น DEFAULT_SCOPE_COLORS กลับมาหลังผู้ใช้ล้างเอง
     localStorage.setItem(SCOPE_KEY, JSON.stringify(all));
   } catch { /* โหมดส่วนตัว */ }
   window.dispatchEvent(new Event(THEME_EVENT));
