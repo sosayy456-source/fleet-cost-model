@@ -35,6 +35,11 @@
                       — คัดในนี้เพื่อให้ฝั่งแอปกับบิลที่แนบไปตรงกันเสมอ
     bills_00..3f.json  บิลล่าสุดสูงสุด 100 ใบต่อรายต่อเดือน เฉพาะลูกค้าที่เปิดดูได้
                       (ci · เลขที่บิล · วันที่ · เลขที่ใบรายการ · เส้นทาง · รายได้ · ต้นทุนจัดสรร)
+    trip_bills_XX.ndjson  บิลทุกใบของทุกเที่ยวที่จับคู่ได้ แยกไฟล์ตามเลขที่ใบรายการ (tripShard) — ป็อบอัพรายการบิล
+                      ของตาราง "เที่ยวรถที่กำลังวิ่ง" ใน Manager Dashboard (เจ้าของงานขอ 28 ก.ย. 2569) · 1 บรรทัด = 1 บิล
+                      [ใบรายการ, บิล, วันที่, ci (−1 = ไม่เข้าลูกค้า), เหตุที่ไม่เข้าลูกค้า, เส้นทาง, ประเภทสินค้า,
+                       น้ำหนัก กก., ปริมาตร ลบ.ม., รายได้, ต้นทุนจัดสรร, ส่วนที่ปันตามรายได้]
+                      เขียนต่อท้ายทีละไฟล์บิลระหว่างรอบสาม ไม่พักทั้งหมดในหน่วยความจำ (ข้อมูลจริง ~2 ล้านบิล)
 
 กติกาที่เจ้าของข้อมูลชี้ขาด (16 ก.ย. 2569):
     ลูกค้า = ผู้จ่ายเงิน — สด/เชื่อต้นทาง → ผู้ส่ง · สด/เชื่อปลายทาง → ผู้รับ
@@ -57,7 +62,9 @@ import heapq
 import json
 import statistics
 import sys
+import re
 from collections import Counter, defaultdict
+from typing import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -65,6 +72,10 @@ from build_costrev import find_header_row, iter_sheet, parse_date, utf8_stdout, 
 from src.capacity import CF_MEDIAN, Capacity
 from src.custcodes import resolve_codes
 from src.progress import report, span
+from src.excluded_bills import ABSURD_KG, RULES_VERSION, excluded_list, is_absurd_weight, is_excluded, weight_kg
+
+#: บิลที่ตัดทิ้งอัตโนมัติเพราะน้ำหนักเกิน ABSURD_KG (เลขที่บิล → ใบรายการ, กก.) — manifest.absurdWeight
+ABSURD_SEEN: dict[str, tuple[str, float]] = {}
 from src.alloc import (
     DIST_EXACT,
     DIST_FALLBACK,
@@ -112,6 +123,42 @@ TOP_N = 100
 MARGIN_TOP_N = 10
 DETAIL_BILLS = 100
 BILL_SHARDS = 64
+#: จำนวนไฟล์ย่อยของ trip_bills — ชุดจริงบิลหลักล้านใบ แบ่งละเอียดให้แต่ละไฟล์ราว 1 MB · ชุดตัวอย่างไม่ต้องมาก
+TRIP_BILL_SHARDS = {"real": 256, "sample": 16}
+#: ป้ายของบิลที่ไม่มีผู้จ่ายเงิน (ประเภทการชำระไม่รู้จัก) — ไม่นับเป็นลูกค้า
+NO_PAYER = "ไม่มีผู้จ่าย"
+
+
+def trip_shard(doc: str, shards: int) -> int:
+    """ไฟล์ย่อยของเลขที่ใบรายการ — ผลรวมรหัสอักขระ ต้องตรงกับ tripShard() ใน app/src/lib/data/tripBills.ts"""
+    return sum(map(ord, doc)) % shards
+
+
+class TripBillWriter:
+    """เขียนบิลรายใบของทุกเที่ยวลง trip_bills_XX.ndjson แบบต่อท้าย — ลบไฟล์ชุดเก่าก่อนเริ่ม"""
+
+    def __init__(self, out: Path, shards: int) -> None:
+        out.mkdir(parents=True, exist_ok=True)
+        for old in out.glob("trip_bills_*.ndjson"):
+            old.unlink()
+        self.shards = shards
+        self.files = [open(out / f"trip_bills_{i:02x}.ndjson", "w", encoding="utf-8", newline="\n")
+                      for i in range(shards)]
+        self.bills = 0
+        self.docs: set[str] = set()
+
+    def write(self, rows) -> None:
+        for r in rows:
+            row = [r[0], r[1], r[2], r[3], r[4], r[5], r[6],
+                   round(r[7], 2), round(r[8], 4), round(r[9], 2), round(r[10], 2), round(r[11], 2)]
+            self.files[trip_shard(r[0], self.shards)].write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+            self.bills += 1
+            self.docs.add(r[0])
+
+    def close(self) -> dict:
+        for f in self.files:
+            f.close()
+        return {"shards": self.shards, "bills": self.bills, "docs": len(self.docs)}
 #: ขอบช่วง %Margin ต้องตรงกับ BUCKETS ใน CustomerProfitTab.tsx
 MARGIN_LIMITS = (-20, -10, 0, 10, 20, 30, 40)
 #: ลูกค้าที่รายได้จากรายการที่ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้) ≥ สัดส่วนนี้ = ติดป้าย "ปันตามรายได้" ในแอป
@@ -121,6 +168,45 @@ REVIEW_SHARE = 0.5
 FLAG_REV = 5
 
 CustKey = tuple[str, str]
+
+
+def cust_key(it) -> CustKey:
+    """คีย์ลูกค้า = ("", รหัสผู้จ่ายเงิน) — **ไม่แยกฝ่าย** (เจ้าของงานสั่ง 28 ก.ย. 2569)
+    เดิมคีย์ (ฝ่าย, รหัส) รายเดียวกันที่เคยจ่ายทั้งฐานะผู้ส่งและผู้รับจึงขึ้นสองแถว ค้นรหัสแล้วเจอซ้ำ
+    ฝ่ายที่เคยจ่ายเก็บแยกใน Rollup.sides แล้วเขียนเป็นคอลัมน์ side ("ผู้ส่ง" · "ผู้รับ" · "ผู้ส่ง+ผู้รับ")
+    · ช่องแรกของคีย์คงไว้ (ว่างเสมอ) ให้โครง tuple เดิมใช้ต่อได้ทั้งไฟล์"""
+    return "", payer_of(it)[1]
+
+
+CUS_TEXT = re.compile(r"CUS(\d{7})", re.I)
+
+
+def canonical_groups(codes: list[str], numbers: dict[str, int]) -> tuple[dict[str, str], dict[str, int]]:
+    """รวมรหัสที่เป็นลูกค้ารายเดียวกัน → (รหัสดิบ -> รหัสตัวแทน, รหัสตัวแทน -> เลข CUS)
+
+    ไฟล์บิลเขียนผู้จ่ายเงินได้สองแบบ: รหัสต้นฉบับ hash 64 ตัว (แปลงเป็นเลข CUS ผ่าน custmap) หรือข้อความ "CUS0021745"
+    ตรง ๆ · รายเดียวกันจึงเป็นคนละคีย์แล้วขึ้นสองแถวที่รหัสบนจอเหมือนกัน (เจ้าของงานเจอ 28 ก.ย. 2569 — ชุดตัวอย่าง 1,459 ราย)
+    · จัดกลุ่มด้วยเลข CUS ที่ได้ · ตัวแทน = hash ที่มีเลข (เก็บรหัสต้นฉบับไว้) ถ้าไม่มีใช้ข้อความ CUS · ไม่มีเลข = อยู่คนเดียว
+    """
+    groups: dict[object, list[str]] = defaultdict(list)
+    for c in codes:
+        m = CUS_TEXT.fullmatch(c.strip())
+        num = numbers.get(c) or (int(m.group(1)) if m else 0)
+        groups[num if num else ("raw", c)].append(c)
+    alias: dict[str, str] = {}
+    nums: dict[str, int] = {}
+    for key, members in groups.items():
+        rep_ = min(members, key=lambda c: (CUS_TEXT.fullmatch(c.strip()) is not None, c))
+        for c in members:
+            alias[c] = rep_
+        if isinstance(key, int):
+            nums[rep_] = key
+    return alias, nums
+
+
+def side_label(sides: set[str]) -> str:
+    """ฝ่ายที่ลูกค้ารายนั้นเคยจ่าย — ลำดับผู้ส่งก่อนเสมอ"""
+    return "+".join(x for x in ("ผู้ส่ง", "ผู้รับ") if x in sides) or "ผู้ส่ง"
 
 
 def needs_review(revenue: float, flag_rev: float) -> bool:
@@ -168,6 +254,10 @@ class Rollup:
         # จึงอยู่เดือนเดียว ผลรวมทุกเดือนของรายหนึ่งเท่ากับ self.cust เสมอ)
         self.cust_mo: dict[tuple[str, str, str], list[float]] = defaultdict(lambda: [0.0] * (FLAG_REV + 1 + len(FLAGS)))
         self.flag_items: Counter[str] = Counter()
+        # รหัส -> ฝ่ายที่เคยจ่าย (ผู้ส่ง/ผู้รับ) — คอลัมน์ side ของ customers.json
+        self.sides: dict[str, set[str]] = defaultdict(set)
+        # รหัสตัวแทน -> เลข CUS (ตั้งใน canonicalize)
+        self.numbers: dict[str, int] = {}
         self.months: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
         self.dist_src: Counter[str] = Counter()
         self.basis_cond: Counter[int] = Counter()
@@ -207,12 +297,14 @@ class Rollup:
             return
 
         self.allocated += alloc
-        side, code = payer_of(it)
+        real_side, code = payer_of(it)
+        side = ""                                   # ไม่แยกฝ่าย — ดู cust_key()
         if not code:
             self.no_payer[0] += 1
             self.no_payer[1] += it.revenue
             return
 
+        self.sides[code].add(real_side)
         if it.month:
             m = self.months[it.month]
             m[0] += it.revenue; m[1] += alloc; m[2] += profit; m[3] += 1
@@ -264,6 +356,28 @@ class Rollup:
         return n
 
     # ---------------- ลำดับลูกค้า + รายที่เปิดดูบิลได้ต่อช่วงเวลา ----------------
+    def canonicalize(self, numbers_of: Callable[[set[str]], dict[str, int]]) -> dict[str, str]:
+        """รวมรหัสดิบของลูกค้ารายเดียวกันเป็นคีย์เดียว (canonical_groups) — เรียกหลังปันและเกลี่ยเศษครบ ก่อนจัดอันดับ
+        คืน รหัสดิบ -> รหัสตัวแทน ให้รอบสาม (collect_bills) ใช้หาลูกค้าของบิล · เลข CUS เก็บไว้ที่ self.numbers"""
+        raw = sorted({k[1] for k in self.cust})
+        alias, self.numbers = canonical_groups(raw, numbers_of(set(raw)))
+        width = FLAG_REV + 1 + len(FLAGS)
+
+        def fold(src: dict, key_of) -> dict:
+            out: dict = defaultdict(lambda: [0.0] * width)
+            for k, v in src.items():
+                acc = out[key_of(k)]
+                for i, x in enumerate(v):
+                    acc[i] += x
+            return out
+        self.cust = fold(self.cust, lambda k: ("", alias[k[1]]))
+        self.cust_mo = fold(self.cust_mo, lambda k: ("", alias[k[1]], k[2]))
+        sides: dict[str, set[str]] = defaultdict(set)
+        for c, v in self.sides.items():
+            sides[alias.get(c, c)] |= v
+        self.sides = sides
+        return alias
+
     def order(self) -> list[CustKey]:
         """ลำดับลูกค้าที่ใช้เป็นดัชนี ci ในทุกไฟล์ — ขาดทุนมากสุดขึ้นก่อน (ลำดับเดิมของ customers.json)"""
         return [k for k, _ in sorted(self.cust.items(), key=lambda kv: kv[1][3])]
@@ -349,17 +463,10 @@ class Rollup:
         order = self.order()                                        # ขาดทุนมากสุดขึ้นก่อน
         index = {k: i for i, k in enumerate(order)}
         rows = [(k, self.cust[k]) for k in order]
-        # ชุดตัวอย่างใช้รหัสที่บันทึกอยู่ใน JSON ตัวอย่างเดิม ไม่อ่านตารางข้อมูลจริง custmap.bin
-        if manifest.get("isSample"):
-            old_path = out / "customers.json"
-            old = json.loads(old_path.read_text(encoding="utf-8")) if old_path.exists() else {}
-            codes = dict(zip(old.get("code", []), old.get("n", [])))
-        else:
-            codes = resolve_codes(ROOT, {k[1] for k, _ in rows})
         customers = {
-            "side": [k[0] for k, _ in rows],
+            "side": [side_label(self.sides.get(k[1], set())) for k, _ in rows],
             "code": [k[1] for k, _ in rows],
-            "n": [codes.get(k[1], 0) for k, _ in rows],
+            "n": [self.numbers.get(k[1], 0) for k, _ in rows],
             "bills": [int(v[0]) for _, v in rows],
             "revenue": [round(v[1], 2) for _, v in rows],
             "cost": [round(v[2], 2) for _, v in rows],
@@ -524,7 +631,7 @@ BILL_COLS = {
     "weight": "น้ำหนักรวม", "qty": "จำนวน", "width": "กว้าง", "length": "ยาว", "height": "สูง",
     "name": "ชื่อสินค้า", "revenue": "ราคารวม", "payment": "ประเภทการชำระเงิน",
     "sender": "ผู้ส่ง_encoded", "receiver": "ผู้รับ_encoded", "goods": "ประเภทสินค้า",
-    "date": "วันที่",
+    "date": "วันที่", "unit_kg": "น้ำหนักต่อหน่วย",
 }
 
 
@@ -553,6 +660,14 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
         doc = txt(g("doc"))
         if not doc:
             continue
+        # บิลที่ข้อมูลผิดจนใช้ไม่ได้ (src/excluded_bills.py) — ทุกรอบของการปันส่วนอ่านผ่านตัวนี้
+        if is_excluded(g("bill")):
+            continue
+        # น้ำหนักเกินพันตัน = กรอกผิดแน่ ตัดทิ้งทั้งบิล (กติกาเดียวกับ build_costrev · เจ้าของงานสั่ง 28 ก.ย. 2569)
+        q_, u_, t_ = num(g("qty")), num(g("unit_kg")), num(g("weight"))
+        if is_absurd_weight(q_, u_, t_):
+            ABSURD_SEEN[txt(g("bill"))] = (doc, weight_kg(q_, u_, t_))
+            continue
         d = parse_date(g("date"))
         it = Item(
             doc=doc, bill=txt(g("bill")), origin=txt(g("origin")), dest=txt(g("dest")),
@@ -569,8 +684,8 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
 
 
 # ================================================================ ปันส่วนจากไฟล์ดิบ
-def from_raw(cost_files: list[Path], rev_files: list[Path],
-             routes: dict[str, dict[str, float]]) -> tuple[Rollup, dict, dict, list[list]]:
+def from_raw(cost_files: list[Path], rev_files: list[Path], routes: dict[str, dict[str, float]],
+             numbers_of: Callable[[set[str]], dict[str, int]], trip_out: TripBillWriter) -> tuple[Rollup, dict, dict, list[list]]:
     """คำนวณเองจากไฟล์ดิบด้วยสูตรใน src/alloc.py — เดินไฟล์บิลสองรอบ
 
     ★ ไม่เก็บรายการไว้ในหน่วยความจำ ข้อมูลจริง 29 ไฟล์ = 5.2 ล้านแถว ถ้าอ่านค้าง
@@ -656,7 +771,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
             rounded_sum[it.doc] += alloc
             b = biggest.get(it.doc)
             if b is None or raw > b[0]:
-                side, code = payer_of(it) if not excluded else ("", "")
+                side, code = cust_key(it) if not excluded else ("", "")
                 biggest[it.doc] = (raw, (fi, n), (excluded, side, code, it.month))
         bills = roll.flush_file()
         print(f"  {path.name}: บิลที่ปันได้ {bills:,}")
@@ -671,6 +786,9 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
     off = sum(1 for d in biggest if abs(trip_cost[d] - rounded_sum[d] - adj.get(biggest[d][1], 0)) > 1e-6)
     print(f"  ปัดเศษ: เกลี่ยส่วนต่าง {len(adj):,} เที่ยว · เที่ยวที่ยอดรวมยังไม่ตรง {off:,}")
 
+    alias = roll.canonicalize(numbers_of)
+    print(f"  รวมรหัสลูกค้ารายเดียวกัน: รหัสดิบ {len(alias):,} → ลูกค้า {len(roll.cust):,} ราย")
+
     report(75, "จัดอันดับลูกค้า")
     print("จัดอันดับ Top 100 กำไร/ขาดทุน และ Top 10 ของทุกช่วง Margin")
     order = roll.order()
@@ -681,9 +799,13 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
             wanted[order[ci]] = ci
     print(f"  ช่วงเวลา {len(top):,} ชุด · ลูกค้าที่ติดอันดับ {len(wanted):,} ราย")
 
-    print("รอบสาม: เก็บบิลรายใบของลูกค้าที่ติดอันดับ")
-    bills = collect_bills(rev_files, routes, trip_cost, ttype, divisor, fill_km, from_median, wanted, cfs, adj)
-    print(f"  บิลที่เก็บ {len(bills):,} ใบ")
+    print("รอบสาม: เก็บบิลรายใบของลูกค้าที่ติดอันดับ + บิลทุกใบของทุกเที่ยว (trip_bills)")
+    cust_index = {k: i for i, k in enumerate(order)}
+    bills = collect_bills(rev_files, routes, trip_cost, ttype, divisor, fill_km, from_median, wanted, cfs, adj,
+                          cust_index, trip_out, alias)
+    trip_info = trip_out.close()
+    print(f"  บิลที่เก็บ {len(bills):,} ใบ · บิลรายเที่ยว {trip_info['bills']:,} ใบ จาก {trip_info['docs']:,} เที่ยว"
+          f" / {trip_info['shards']} ไฟล์")
 
     matched = sorted(docs_in_bills & set(trip_cost))
     info = {
@@ -708,6 +830,7 @@ def from_raw(cost_files: list[Path], rev_files: list[Path],
             "tripsAdjusted": len(adj),
             "tripsOff": off,
         },
+        "tripBills": trip_info,
         "cost": {
             "inCostReport": round(sum(trip_cost.values()), 2),
             "allocatable": round(sum(trip_cost[d] for d in matched), 2),
@@ -738,8 +861,12 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
                   trip_cost: dict[str, float], ttype: dict[str, str],
                   divisor: dict[str, tuple[float, str, float, float]], fill_km: dict[str, float],
                   from_median: dict[str, bool], wanted: dict[CustKey, int],
-                  cfs: dict[str, float], adj: dict[tuple[int, int], float]) -> list[list]:
+                  cfs: dict[str, float], adj: dict[tuple[int, int], float],
+                  cust_index: dict[CustKey, int], trip_out: TripBillWriter,
+                  alias: dict[str, str] | None = None) -> list[list]:
     """บิลล่าสุดสูงสุด 100 ใบต่อรายต่อเดือน ใช้ตัวหาร/CF/ส่วนต่างปัดเศษชุดเดียวกับรอบสอง
+    + บิลทุกใบของทุกเที่ยวที่จับคู่ได้ → trip_out (รวมบิลเคลียร์/เที่ยวตีเปล่า/ไม่มีผู้จ่าย พร้อมป้ายเหตุ) — ต้นทุนของบิลทุกใบ
+      ในเที่ยวรวมกันเท่าต้นทุนเที่ยวพอดี (ส่วนต่างปัดเศษชุดเดียวกับรอบสอง)
 
     คืน [ci, เลขที่บิล, วันที่, เลขที่ใบรายการ, เส้นทาง, รายได้, ต้นทุนจัดสรร,
          น้ำหนัก กก., ปริมาตร ลบ.ม., ระยะทาง, CF, น้ำหนักเทียบเท่า กก., Metric กก.-กม., สัดส่วน, ต้นทุนส่วนที่ปันตามรายได้] ต่อบิล
@@ -752,13 +879,11 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
         n = 0
         # ต้องรวมรายการของบิลเดียวกันให้ครบก่อนคัด 100 ใบ จึงพักเฉพาะไฟล์ปัจจุบัน
         acc: dict[str, list] = {}
+        trip_acc: dict[tuple[str, str], list] = {}
         for it in item_reader(path):
             n += 1
             cost = trip_cost.get(it.doc)
-            if cost is None or exclusion_of(it, ttype.get(it.doc, "")):
-                continue
-            ci = wanted.get(payer_of(it))
-            if ci is None:
+            if cost is None:
                 continue
             measure(it, routes, cfs[it.doc])
             if it.dist is None:
@@ -768,6 +893,28 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
             share = share_in_trip(it, *divisor[it.doc])
             alloc = round(cost * share, 2) + adj.get((fi, n), 0.0)
             by_rev = alloc if (it.flag and divisor[it.doc][2]) else 0.0
+            excluded = exclusion_of(it, ttype.get(it.doc, ""))
+            payer = payer_of(it)
+            # คีย์ลูกค้ารวมรหัสรายเดียวกันแล้ว (cust_key + alias ของ Rollup.canonicalize — โมเดล-Anda 28 ก.ย. 2569)
+            ckey = ("", (alias or {}).get(payer[1], payer[1]))
+            # บิลทุกใบของเที่ยว (trip_bills) — ไม่ขึ้นกับการติดอันดับ
+            t = trip_acc.get((it.doc, it.bill))
+            if t is None:
+                tag = excluded or ("" if payer[1] else NO_PAYER)
+                route = f"{it.origin}→{it.dest}" if it.origin and it.dest else it.origin or it.dest or "(ไม่ระบุ)"
+                trip_acc[(it.doc, it.bill)] = [it.doc, it.bill, it.date, -1 if tag else cust_index.get(ckey, -1), tag,
+                                               route, it.goods, max(it.weight, 0.0), it.cbm, it.revenue, alloc, by_rev]
+            else:
+                t[7] += max(it.weight, 0.0)
+                t[8] += it.cbm
+                t[9] += it.revenue
+                t[10] += alloc
+                t[11] += by_rev
+            if excluded:
+                continue
+            ci = wanted.get(ckey)
+            if ci is None:
+                continue
             b = acc.get(it.bill)
             if b is None:
                 route = f"{it.origin}→{it.dest}" if it.origin and it.dest else it.origin or it.dest or "(ไม่ระบุ)"
@@ -784,6 +931,7 @@ def collect_bills(rev_files: list[Path], routes: dict[str, dict[str, float]],
                 b[13] += share
                 b[14] += by_rev
         seq = keep_recent_bills(kept, list(acc.values()), seq)
+        trip_out.write(trip_acc.values())
     return [entry[3] for heap in kept.values() for entry in heap]
 
 
@@ -803,12 +951,25 @@ def build(dataset: str) -> None:
         sys.exit(f"ไม่มีไฟล์บิลใน {REAL_REV_DIR if dataset == 'real' else SAMPLE_REV_DIR}")
     routes: dict[str, dict[str, float]] = json.loads(ROUTES_JSON.read_text(encoding="utf-8"))
     print(f"ตารางระยะทาง {sum(len(v) for v in routes.values()):,} คู่")
-    roll, info, top, bills = from_raw(cost_files, rev_files, routes)
-
     out = OUT_ROOT / dataset / "alloc"
+    # เลข CUS ของรหัสต้นฉบับ — ชุดตัวอย่างใช้เลขที่บันทึกอยู่ใน JSON ตัวอย่างเดิม ไม่อ่านตารางข้อมูล
+    if dataset == "sample":
+        old_path = out / "customers.json"
+        old = json.loads(old_path.read_text(encoding="utf-8")) if old_path.exists() else {}
+        sample_nums = {c: n for c, n in zip(old.get("code", []), old.get("n", [])) if n}
+        numbers_of = lambda _codes: sample_nums  # noqa: E731
+    else:
+        numbers_of = lambda codes: resolve_codes(ROOT, codes)  # noqa: E731
+    roll, info, top, bills = from_raw(cost_files, rev_files, routes, numbers_of, TripBillWriter(out, TRIP_BILL_SHARDS[dataset]))
+
     manifest = {
         "dataset": dataset,
         "isSample": dataset == "sample",
+        # บิลที่ตัดทิ้งตอนแปลงรอบนี้ — plugin autoEtl เทียบกับ src/excluded_bills.py ไม่ตรง = แปลงใหม่เอง
+        "excludedBills": excluded_list(), "excludeRules": RULES_VERSION,
+        "absurdWeight": {"limitKg": ABSURD_KG, "bills": len(ABSURD_SEEN),
+                         "list": [{"bill": b_, "doc": d_, "kg": round(k_)} for b_, (d_, k_) in
+                                  sorted(ABSURD_SEEN.items(), key=lambda x: -x[1][1])[:50]]},
         "generatedAt": datetime.now().replace(microsecond=0).isoformat(),
         **info,
     }

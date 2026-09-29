@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildBench, buildTrips, fileSrc, issueCounts, issueLabel, managerTodo, marginBand, marginOf, overallBand, recordSrc } from "./manager";
+import { buildBench, buildTrips, fileSrc, issueCounts, issueLabel, managerTodo, marginBand, marginOf, overallBand, recordSrc, tripThresholds } from "./manager";
+
+const TH = { lf: { p30: 40, p70: 70 }, margin: { p75: 10 } };
 import { buildForecast } from "../forecast/forecast";
 import type { Trip } from "../data/useCostRev";
 import type { TripRecord } from "../../types/record";
 
 describe("สถานะรวม LF + Margin ของแท็บหน้างาน", () => {
-  it("เกณฑ์ Margin > 10 / 5–10 / < 5 (10 พอดี = เหลือง)", () => {
-    expect([10.1, 10, 5, 4.9].map(marginBand)).toEqual(["g", "y", "y", "r"]);
+  it("เกณฑ์ Margin = เกณฑ์ PI: ขาดทุนแดง · ≥ P75 เขียว · ที่เหลือเหลือง", () => {
+    expect([10, 9.9, 0, -0.1].map((v) => marginBand(v, TH))).toEqual(["g", "y", "y", "r"]);
+    expect([marginBand(-5, { lf: null, margin: null }), marginBand(5, { lf: null, margin: null })]).toEqual(["r", null]);
+  });
+  it("tripThresholds = PERCENTILE.INC ของชุดอ้างอิง (LF P30/P70 · Margin P75)", () => {
+    expect(tripThresholds([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], [0, 10, 20, 30, 40])).toEqual({ lf: { p30: 30, p70: 70 }, margin: { p75: 30 } });
+    expect(tripThresholds([], [])).toEqual({ lf: null, margin: null });
   });
   it("Margin รายได้ 0 แล้วขาดทุน = −100 · ไม่มีรายได้และไม่ขาดทุน = null", () => {
     expect(marginOf(0, -500)).toBe(-100);
@@ -44,7 +51,7 @@ describe("คำแนะนำรายเที่ยว", () => {
   });
   it("ชี้กลุ่มต้นทุนที่สูงกว่าเฉลี่ย", () => {
     const bad = T("bad", { fuel: 9000, cost: 12000, profit: -2000 });
-    const [r] = buildTrips(F([bad, ...base], [["bad", 0.9]])).filter((t) => t.id === "bad");
+    const [r] = buildTrips(F([bad, ...base], [["bad", 0.9]]), [], TH).filter((t) => t.id === "bad");
     expect(r!.band).toBe("r");
     expect(r!.advice.join(" ")).toMatch(/^ขาดทุน: ค่าน้ำมันสูงกว่าเฉลี่ย/);
     expect(r!.issues).toEqual(["loss", "cost:fuel"]);
@@ -52,20 +59,20 @@ describe("คำแนะนำรายเที่ยว", () => {
   });
   it("นับปัญหาต่อเที่ยว + กล่องต้องจัดการไม่ซ้ำรายการขาดทุน/รอบัญชี", () => {
     const bad = T("bad", { fuel: 9000, cost: 12000, profit: -2000 });
-    const ts = buildTrips(F([bad, ...base], [["bad", 0.9], ["a", 0.3], ["b", 0.3]]));
+    const ts = buildTrips(F([bad, ...base], [["bad", 0.9], ["a", 0.3], ["b", 0.3]]), [], TH);
     expect(issueCounts(ts)).toEqual([{ key: "lfLow", n: 2 }, { key: "cost:fuel", n: 1 }, { key: "loss", n: 1 }]);
     const todo = managerTodo(ts, []);
     expect(todo).toMatchObject({ fail: 1, failLoss: 1, est: 0, topIssue: { key: "lfLow", n: 2 } });
   });
   it("LF ต่ำแต่กำไรดี = เฝ้าระวัง พร้อมคำแนะนำด้านการบรรทุก", () => {
-    const [r] = buildTrips(F(base, [["a", 0.3]]));
+    const [r] = buildTrips(F(base, [["a", 0.3]]), [], TH);
     expect(r!.band).toBe("y");
     expect(r!.advice).toEqual(["รถว่างมาก — รวมบิลเส้นทางเดียวกันเพิ่มหรือใช้รถคันเล็กลง"]);
   });
   it("ต้นทุนใกล้ค่าเฉลี่ยแต่ Margin ต่ำ = ให้ทบทวนราคา", () => {
     const low = base.map((t) => ({ ...t, rev: 8300, profit: 300 }));
-    const [r] = buildTrips(F(low, [["a", 0.9]]));
-    expect(r!.advice).toEqual(["Margin ต่ำมาก — ต้นทุนใกล้ค่าเฉลี่ย ทบทวนราคาค่าขนส่ง"]);
+    const [r] = buildTrips(F(low, [["a", 0.9]]), [], TH);
+    expect(r!.advice).toEqual(["Margin ต่ำ — ต้นทุนใกล้ค่าเฉลี่ย ทบทวนราคาค่าขนส่ง"]);
   });
 });
 
@@ -93,7 +100,7 @@ describe("ใบที่บันทึกใหม่ในโมเดล", (
     expect(r).toMatchObject({ costEst: false, cost: 7500, profit: 2500 });
   });
   it("ต้นทุนพยากรณ์ขึ้นคำแนะนำรอฝ่ายบัญชี ไม่ชี้กลุ่มต้นทุน", () => {
-    const [, , , n] = buildTrips(F(file), recordSrc([R("6000000000009", { revenue: 8300 })], ids, fc));
-    expect(n!.advice).toEqual(["Margin ต่ำมาก (ต้นทุนพยากรณ์) — ทบทวนราคาค่าขนส่ง", "รอฝ่ายบัญชีกรอกค่าใช้จ่าย (ตอนนี้ใช้ต้นทุนพยากรณ์)"]);
+    const [, , , n] = buildTrips(F(file), recordSrc([R("6000000000009", { revenue: 8300 })], ids, fc), TH);
+    expect(n!.advice).toEqual(["Margin ต่ำ (ต้นทุนพยากรณ์) — ทบทวนราคาค่าขนส่ง", "รอฝ่ายบัญชีกรอกค่าใช้จ่าย (ตอนนี้ใช้ต้นทุนพยากรณ์)"]);
   });
 });

@@ -26,15 +26,18 @@ describe("ช่วงเวลา รายวัน / รายเดือน
   });
 });
 
-describe("เกณฑ์ Load Factor ของหน้านี้ ≥ 70 / 40–<70 / < 40", () => {
-  it("ขอบเขต", () => {
-    expect([70, 69.9, 40, 39.9].map(lfBand)).toEqual(["g", "y", "y", "r"]);
+const TH = { lf: { p30: 40, p70: 70 }, margin: { p75: 10 } };
+
+describe("เกณฑ์ Load Factor = เกณฑ์ PI (> P70 / P30–P70 / < P30)", () => {
+  it("ขอบเขต (ขอบพอดี = เหลือง) · ไม่มีเกณฑ์ = null", () => {
+    expect([70.1, 70, 40, 39.9].map((v) => lfBand(v, TH))).toEqual(["g", "y", "y", "r"]);
+    expect(lfBand(90, { lf: null, margin: null })).toBeNull();
   });
 });
 
 const trip = (d: string, km: number | null, lf: number | null = 80): MgrTrip => ({
-  id: d, br: "เชียงใหม่", d, eta: runEnd(d, km), o: "ก", de: "ข", vk: "รถ 6 ล้อ", lf, lfb: lf == null ? null : lfBand(lf),
-  margin: null, mb: null, band: lf == null ? null : lfBand(lf), advice: [], issues: [], rev: 0, cost: 0, profit: 0, empty: false, src: "file", costEst: false,
+  id: d, br: "เชียงใหม่", d, eta: runEnd(d, km), o: "ก", de: "ข", vk: "รถ 6 ล้อ", lf, lfb: lf == null ? null : lfBand(lf, TH),
+  margin: null, mb: null, band: lf == null ? null : lfBand(lf, TH), advice: [], issues: [], rev: 0, cost: 0, profit: 0, empty: false, src: "file", costEst: false,
 });
 
 describe("กำลังวิ่ง = [วันปล่อยรถ, วันที่คาดว่าถึง] ทับช่วงที่เลือก", () => {
@@ -81,7 +84,8 @@ describe("ลูกหนี้ — ยอดคงค้าง ณ วันส
   it("อายุหนี้ · วางบิล/เก็บเงินในช่วง · DSO = คงค้าง ÷ วางบิลในช่วง × วัน", () => {
     const s = debtSummary(outstandingAt(rows, may.end), rows, may);
     expect(s).toMatchObject({ outstanding: 1649, notdue: 300, late30: 1099, late60: 200, late61: 50,
-      billed: 1000, billedN: 4, collected: 400, collectedN: 1, days: 31 });
+      billed: 1000, billedN: 4, collected: 400, collectedN: 1, days: 31,
+      n: { all: 5, notdue: 1, late30: 2, late60: 1, late61: 1 } });
     expect(s.dso).toBeCloseTo(1649 / 1000 * 31);
   });
   it("ไม่มีบิลวางในช่วง = DSO หารไม่ได้", () => {

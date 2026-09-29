@@ -1469,7 +1469,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
               </table>
             )} />
           </div>
-          <p className="dz-note" style={{ marginTop: 8 }}>
+          <Note>
             บนแผนที่ {fmt(onMap)} คัน ใน {fmt(mapStops.length)} จุด · ไม่มีจุดให้ปัก {fmt(noStop)} คัน (ไม่มีประวัติ / รอออกเดินทาง / ไม่ระบุปลายทาง)
             · ไม่พร้อมใช้งานไม่แสดงบนแผนที่ · ตามตัวกรองสถานะและช่องค้นหาของตาราง · กดวงหรือแถวในรายการจุดเพื่อดูรถที่จุดนั้นในตาราง (กดแถว = ซูมไปเขตของจุดนั้นด้วย) ·
             {filterStatus === "moving"
@@ -1477,7 +1477,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
               : <>กดการ์ด “กำลังเดินทาง” แล้วกดป้ายรถเพื่อดูเส้นทางที่วิ่งผ่านมา · </>}
             จุดใน กทม. อยู่ชิดกัน กดปุ่ม “กทม.” มุมขวาบนของแผนที่เพื่อซูมดู · มุมมองทั้งหมดขึ้นป้ายชื่อเฉพาะจุดที่มีรถ 5 คันขึ้นไป
             {mapMissing.length > 0 && <> · จุดที่แผนที่ยังไม่มีพิกัด: {mapMissing.join(", ")}</>}
-          </p>
+          </Note>
         </div>
 
         <div className="dz-cc" style={{ marginTop: 14 }}>

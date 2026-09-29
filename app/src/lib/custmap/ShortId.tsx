@@ -12,6 +12,9 @@
 import { custCode, isHashLike } from "./custmap";
 import { isOwnCode, lookupCustomer } from "./newCodes";
 
+/** รหัส CUS + เลข 7 หลักพอดี (กติกาเดียวกับการเทียบรหัสทั้งระบบ) */
+const CUS_TEXT = /^CUS\d{7}$/i;
+
 export function ShortId({ v, n }: { v: string | null | undefined; n?: number }) {
   const s = String(v ?? "").trim();
   if (!s) return <>–</>;
@@ -29,6 +32,8 @@ export function ShortId({ v, n }: { v: string | null | undefined; n?: number }) 
         title={`${own ? "รหัสที่ระบบออกใหม่" : "รหัสต้นฉบับ"}: ${s}`}>{code}</span>
     );
   }
+  // ค่าในไฟล์เป็นรหัส CUS อยู่แล้ว (ชุดข้อมูลตัวอย่างเก็บแบบนี้) — ใช้กรอบเดียวกับรหัสที่แปลงแล้ว ไม่งั้นตารางมีสองหน้าตาปนกัน
+  if (CUS_TEXT.test(s)) return <span className="cuscode" title={`รหัสในไฟล์: ${s}`}>{s.toUpperCase()}</span>;
   if (isHashLike(s)) {
     return <span title={s} style={{ fontFamily: "ui-monospace, monospace", fontSize: 11 }}>{s.slice(0, 10)}…</span>;
   }

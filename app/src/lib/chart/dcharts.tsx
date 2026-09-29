@@ -196,6 +196,49 @@ export function DDonut({ data, colors, suffix = " บาท", center }: {
   );
 }
 
+/* ---------------- dPieSplit: วงกลมเต็ม (ไม่เจาะกลาง) ป้าย % ในชิ้น — สัดส่วน Top 10 ของ Customer Performance ---------------- */
+export function DPieSplit({ data, colors, stroke, suffix = " บาท" }: {
+  data: { name: string; v: number }[]; colors: string[];
+  /** สีเส้นกรอบรอบวงและระหว่างชิ้น — ไม่ส่ง = สีตัวอักษรเข้มของธีม */
+  stroke?: string; suffix?: string;
+}) {
+  const t = useChartTheme();
+  const total = data.reduce((s, d) => s + Math.max(0, d.v), 0);
+  // ป้าย % ทุกชิ้นเสมอ (เจ้าของงานสั่ง — ฝั่งขาดทุน Top 10 ต้องเห็น %) · ชิ้นใหญ่ ≥ 15% วางในชิ้นตัวขาว ·
+  // ชิ้นเล็กวางนอกวงตัวสีเข้ม + เส้นโยง (ในชิ้นแคบตัวเลขล้นขอบ อ่านไม่ออก)
+  const label = ({ cx, cy, midAngle, outerRadius, value }: { cx: number; cy: number; midAngle: number; outerRadius: number; value: number }) => {
+    if (!total || value <= 0) return null;
+    const a = -midAngle * Math.PI / 180, cos = Math.cos(a), sin = Math.sin(a);
+    const txt = (value / total * 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+    if (value / total >= 0.15) {
+      const r = outerRadius * 0.58;
+      return <text x={cx + r * cos} y={cy + r * sin} textAnchor="middle" dominantBaseline="central"
+        fill="#FFFFFF" fontFamily={DFONT} fontSize={16} fontWeight={700}>{txt}</text>;
+    }
+    const x1 = cx + outerRadius * cos, y1 = cy + outerRadius * sin;
+    const x2 = cx + (outerRadius + 14) * cos, y2 = cy + (outerRadius + 14) * sin;
+    const right = cos >= 0, x3 = x2 + (right ? 12 : -12);
+    return <g>
+      <path d={`M${x1},${y1}L${x2},${y2}L${x3},${y2}`} stroke={t.ink2} strokeWidth={1.2} fill="none" />
+      <text x={x3 + (right ? 4 : -4)} y={y2} textAnchor={right ? "start" : "end"} dominantBaseline="central"
+        fill={t.ink} fontFamily={DFONT} fontSize={16} fontWeight={700}>{txt}</text>
+    </g>;
+  };
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Tooltip {...tooltipProps(t, suffix)} />
+        {/* กรอบเส้นสีเข้มรอบวงและระหว่างชิ้น (เจ้าของงานสั่ง 28 ก.ย. 2569) · รัศมี 72% เผื่อที่ป้ายนอกวง */}
+        <Pie data={data} dataKey="v" nameKey="name" innerRadius={0} outerRadius="72%" startAngle={90} endAngle={-270}
+          isAnimationActive animationDuration={300} paddingAngle={0} stroke={stroke ?? t.ink} strokeWidth={1.5}
+          labelLine={false} label={label}>
+          {data.map((_, i) => <Cell key={i} fill={colors[i % colors.length]!} />)}
+        </Pie>
+      </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
 /* ---------------- dWaterfall: รายได้ → ต้นทุนแต่ละก้อน → กำไร ---------------- */
 
 /** หนึ่งแท่ง — total = ยอดรวม (รายได้ · กำไร) ป้ายเป็นค่าตามจริง · ไม่งั้นเป็นก้อนต้นทุน ป้ายติดเครื่องหมายลบ */

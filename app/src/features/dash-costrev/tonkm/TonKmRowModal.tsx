@@ -11,6 +11,7 @@
  * ★ อัตรารายเที่ยวโชว์ประกอบเท่านั้น — ยอดของกลุ่มคือ ΣContribution ÷ Σตัน-กม. ไม่ใช่ค่าเฉลี่ยของคอลัมน์นี้
  */
 import { useEffect, useMemo, useState } from "react";
+import { Note } from "../../dash-fleet/parts";
 import { createPortal } from "react-dom";
 import type { LfTrip } from "../../../lib/data/useLoadFactor";
 import { BASE_W, detailOf } from "../../../lib/tonkm/calc";
@@ -126,10 +127,10 @@ export default function TonKmRowModal({ row, trips, x, onClose }: {
             rowKey={(t) => t.id} empty="ไม่มีข้อมูล" />}
         </div>
         {view === "trip" && (
-          <p className="dz-note" style={{ margin: 0 }}>
+          <Note>
             อัตรารายเที่ยวดูประกอบเท่านั้น — เที่ยวที่ขนน้อยได้อัตราสูงผิดปกติ ยอดของทั้งกลุ่มจึงคิดจาก ΣContribution ÷ Σตัน-กม.
             ไม่ใช่ค่าเฉลี่ยของคอลัมน์นี้ · ตั้งต้นเรียงจากอัตราต่ำสุด
-          </p>
+          </Note>
         )}
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>ปิด</button>

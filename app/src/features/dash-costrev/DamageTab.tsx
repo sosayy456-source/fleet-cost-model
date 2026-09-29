@@ -43,9 +43,9 @@ import type { Trip } from "../../lib/data/useCostRev";
 
 /** จำนวนแท่งของกราฟชนิดรถ/เส้นทาง (เจ้าของงานสั่ง 27 ก.ย. 2569 — เดิมเส้นทาง 10 · ชนิดรถเป็นวงกลม 5 + อื่น ๆ) */
 const TOP_BARS = 15;
-/** สีประเภทรถในแท่งชนิดรถ — ชุดเดียวกับแท็บ Vehicle Utilization (FT_COLOR ใน FleetUtilizationView.tsx) ผูกกับชื่อ ไม่ใช่ลำดับ */
+/** สีประเภทรถในแท่งชนิดรถ — ผูกกับชื่อ ไม่ใช่ลำดับ · สีของแท็บนี้เอง (เจ้าของงานกำหนด 28 ก.ย. 2569 · เดิมชุดเดียวกับ Vehicle Utilization) */
 const FT_ORDER = ["รถบริษัท", "รถร่วม", "รถร่วมนอกพิเศษ"];
-const FT_COLOR: Record<string, string> = { "รถบริษัท": D.indigo, "รถร่วม": D.teal, "รถร่วมนอกพิเศษ": D.amber };
+const FT_COLOR: Record<string, string> = { "รถบริษัท": "#3E0E13", "รถร่วม": "#BFA2A5", "รถร่วมนอกพิเศษ": "#FFE0E3" };
 const ftColor = (ft: string): string => FT_COLOR[ft] ?? D.slate;
 const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 

@@ -5,7 +5,7 @@
  *   3. Top 5 เส้นทาง × ชนิดรถที่ถูกสุด + เที่ยวที่ควร Flag
  *   4. บริษัท vs ร่วม ตามชนิดรถ (ต้นทุน/กม.) + กราฟรายชนิด
  */
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DBar } from "../../../lib/chart/dcharts";
 import { D } from "../../../lib/chart/theme";
 import type { Trip } from "../../../lib/data/useCostRev";
@@ -19,6 +19,24 @@ import { fmt, ListFF, pct, type Col } from "../common";
 import D3Table, { NEG, POS } from "./D3Table";
 
 const COMP = D.indigo, PART = D.amber;
+
+/**
+ * สีแท่งกราฟ "1. ต้นทุนของรถแต่ละชนิด" + "ดูรายละเอียดตามชนิดรถ" = สีการ์ดจำนวนเที่ยว (--th-fleet · รถบริษัท) กับการ์ดต้นทุนเฉลี่ย/เที่ยว (--th-svc · รถร่วม)
+ * (เจ้าของงานสั่ง 29 ก.ย. 2569 — D.indigo/D.amber ของธีม cherry เป็นเหลืองอ่อน/เหลืองเข้มกลืนกัน)
+ * อ่านค่าจริงจากตัวแปรธีมของการ์ด (ตั้งรายแท็บได้ในหน้าการตั้งค่า) · ธีม classic ไม่มีตัวแปรนี้ = ใช้สีเดิม
+ */
+function useCardColors(): [React.RefObject<HTMLDivElement | null>, string, string] {
+  const ref = useRef<HTMLDivElement>(null);
+  const [c, setC] = useState<[string, string]>([COMP, PART]);
+  // ไม่มี deps — กล่องที่ผูก ref อาจโผล่ทีหลัง (มีเงื่อนไข) · ตั้งค่าเฉพาะเมื่อสีเปลี่ยนจึงไม่วนซ้ำ
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    const cs = getComputedStyle(ref.current);
+    const f = cs.getPropertyValue("--th-fleet").trim() || COMP, p = cs.getPropertyValue("--th-svc").trim() || PART;
+    setC((o) => (o[0] === f && o[1] === p ? o : [f, p]));
+  });
+  return [ref, c[0], c[1]];
+}
 const METRICS: { id: Metric; label: string; unit: string }[] = [
   { id: "trip", label: "ต่อเที่ยว", unit: "บาท/เที่ยว" },
   { id: "km", label: "ต่อกิโลเมตร", unit: "บาท/กม." },
@@ -58,10 +76,11 @@ function KindChart({ rows }: { rows: VRow[] }) {
     .filter((k) => k.comp !== null || k.part !== null)
     .sort((a, b) => Math.max(b.comp ?? 0, b.part ?? 0) - Math.max(a.comp ?? 0, a.part ?? 0)), [rows, metric]);
   const unit = METRICS.find((m) => m.id === metric)!.unit;
-  return <div className="dz-cc" style={{ marginTop: 14 }}>
+  const [box, compColor, partColor] = useCardColors();
+  return <div className="dz-cc" style={{ marginTop: 14 }} ref={box}>
     <div className="fl-tophead">
       <div><h4>1. ต้นทุนของรถแต่ละชนิด · {unit}</h4>
-        <p className="dz-note">GROUP BY ชนิดรถ, ประเภทรถ → SUM(ต้นทุน) ÷ SUM({metric === "trip" ? "เที่ยว" : metric === "km" ? "ระยะทาง" : "ตัน-กม."})</p></div>
+        <Note>GROUP BY ชนิดรถ, ประเภทรถ → SUM(ต้นทุน) ÷ SUM({metric === "trip" ? "เที่ยว" : metric === "km" ? "ระยะทาง" : "ตัน-กม."})</Note></div>
       <div className="fl-toggle" role="group" aria-label="หน่วยต้นทุน">
         {METRICS.map((m) => <button key={m.id} type="button" className={metric === m.id ? "on" : ""}
           aria-pressed={metric === m.id} onClick={() => setMetric(m.id)}>{m.label}</button>)}
@@ -70,7 +89,7 @@ function KindChart({ rows }: { rows: VRow[] }) {
     {!data.length ? <p className="dz-note">ไม่มีข้อมูลตามปีที่เลือก</p> :
       <div className="dz-box" style={{ height: barsHeight(data.length, 40) }}>
         <DBar data={data} xKey="vk" horiz suffix={` ${unit}`} digits={2} valueTick={(n) => fmt(n, metric === "trip" ? 0 : 2)}
-          series={[{ key: "comp", label: "รถบริษัท", color: COMP }, { key: "part", label: "รถร่วม", color: PART }]} />
+          series={[{ key: "comp", label: "รถบริษัท", color: compColor }, { key: "part", label: "รถร่วม", color: partColor }]} />
       </div>}
     <Note>แยกรายคัน: หัวกับหางของใบเดียวกันเป็นคนละแถว ได้ต้นทุนของคันนั้นและน้ำหนัก/ระยะทางเต็มของใบ ·
       รถร่วมนอกพิเศษรวมในรถร่วม · ชนิดที่มีแท่งเดียวคือไม่มีอีกฝั่งให้เทียบ</Note>
@@ -191,6 +210,8 @@ function CompanyVsPartner({ rows }: { rows: VRow[] }) {
   const both = useMemo(() => list.filter((k) => k.compKm !== null && k.partKm !== null).sort((a, b) => b.n - a.n), [list]);
   const [pick, setPick] = useState("");
   const cur = list.find((k) => k.vk === pick) ?? both[0] ?? list[0];
+  // สีสองแท่งชุดเดียวกับกราฟข้อ 1 (เจ้าของงานสั่ง 29 ก.ย. 2569)
+  const [box, compColor, partColor] = useCardColors();
 
   return <>
     <D3Table title="4. บริษัท vs ร่วม ตามชนิดรถ · ต้นทุน/กม." unit="ชนิด" rows={list} cols={cols}
@@ -201,14 +222,14 @@ function CompanyVsPartner({ rows }: { rows: VRow[] }) {
       <Note>ต้นทุน/กม. แต่ละฝั่ง = รวมต้นทุนทุกเที่ยวในกลุ่ม ÷ รวมระยะทางทุกเที่ยว (ไม่เฉลี่ยค่ารายเที่ยว) · ส่วนต่าง = (บริษัท − ร่วม) ÷ ร่วม ·
         ต่างไม่เกิน {CVP_TIE_PCT}% ถือว่าใกล้เคียงกัน · รถร่วมนอกพิเศษรวมในรถร่วม</Note>
     </D3Table>
-    {cur && <div className="dz-row dz-2" style={{ marginTop: 14 }}>
+    {cur && <div className="dz-row dz-2" style={{ marginTop: 14 }} ref={box}>
       <div className="dz-cc">
         <TableHead title={`ดูรายละเอียดตามชนิดรถ · ${cur.vk}`}>
           <ListFF label="ชนิดรถ" all="เลือกชนิดรถ" value={cur.vk} onChange={setPick} opts={list.map((k) => k.vk)} />
         </TableHead>
         <div className="dz-box" style={{ height: 180 }}>
           <DBar data={[{ side: "รถบริษัท", v: cur.compKm ?? 0 }, { side: "รถร่วม", v: cur.partKm ?? 0 }]} xKey="side" horiz
-            colors={[COMP, PART]} series={[{ key: "v", label: "บาท/กม.", color: COMP }]} suffix=" บาท/กม." digits={2}
+            colors={[compColor, partColor]} series={[{ key: "v", label: "บาท/กม.", color: compColor }]} suffix=" บาท/กม." digits={2}
             valueTick={dec} showValues />
         </div>
       </div>

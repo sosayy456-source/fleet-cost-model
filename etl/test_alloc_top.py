@@ -4,7 +4,9 @@
 """
 from __future__ import annotations
 
-from build_alloc import Rollup, keep_recent_bills
+from types import SimpleNamespace
+
+from build_alloc import Rollup, canonical_groups, cust_key, keep_recent_bills, side_label
 
 
 def _roll(rows: list[tuple[str, str, float]]) -> Rollup:
@@ -62,3 +64,38 @@ def test_detail_keeps_latest_100_bills_per_customer_per_month() -> None:
     assert len(kept[(0, "2026-01")]) == 100
     assert {entry[3][1] for entry in kept[(0, "2026-01")]} == {f"B{i:03}" for i in range(20, 120)}
     assert len(kept[(0, "2026-02")]) == len(kept[(1, "2026-01")]) == 1
+
+
+def test_same_payer_as_sender_and_receiver_is_one_customer() -> None:
+    """รายเดียวกันจ่ายทั้งฐานะผู้ส่งและผู้รับ = ลูกค้าแถวเดียว (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมแยกสองแถว)"""
+    as_sender = SimpleNamespace(payment="สดต้นทาง", sender="X", receiver="Y")
+    as_receiver = SimpleNamespace(payment="เชื่อปลายทาง", sender="Z", receiver="X")
+    assert cust_key(as_sender) == cust_key(as_receiver) == ("", "X")
+    assert side_label({"ผู้รับ", "ผู้ส่ง"}) == "ผู้ส่ง+ผู้รับ"
+    assert side_label({"ผู้รับ"}) == "ผู้รับ"
+
+
+def test_hash_and_cus_text_of_same_customer_merge() -> None:
+    """ไฟล์บิลเขียนรายเดียวกันเป็น hash (แปลงได้เลข 21745) บ้าง ข้อความ CUS0021745 บ้าง = ลูกค้ารายเดียว ตัวแทน = hash"""
+    h = "a" * 64
+    alias, nums = canonical_groups([h, "CUS0021745", "cus0000009", "b" * 64], {h: 21745})
+    assert alias[h] == alias["CUS0021745"] == h
+    assert nums[h] == 21745
+    assert alias["cus0000009"] == "cus0000009" and nums["cus0000009"] == 9
+    assert alias["b" * 64] == "b" * 64 and "b" * 64 not in nums     # ไม่มีเลข = อยู่คนเดียว
+
+
+def test_rollup_canonicalize_sums_rows_and_sides() -> None:
+    r = Rollup()
+    h = "c" * 64
+    r.cust[("", h)][1] += 100.0; r.cust[("", h)][3] += -10.0
+    r.cust[("", "CUS0000005")][1] += 50.0; r.cust[("", "CUS0000005")][3] += -5.0
+    r.cust_mo[("", h, "2026-01")][1] += 100.0
+    r.cust_mo[("", "CUS0000005", "2026-01")][1] += 50.0
+    r.sides[h].add("ผู้ส่ง"); r.sides["CUS0000005"].add("ผู้รับ")
+    alias = r.canonicalize(lambda _codes: {h: 5})
+    assert list(r.cust) == [("", h)]
+    assert r.cust[("", h)][1] == 150.0 and r.cust[("", h)][3] == -15.0
+    assert r.cust_mo[("", h, "2026-01")][1] == 150.0
+    assert side_label(r.sides[h]) == "ผู้ส่ง+ผู้รับ"
+    assert alias["CUS0000005"] == h and r.numbers[h] == 5

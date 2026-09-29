@@ -20,20 +20,44 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { createPortal } from "react-dom";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import type { LfData } from "../../lib/data/useLoadFactor";
-import { depreciation, vehicleRows } from "../../lib/detail3/calc";
+import { vehicleRows } from "../../lib/detail3/calc";
 import { totalDamage } from "../../lib/damage/damage";
-import { INDEXES, METRICS, METRIC_MAX, TOTAL_MAX, metricResult, sumScores } from "../../lib/pi/score";
-import { routeMarginValues, serviceBaseValues, serviceMarginValues } from "../../lib/pi/route";
-import { baseSpan, lastMonths } from "../../lib/pi/baseline";
+import { INDEXES, METRICS, METRIC_MAX, STATUS_LABEL, STATUS_MEANING, STATUS_RANGE, TOTAL_MAX, indexStatus, metricResult, sumScores, withPeriod } from "../../lib/pi/score";
+import { evalPeriod, inWindow, noTime, refSet, refWindow, windowLabel } from "../../lib/pi/baseline";
+import { coverageByVehicleMonth, tkmByVehicleMonth } from "../../lib/pi/cost";
+import { periodLabel } from "../../lib/filter/period";
+import type { RefWindow } from "../../lib/pi/baseline";
+import { routeMarginValues, serviceMonthMarginValues } from "../../lib/pi/route";
 import { emptyResult } from "../../lib/pi/empty";
 import { REC_LEVEL_LABEL, recommendations } from "../../lib/pi/recommend";
-import { DAMAGE_STATUS_LABEL, damageRef, damageResults, damageStatus } from "../../lib/pi/damage";
-import type { DamageRef, DamageStatus } from "../../lib/pi/damage";
-import type { IndexDef, MetricKey, MetricResult } from "../../lib/pi/score";
+import { damageRef, damageResults } from "../../lib/pi/damage";
+import type { DamageRef } from "../../lib/pi/damage";
+import type { IndexDef, IndexStatus, MetricKey, MetricResult } from "../../lib/pi/score";
 import type { Trip } from "../../lib/data/useCostRev";
 import { fmt, pct } from "../dash-costrev/common";
 import { passDemo, passLfDemo } from "./filter";
 import type { DemoFilter } from "./filter";
+
+/**
+ * ชุดอ้างอิงของเกณฑ์ percentile (InDex_revised v2.md · lib/pi/baseline.ts) — เที่ยวในชุดกำไรที่อยู่ใน 12 เดือนล่าสุดของไฟล์
+ * ตามตัวกรองของหน้ายกเว้นเวลา · all = ทุกเที่ยวในชุดกำไร (ไม่กรอง) — ช่วง 12 เดือนนับจากเดือนล่าสุดของทั้งไฟล์
+ */
+export interface TripRef { trips: Trip[]; w: RefWindow | null }
+
+/**
+ * เที่ยวของช่วงที่ประเมิน — ไม่เลือกปี = เดือนล่าสุดของไฟล์ (เจ้าของงานเลือก 28 ก.ย. 2569 "ประเมินเป็นรายเดือน")
+ * · label = ป้ายช่วงที่ติดไปกับผล · all = ทุกเที่ยวในชุดกำไร (ไม่กรอง)
+ */
+export function tripEvalOf(all: Trip[], f: DemoFilter): { trips: Trip[]; label: string } {
+  const pf = evalPeriod(f, all.map((t) => t.mo));
+  return { trips: all.filter((t) => passDemo(t, pf)), label: periodLabel(pf) };
+}
+export function tripRefOf(all: Trip[], f: DemoFilter): TripRef {
+  const w = refWindow(all.map((t) => t.mo));
+  if (!w) return { trips: [], w };
+  const nf = noTime(f);
+  return { trips: all.filter((t) => inWindow(t.mo, w) && passDemo(t, nf)), w };
+}
 
 /** คะแนนทศนิยมไม่เกิน 1 ตำแหน่ง — 6.25 → "6.3" · 10 → "10" */
 const sc = (n: number): string => n.toLocaleString("en-US", { maximumFractionDigits: 1 });
@@ -74,15 +98,22 @@ function subTitle(r: MetricResult): string | undefined {
     + ` → (${fmt(t.g)} + 0.5 × ${fmt(t.y)}) ÷ ${fmt(t.n)} × ${METRIC_MAX}` + (r.basis ? `\nเกณฑ์: ${r.basis}` : "");
 }
 
-/** กล่องยาวของหนึ่งหมวด: ชื่อ · คะแนนเด่น (เต็ม 20) · บรรทัดคะแนนรายตัวชี้วัด · status = ป้ายสถานะ (เฉพาะ Service Quality) */
+/** ช่วงที่ประเมินของหมวด — ตัวชี้วัดคนละไฟล์อาจเป็นคนละเดือน จึงรวมแบบไม่ซ้ำ */
+const periodsOf = (results: MetricResult[]): string =>
+  [...new Set(results.flatMap((r) => (r.period ? [r.period] : [])))].join(" · ");
+
+/** ป้ายสถานะของหมวด (ผ่านเกณฑ์ 15–20 · เฝ้าระวัง 10–14.99 · ไม่ผ่านเกณฑ์ < 10) — ทุกหมวด ตาม InDex_revised v2.md */
+function StatusChip({ status }: { status: IndexStatus | null }) {
+  if (!status) return null;
+  return <i className={`pi-st ${status}`} title={`${STATUS_RANGE[status]} — ${STATUS_MEANING[status]}`}>{STATUS_LABEL[status]}</i>;
+}
+
 /**
  * กล่อง PI ของหมวด Fleet · Cost · Customer · Service — ตั้งแต่ 28 ก.ย. 2569 ใช้เลย์เอาต์แถวเดียวแบบ Route & Service ทุกหมวด
- * (เจ้าของงานสั่ง "performance index 2–5 ให้ทำตามแบบที่ 1") จึงส่งต่อให้ PiRow · status/note = ป้ายสถานะ + คำอธิบายหลังปุ่ม i ของ Service
+ * (เจ้าของงานสั่ง "performance index 2–5 ให้ทำตามแบบที่ 1") จึงส่งต่อให้ PiRow · note = คำอธิบายหลังปุ่ม i (ป้ายสถานะขึ้นทุกหมวดจาก indexStatus · InDex_revised v2.md)
  */
-export function PiBox({ index, results, status, note }: {
-  index: IndexDef; results: MetricResult[]; status?: DamageStatus | null; note?: string;
-}) {
-  return <PiRow index={index} results={results} status={status} note={note} />;
+export function PiBox({ index, results, note }: { index: IndexDef; results: MetricResult[]; note?: string }) {
+  return <PiRow index={index} results={results} note={note} />;
 }
 
 /** คำอธิบายเกณฑ์ใต้กล่อง — ซ่อนไว้หลังปุ่ม i กดแล้วกางลงมา (เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิมโชว์ข้อความตลอด) */
@@ -104,17 +135,15 @@ const waitingOf = (index: IndexDef): MetricResult[] =>
 
 /**
  * Route & Service — %Margin รายเส้นทาง + 3 กลุ่มบริการ (lib/pi/route.ts) ชุดเดียวกับตาราง/การ์ดของ Profit Per Route
- * trips = เที่ยวที่กรองตามหน้าแล้ว (ให้สี) · ref = ทุกเที่ยวของทั้งบริษัท (คิดชุดฐาน 12 เดือนล่าสุด) · null = ไฟล์ต้นทุนยังไม่มี
+ * trips = เที่ยวที่กรองตามหน้าแล้ว · ref = ชุดอ้างอิง 12 เดือน (tripRefOf) · null = ไฟล์ต้นทุนยังไม่มี
  */
-export function routePiResults(trips: Trip[] | null, ref: Trip[] | null): MetricResult[] {
-  const b = ref ? lastMonths(ref, (t) => t.mo) : null;
-  return [
-    metricResult("route", trips ? routeMarginValues(trips) : null, b && { values: routeMarginValues(b.rows), span: baseSpan(b) }),
-    metricResult("service", trips ? serviceMarginValues(trips) : null, b && { values: serviceBaseValues(b.rows), span: baseSpan(b) }),
-  ];
-}
-export function PiRoute({ trips, refTrips }: { trips: Trip[] | null; refTrips: Trip[] | null }) {
-  const results = useMemo(() => routePiResults(trips, refTrips), [trips, refTrips]);
+export const routePiResults = (trips: Trip[] | null, ref: TripRef | null, period?: string): MetricResult[] => [
+  metricResult("route", trips ? routeMarginValues(trips) : null, ref && refSet(routeMarginValues(ref.trips), "เส้นทาง", ref.w)),
+  // กลุ่มบริการ × เดือน (เจ้าของงานเลือก 28 ก.ย. 2569) — 3 กลุ่มคิด percentile ไม่ได้ความหมาย
+  metricResult("service", trips ? serviceMonthMarginValues(trips) : null, ref && refSet(serviceMonthMarginValues(ref.trips), "กลุ่ม × เดือน", ref.w)),
+].map((r) => withPeriod(r, period));
+export function PiRoute({ trips, refs, period }: { trips: Trip[] | null; refs: TripRef | null; period?: string }) {
+  const results = useMemo(() => routePiResults(trips, refs, period), [trips, refs, period]);
   return <PiRow index={INDEXES.route} results={results} />;
 }
 
@@ -144,7 +173,7 @@ function PiRowMetric({ r }: { r: MetricResult }) {
         </span>
       </> : <span className="pi-rm-count">{r.detail ?? (r.pending ? "ยังไม่มีเกณฑ์" : r.na ?? "ไม่มีรายการให้คิดตามตัวกรองที่เลือก")}</span>}
       <button type="button" className="pi-rm-more" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-        รายละเอียด <span aria-hidden="true">{open ? "⌃" : "⌄"}</span>
+        รายละเอียด
       </button>
       {open && (
         <div className="pi-rm-detail">
@@ -162,9 +191,7 @@ function PiRowMetric({ r }: { r: MetricResult }) {
  * กล่องคะแนน x/20 สั้น ๆ ซ้าย + ตัวชี้วัดเรียงไปทางขวา คอลัมน์ละตัว · ปุ่ม "รายละเอียด" กางวิธีคิดคะแนน
  * แจ้งผลขึ้นบรรทัดคะแนนรวมเหมือน PiBox (หมวดอื่นยังใช้ PiBox)
  */
-export function PiRow({ index, results, status, note }: {
-  index: IndexDef; results: MetricResult[]; status?: DamageStatus | null; note?: string;
-}) {
+export function PiRow({ index, results, note }: { index: IndexDef; results: MetricResult[]; note?: string }) {
   const report = useContext(PiReportCtx);
   useEffect(() => { report?.(index.id, results); }, [report, index.id, results]);
   const full = index.subs.length * METRIC_MAX;
@@ -173,11 +200,11 @@ export function PiRow({ index, results, status, note }: {
     <section id={`pi-box-${index.id}`} className={`pi-box pi-row t-${index.id}`}>
       <div className="pi-row-sc">
         <h4 className="pi-t">{index.title} <small className="pi-bsc">{index.bsc}</small></h4>
-        {status && <i className={`pi-st ${status}`} title="เกณฑ์ภายในที่ออกแบบสำหรับ PI (ไม่ใช่มาตรฐานสากล): ผ่านเกณฑ์ 15–20 · เฝ้าระวัง 10–<15 · ไม่ผ่านเกณฑ์ < 10">
-          {DAMAGE_STATUS_LABEL[status]}</i>}
+        <StatusChip status={indexStatus(results)} />
         <div className="pi-score"><b>{max ? sc(score) : "–"}</b><span>/{full}</span></div>
         <Meter v={score} max={full} cls="pi-meter" />
         {max > 0 && max < full && <em className="pi-row-part">คิดได้ {max} จาก {full}</em>}
+        {periodsOf(results) && <em className="pi-row-part">ประเมิน: {periodsOf(results)}</em>}
         {note && <PiNote text={note} />}
       </div>
       {results.map((r) => <PiRowMetric key={r.key} r={r} />)}
@@ -187,23 +214,24 @@ export function PiRow({ index, results, status, note }: {
 
 /**
  * Service Quality = Damage Performance (On-time Delivery ตัดออกแล้ว) — DR + DIR ตัวละ 10 เทียบ P75 (lib/pi/damage.ts)
- *   trips = เที่ยวที่กรองตามหน้า · refTrips = ทุกเที่ยวในชุด (ชุดอ้างอิงคงที่ ไม่ตามตัวกรอง) · null = ไฟล์ต้นทุนยังไม่มี
+ *   trips = เที่ยวที่กรองตามหน้า · refTrips = ชุดอ้างอิง 12 เดือนล่าสุดตามตัวกรองยกเว้นเวลา (tripRefOf · InDex_revised v2.md
+ *   — เดิมภาพรวมบริษัทไม่ตามตัวกรอง) · null = ไฟล์ต้นทุนยังไม่มี
  *   นับเฉพาะเที่ยวที่จับคู่บิลได้และไม่ใช่เที่ยววิ่งเปล่า ตัวหารเดียวกับแท็บ Damage
  */
 export const serviceRef = (refTrips: Trip[] | null): DamageRef | null =>
   (refTrips ? damageRef(refTrips.filter((t) => t.m && !t.empty)) : null);
-export const servicePiResults = (trips: Trip[] | null, ref: DamageRef | null): MetricResult[] =>
+export const servicePiResults = (trips: Trip[] | null, ref: DamageRef | null, period?: string): MetricResult[] =>
   (trips && ref ? damageResults(trips.filter((t) => t.m && !t.empty), ref)
-    : INDEXES.service.subs.map((key) => ({ key, pending: false, tally: null, score: null })));
-export function PiService({ trips, refTrips }: { trips: Trip[] | null; refTrips: Trip[] | null }) {
+    : INDEXES.service.subs.map((key): MetricResult => ({ key, pending: false, tally: null, score: null }))).map((r) => withPeriod(r, period));
+export function PiService({ trips, refTrips, period }: { trips: Trip[] | null; refTrips: Trip[] | null; period?: string }) {
   const ref = useMemo(() => serviceRef(refTrips), [refTrips]);
-  const results = useMemo(() => servicePiResults(trips, ref), [trips, ref]);
+  const results = useMemo(() => servicePiResults(trips, ref, period), [trips, ref, period]);
   const note = ref && (ref.p75Dr != null || ref.p75Dir != null)
-    ? `นับสีรายเดือน: เขียว < P75 · เหลือง P75 ถึง < 2×P75 · แดง ≥ 2×P75 · P75 จาก KPI รายเดือนของภาพรวมบริษัท 12 เดือนล่าสุด (${ref.from} ถึง ${ref.to} · ไม่ตามตัวกรอง):`
+    ? `นับสีรายเดือน: เขียว < P75 · เหลือง P75 ถึง < 2×P75 · แดง ≥ 2×P75 · P75 จาก KPI รายเดือน 12 เดือนล่าสุด (${ref.from} ถึง ${ref.to} · ตามตัวกรองยกเว้นเวลา):`
       + ` Damage Rate ${ref.p75Dr == null ? "–" : `${ref.p75Dr.toFixed(3)}%`} · Damage Incidence Rate ${ref.p75Dir == null ? "–" : `${ref.p75Dir.toFixed(2)}%`}`
       + ` · เดือนที่มีเที่ยวน้อยกว่า ${fmt(ref.minTrips)} เที่ยวไม่นับใน Incidence`
     : undefined;
-  return <PiBox index={INDEXES.service} results={results} status={damageStatus(results)} note={note} />;
+  return <PiBox index={INDEXES.service} results={results} note={note} />;
 }
 
 /**
@@ -213,19 +241,25 @@ export function PiService({ trips, refTrips }: { trips: Trip[] | null; refTrips:
  *   P25/P75 ไม่ตามต้นทาง/ปลายทาง กติกาเดียวกับแท็บ Empty Trips
  */
 export function lfPiResult(lf: LfData | null, f: DemoFilter): MetricResult {
-  // ฐาน = ทุกเที่ยวในไฟล์ LF 12 เดือนล่าสุด ไม่ตามตัวกรอง (29 ก.ย. 2569)
-  const b = lf ? lastMonths(lf.trips, (t) => t.mo) : null;
-  return metricResult("lf", lf ? lf.trips.filter((t) => passLfDemo(t, f)).map((t) => t.lf) : null,
-    b && { values: b.rows.map((t) => t.lf), span: baseSpan(b) });
+  if (!lf) return metricResult("lf", null);
+  // ชุดอ้างอิง = 12 เดือนล่าสุดของไฟล์ Load Factor ตามตัวกรองยกเว้นเวลา (ไฟล์ LF มีช่วงเดือนของตัวเอง)
+  const w = refWindow(lf.trips.map((t) => t.mo));
+  const nf = noTime(f);
+  const ref = w ? lf.trips.filter((t) => inWindow(t.mo, w) && passLfDemo(t, nf)).map((t) => t.lf) : [];
+  const pf = evalPeriod(f, lf.trips.map((t) => t.mo));
+  return withPeriod(metricResult("lf", lf.trips.filter((t) => passLfDemo(t, pf)).map((t) => t.lf), refSet(ref, "เที่ยว", w)), periodLabel(pf));
 }
-/** all = เที่ยวที่ให้สี (ก่อนตัวกรองอื่น) · ref = ทุกเที่ยวของทั้งบริษัท → ชุดฐาน P25/P75 = 12 เดือนล่าสุด ไม่ตามตัวกรอง (29 ก.ย. 2569) */
-export const emptyPiResult = (all: Trip[] | null, f: DemoFilter, ref: Trip[] | null): MetricResult => (all && ref
-  ? emptyResult(all.filter((t) => passDemo(t, { ...f, sg: "" })), lastMonths(ref, (t) => t.mo).rows)
-  : emptyResult(null, null));
-export function PiFleet({ f, all, refAll }: { f: DemoFilter; all: Trip[] | null; refAll: Trip[] | null }) {
+/** all = ทุกเที่ยวในชุดกำไร (ไม่กรอง) · ให้สีตามตัวกรองยกเว้นกลุ่มบริการ · P25/P75 จาก 12 เดือนล่าสุดตามตัวกรองยกเว้นเวลาและกลุ่มบริการ */
+export function emptyPiResult(all: Trip[] | null, f: DemoFilter): MetricResult {
+  if (!all) return emptyResult(null, null);
+  const ref = tripRefOf(all, { ...f, sg: "" });
+  const ev = tripEvalOf(all, { ...f, sg: "" });
+  return withPeriod(emptyResult(ev.trips, ref.trips, windowLabel(ref.w)), ev.label);
+}
+export function PiFleet({ f, all }: { f: DemoFilter; all: Trip[] | null }) {
   const { data: lf, error } = useLoadFactor();
   const lfResult = useMemo(() => lfPiResult(error ? null : lf, f), [lf, error, f]);
-  const empty = useMemo(() => emptyPiResult(all, f, refAll), [all, f, refAll]);
+  const empty = useMemo(() => emptyPiResult(all, f), [all, f]);
   const results = useMemo(() => [lfResult, empty], [lfResult, empty]);
   return <PiBox index={INDEXES.fleet} results={results} />;
 }
@@ -235,21 +269,19 @@ export function PiFleet({ f, all, refAll }: { f: DemoFilter; all: Trip[] | null;
  *   Cost per Ton-km = VRow.perTkm (คันที่ไม่มีน้ำหนัก/ระยะทางไม่นับ) · Coverage = Contribution ÷ ค่าเสื่อม ของ depreciation()
  *   (รถบริษัทที่มีค่าเสื่อมเท่านั้น) · trips null = ไฟล์ต้นทุนยังไม่มี
  */
-export function costPiResults(trips: Trip[] | null, ref: Trip[] | null): MetricResult[] {
+/** รายการ = คัน × เดือน (lib/pi/cost.ts · เจ้าของงานเลือก 28 ก.ย. 2569 — เดิมรายคันในแต่ละใบ) */
+export function costPiResults(trips: Trip[] | null, ref: TripRef | null, period?: string): MetricResult[] {
   if (!trips) return [metricResult("tkm", null), metricResult("coverage", null)];
-  const perTkm = (rs: ReturnType<typeof vehicleRows>) => rs.flatMap((r) => (r.perTkm == null ? [] : [r.perTkm]));
   const rows = vehicleRows(trips);
-  // ฐาน = รายคันของทั้งบริษัท 12 เดือนล่าสุด (29 ก.ย. 2569)
-  const b = ref ? lastMonths(ref, (t) => t.mo) : null;
-  const baseRows = b ? vehicleRows(b.rows) : null;
+  const refRows = ref ? vehicleRows(ref.trips) : null;
   return [
-    metricResult("tkm", perTkm(rows), b && baseRows && { values: perTkm(baseRows), span: baseSpan(b) }),
-    metricResult("coverage", depreciation(rows).list.map((r) => r.coverage),
-      b && baseRows && { values: depreciation(baseRows).list.map((r) => r.coverage), span: baseSpan(b) }),
-  ];
+    metricResult("tkm", tkmByVehicleMonth(rows), refRows && refSet(tkmByVehicleMonth(refRows), "คัน × เดือน", ref!.w)),
+    metricResult("coverage", coverageByVehicleMonth(rows),
+      refRows && refSet(coverageByVehicleMonth(refRows), "คัน × เดือน", ref!.w)),
+  ].map((r) => withPeriod(r, period));
 }
-export function PiCost({ trips, refTrips }: { trips: Trip[] | null; refTrips: Trip[] | null }) {
-  const results = useMemo(() => costPiResults(trips, refTrips), [trips, refTrips]);
+export function PiCost({ trips, refs, period }: { trips: Trip[] | null; refs: TripRef | null; period?: string }) {
+  const results = useMemo(() => costPiResults(trips, refs, period), [trips, refs, period]);
   return <PiBox index={INDEXES.cost} results={results} />;
 }
 
@@ -357,7 +389,7 @@ function MetricDetail({ r }: { r: MetricResult }) {
       </div>
       <dl className="pi-dm-dl">
         <dt>วัดอะไร</dt><dd>{def.measure}</dd>
-        <dt>ข้อมูล</dt><dd>{def.source}</dd>
+        <dt>ข้อมูล</dt><dd>{def.source}{r.period && <span className="pi-dm-basis">ช่วงที่ประเมิน: {r.period}</span>}</dd>
         <dt>เกณฑ์</dt>
         <dd><span className="pi-dm-crit">{def.criteria.map((c, i) => (
               <span key={i} className={`pi-dm-chip ${BAND_TXT[i]![0]}`}><i />{c}</span>))}</span>
@@ -389,6 +421,46 @@ function MetricDetail({ r }: { r: MetricResult }) {
  * ป็อบอัพที่มาของคะแนน Performance Index (เจ้าของงานขอ 25 ก.ย. 2569) — ทุกหมวด ทุกตัวชี้วัด อ่านจากผลที่กล่องแจ้งขึ้นมา
  * ไม่คิดซ้ำ · ★ portal ไป #view-dash ไม่ใช่ body (โทเคนสีของแดชบอร์ดอยู่ใต้ #view-dash เท่านั้น — ดู TripsModal)
  */
+/** เอกสารอ้างอิงของหลักการ (InDex_revised v2.md) */
+const PI_REFS = [
+  "กองโลจิสติกส์ กรมส่งเสริมอุตสาหกรรม กระทรวงอุตสาหกรรม. (2564). Industrial Logistics Performance Index (ILPI). https://dol.dip.go.th/uploadcontent/DOL/Phoom/ILPI64.pdf",
+  "American Productivity & Quality Center. (n.d.). Open Standards Benchmarking. https://www.apqc.org/what-we-do/benchmarking/open-standards-benchmarking",
+  "Kaplan, R. S., & Cooper, R. (1998). Cost & effect: Using integrated cost systems to drive profitability and performance. Harvard Business School Press.",
+  "Kaplan, R. S., & Norton, D. P. (1992). The balanced scorecard—Measures that drive performance. Harvard Business Review, 70(1), 71–79.",
+  "Nardo, M., Saisana, M., Saltelli, A., Tarantola, S., Hoffmann, A., & Giovannini, E. (2008). Handbook on constructing composite indicators: Methodology and user guide. OECD Publishing.",
+];
+
+/** หลักการ · เกณฑ์สถานะของหมวด · เอกสารอ้างอิง — ท้ายป็อบอัพที่มาของคะแนน (เจ้าของงานเลือก 28 ก.ย. 2569 · ย่อจาก InDex_revised v2.md) */
+function PiMethod() {
+  const statuses: IndexStatus[] = ["pass", "watch", "fail"];
+  return (
+    <section className="pi-dm-method">
+      <h4>หลักการของ Performance Index</h4>
+      <ul>
+        <li><b>Balanced Scorecard</b> (Kaplan & Norton, 1992) — 3 มุมมอง Financial · Customer · Internal Process
+          (ไม่รวมมุมมองนวัตกรรมและการเรียนรู้เพราะข้อจำกัดด้านข้อมูล) · โครงสร้าง 5 หมวดอ้างอิงเบื้องต้นจาก ILPI/SCPI ปี 2564
+          แต่เกณฑ์คะแนนประยุกต์กับข้อมูลจริงของบริษัท ไม่ได้ใช้มาตรฐานอุตสาหกรรมทั้งหมด</li>
+        <li><b>Traffic Light Assessment</b> — 🟢 ผ่านเกณฑ์ · 🟡 ต้องเฝ้าระวัง · 🔴 ต่ำกว่าเกณฑ์ ·
+          คะแนนตัวชี้วัด = (เขียว + 0.5 × เหลือง) ÷ จำนวนรายการ × 10</li>
+        <li><b>เกณฑ์เปรียบเทียบภายใน (Internal Benchmark)</b> ตามแนวทาง Open Standards Benchmarking ของ APQC —
+          P25 · P30 · P70 · P75 คิดจาก <b>12 เดือนล่าสุด</b> แล้วใช้เทียบกับช่วงที่ประเมิน ไม่คิดใหม่จากชุดที่กำลังให้คะแนน
+          (ถ้าใช้ชุดเดียวกัน สัดส่วนจะเป็น 🟢 25% · 🟡 50% · 🔴 25% เสมอ คะแนนติดที่ราว 5/10) · คะแนนจึงสะท้อนพัฒนาการเทียบกับอดีตของบริษัทเอง
+          ไม่ใช่มาตรฐานอุตสาหกรรม · ข้อมูลที่มีไม่ถึง 12 เดือน (เช่น DSO) ใช้เท่าที่มีเป็นเกณฑ์ชั่วคราว · ทบทวนเกณฑ์ทุก 12 เดือน
+          หรือเมื่อโครงสร้างการดำเนินงานเปลี่ยนมาก</li>
+        <li><b>Equal Weighting</b> (OECD; Nardo et al., 2008) — ทุกหมวดน้ำหนักเท่ากันหมวดละ 20 คะแนน รวม 100</li>
+      </ul>
+      <table className="pi-dm-sum pi-dm-status">
+        <thead><tr><th>ช่วงคะแนนของหมวด</th><th>สถานะ</th><th>ความหมาย</th></tr></thead>
+        <tbody>{statuses.map((st) => (
+          <tr key={st}><td>{STATUS_RANGE[st]}</td><td><i className={`pi-dm-st ${st}`}>{STATUS_LABEL[st]}</i></td><td>{STATUS_MEANING[st]}</td></tr>
+        ))}</tbody>
+      </table>
+      <h4>เอกสารอ้างอิง</h4>
+      <ol className="pi-dm-refs">{PI_REFS.map((r) => <li key={r}>{r}</li>)}</ol>
+    </section>
+  );
+}
+
 function PiDetailModal({ groups, score, max, onClose }: {
   groups: { index: IndexDef; results: MetricResult[] }[]; score: number; max: number; onClose: () => void;
 }) {
@@ -407,7 +479,8 @@ function PiDetailModal({ groups, score, max, onClose }: {
             <p>
               คะแนนตัวชี้วัด = (เขียว + 0.5 × เหลือง) ÷ จำนวนรายการ × {METRIC_MAX} · ให้สีทีละรายการ ·
               คะแนนหมวด = ผลรวม 2 ตัวชี้วัด (เต็ม 20) · คะแนนรวม = ผลรวม 5 หมวด (เต็ม {TOTAL_MAX}) ·
-              ตัวที่ไม่มีข้อมูลไม่นับเข้าฐาน · ตามตัวกรองที่เลือกอยู่
+              ตัวที่ไม่มีข้อมูลไม่นับเข้าฐาน · รายการที่ให้สีตามตัวกรองที่เลือกอยู่ ·
+              เกณฑ์ percentile จาก 12 เดือนล่าสุดของไฟล์ (ตามตัวกรองยกเว้นเวลา) · ไม่เลือกปี = ประเมินเดือนล่าสุด
             </p>
           </div>
           <button type="button" className="sm-x" onClick={onClose} aria-label="ปิด">✕</button>
@@ -430,11 +503,13 @@ function PiDetailModal({ groups, score, max, onClose }: {
             <tbody>
               {groups.map(({ index, results }) => {
                 const s = sumScores(results);
+                const st = indexStatus(results);
                 return (
                   <tr key={index.id}>
                     <td>{index.title}</td>
                     <td>{results.map((r) => `${METRICS[r.key].label} ${r.score == null ? "–" : sc(r.score)}`).join(" + ")}</td>
                     <td className="n">{s.max ? sc(s.score) : "–"}</td>
+                    <td className="n">{st ? <i className={`pi-dm-st ${st}`}>{STATUS_LABEL[st]}</i> : "–"}</td>
                   </tr>
                 );
               })}
@@ -443,9 +518,11 @@ function PiDetailModal({ groups, score, max, onClose }: {
               <tr>
                 <td colSpan={2}>คะแนนรวม{max < TOTAL_MAX && ` (คิดได้ ${max} จาก ${TOTAL_MAX} คะแนน)`}</td>
                 <td className="n">{max ? sc(score) : "–"}/{TOTAL_MAX}</td>
+                <td />
               </tr>
             </tfoot>
           </table>
+          <PiMethod />
         </div>
         <div className="modal-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>ปิด</button>

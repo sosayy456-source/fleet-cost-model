@@ -4,7 +4,7 @@
  * รับบิลที่ฝ่ายบริการลูกค้ากรอกไว้ (สถานะ "รอจัดรถ") มารวมเข้ารถคันเดียวกัน
  *   1. ตารางบิลรอจัดรถ + ตัวกรอง วันที่รับสินค้า · สาขา · ต้นทาง · ปลายทาง · กลุ่มบริการ
  *   2. ติ๊กเลือกบิล → ระบบรวม น้ำหนัก/ปริมาตร/รายได้/จำนวนลูกค้า ให้เอง
- *      ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน ปลายทางเดียวกันหรืออยู่ระหว่างทาง (lib/route/enRoute.ts)
+ *      ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน ทุกปลายทาง (28 ก.ย. 2569 — เดิมกรองปลายทางระหว่างทางด้วย)
  *      ข้างตารางบิลมีกล่อง "สถานะการบรรทุก" (LoadTruck.tsx) รูปรถเติมของตามบิลที่ติ๊ก + หลอด Load Factor
  *   3. เลือกรถ ประเภทรถ → ชนิดรถ → ทะเบียน (ทะเบียนที่สถานะ "ใช้งาน" เท่านั้น · ชุดช่องเดียวกับหางพ่วง)
  *      → น้ำหนัก/ปริมาณบรรทุกจริงมาจากบิลที่เลือก
@@ -32,7 +32,6 @@ import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { useOverrides } from "../../lib/store/overrides";
 import { useRoster } from "../../lib/store/roster";
 import { loadStats } from "../../lib/dispatch/load";
-import { onRouteOf, stopsFor, useEnRoute } from "../../lib/route/enRoute";
 import { LoadTruckPanel } from "./LoadTruck";
 import { DEFAULT_PICTURE_KIND } from "./TruckPicture";
 import { P0, VehiclePickFields, roleKind } from "./VehiclePick";
@@ -89,10 +88,10 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   /** บิลรอจัดรถ แยกออกเป็นที่จัดได้จริง กับที่อยู่ในใบรายการแล้ว (จัดรถค้างครึ่งทาง — ดูหัวไฟล์ข้อ 3) */
   const { free: waiting, stuck } = useMemo(() => splitStuckBills(
     bills.bills.filter((b) => b.status === "รอจัดรถ"), state.records), [bills.bills, state.records]);
-  /* ---------- ล็อกเส้นทางตามบิลแรก (เจ้าของงานสั่ง 24 ก.ย. 2569) ----------
-     ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน ที่ปลายทางเดียวกันหรืออยู่ระหว่างทาง (lib/route/enRoute.ts)
-     บิลแรก = บิลที่ติ๊กก่อนสุดที่ยังติ๊กอยู่ (Set เก็บตามลำดับที่ใส่) · เอาติ๊กออกหมด = กลับมาเห็นทุกบิล */
-  const [enRoute] = useEnRoute();
+  /* ---------- ล็อกต้นทางตามบิลแรก ----------
+     ติ๊กบิลแรกแล้ว ตารางเหลือเฉพาะบิลต้นทางเดียวกัน **ทุกปลายทาง** (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิม 24 ก.ย. กรองปลายทาง
+     เดียวกันหรืออยู่ระหว่างทางตาม lib/route/enRoute.ts ด้วย) · บิลแรก = บิลที่ติ๊กก่อนสุดที่ยังติ๊กอยู่ (Set เก็บตามลำดับที่ใส่) ·
+     เอาติ๊กออกหมด = กลับมาเห็นทุกบิล */
   const anchor = useMemo(() => {
     for (const id of picked) {
       const b = waiting.find((x) => x.id === id);
@@ -104,8 +103,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     (!f.date || b.date === f.date) && (!f.branch || b.branch === f.branch)
     && (!f.origin || b.origin === f.origin) && (!f.dest || b.dest === f.dest)
     && (!f.group || b.serviceGroup === f.group)
-    && (!anchor || onRouteOf(anchor, b, enRoute))), [waiting, f, anchor, enRoute]);
-  const anchorStops = anchor ? stopsFor(anchor.origin, anchor.dest, enRoute) : [];
+    && (!anchor || b.origin === anchor.origin)), [waiting, f, anchor]);
 
   const chosen = useMemo(() => waiting.filter((b) => picked.has(b.id)), [waiting, picked]);
   const sum = useMemo(() => ({
@@ -344,8 +342,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
 
           {anchor && (
             <div className="dispatch-lock">
-              แสดงเฉพาะบิลที่ไปทางเดียวกับ <b>{anchor.origin} → {anchor.dest}</b>
-              {anchorStops.length ? <> · ปลายทางระหว่างทาง: {anchorStops.join(" · ")}</> : <> · ไม่มีจุดระหว่างทาง</>}
+              แสดงเฉพาะบิลต้นทาง <b>{anchor.origin}</b> (ทุกปลายทาง)
               <span> — เอาติ๊กออกทุกบิลเพื่อดูบิลทั้งหมด</span>
             </div>
           )}
@@ -357,7 +354,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
                 <table className="tbl dispatch-tbl">
                   <thead><tr>
                     {/* เลือกทั้งหมดได้หลังติ๊กบิลแรกแล้วเท่านั้น — ก่อนนั้นจะได้บิลทุกเส้นทางปนกัน */}
-                    <th>{anchor && <input type="checkbox" checked={allShown} title="เลือกทุกบิลที่ไปทางเดียวกัน"
+                    <th>{anchor && <input type="checkbox" checked={allShown} title="เลือกทุกบิลที่ต้นทางเดียวกัน"
                       onChange={() => setPicked((s) => {
                         const next = new Set(s);
                         if (allShown) rows.forEach((b) => next.delete(b.id));
@@ -407,7 +404,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
               <div className="bill-grid dp-grid4">
                 <VehiclePickFields pick={hp} setPick={setHp} pool={heads} trailer={false}
                   kindNames={ACTIVE_VEHICLE_NAMES} anyKind="ทุกชนิดรถ" plateLabel="ทะเบียนรถ"
-                  noneLabel={(n) => (n ? `เลือกทะเบียน (${n} คัน)` : "ไม่พบรถตามที่เลือก")} />
+                  noneLabel={(n) => (n ? "เลือกทะเบียน" : "ไม่พบรถตามที่เลือก")} />
                 <div className="f"><label>วันปล่อยรถ</label>
                   <input type="date" value={releaseDate} onChange={(e) => setReleaseDate(e.target.value)} /></div>
               </div>

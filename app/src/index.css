@@ -3381,6 +3381,123 @@ html.theme-cherry .dm-sgs .dm-sg.sg-loss{background:var(--ch-rose)}
   vertical-align:2px;background:rgba(255,255,255,.2);color:inherit;opacity:.9;white-space:nowrap}
 #view-dash .pi-dm-ixh .pi-bsc{background:var(--d-rail)}
 
+/* ===== คำอธิบายยุบหลังปุ่ม ⓘ (Note · เจ้าของงานสั่ง 28 ก.ย. 2569) — กดกาง/พับ · ข้อความตอนกางใช้หน้าตา .dz-note เดิม ===== */
+.dz-note-wrap{margin-top:8px}
+.dz-note-wrap > .dz-note{margin-top:6px}
+.dz-note-i{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;padding:0;border:none;border-radius:999px;
+  background:transparent;color:var(--ink-faint,#9a8a8f);cursor:pointer;transition:background .15s,color .15s}
+.dz-note-i svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+.dz-note-i:hover,.dz-note-wrap.open .dz-note-i{background:var(--accent-tint,#F6ECEF);color:var(--accent,#590212)}
+.dz-note-i:focus-visible{outline:2px solid var(--accent,#590212);outline-offset:1px}
+
+/* ===== ป็อบอัพที่มาของคะแนน PI: สถานะรายหมวด + หลักการ/เอกสารอ้างอิง (InDex_revised v2.md · 28 ก.ย. 2569) ===== */
+#view-dash .pi-dm-st{font-style:normal;display:inline-block;padding:2px 10px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
+#view-dash .pi-dm-st.pass{color:#0B7A62;background:#DDF4EC}
+#view-dash .pi-dm-st.watch{color:#8A5A07;background:#FBEFD6}
+#view-dash .pi-dm-st.fail{color:#B4233A;background:#FBE1E5}
+#view-dash .pi-dm-method{border-top:1px solid var(--d-line2);padding-top:12px;font-size:13px;line-height:1.6;color:var(--d-ink2)}
+#view-dash .pi-dm-method h4{margin:10px 0 6px;font-size:14.5px;color:var(--d-ink)}
+#view-dash .pi-dm-method ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+#view-dash .pi-dm-method b{color:var(--d-ink)}
+#view-dash .pi-dm-status{margin-top:10px}
+#view-dash .pi-dm-status th{text-align:left;padding:6px 10px;font-size:12.5px;color:var(--d-ink3);border-bottom:1px solid var(--d-line2)}
+#view-dash .pi-dm-refs{margin:0;padding-left:20px;font-size:12px;color:var(--d-ink3);display:flex;flex-direction:column;gap:4px;word-break:break-word}
+
+/* ===== ป็อบอัพรายการบิลของเที่ยว (Manager Dashboard · TripBillsModal · 28 ก.ย. 2569) ===== */
+#view-dash .mg-tb-tbl td{white-space:nowrap}
+#view-dash .mg-tb-tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--d-rail,#F1ECEE);color:var(--d-ink3,#6b5a60)}
+#view-dash .modal.mg-tb-modal{max-width:min(1320px,96vw);width:min(1320px,96vw)}
+
+/* ===== Manager Dashboard หน้าเดียว — เลย์เอาต์ตาม "Dashboard ผู้จัดการสาขา.html" (28 ก.ย. 2569 · สีชุดของโมเดล) ===== */
+#view-dash .mg-sec{scroll-margin-top:96px}
+#view-dash .mg-heroes5{grid-template-columns:repeat(5,minmax(0,1fr))}
+#view-dash .mg-heroes4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1200px){#view-dash .mg-heroes5{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:1000px){#view-dash .mg-heroes4,#view-dash .mg-heroes5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){#view-dash .mg-heroes4,#view-dash .mg-heroes5{grid-template-columns:1fr}}
+#view-dash .mo-sec-h{margin:22px 0 12px}
+#view-dash .mo-d{font-size:12.5px;font-weight:700}
+#view-dash .mo-d.up{color:#1E7A4C}
+#view-dash .mo-d.dn{color:#C0392B}
+#view-dash .dz-kc.hero .mo-d{color:inherit;opacity:.95}
+#view-dash .mo-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;margin-top:14px;align-items:start}
+#view-dash .mo-grid > .dz-cc,#view-dash .mo-grid > .mg-todo{margin:0}
+#view-dash .mo-stack{display:flex;flex-direction:column;gap:14px}
+#view-dash .mo-stack > .dz-cc{margin:0}
+@media (max-width:900px){#view-dash .mo-grid{grid-template-columns:1fr}}
+/* กล่องคู่ซ้ายขวาสูงเท่ากัน (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+#view-dash .mo-grid.mo-fit{align-items:stretch}
+#view-dash .mo-stack > .mg-todo{margin:0}
+#view-dash .mo-full{margin:0 0 14px}
+/* กล่อง "บิลที่รับวันนี้" ข้างกล่องต้องจัดการ (28 ก.ย. 2569) */
+#view-dash .mo-top{margin:0 0 16px;grid-template-columns:minmax(0,2.4fr) minmax(0,1fr)}
+#view-dash .mo-top > .mg-todo{margin:0}
+/* กล่องบิลที่รับวันนี้แบบย่อ (เจ้าของงานสั่ง 28 ก.ย. 2569 "ใหญ่ไป") — ให้สูงไม่เกินกล่องต้องจัดการ */
+#view-dash .dz-cc.mo-today{margin:0;display:flex;flex-direction:column;padding:14px 18px}
+#view-dash .dz-cc.mo-today h4{font-size:15px;margin:0 0 6px}
+#view-dash .mo-today-n{font-size:13px;font-weight:700;color:var(--d-ink2);margin:0 0 6px}
+#view-dash .mo-today-n b{font-size:22px;font-weight:800;color:var(--d-ink);margin-right:3px}
+#view-dash .mo-today .mo-cost.mo-today-kv{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 10px;margin-bottom:6px}
+#view-dash .mo-today .mo-cost.mo-today-kv div{font-size:11.5px}
+#view-dash .mo-today .mo-cost.mo-today-kv b{font-size:13.5px}
+#view-dash .mo-today .mo-cost.mo-today-kv b.warn{color:#B45309}
+#view-dash .mo-today-btn{margin-top:auto;align-self:flex-start;font-size:12px;padding:4px 10px}
+#view-dash .mo-today .mg-todo-ok{font-size:13px}
+@media (max-width:900px){#view-dash .mo-top{grid-template-columns:1fr}}
+/* ลูกค้าที่ค้างชำระ + บิลค้างชำระ วางข้างกัน (28 ก.ย. 2569) — ตารางบิลคอลัมน์เยอะกว่าจึงกว้างกว่า · ในกล่องเลื่อนแนวนอนได้ */
+#view-dash .mg-debt2{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}
+#view-dash .mg-debt2 > .dz-cc{margin:0;min-width:0}
+@media (max-width:1100px){#view-dash .mg-debt2{grid-template-columns:1fr}}
+/* กราฟ 6 เดือน */
+#view-dash .mo-chart{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;height:190px;align-items:end;padding-top:18px}
+#view-dash .mo-col{display:flex;flex-direction:column;align-items:center;height:100%;gap:6px;min-width:0}
+#view-dash .mo-col > span{font-size:12.5px;color:var(--d-ink4)}
+#view-dash .mo-bars{flex:1;width:100%;display:flex;align-items:flex-end;justify-content:center;gap:4px}
+#view-dash .mo-bars i{position:relative;display:block;width:34%;max-width:24px;min-height:2px;border-radius:5px 5px 0 0}
+#view-dash .mo-bars i.rev{background:var(--mo-rev,#C9A56A)}
+#view-dash .mo-bars i.cost{background:var(--mo-cost,#B8A6C4)}
+#view-dash .mo-bars em{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:2px;font-style:normal;font-size:11px;color:var(--d-ink4);white-space:nowrap}
+#view-dash .mo-lg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px;color:var(--d-ink4)}
+#view-dash .mo-lg span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:var(--c)}
+#view-dash .mo-lg .rev{--c:var(--mo-rev,#C9A56A)}
+#view-dash .mo-lg .cost{--c:var(--mo-cost,#B8A6C4)}
+#view-dash .mo-lg .ok{--c:#1E9E6A}
+#view-dash .mo-lg .warn{--c:#D9A04A}
+#view-dash .mo-lg .late{--c:#E07B39}
+#view-dash .mo-lg .bad{--c:#C0392B}
+#view-dash .mo-lg .run{--c:var(--accent,#590212)}
+/* ค่าใช้จ่ายตามหมวด */
+#view-dash .mo-ex{display:grid;grid-template-columns:140px 1fr 110px;gap:10px;align-items:center;font-size:13.5px;margin:9px 0}
+#view-dash .mo-ex > span:last-child{text-align:right;color:var(--d-ink)}
+#view-dash .mo-tr{position:relative;height:10px;border-radius:5px;background:var(--d-rail,#EFE8EB)}
+#view-dash .mo-tr i{position:absolute;left:0;top:0;bottom:0;border-radius:5px;background:var(--mo-cost,#8E6E9A)}
+#view-dash .mo-tr i.over{background:#C0392B}
+#view-dash .mo-tr u{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--d-ink,#2A0A10)}
+/* แถบสัดส่วน (อายุลูกหนี้ · สถานะรถ) */
+#view-dash .mo-bar{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:6px 0 4px;background:var(--d-rail,#EFE8EB)}
+#view-dash .mo-bar i{display:block}
+#view-dash .mo-bar i.ok{background:#1E9E6A}
+#view-dash .mo-bar i.warn{background:#D9A04A}
+#view-dash .mo-bar i.late{background:#E07B39}
+#view-dash .mo-bar i.bad{background:#C0392B}
+#view-dash .mo-bar i.run{background:var(--accent,#590212)}
+#view-dash .mo-note{margin:10px 0 0;font-size:12.5px;color:var(--d-ink4)}
+/* ตารางรายได้ลูกค้า */
+#view-dash .mo-scroll{overflow-x:auto}
+#view-dash .mo-tbl{width:100%;border-collapse:collapse;font-size:14px}
+#view-dash .mo-tbl th,#view-dash .mo-tbl td{text-align:left;padding:8px;border-top:1px solid var(--d-row,#EFE6E9);white-space:nowrap}
+#view-dash .mo-tbl th{border-top:0;font-size:12.5px;font-weight:600;color:var(--d-ink4)}
+#view-dash .mo-tbl .n{text-align:right}
+#view-dash .mo-tag{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px}
+#view-dash .mo-tag.bad{background:#FBE4E0;color:#C0392B}
+#view-dash .mo-tag.warn{background:#FBF0D9;color:#9A5F14}
+/* การ์ดต้นทุน */
+#view-dash .mo-cost{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+#view-dash .mo-cost div{font-size:13px;color:var(--d-ink4)}
+#view-dash .mo-cost b{display:block;font-size:22px;color:var(--d-ink);font-family:var(--d-num)}
+#view-dash .mo-cost b.neg{color:#C0392B}
+/* หัวแคปซูลที่ไม่มีแท็บ (Manager Dashboard 28 ก.ย. 2569) — ช่องว่างแทนแถบแท็บ ดันปุ่มไปขวาเหมือนเดิม */
+.cap-gap{flex:1}
 /* ===== Executive Dashboard รอบสาม (28 ก.ย. 2569) — 6 กล่องภาพรวม · กราฟรายเดือน · แผนที่ =====
    แถวบนเตี้ยลง · การ์ดกำไรใช้ลูกศรขึ้น/ลง (.hero-art) แทนกราฟ · แถวสอง 4 ใบ (รวม %เที่ยวที่ขาดทุน) · รูป 3 มิติไม่มีกรอบรอง */
 #view-dash .dm-overview .dz-heroes > .dz-kc.hero{padding:18px 22px 16px}
@@ -3632,6 +3749,11 @@ html.theme-cherry #view-dash .dm-sub-h::after{background:color-mix(in srgb,var(-
 /* พื้น/ขอบกรอบส่วนตั้งได้ในหน้าการตั้งค่า (partBg · partAlpha % · partBorder · 28 ก.ย. 2569) — ค่าตั้งต้นเท่าหน้าตาเดิม */
 html.theme-cherry #view-dash .dm-part{background:color-mix(in srgb,var(--th-partBg) calc(var(--th-partAlpha) * 1%),transparent);border-color:var(--th-partBorder)}
 html.theme-cherry #view-dash .dm-pi-sep{border-top-color:color-mix(in srgb,var(--th-pageMuted) 45%,transparent)}
+/* หัวข้อส่วนของ Manager Dashboard หน้าเดียว (การเงินสาขา · หน้างานและกองรถ · ลูกค้าและลูกหนี้) วางบนพื้นหน้า — ใช้สีตัวอักษรบนพื้นหน้าของธีม (merge โมเดล-Anda 28 ก.ย. 2569) */
+html.theme-cherry #view-dash .mo-sec-h{color:var(--th-pageText)}
+#view-dash .mo-today.mo-click{cursor:pointer;transition:box-shadow .15s,transform .15s}
+#view-dash .mo-today.mo-click:hover{box-shadow:0 6px 18px rgba(0,0,0,.12);transform:translateY(-1px)}
+#view-dash .mo-today.mo-click:focus-visible{outline:2px solid var(--accent,#590212);outline-offset:2px}
 /* กราฟย่อในภาพจำลอง (สีเส้น/แท่งในกราฟ) + แถบแจ้งรีโหลด */
 .thp-chart svg{display:block;width:100%;height:56px}
 .thp-chart polyline{fill:none;stroke-width:2.5;vector-effect:non-scaling-stroke;stroke-linejoin:round}
@@ -3908,6 +4030,69 @@ html.theme-cherry #view-dash #demo-cust .dso-heroes > .dz-kc.hero :is(.v,.vrow .
 #view-dash .dso2-rank.dso2-click:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 /* ป็อบอัพลูกหนี้: คอลัมน์ "ระยะเวลาเครดิต" จัดกลาง (เจ้าของงานสั่ง 28 ก.ย. 2569) — รายบิล = คอลัมน์ 3 · รายลูกค้าตามช่วงวัน = คอลัมน์ 2 */
 #view-dash .dz-tbl.cb-tbl :is(th,td):nth-child(3),#view-dash .dz-tbl.od-tbl :is(th,td):nth-child(2){text-align:center}
+
+/* Customer Performance › วงกลมสัดส่วน Top 10 กำไร/ขาดทุน (ซ้าย) ข้างกราฟช่วง %Margin ที่แคบลง (เจ้าของงานส่งภาพ 28 ก.ย. 2569) */
+#view-dash .cp-dist{display:grid;grid-template-columns:minmax(280px,1fr) minmax(0,2fr);gap:14px;margin-top:14px;align-items:stretch}
+#view-dash .cp-dist > .dz-cc{margin:0}
+#view-dash .cp-pie{display:flex;flex-direction:column}
+#view-dash .cp-pie-h{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:nowrap}
+#view-dash .cp-pie-h h4{margin:0;white-space:nowrap}
+/* ปุ่มกว้างคงที่ สลับแล้วไม่ขยับ */
+#view-dash .cp-pie-seg{flex:none}
+#view-dash .cp-pie-seg button{width:76px;padding:7px 0;font-size:14px;text-align:center}
+#view-dash .cp-pie-cap{margin-top:12px;text-align:center;font-size:15px;color:var(--d-ink2)}
+#view-dash .cp-pie-cap b{font-family:var(--d-num);font-size:22px;margin:0 2px}
+#view-dash .cp-pie-cap.gain b{color:#15803D}
+#view-dash .cp-pie-cap.loss b{color:#B91C1C}
+#view-dash .cp-pie-box{height:260px;margin:4px 0 10px}
+#view-dash .cp-pie-legend{list-style:none;margin:auto 0 0;padding:0;display:grid;gap:8px}
+#view-dash .cp-pie-legend li{display:grid;grid-template-columns:14px 1fr auto;column-gap:10px;row-gap:2px;align-items:center;
+  padding:9px 12px;border-radius:10px;background:var(--d-soft)}
+#view-dash .cp-pie-legend i{width:14px;height:14px;border-radius:4px}
+#view-dash .cp-pie-legend span{font-size:15px;color:var(--d-ink)}
+#view-dash .cp-pie-legend b{font-family:var(--d-num);font-size:19px;color:var(--d-ink)}
+#view-dash .cp-pie-legend em{grid-column:2 / 4;font-style:normal;font-size:14px;color:var(--d-ink3)}
+#view-dash .cp-pie-empty{margin:40px 0;text-align:center;font-size:15px}
+@media(max-width:900px){#view-dash .cp-dist{grid-template-columns:1fr}}
+/* กราฟช่วง %Margin ยืดเต็มความสูงของกล่องวงกลมข้าง ๆ — เดิมสูงตายตัว 270px เหลือที่ว่างใต้กราฟ */
+#view-dash .cp-hist{display:flex;flex-direction:column}
+#view-dash .cp-hist > .dz-box{flex:1 1 auto;height:auto;min-height:270px}
+
+/* ปุ่มย่อ/ขยายแคปซูล ขวาสุดถัดจาก ⓘ (28 ก.ย. 2569) · ย่อ = ซ่อนแคปซูลกับ ⓘ เหลือปุ่มโลโก้ปุ่มเดียวชิดขวา
+   แถบที่ย่อแล้วไม่รับคลิก (ยังติดขอบบนเต็มความกว้าง) มีแค่ปุ่มที่กดได้ เนื้อหาข้างใต้จึงยังคลิกได้ */
+.cap-mini-btn{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(26,23,20,.1);background:#fff;color:#4A4238;box-shadow:0 10px 30px -18px rgba(26,23,20,.35)}
+.cap-mini-btn svg{width:20px;height:20px}
+.cap-mini-btn img{width:34px;height:34px;object-fit:contain}
+.cap-mini-btn:hover{background:#F3EEE8;color:#1A1714}
+.cap-mini-btn:focus-visible{outline:2px solid #4B2ED4;outline-offset:2px}
+html.theme-cherry .cap-mini-btn{border-color:#E4CDD3;color:#7A5A60}
+.cap-bar.mini{justify-content:flex-end;pointer-events:none}
+.cap-bar.mini > .cap,.cap-bar.mini > .cap-info{display:none}
+.cap-bar.mini > .cap-mini-btn{pointer-events:auto;width:52px;height:52px}
+
+/* ปุ่มขึ้นบนสุด มุมขวาล่างของจอ ทุกหน้า */
+.scroll-top{position:fixed;right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px));z-index:40;
+  display:grid;place-items:center;width:48px;height:48px;padding:0;border-radius:50%;cursor:pointer;
+  border:1px solid rgba(26,23,20,.12);background:#fff;color:#1A1714;box-shadow:0 12px 28px -12px rgba(0,0,0,.45);
+  opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .2s,transform .2s,background-color .15s}
+.scroll-top.show{opacity:1;transform:none;pointer-events:auto}
+.scroll-top svg{width:22px;height:22px}
+.scroll-top:hover{background:#F3EEE8}
+.scroll-top:focus-visible{outline:2px solid #4B2ED4;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.scroll-top{transition:none}}
+@media print{.scroll-top{display:none}}
+/* ย่อแล้วปุ่มโลโก้หลุดออกจากกรอบเนื้อหา ไปชิดขอบขวาของจอ แนวเดียวกับปุ่มขึ้นบนสุด (เจ้าของงานสั่ง 28 ก.ย. 2569) */
+.cap-bar.mini > .cap-mini-btn{position:fixed;top:10px;right:max(20px,env(safe-area-inset-right,0px));z-index:40}
+/* ปุ่มย่อ/ขยายแคปซูลอยู่นอกกรอบ กึ่งกลางช่องว่างฝั่งขวาทั้งสองสถานะ (เจ้าของงานสั่ง 28 ก.ย. 2569 — ทับตำแหน่งสองกฎก่อนหน้า)
+   --cap-gut = ระยะขอบขวาของกรอบถึงขอบจอ (DashShell วัดให้) · ช่องแคบกว่าปุ่ม (จอเล็ก) = ปุ่มชิดขอบจอ 4px */
+.cap-bar > .cap-mini-btn{position:absolute;top:50%;transform:translateY(-50%);
+  right:max(calc(4px - var(--cap-gut, 60px)), calc(var(--cap-gut, 60px) / -2 - 22px))}
+.cap-bar.mini > .cap-mini-btn{position:fixed;top:10px;transform:none;
+  right:max(4px, calc(var(--cap-gut, 60px) / 2 - 26px))}
+/* Profit Per Route: หัวข้อส่วนอยู่ใต้การ์ด Service Category เหนือแผนที่ (เจ้าของงานสั่ง 28 ก.ย. 2569) — Service Category จึงเป็นหัวแรกของกรอบ */
+#view-dash #demo-route .dm-sub-h:first-of-type{margin-top:0}
+#view-dash .dm-part-h.dm-part-h-mid{margin-top:30px}
 /* เส้นกราฟตกแต่ง (SPARK) ท้ายการ์ดใหญ่ เอาออกทุกแท็บ/ทุก Dashboard (เจ้าของงานสั่ง 28 ก.ย. 2569) — เส้นแนวโน้มจากข้อมูลจริง (.trend) ยังอยู่ */
 .dz-kc.hero .spark{display:none}
 /* ===== Executive Dashboard › Recommendation (PiRecommend · 28 ก.ย. 2569) — การ์ดตัวชี้วัด PI เรียงคะแนนน้อยไปมาก + แนวทาง ===== */
@@ -4060,3 +4245,6 @@ html.theme-cherry #view-dash .pi-total .pi-jump-sc b{color:var(--th-piTotalInk)}
 html.theme-cherry #view-dash .pi-total :is(.pi-total-main,.pi-jump):focus-visible{outline-color:var(--th-piTotalInk)}
 html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
 @keyframes piFlashInk{0%,40%{box-shadow:0 0 0 4px var(--th-piTotalInk)}100%{box-shadow:0 0 0 0 transparent}}
+/* ไอคอน 3 มิติมุมขวาบนของการ์ดใหญ่ แทนป้ายหน่วย (Hero icon · Customer Performance 29 ก.ย. 2569) — ขนาดใกล้ไอคอนการ์ดกำไรเฉลี่ย (kc-ic) */
+#view-dash .dz-kc.hero .hero-ic{flex:none;align-self:flex-start;width:58px;height:58px;margin:-6px -6px -14px 0;display:grid;place-items:center}
+#view-dash .dz-kc.hero .hero-ic img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.18))}

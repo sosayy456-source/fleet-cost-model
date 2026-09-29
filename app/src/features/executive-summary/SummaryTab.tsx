@@ -20,7 +20,7 @@ import { DWaterfall } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { DEMO_F0 } from "../dash-demo/filter";
-import { PiTotal, costPiResults, emptyPiResult, lfPiResult, routePiResults, servicePiResults, serviceRef } from "../dash-demo/PiIndex";
+import { PiTotal, costPiResults, emptyPiResult, lfPiResult, routePiResults, servicePiResults, serviceRef, tripEvalOf, tripRefOf } from "../dash-demo/PiIndex";
 import { Hero, Note, Pane } from "../dash-fleet/parts";
 import { fmt, pct } from "../dash-costrev/common";
 import { custPiResults, rollupCustomers } from "../dash-demo/CustomerProfitTab";
@@ -50,13 +50,16 @@ export default function SummaryTab({ onRecommend }: { onRecommend: () => void })
   // ชุดที่ยังโหลดไม่เสร็จ/ไม่มีไฟล์ ไม่นับเข้าฐาน ("คิดได้ x จาก 100")
   const reports = useMemo(() => {
     const asOf = debtors.data ? defaultAsOf(debtors.data.manifest.dateRange.min, debtors.data.manifest) : null;
+    // ชุดอ้างอิงเกณฑ์ percentile = 12 เดือนล่าสุดของไฟล์ (ตัวกรองว่าง) — ตัวเดียวกับ Executive Dashboard ตอนไม่กรอง
+    const refs = all ? tripRefOf(all, DEMO_F0) : null;
+    // ไม่มีตัวกรองปี = ประเมินเดือนล่าสุดของไฟล์ — ตัวเดียวกับ Executive Dashboard ตอนไม่กรอง
+    const ev = all ? tripEvalOf(all, DEMO_F0) : null;
     return {
-      // ฐาน PI = 12 เดือนล่าสุดของทั้งบริษัท (ref = ทุกเที่ยว) เหมือน Executive Dashboard
-      [INDEXES.route.id]: routePiResults(all, all),
-      [INDEXES.fleet.id]: [lfPiResult(lf.error ? null : lf.data, DEMO_F0), emptyPiResult(all, DEMO_F0, all)],
-      [INDEXES.cost.id]: costPiResults(all, all),
+      [INDEXES.route.id]: routePiResults(ev?.trips ?? null, refs, ev?.label),
+      [INDEXES.fleet.id]: [lfPiResult(lf.error ? null : lf.data, DEMO_F0), emptyPiResult(all, DEMO_F0)],
+      [INDEXES.cost.id]: costPiResults(ev?.trips ?? null, refs, ev?.label),
       [INDEXES.cust.id]: custPiResults(alloc.data, debtors.data, asOf, DEMO_F0),
-      [INDEXES.service.id]: servicePiResults(all, serviceRef(all)),
+      [INDEXES.service.id]: servicePiResults(ev?.trips ?? null, serviceRef(refs ? refs.trips : null), ev?.label),
     };
   }, [all, lf.data, lf.error, alloc.data, debtors.data]);
 
