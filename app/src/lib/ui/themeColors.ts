@@ -35,39 +35,39 @@ export const THEME_GROUPS: ThemeGroup[] = [
   {
     title: "พื้นหลังหน้าแดชบอร์ด",
     tokens: [
-      { key: "pageTop", label: "พื้นหลัง (บน)", def: "#1E2D37" , global: true },
-      { key: "pageBottom", label: "พื้นหลัง (ล่าง)", def: "#0A1319" , global: true },
+      { key: "pageTop", label: "พื้นหลัง (บน)", def: "#F5F3F2" , global: true },
+      { key: "pageBottom", label: "พื้นหลัง (ล่าง)", def: "#E9ECF0" , global: true },
       // แสงเรืองมุมบนซ้าย + ลำแสงทแยง (เจ้าของงานส่งภาพพื้นน้ำเงินเรืองแสง 28 ก.ย. 2569) — ค่าตั้งต้น = สีพื้นบน จึงแทบมองไม่เห็น
-      { key: "pageGlow", label: "แสงเรืองมุมบนซ้าย", hint: "ตั้งเท่าพื้นหลัง (บน) = ไม่มีแสง", def: "#1E2D37" , global: true },
-      { key: "pageText", label: "หัวข้อบนพื้นหลัง", hint: "เช่น Route · หัวข้อส่วน", def: "#EEE8EA" , sel: ".dm-part-h, .dz-t, .cp-sec h3, .mg-debt > .mg-h" },
-      { key: "pageMuted", label: "ข้อความรอง/เส้นคั่นบนพื้นหลัง", def: "#8E9BA3" , sel: ".dz-note, .cp-sec p" },
+      { key: "pageGlow", label: "แสงเรืองมุมบนซ้าย", hint: "ตั้งเท่าพื้นหลัง (บน) = ไม่มีแสง", def: "#FFFFFF" , global: true },
+      { key: "pageText", label: "หัวข้อบนพื้นหลัง", hint: "เช่น Route · หัวข้อส่วน", def: "#1F2933" , sel: ".dm-part-h, .dz-t, .cp-sec h3, .mg-debt > .mg-h" },
+      { key: "pageMuted", label: "ข้อความรอง/เส้นคั่นบนพื้นหลัง", def: "#FFFFFF" , sel: ".dz-note, .cp-sec p" },
       // กรอบที่ครอบแต่ละส่วน/แท็บ (.dm-part ของ Executive Dashboard) — เจ้าของงานขอ 28 ก.ย. 2569
       // ค่าตั้งต้นเท่าหน้าตาเดิม: พื้น = สีหัวข้อบนพื้นหลัง ทึบ 5% · ขอบ ≈ สีหัวข้อ 12% บนพื้นกรมท่า
-      { key: "partBg", label: "พื้นกรอบส่วน", hint: "กรอบที่ครอบแต่ละส่วนของ Executive Dashboard", def: "#EEE8EA", sel: ".dm-part" },
+      { key: "partBg", label: "พื้นกรอบส่วน", hint: "กรอบที่ครอบแต่ละส่วนของ Executive Dashboard", def: "#1F2933", sel: ".dm-part" },
       { key: "partAlpha", label: "ความทึบพื้นกรอบส่วน", hint: "0 = ใส · 100 = ทึบเต็ม", def: "5", pct: true, sel: ".dm-part" },
-      { key: "partBorder", label: "ขอบกรอบส่วน", def: "#3A474F", sel: ".dm-part" },
+      { key: "partBorder", label: "ขอบกรอบส่วน", def: "#D9DDE3", sel: ".dm-part" },
     ],
   },
   {
     title: "เมนูซ้าย",
     tokens: [
-      { key: "sideTop", label: "พื้นเมนู (บน)", def: "#E7CBA9" , global: true },
-      { key: "sideBottom", label: "พื้นเมนู (ล่าง)", def: "#BEC2C3" , global: true },
-      { key: "sideText", label: "ตัวอักษรเมนู", def: "#4B3B3B" , global: true },
-      { key: "sideActiveBg", label: "พื้นเมนูที่เลือก", def: "#FFFFFF" , global: true },
-      { key: "sideActiveText", label: "ตัวอักษรเมนูที่เลือก", def: "#590212" , global: true },
-      { key: "accent", label: "สีเน้น", hint: "ปุ่มหลัก · ป้ายตัวเลข · ขอบช่องที่โฟกัส", def: "#590212" , global: true },
+      { key: "sideTop", label: "พื้นเมนู (บน)", def: "#BD0000" , global: true },
+      { key: "sideBottom", label: "พื้นเมนู (ล่าง)", def: "#BD0000" , global: true },
+      { key: "sideText", label: "ตัวอักษรเมนู", def: "#FFFFFF" , global: true },
+      { key: "sideActiveBg", label: "พื้นเมนูที่เลือก", def: "#E8EDF5" , global: true },
+      { key: "sideActiveText", label: "ตัวอักษรเมนูที่เลือก", def: "#1E3A8A" , global: true },
+      { key: "accent", label: "สีเน้น", hint: "ปุ่มหลัก · ป้ายตัวเลข · ขอบช่องที่โฟกัส", def: "#1E3A8A" , global: true },
     ],
   },
   {
     title: "กล่องหัวแดชบอร์ด",
     tokens: [
-      { key: "headBg", label: "พื้นกล่องหัว", def: "#FCEFF2" , global: true },
-      { key: "headBorder", label: "แถบสีด้านบน", def: "#590212" , global: true },
-      { key: "headTitle", label: "ชื่อหน้า", def: "#6A0F1B" , global: true },
+      { key: "headBg", label: "พื้นกล่องหัว", def: "#FFFFFF" , global: true },
+      { key: "headBorder", label: "แถบสีด้านบน", def: "#1E3A8A" , global: true },
+      { key: "headTitle", label: "ชื่อหน้า", def: "#1E3A8A" , global: true },
       { key: "headText", label: "ข้อความ/ค่าในตัวกรอง", def: "#2A0A10" , global: true },
       { key: "headMuted", label: "ข้อความรอง/ป้ายตัวกรอง", def: "#7A5A60" , global: true },
-      { key: "headLine", label: "เส้นขอบช่องตัวกรอง", def: "#E4CDD3" , global: true },
+      { key: "headLine", label: "เส้นขอบช่องตัวกรอง", def: "#E5E7EB" , global: true },
       // แท็บที่เลือกในแคปซูลหัว — แยกจากสีเน้น (เจ้าของงานสั่ง 28 ก.ย. 2569 ให้เป็นแดงแม้สีเน้นเป็นน้ำเงิน)
       { key: "tabOn", label: "แท็บที่เลือกในหัว", def: "#C62828" , global: true, sel: ".cap-tabs button.on" },
     ],
@@ -121,10 +121,10 @@ export const THEME_GROUPS: ThemeGroup[] = [
   {
     title: "กลุ่มบริการ · หัวส่วน · Performance Index",
     tokens: [
-      { key: "sg1", label: "กลุ่มบริการ ใบที่ 1", def: "#5E0718" , sel: ".dm-sg.c1" },
+      { key: "sg1", label: "กลุ่มบริการ ใบที่ 1", def: "#1E3A8A" , sel: ".dm-sg.c1" },
       { key: "sg2", label: "กลุ่มบริการ ใบที่ 2", def: "#B0473A" , sel: ".dm-sg.c2, .rp-ico.red" },
       { key: "sg3", label: "กลุ่มบริการ ใบที่ 3", def: "#8E5A68" , sel: ".dm-sg.c3" },
-      { key: "secA", label: "หัวส่วน/หัวตาราง สีที่ 1", hint: "Vehicle Utilization Cost · ไอคอนการ์ดเส้นทาง", def: "#5E0718" , sel: ".i3-h.violet, .rp-ico.violet, .i3-sec:nth-child(1) .i3-tbl thead tr" },
+      { key: "secA", label: "หัวส่วน/หัวตาราง สีที่ 1", hint: "Vehicle Utilization Cost · ไอคอนการ์ดเส้นทาง", def: "#1E3A8A" , sel: ".i3-h.violet, .rp-ico.violet, .i3-sec:nth-child(1) .i3-tbl thead tr" },
       { key: "secB", label: "หัวส่วน/หัวตาราง สีที่ 2", def: "#1B7A60" , sel: ".i3-h.green, .rp-ico.green, .i3-sec:nth-child(2) .i3-tbl thead tr, .rp-rank" },
       { key: "secC", label: "หัวส่วน/หัวตาราง สีที่ 3", def: "#8E5A68" , sel: ".i3-h.blue" },
       // 28 ก.ย. 2569 (ภาพที่เจ้าของงานส่ง): กล่อง Index 5 หมวด = เงินเงา ตัวเข้ม · กล่องคะแนนรวม = แชมเปญทอง ตัวเบอร์กันดี
@@ -176,7 +176,10 @@ export type ThemeColors = Record<string, string>;
 
 /** ชุดสำเร็จรูป — เลือกแล้วเขียนทับทุกจุด (แก้รายจุดต่อได้) */
 export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
-  { name: "กรมท่า + ทราย (ค่าตั้งต้น)", colors: {} },
+  // ค่าตั้งต้นรอบ 29 ก.ย. 2569 = ดีไซน์ที่เจ้าของงานปรับเองในหน้านี้ (ย้ายจาก localStorage ของเครื่องเจ้าของงานมาเป็นโค้ด)
+  { name: "ค่าตั้งต้น (ดีไซน์ปัจจุบัน)", colors: {} },
+  // ค่าตั้งต้นเดิม 28 ก.ย. 2569 เก็บไว้เป็นชุดให้เลือกกลับได้
+  { name: "กรมท่า + ทราย (เดิม)", colors: { pageTop: "#1E2D37", pageBottom: "#0A1319", pageGlow: "#1E2D37", pageText: "#EEE8EA", pageMuted: "#8E9BA3", partBg: "#EEE8EA", partBorder: "#3A474F", sideTop: "#E7CBA9", sideBottom: "#BEC2C3", sideText: "#4B3B3B", sideActiveBg: "#FFFFFF", sideActiveText: "#590212", accent: "#590212", headBg: "#FCEFF2", headBorder: "#590212", headTitle: "#6A0F1B", headLine: "#E4CDD3", sg1: "#5E0718", secA: "#5E0718" } },
   {
     name: "ชมพูเชอร์รี (ธีมก่อนหน้า)",
     colors: {
@@ -300,10 +303,54 @@ export const SCOPE_TOKENS: ThemeToken[] = THEME_TOKENS.filter((t) => !t.global);
 const SCOPE_KEY = "dashThemeScopes";
 const SCOPE_OK = new Set(SCOPE_TOKENS.map((t) => t.key));
 
+/**
+ * สีรายแท็บตั้งต้นของทุกเครื่อง = ที่เจ้าของงานปรับเองในหน้านี้ (ย้ายจาก localStorage มาเป็นโค้ด 29 ก.ย. 2569)
+ * ใช้เมื่อเครื่องนั้นยังไม่เคยบันทึกสีรายแท็บ (ไม่มีคีย์ dashThemeScopes) — เคยบันทึกแล้ว = ใช้ของเครื่องนั้นทั้งก้อน
+ */
+export const DEFAULT_SCOPE_COLORS: Record<string, ThemeColors> = {
+  "demo:route": {
+    "partBorder": "#6C6519",
+    "pageMuted": "#EBEBEB",
+    "partBg": "#C7C7C7",
+    "pageText": "#344783",
+    "partAlpha": "0"
+  },
+  "demo:item2": {
+    "pageText": "#2243A5",
+    "partAlpha": "100",
+    "partBg": "#FFFFFF",
+    "custA": "#660505",
+    "lossA": "#FF2E2E",
+    "costA": "#E0298B",
+    "lossB": "#FA0526"
+  },
+  "demo:cust": {
+    "lossA": "#C52645",
+    "profitA": "#B28024"
+  },
+  "demo:svc": {
+    "lossA": "#D08686",
+    "lossB": "#DA5D80",
+    "i2EmptyCostA": "#E1A8B4",
+    "i2EmptyCostB": "#DB9EAC",
+    "fleet": "#A1455D",
+    "custB": "#B7526C",
+    "dmgInk": "#4C1A1A"
+  },
+  "demo:pi": {
+    "piTotalBg": "#E8D4B1"
+  },
+  "overall:detail3": {
+    "fleet": "#DDA836",
+    "svc": "#459EB0"
+  }
+};
+
 /** สีที่ตั้งเองของทุกแท็บ — คีย์ scope/token ที่ไม่รู้จักหรือค่าเพี้ยนทิ้งเงียบ ๆ */
 export function loadAllScopeColors(): Record<string, ThemeColors> {
   try {
-    const raw = JSON.parse(localStorage.getItem(SCOPE_KEY) || "{}") as Record<string, Record<string, unknown>>;
+    const stored = localStorage.getItem(SCOPE_KEY);
+    const raw = (stored == null ? DEFAULT_SCOPE_COLORS : JSON.parse(stored)) as Record<string, Record<string, unknown>>;
     const out: Record<string, ThemeColors> = {};
     for (const sc of THEME_SCOPES) {
       const src = raw[sc.id];
@@ -331,8 +378,8 @@ export function saveScopeColors(scope: string, colors: ThemeColors): void {
   if (Object.keys(c).length) all[scope] = c;
   else delete all[scope];
   try {
-    if (Object.keys(all).length) localStorage.setItem(SCOPE_KEY, JSON.stringify(all));
-    else localStorage.removeItem(SCOPE_KEY);
+    // เก็บเสมอแม้ว่าง ("{}") — ลบคีย์ทิ้งจะทำให้สีตั้งต้น DEFAULT_SCOPE_COLORS กลับมาหลังผู้ใช้ล้างเอง
+    localStorage.setItem(SCOPE_KEY, JSON.stringify(all));
   } catch { /* โหมดส่วนตัว */ }
   window.dispatchEvent(new Event(THEME_EVENT));
 }
