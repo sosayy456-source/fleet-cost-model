@@ -21,7 +21,7 @@
  */
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { Trip } from "../../lib/data/useCostRev";
-import { DEP_BREAKEVEN, FLAG_TIMES, depByKind, depreciation, kindCostTable, vehicleRows } from "../../lib/detail3/calc";
+import { FLAG_TIMES, depByKind, depreciation, kindCostTable, vehicleRows } from "../../lib/detail3/calc";
 import { EMPTY_SERVICE, fleetSlices, fleetTypeShare, serviceMixFixed } from "../../lib/fleetcompare/utilization";
 import { SERVICE_GROUPS } from "../../lib/pi/route";
 import imgBox from "../../assets/icons3d/box.webp";
@@ -161,11 +161,6 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
             : <span className={`i3-pill ${k.change >= 0 ? "bad" : "good"}`}>{k.change >= 0 ? "▲" : "▼"} {pct(Math.abs(k.change))}</span>}</td>
         </tr>)}</tbody>
       </table></div>
-      <p className="i3-note"><b className="bad">⚠ n</b> = จำนวนเที่ยว (รายคัน) ที่ค่านั้นเกิน {FLAG_TIMES} เท่าของค่าเฉลี่ยรายคันของชนิดรถเดียวกันในปีนี้ ·
-        ต้นทุน/กม. ไม่นับคันที่ไม่มีระยะทาง · ค่าเฉลี่ยคิดจากทั้งปีตามตัวกรองของหน้า ไม่เปลี่ยนตามช่องค้นหา ·
-        % เปลี่ยนแปลง = (บาท/ตัน-กม. ปีนี้ − บาท/ตัน-กม. ปีก่อน) ÷ บาท/ตัน-กม. ปีก่อน (ปีก่อนตามช่องต้นทาง/ปลายทาง/ชนิดรถ) ·
-        <b className="bad"> ▲ แดง = ต้นทุนสูงขึ้น</b> · <b className="good">▼ เขียว = ถูกลง</b> ·
-        ต้นทุนแยกรายคัน (หัว/หางคิดแยก) บาท/ตัน-กม. ของหางจึงต่ำกว่าหัวมาก</p>
     </Section>
 
     <Section tone="green" title="ความคุ้มค่าเสื่อม ยานพาหนะ"
@@ -203,8 +198,6 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
           </tr>)}</tbody>
         </table></div>
       </>}
-      <p className="i3-note">เกณฑ์: coverage = (กำไร + ค่าเสื่อม) ÷ ค่าเสื่อม ของแต่ละเที่ยว · ≥ {fmt(DEP_BREAKEVEN, 2)} = คุ้มค่าเสื่อม ·
-        ป้ายท้ายแถวใช้ coverage ของชนิดรถ (Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม) · ต้นทุน/ค่าเสื่อมแยกรายคัน (หัว/หางนับแยก)</p>
     </Section>
 
     {!hideFleet && <Section tone="blue" className="i3-fleet-sec" title="ภาพรวมการใช้ประโยชน์กองรถ"
@@ -251,7 +244,6 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
           </li>)}</ul>
         </div>
       </div>
-      <p className="i3-note">ใบที่มีรถหลายประเภท (เช่น หัวรถบริษัท + หางรถร่วม) นับในทุกประเภทที่มี ยอดรวมโดนัทจึงมากกว่าจำนวนเที่ยว</p>
     </Section>}
   </div>;
 }

@@ -59,7 +59,8 @@ const ICON_PERSON = <img src={imgPerson} alt="" />;
  * ลูกศรซิกแซก 3 มิติในที่ว่างขวาของการ์ดกำไร (แทนกราฟกำไรรายเดือน · เจ้าของงานสั่ง 28 ก.ย. 2569 — รอบแรกเป็นเส้นแบนเล็ก ๆ)
  * กำไรชี้ขึ้น · ขาดทุนชี้ลง · ชั้นล่างเลื่อนลงขวาสีเข้ม = ความหนา · ชั้นบนไล่ขาว→โปร่ง + เส้นสะท้อนแสง
  */
-const trendArrow = (up: boolean) => {
+/** ลูกศร 3 มิติขึ้น (กำไร) / ลง (ขาดทุน) ของการ์ดกำไร — ใช้ร่วมกับการ์ดลูกค้ามีกำไร/ขาดทุนของ Customer Performance */
+export const trendArrow = (up: boolean) => {
   const d = up ? "M6 70 40 36l18 18L96 16" : "M6 14l34 34 18-18 38 38";
   const head = up ? "M74 12h26v26" : "M74 72h26V46";
   return (
@@ -371,9 +372,9 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
           {/* ย้ายมาจากแถวการ์ดกลุ่มบริการท้ายส่วน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           <button type="button" className="dz-kc dm-loss" disabled={!kpi.loss} onClick={() => setShowLoss(true)}
             title={kpi.loss ? "กดดูรายการเที่ยวที่ขาดทุนทั้งหมด" : undefined}>
-            <span className="l">%เที่ยวที่ขาดทุน</span>
+            <span className="l">เที่ยวที่ขาดทุน</span>
             <span className="v" key={kpi.lossPct}>{pct(kpi.lossPct)}</span>
-            <span className="s">{kpi.loss ? `${fmt(kpi.loss)} จาก ${fmt(kpi.n)} เที่ยว · กดดูรายการ` : "ไม่มีเที่ยวขาดทุน"}</span>
+            <span className="s">{kpi.loss ? `${fmt(kpi.loss)} จาก ${fmt(kpi.n)} เที่ยว · กดดูรายละเอียดรายการ` : "ไม่มีเที่ยวขาดทุน"}</span>
           </button>
         </div>
         <TonKmScope f={f} />

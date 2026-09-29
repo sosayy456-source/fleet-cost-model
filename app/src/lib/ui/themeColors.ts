@@ -102,8 +102,8 @@ export const THEME_GROUPS: ThemeGroup[] = [
       { key: "i2Title", label: "หัวแผง Load Factor / Empty Trips", def: "#8A1530" , sel: ".i2-v3 .i2-gh" },
       // กล่องแดง 4 ตัวเลขของ Damage (Service Performance) — ตัวอักษรดำ (เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิมขาวตามการ์ดเด่น)
       { key: "dmgInk", label: "ตัวอักษรในกล่อง Damage (Service Performance)", def: "#141414" , sel: ".pi-dmg-row" },
-      { key: "dmgA", label: "กล่อง Damage (Service Performance) · สีเริ่ม", def: "#F59A9A" , sel: ".pi-dmg4" },
-      { key: "dmgB", label: "กล่อง Damage (Service Performance) · สีปลาย", def: "#E35D5D" , sel: ".pi-dmg4" },
+      { key: "dmgA", label: "กล่อง Damage (Service Performance) · สีเริ่ม", def: "#F8BCBC" , sel: ".pi-dmg4" },
+      { key: "dmgB", label: "กล่อง Damage (Service Performance) · สีปลาย", def: "#EE8A8A" , sel: ".pi-dmg4" },
       { key: "heroText", label: "ตัวอักษรในการ์ดเด่น", def: "#FFFFFF" , sel: ".dz-kc.hero .v, .dz-kc.hero .l" },
     ],
   },

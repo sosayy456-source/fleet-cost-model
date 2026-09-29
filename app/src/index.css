@@ -4010,8 +4010,13 @@ html.theme-cherry #view-dash #demo-cust .dso-heroes > .dz-kc.hero :is(.v,.vrow .
 #view-dash .pi-pair > .pi-dmg4.dz-kc.hero,html.theme-cherry #view-dash .pi-pair > .pi-dmg4.dz-kc.hero{
   /* รอบสาม: แดงอ่อนลง + เงาบาง ๆ (แถบแสงขาวจางทแยง + เส้นแสงขอบบน) — ไม่แรงแบบโลหะรอบแรก */
   background:linear-gradient(115deg,transparent 18%,rgba(255,255,255,.22) 34%,rgba(255,255,255,.06) 46%,transparent 58%),
-    linear-gradient(145deg,var(--th-dmgA,#F59A9A) 0%,var(--th-dmgB,#E35D5D) 100%);
+    /* เข้มซ้าย → อ่อนขวา (เจ้าของงานสั่ง 29 ก.ย. 2569 · เดิมอ่อนซ้ายบน → เข้มขวาล่าง) */
+    linear-gradient(90deg,var(--th-dmgB,#EE8A8A) 0%,var(--th-dmgA,#F8BCBC) 100%);
   box-shadow:0 14px 30px -20px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.5)}
+/* รูปกล่องพังมุมขวาบน (เจ้าของงานส่ง 29 ก.ย. 2569) — แถวแรกเว้นขวาไม่ให้ตัวอักษรทับรูป */
+#view-dash .pi-dmg4 .pi-dmg-art{position:absolute;top:16px;right:18px;width:clamp(130px,36%,210px);height:auto;z-index:0;
+  filter:drop-shadow(0 8px 12px rgba(0,0,0,.25));pointer-events:none}
+#view-dash .pi-dmg4:has(.pi-dmg-art) .pi-dmg-row:first-of-type{padding-right:calc(clamp(130px,36%,210px) + 12px)}
 #view-dash .pi-dmg-row{position:relative;z-index:1;flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:14px 0;color:var(--th-dmgInk,#141414)}
 #view-dash .pi-dmg-row + .pi-dmg-row{border-top:1px solid color-mix(in srgb,var(--th-dmgInk,#141414) 18%,transparent)}
 #view-dash .pi-dmg-l{font-size:21px;font-weight:700;line-height:1.3}
@@ -4248,3 +4253,21 @@ html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
 /* ไอคอน 3 มิติมุมขวาบนของการ์ดใหญ่ แทนป้ายหน่วย (Hero icon · Customer Performance 29 ก.ย. 2569) — ขนาดใกล้ไอคอนการ์ดกำไรเฉลี่ย (kc-ic) */
 #view-dash .dz-kc.hero .hero-ic{flex:none;align-self:flex-start;width:58px;height:58px;margin:-6px -6px -14px 0;display:grid;place-items:center}
 #view-dash .dz-kc.hero .hero-ic img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 4px 6px rgba(0,0,0,.18))}
+/* ชื่อหมวดของกล่อง Index (Route & Service Profitability Index ฯลฯ) ใหญ่ขึ้น (เจ้าของงานสั่ง 29 ก.ย. 2569 · เดิม 30 / จอแคบ 24) */
+#view-dash .pi-box .pi-row-sc .pi-t{font-size:27px;line-height:1.25}  /* ลดจาก 36 (ใหญ่ไป ชื่อยาวตัด 4 บรรทัด) */
+#view-dash .pi-box .pi-row-sc .pi-bsc{font-size:18px}
+@media(max-width:1400px){#view-dash .pi-box .pi-row-sc .pi-t{font-size:23px}}
+@media(max-width:1100px){#view-dash .pi-box .pi-row-sc .pi-t{font-size:21px}}
+/* กล่องคะแนนรวม: ตัวอักษรภาษาอังกฤษใหญ่ขึ้น (เจ้าของงานสั่ง 29 ก.ย. 2569) — หัว "คะแนนรวม Performance Index" · ชื่อหมวดในกล่องย่อย · ปุ่มดูที่มา */
+#view-dash .pi-total .pi-total-l{font-size:26px}
+#view-dash .pi-total .pi-jump-h{font-size:21px;line-height:1.35}
+#view-dash .pi-total .pi-jump-h i{width:30px;height:30px;font-size:15px}
+#view-dash .pi-total .pi-more{font-size:15.5px;padding:6px 14px}
+@media(max-width:1400px){#view-dash .pi-total .pi-jump-h{font-size:18px}#view-dash .pi-total .pi-total-l{font-size:22px}}
+/* โดนัท Top 10 ของ Customer Performance (แบบวงสถานะการชำระเงิน · 29 ก.ย. 2569) */
+#view-dash .cp-pie-donut{max-width:300px;margin:10px auto 14px}
+/* ป้ายสถานะ (ผ่านเกณฑ์/เฝ้าระวัง/ไม่ผ่านเกณฑ์) ในกล่อง Index: ยืดเต็มความกว้างคอลัมน์ชื่อหมวด (เจ้าของงานสั่ง 29 ก.ย. 2569) */
+#view-dash .pi-box .pi-row-sc .pi-st{display:block;width:100%;box-sizing:border-box;text-align:center;font-size:17px;padding:7px 14px;margin:10px 0 4px}
+/* การ์ด "จำนวนลูกค้าทั้งหมด": รูปกลุ่มคนตำแหน่ง/ขนาดเดียวกับลูกศรของการ์ดข้าง ๆ (เจ้าของงานสั่ง 29 ก.ย. 2569) */
+#view-dash .dz-kc.hero .hero-art:has(.cp-people){width:118px;height:92px;right:22px;transform:translateY(-30%)}
+#view-dash .dz-kc.hero:has(.cp-people) .s{margin-right:136px;white-space:nowrap}

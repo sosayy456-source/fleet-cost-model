@@ -16,6 +16,8 @@
  * ★ ตัวชี้วัดที่ยังไม่มีเกณฑ์ขึ้น "รอเกณฑ์" · ชุดข้อมูลหาย/ไม่มีรายการขึ้น "ไม่มีข้อมูล" — ทั้งสองแบบไม่นับเข้าฐาน
  *   คะแนนหมวด/คะแนนรวมจึงบอก "คิดได้ x จาก y" ไว้ด้วย (เจ้าของงานเลือก) ไม่งั้นอ่านผิดว่าได้คะแนนต่ำ
  */
+// รูปกล่องพังของกล่อง Damage (เจ้าของงานส่ง 29 ก.ย. 2569 · ตัดพื้นขาวจากภาพที่ส่งมา)
+import imgDamageBox from "../../assets/icons3d/damage-box.webp";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
@@ -301,6 +303,7 @@ export function DamageRateBox({ trips }: { trips: Trip[] | null }) {
   ];
   return (
     <div className="dz-kc hero loss pi-dmg4">
+      <img className="pi-dmg-art" src={imgDamageBox} alt="" aria-hidden="true" />
       {rows.map((r) => (
         <div className="pi-dmg-row" key={r.l}>
           <div className="pi-dmg-l">{r.l}</div>
