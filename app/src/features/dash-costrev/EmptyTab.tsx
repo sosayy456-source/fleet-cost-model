@@ -141,6 +141,8 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
         row[`c${y}`] = a ? Math.round(a.cost) : null;
         row[`e${y}`] = a ? Math.round(a.empty) : null;
         row[`n${y}`] = a?.emptyN ?? 0;
+        row[`t${y}`] = a && a.n ? Math.round(pctOf(a.emptyN, a.n) * 100) / 100 : null;   // % จำนวนเที่ยวเปล่า
+        row[`a${y}`] = a?.n ?? null;
       }
       return row;
     }).filter((r) => years.some((y) => r[`c${y}`] != null));
@@ -150,12 +152,16 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
   const [hiddenYears, setHiddenYears] = useState<number[]>([]);
   const toggleYear = (y: number) => setHiddenYears((p) =>
     (p.includes(y) ? p.filter((x) => x !== y) : yearly.years.filter((x) => !p.includes(x)).length > 1 ? [...p, y] : p));
-  /** P25/P75 = PERCENTILE.INC ของ % รายเดือนทุกจุดในกราฟ (ทุกปีที่แสดง ไม่ตามปุ่มซ่อนปี · ตามเส้นทางที่เลือก) */
+  /** มุมมองกราฟ (เจ้าของงานสั่ง 30 ก.ย. 2569 · เลือกอย่างใดอย่างหนึ่งแบบปุ่มของ Damage Rate):
+   *  cost = % ต้นทุนเที่ยวเปล่า ไม่มีเส้น P25/P75 และโซนสี · trip (ตั้งต้น) = % จำนวนเที่ยวเปล่า มีเส้น P25/P75 + โซนสี */
+  const [metric, setMetric] = useState<"cost" | "trip">("trip");
+  /** P25/P75 = PERCENTILE.INC ของ % จำนวนเที่ยวเปล่ารายเดือนทุกจุดในกราฟ (ทุกปีที่แสดง ไม่ตามปุ่มซ่อนปี · ตามเส้นทางที่เลือก) */
   const band = useMemo(() => {
-    const vs = yearly.data.flatMap((r) => yearly.years.map((y) => r[String(y)])).filter((v): v is number => typeof v === "number");
+    if (metric !== "trip") return null;
+    const vs = yearly.data.flatMap((r) => yearly.years.map((y) => r[`t${y}`])).filter((v): v is number => typeof v === "number");
     const p25 = percentileInc(vs, 0.25), p75 = percentileInc(vs, 0.75);
     return p25 == null || p75 == null ? null : { p25, p75 };
-  }, [yearly]);
+  }, [yearly, metric]);
   const openMonth = (mo: string) => setDetail({
     title: `${curRoute || "ทุกเส้นทาง"} · ${monthLabel(mo)}`,
     scope: inRoute.filter((t) => t.mo === mo),
@@ -210,32 +216,44 @@ export default function EmptyTab({ trips }: { trips: Trip[] }) {
         {/* [1] รายเดือน */}
         <div className="dz-cc" style={{ marginTop: 14 }}>
           {/* หน้าตาแบบกราฟแนวโน้มของแท็บ Damage Rate: ปุ่มเปิด-ปิดเส้นรายปี + เลือกเส้นทาง มุมขวาบน · โซน P25/P75 (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
-          <TableHead title="% ต้นทุนเที่ยวเปล่ารายเดือน เทียบแต่ละปี">
-            <div className="dmg-lines" role="group" aria-label="เลือกปีที่แสดง">
-              {yearly.years.map((y) => {
-                const on = !hiddenYears.includes(y);
-                return (
-                  <button key={y} type="button" className={"dmg-line" + (on ? " on" : "")}
-                    style={{ "--c": yearColor(yearly.years, y) } as React.CSSProperties} aria-pressed={on}
-                    onClick={() => toggleYear(y)}>
-                    <i />พ.ศ. {y + 543}
-                  </button>
-                );
-              })}
-              <select className="dmg-line on em-route" style={{ "--c": "var(--d-ink)" } as React.CSSProperties} value={curRoute} onChange={(e) => setRoute(e.target.value)} aria-label="เส้นทาง">
-                <option value="">ทุกเส้นทาง</option>
-                {emptyRoutes.map((r) => <option key={r.route} value={r.route}>{r.route}</option>)}
-              </select>
-              <ZoneInfo />
+          <TableHead title={metric === "cost" ? "% ต้นทุนเที่ยวเปล่ารายเดือน เทียบแต่ละปี" : "% จำนวนเที่ยวเปล่ารายเดือน เทียบแต่ละปี"}>
+            {/* ขวาบนชิดขอบ (เจ้าของงานสั่ง 30 ก.ย. 2569): แถวบน ปีที่แสดง + [จำนวนเที่ยว | ต้นทุน] ชิดขวาสุด · แถวล่าง เส้นทาง + i */}
+            <div className="em-yhead">
+              <div className="dmg-lines" role="group" aria-label="เลือกปีที่แสดง">
+                {yearly.years.map((y) => {
+                  const on = !hiddenYears.includes(y);
+                  return (
+                    <button key={y} type="button" className={"dmg-line" + (on ? " on" : "")}
+                      style={{ "--c": yearColor(yearly.years, y) } as React.CSSProperties} aria-pressed={on}
+                      onClick={() => toggleYear(y)}>
+                      <i />พ.ศ. {y + 543}
+                    </button>
+                  );
+                })}
+                <span className="em-metric" role="group" aria-label="เลือกสิ่งที่แสดง">
+                  {([["trip", "จำนวนเที่ยว"], ["cost", "ต้นทุน"]] as const).map(([k, label]) => (
+                    <button key={k} type="button" className={"dmg-line" + (metric === k ? " on" : "")}
+                      style={{ "--c": "var(--d-ink)" } as React.CSSProperties} aria-pressed={metric === k}
+                      onClick={() => setMetric(k)}>{label}</button>
+                  ))}
+                </span>
+              </div>
+              <div className="dmg-lines">
+                <select className="dmg-line on em-route" style={{ "--c": "var(--d-ink)" } as React.CSSProperties} value={curRoute} onChange={(e) => setRoute(e.target.value)} aria-label="เส้นทาง">
+                  <option value="">ทุกเส้นทาง</option>
+                  {emptyRoutes.map((r) => <option key={r.route} value={r.route}>{r.route}</option>)}
+                </select>
+                {metric === "trip" && <ZoneInfo />}
+              </div>
             </div>
           </TableHead>
           <div className="dz-box tall">
             {yearly.data.length
-              ? <YearChart data={yearly.data} years={yearly.years} hidden={hiddenYears} band={band} onPick={openMonth} />
+              ? <YearChart data={yearly.data} years={yearly.years} hidden={hiddenYears} band={band} metric={metric} onPick={openMonth} />
               : <NoData />}
           </div>
-          <Note>% ต้นทุนเที่ยวเปล่า ÷ ต้นทุนวิ่งรถทั้งหมด · {yearly.years.length} ปีล่าสุด · กดจุดบนเส้นเพื่อดูรายการเที่ยววิ่งเปล่าของเดือนนั้น ·
-            โซนสี: ≤ P25 เขียว · P25–P75 เหลือง · &gt; P75 แดง — P25/P75 = PERCENTILE.INC ของ % รายเดือนทุกจุดในกราฟ (ทุกปีที่แสดง ตามเส้นทางที่เลือก) ·
+          <Note>{metric === "cost" ? "% ต้นทุน = ต้นทุนเที่ยวเปล่า ÷ ต้นทุนวิ่งรถทั้งหมด" : "% จำนวนเที่ยว = เที่ยววิ่งเปล่า ÷ เที่ยวทั้งหมด"} · {yearly.years.length} ปีล่าสุด · กดจุดบนเส้นเพื่อดูรายการเที่ยววิ่งเปล่าของเดือนนั้น ·
+            {metric === "trip" && <> โซนสี: ≤ P25 เขียว · P25–P75 เหลือง · &gt; P75 แดง — P25/P75 = PERCENTILE.INC ของ % รายเดือนทุกจุดในกราฟ (ทุกปีที่แสดง ตามเส้นทางที่เลือก) ·</>}
             ส่วนนี้ไม่ตามตัวกรองปี (ตามช่วงเดือน ประเภทรถ ต้นทาง/ปลายทาง และเส้นทางที่เลือก)</Note>
         </div>
 
@@ -483,9 +501,12 @@ type YearRow ={ mo: string; mm: string } & Record<string, string | number | null
  * เส้น % ต้นทุนเที่ยวเปล่าต่อปี แกน ม.ค.–ธ.ค. (หน้าตาเดียวกับ DLine ของกราฟ LF เทียบแต่ละปี — เส้นมีพื้นจางใต้เส้น)
  * กดจุดบนเส้นของปีไหน = เปิดป็อบอัพเดือนนั้นของปีนั้น (activeDot เป็นปุ่ม)
  */
-function YearChart({ data, years, hidden, band, onPick }: {
-  data: YearRow[]; years: number[]; hidden: number[]; band: { p25: number; p75: number } | null; onPick: (mo: string) => void;
+function YearChart({ data, years, hidden, band, metric, onPick }: {
+  data: YearRow[]; years: number[]; hidden: number[]; band: { p25: number; p75: number } | null;
+  metric: "cost" | "trip"; onPick: (mo: string) => void;
 }) {
+  /** คีย์ของค่าในแถว — ต้นทุน = "<ปี>" · จำนวนเที่ยว = "t<ปี>" */
+  const key = (y: number) => (metric === "cost" ? String(y) : `t${y}`);
   const t = useChartTheme();
   const shown = years.filter((y) => !hidden.includes(y));
   return (
@@ -496,7 +517,7 @@ function YearChart({ data, years, hidden, band, onPick }: {
         {/* แกนบนพอดีข้อมูล (สูงสุด + ~10% ปัดขึ้นทีละ 0.5) — เดิม "auto" ปัดไปถึง 8% ครึ่งบนว่าง (เจ้าของงานขอ 29 ก.ย. 2569) */}
         <YAxis {...axisProps(t)} width={52} domain={[0, (m: number) => Math.max(0.5, Math.ceil(m * 1.1 * 2) / 2)]}
           allowDataOverflow tickFormatter={pctTick} />
-        <Tooltip cursor={{ stroke: t.grid, strokeWidth: 1 }} content={<YearTip years={shown} />} />
+        <Tooltip cursor={{ stroke: t.grid, strokeWidth: 1 }} content={<YearTip years={shown} metric={metric} />} />
         <Legend {...legendProps} height={undefined} payload={[
           ...shown.map((y) => ({ value: `พ.ศ. ${y + 543}`, type: "circle" as const, color: yearColor(years, y), id: String(y) })),
         ]} />
@@ -512,7 +533,7 @@ function YearChart({ data, years, hidden, band, onPick }: {
         {years.map((y) => {
           const color = yearColor(years, y);
           return (
-            <Area key={y} type="monotone" dataKey={String(y)} name={`พ.ศ. ${y + 543}`} hide={hidden.includes(y)}
+            <Area key={`${metric}${y}`} type="monotone" dataKey={key(y)} name={`พ.ศ. ${y + 543}`} hide={hidden.includes(y)}
               stroke={color} strokeWidth={2.4} fill="none" dot={{ r: 2.5, fill: color, strokeWidth: 0 }} connectNulls {...anim}
               activeDot={(p: { cx?: number; cy?: number; payload?: YearRow }) => (
                 <circle cx={p.cx} cy={p.cy} r={6} fill={color} stroke="#fff" strokeWidth={2} style={{ cursor: "pointer" }}
@@ -526,7 +547,7 @@ function YearChart({ data, years, hidden, band, onPick }: {
 }
 
 /** tooltip — แต่ละปี: % · ต้นทุนเที่ยวเปล่า / ต้นทุนรวม (บาท) */
-function YearTip({ active, payload, years }: { active?: boolean; payload?: { payload: YearRow }[]; years: number[] }) {
+function YearTip({ active, payload, years, metric }: { active?: boolean; payload?: { payload: YearRow }[]; years: number[]; metric: "cost" | "trip" }) {
   const p = active && payload?.[0]?.payload;
   if (!p) return null;
   return (
@@ -534,10 +555,12 @@ function YearTip({ active, payload, years }: { active?: boolean; payload?: { pay
                   boxShadow: "0 8px 24px -8px rgba(0,0,0,.35)", lineHeight: 1.6 }}>
       <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.mo}</div>
       {[...years].reverse().map((y) => {
-        const share = p[String(y)] as number | null, cost = p[`c${y}`] as number | null;
+        const share = p[metric === "cost" ? String(y) : `t${y}`] as number | null, cost = p[`c${y}`] as number | null;
         return (
           <div key={y}>พ.ศ. {y + 543}: {cost == null ? "ไม่มีเที่ยววิ่ง" : <>
-            <b>{share == null ? "–" : pct(share, 2)}</b> · เปล่า {fmt(p[`e${y}`] as number)} / รวม {fmt(cost)} บาท ({fmt(p[`n${y}`] as number)} เที่ยวเปล่า)
+            <b>{share == null ? "–" : pct(share, 2)}</b> · {metric === "cost"
+              ? <>เปล่า {fmt(p[`e${y}`] as number)} / รวม {fmt(cost)} บาท ({fmt(p[`n${y}`] as number)} เที่ยวเปล่า)</>
+              : <>เปล่า {fmt(p[`n${y}`] as number)} / รวม {fmt(p[`a${y}`] as number)} เที่ยว</>}
           </>}</div>
         );
       })}

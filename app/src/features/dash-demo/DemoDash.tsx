@@ -25,7 +25,7 @@ import { ClearFiltersBtn } from "../../lib/ui/FilterBar";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
 import { useCostRev, inProfitScope } from "../../lib/data/useCostRev";
 import { useDebtors } from "../../lib/data/useDebtors";
-import { ListFF, PeriodFF, duniq, fmt, isFiltered } from "../dash-costrev/common";
+import { ListFF, MultiFF, PeriodFF, duniq, fmt, isFiltered } from "../dash-costrev/common";
 import RouteProfitTabRaw from "./RouteProfitTab";
 import Item2TabRaw from "./Item2Tab";
 import Item3TabRaw from "./Item3Tab";
@@ -263,7 +263,7 @@ export default function DemoDash() {
     <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={filterOptions.dests} />
     <ListFF label="ประเภทรถ" all="ทุกประเภทรถ" value={f.ft} onChange={set("ft")} opts={filterOptions.fleetTypes} />
     <ListFF label="ชนิดรถ" all="ทุกชนิดรถ" value={f.vk} onChange={set("vk")} opts={filterOptions.vehicles} />
-    <ListFF label="กลุ่มบริการ" all="ทุกกลุ่มบริการ" value={f.sg} onChange={set("sg")}
+    <MultiFF label="กลุ่มบริการ" all="ทุกกลุ่มบริการ" value={f.sg} onChange={set("sg")}
       opts={filterOptions.services} />
     <ClearFiltersBtn active={isFiltered(f, DEMO_F0)} onClick={() => setF(DEMO_F0)} />
   </>;

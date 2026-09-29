@@ -8,12 +8,13 @@
  * เวลา = ปี + ช่วงเดือน ตั้งแต่–ถึง แบบแท็บ Damage Rate (24 ก.ย. 2569 · lib/filter/period.ts) — ช่อง `month` ของ BaseFilter ไม่ใช้ในหน้านี้
  *   ลูกหนี้ DSO                                                     → ไม่ใช้เลย มี "ข้อมูล ณ วันที่" ของตัวเอง
  */
-import { passBase, BASE_F0 } from "../dash-costrev/common";
+import { passBase, BASE_F0, multiHas } from "../dash-costrev/common";
 import type { BaseFilter } from "../dash-costrev/common";
 import type { Trip } from "../../lib/data/useCostRev";
 import { inPeriod, isPartialYear } from "../../lib/filter/period";
 import type { LfTrip } from "../../lib/data/useLoadFactor";
 
+/** sg = กลุ่มบริการ ติ๊กได้หลายกลุ่ม คั่น "|" (MultiFF · ว่าง = ทุกกลุ่ม) */
 export interface DemoFilter extends BaseFilter {
   br: string; sg: string;
   /** ตัวกรองของกล่อง PI เท่านั้น: true = ไม่เทียบ Baseline ประเมินตามช่วงของตัวกรองรวม (DemoDash piF · 30 ก.ย. 2569) */
@@ -31,7 +32,7 @@ const isSet = (f: DemoFilter, k: DemoKey): boolean => (k === "month" ? isPartial
 
 /** เที่ยวผ่านตัวกรองของหน้า — กลุ่มบริการว่าง = "ไม่ระบุ" (กติกาเดิมของแท็บกำไรรายเส้นทาง) */
 export const passDemo = (t: Trip, f: DemoFilter, opts?: Parameters<typeof passBase>[2]): boolean =>
-  passBase(t, f, opts) && (!f.br || t.br === f.br) && (!f.sg || (t.sg || "ไม่ระบุ") === f.sg);
+  passBase(t, f, opts) && (!f.br || t.br === f.br) && multiHas(f.sg, t.sg || "ไม่ระบุ");
 
 /** เที่ยวของไฟล์ Load Factor ผ่านตัวกรองของหน้า — ไฟล์ LF มีแค่ ปี · เดือน · ประเภทรถ · ชนิดรถ
  *  (ใช้ทั้งกล่อง LF ของข้อ 2 และคะแนน Load Factor ของ Performance Index ให้นับชุดเดียวกัน) */
