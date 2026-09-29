@@ -55,6 +55,10 @@ import OverdueSection from "./OverdueSection";
 import { FilterScope } from "./filter";
 import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
+import imgPerson from "../../assets/icons3d/person.webp";
+
+/** ไอคอนคนมุมขวาบนของการ์ดจำนวนลูกค้าทั้ง 3 ใบ — รูปเดียวกับการ์ดกำไรเฉลี่ย/ลูกค้า */
+const ICON_PERSON = <img src={imgPerson} alt="" />;
 
 /** ลูกค้าหนึ่งรายหลังยุบตามตัวกรอง — ci ชี้กลับไป customers[] ของชุด alloc */
 export interface CustRow extends AllocCustomer, ReviewCounts {
@@ -352,13 +356,14 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
         </>}
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
-          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"
-            foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
-            onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
-          <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} vSub={`(${pct(kpi.gainPct, 0)})`}
+          {/* ลำดับ: มีกำไร · ทั้งหมด (กลาง) · ขาดทุน · ไอคอนคนแบบการ์ดกำไรเฉลี่ย/ลูกค้าทั้ง 3 ใบ (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
+          <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} vSub={`(${pct(kpi.gainPct, 0)})`} icon={ICON_PERSON}
             s="คน · รายได้ ≥ ต้นทุน" foot={`กำไรรวม ${signed(kpi.gainAmt)} บาท`}
             onClick={() => toggle(sel("gain"))} active={sameSel(pick, sel("gain"))} />
-          <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} vSub={`(${pct(kpi.lossPct, 0)})`}
+          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง" icon={ICON_PERSON}
+            foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
+            onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
+          <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} vSub={`(${pct(kpi.lossPct, 0)})`} icon={ICON_PERSON}
             s="คน · รายได้ < ต้นทุน" foot={`ขาดทุนรวม ${fmt(-kpi.lossAmt)} บาท`}
             onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
         </div>

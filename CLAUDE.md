@@ -540,6 +540,7 @@ Ton×Kms = `wt` × `km` · ต้นทุน/Ton×Kms = `cost` ÷ Ton×Kms · �
   โดนัทสองวงข้างล่างไล่เฉดในโทนเดียวกัน (`LATE_PAID_COLORS` / `LATE_UNPAID_COLORS`) · จ่ายตรงเวลา เขียว · ยังไม่ถึงกำหนด เทา
 · **ตัวอักษรทั้งส่วน Customer Performance ใหญ่ขึ้น รวมตาราง** (เจ้าของงานสั่ง 28 ก.ย. 2569 · บล็อก `#demo-cust` ท้าย `index.css`) — แถวลูกหนี้จ่ายช้าสูง 58px ต้องตรงกับ `RANK_ROW_PX`
 · `DBar` รับ `onBarClick`/`activeIndex`/`showValues`/`tooltipExtra` และ `Hero` รับ `onClick`/`active`/`vSub` เพิ่ม (ทั้งหมด optional)
+· **29 ก.ย. 2569 เรียงการ์ดใหม่ + ไอคอน 3 มิติ (เจ้าของงานสั่ง)**: ส่วนที่ 1 = มีกำไร · ทั้งหมด (กลาง) · ขาดทุน · ไอคอนคน `person.webp` (แบบการ์ดกำไรเฉลี่ย/ลูกค้า) **ทั้ง 3 ใบ** · ส่วน DSO = เกินกำหนดชำระ · ชำระตามกำหนด · ยังไม่ถึงกำหนดชำระ · บิลที่วางถึง… · DSO · ไอคอน `assets/icons3d/` late · ontime · notdue · billed (รูปที่เจ้าของงานส่ง ลบพื้นขาวแล้ว) · calendar (วาดเอง SVG → webp) · `Hero icon` = ไอคอนมุมขวาบน**แทนป้ายหน่วย** (`.hero-ic`) · Manager Dashboard ใช้ `.dso-heroes` แต่การ์ดคนละชุด ไม่กระทบ
 
 **แท็บ "Inefficient Transportation Cost" (เดิม "ต้นทุนที่จมกับที่ว่าง") ของ Overall Dashboard (`dash-costrev/lf/` · สูตรใน `lib/loadfactor/calc.ts` · ETL `etl/build_loadfactor.py`)**
 สเปกจากไฟล์ `lf_executive_dashboard.html` ที่เจ้าของงานส่ง 22 ก.ย. 2569 — เอา 5 ส่วนแรก (ภาพรวม · เสียตรงไหน · คุ้มทุน ·
