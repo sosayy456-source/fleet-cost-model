@@ -29,6 +29,7 @@ import imgCloud from "../../assets/icons3d/cloud.webp";
 import imgSnow from "../../assets/icons3d/snow.webp";
 import imgBoxOpen from "../../assets/icons3d/box-open.webp";
 import { openExecTab } from "../../lib/ui/dashJump";
+import PlaceInput from "../../lib/ui/PlaceInput";
 import { fmt, pct, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { CHERRY, IS_CHERRY } from "../../lib/ui/dashTheme";
@@ -128,9 +129,9 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
     <Section tone="violet" title="ต้นทุนขนส่งแต่ละชนิดรถ"
       sub={cost.year ? `ปี ${be(cost.year)}${span && ` (${span})`} เทียบปี ${be(cost.prev!)} · รวมรถบริษัทและรถร่วม` : "ยังไม่มีข้อมูล"}>
       <div className="i3-tools">
-        <PlaceInput label="ต้นทาง" value={origin} onChange={setOrigin} opts={cost.origins} />
+        <PlaceInput label="ต้นทาง" value={origin} onChange={setOrigin} opts={cost.origins} listId="i3-o-list" />
         <span className="i3-arrow" aria-hidden="true">→</span>
-        <PlaceInput label="ปลายทาง" value={dest} onChange={setDest} opts={cost.dests} />
+        <PlaceInput label="ปลายทาง" value={dest} onChange={setDest} opts={cost.dests} listId="i3-de-list" />
         <KindDropdown all={cost.kinds} sel={kindSel} onChange={setKindSel} />
         <label className="i3-check">
           <input type="checkbox" checked={flaggedOnly} onChange={(e) => setFlaggedOnly(e.target.checked)} />
@@ -257,24 +258,6 @@ function Section({ tone, title, sub, className, children }: {
     </header>
     {children}
   </section>;
-}
-
-/**
- * ช่องต้นทาง/ปลายทาง — พิมพ์เองได้ · กดแล้วเลือกจากรายการได้ · พิมพ์แล้วรายการแนะนำกรองตามตัวอักษร (datalist ของเบราว์เซอร์)
- * กรองแบบ "มีคำนี้" จึงพิมพ์บางส่วนก็ได้ · ปุ่ม × ล้างช่อง
- */
-function PlaceInput({ label, value, onChange, opts }: {
-  label: string; value: string; onChange: (v: string) => void; opts: string[];
-}) {
-  const id = `i3-${label === "ต้นทาง" ? "o" : "de"}-list`;
-  return (
-    <span className="i3-place">
-      <input type="text" list={id} value={value} onChange={(e) => onChange(e.target.value)}
-        placeholder={`${label} (พิมพ์หรือเลือก)`} aria-label={label} autoComplete="off" />
-      {value && <button type="button" className="i3-clear" onClick={() => onChange("")} aria-label={`ล้าง${label}`}>×</button>}
-      <datalist id={id}>{opts.map((o) => <option key={o} value={o} />)}</datalist>
-    </span>
-  );
 }
 
 /** ⚠ แดง + จำนวนเที่ยวที่ติด Flag ของเกณฑ์นั้น — ไม่มี = ไม่แสดง */

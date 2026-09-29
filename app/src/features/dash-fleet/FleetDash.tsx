@@ -22,7 +22,7 @@ import { billIsPaid, recBills } from "../../lib/record/payment";
 import { debtStatus, unifyDebtRows } from "../../lib/record/debtRows";
 import type { DebtRow } from "../../lib/record/debtRows";
 import { daysBetween, thDateSafe, todayISO, TH_MONTHS } from "../../lib/record/date";
-import { KM_PER_DAY, tripProgress, tripStart } from "../../lib/record/tripEta";
+import { KM_PER_DAY, tripProgress, tripStart, lastDeparted } from "../../lib/record/tripEta";
 import { finishTrip } from "../../lib/store/finishTrip";
 import { ShortId, custLabel } from "../../lib/custmap/ShortId";
 import { useRoster } from "../../lib/store/roster";
@@ -1314,7 +1314,7 @@ function StatusPane({ state, role }: { state: RecordsState; role: RoleKey }) {
     const p = latest ? tripProgress(latest, today) : null;
     // เที่ยวที่ออกไปแล้วจริง ๆ — ใบที่ลงวันปล่อยรถไว้ล่วงหน้ายังไม่พารถไปไหน
     // ถ้าเอา dest ของใบอนาคตมาโชว์ จะกลายเป็นบอกว่ารถอยู่ปลายทางทั้งที่ยังจอดรออยู่
-    const arrived = trips.find((r) => { const s = tripStart(r); return !!s && s <= today; }) ?? null;
+    const arrived = lastDeparted(trips, today);
 
     let statusKey: FleetStatusKey;
     let position: string;

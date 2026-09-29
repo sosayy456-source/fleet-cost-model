@@ -35,6 +35,7 @@ import { passDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 import ServicePanel from "./ServicePanel";
 import TripsModal from "./TripsModal";
+import PlaceInput from "../../lib/ui/PlaceInput";
 import { type MapRoute } from "./RouteMap";
 import { CostBreakdown, RP, RouteMapCard, buildCostTree, useRouteEnds, type CostTree } from "./routeMapParts";
 import { TonKmHero, TonKmScope } from "../dash-costrev/tonkm/TonKmDemoRow";
@@ -233,7 +234,15 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
         {r.margin == null ? "–" : pct(r.margin)}</span> },
   ], [p50, picked, pickedSg]);
   // เรียงตั้งต้นตามอันดับกำไร/เที่ยว (# = 1 ขึ้นก่อน) — คอลัมน์กำไร/เที่ยวเอาออกแล้ว
-  const { sorted, sort, toggle } = useSort(byRoute, cols, { key: "rank", dir: 1 });
+  /* ตัวกรองต้นทาง/ปลายทางเฉพาะตารางจัดอันดับ (เจ้าของงานสั่ง 29 ก.ย. 2569 — ไม่ผูกตัวกรองของทั้งหน้า) · กรองแบบ "มีคำนี้"
+     · # ยังเป็นอันดับกำไร/เที่ยวของทุกเส้นทาง · ตัวเลือกต้นทางตามปลายทางที่พิมพ์ และกลับกัน */
+  const [oq, setOq] = useState("");
+  const [dq, setDq] = useState("");
+  const has = (v: string, q: string) => !q.trim() || v.toLowerCase().includes(q.trim().toLowerCase());
+  const shown = useMemo(() => byRoute.filter((r) => has(r.o, oq) && has(r.de, dq)), [byRoute, oq, dq]);
+  const oOpts = useMemo(() => [...new Set(byRoute.filter((r) => has(r.de, dq)).map((r) => r.o))].filter(Boolean).sort((a, b) => a.localeCompare(b, "th")), [byRoute, dq]);
+  const dOpts = useMemo(() => [...new Set(byRoute.filter((r) => has(r.o, oq)).map((r) => r.de))].filter(Boolean).sort((a, b) => a.localeCompare(b, "th")), [byRoute, oq]);
+  const { sorted, sort, toggle } = useSort(shown, cols, { key: "rank", dir: 1 });
 
   /**
    * เส้นบนแผนที่ = เฉพาะเส้นทางที่ผู้ใช้กดในตารางด้านขวา (เจ้าของงานกำหนด 24 ก.ย. 2569) — เปิดมายังไม่กด = แผนที่เปล่า
@@ -293,6 +302,12 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
                   <p>คลิกเส้นทางเพื่อดูรายละเอียดต้นทุน · กดซ้ำเพื่อปิด · # = อันดับกำไรต่อเที่ยว · ชิป = อัตรากำไรรายกลุ่มบริการ</p>
                 </div>
               </header>
+              <div className="i3-tools rp-tools">
+                <PlaceInput label="ต้นทาง" value={oq} onChange={setOq} opts={oOpts} listId="rp-o-list" />
+                <span className="i3-arrow" aria-hidden="true">→</span>
+                <PlaceInput label="ปลายทาง" value={dq} onChange={setDq} opts={dOpts} listId="rp-de-list" />
+                {(oq || dq) && <span className="rp-tools-n">{fmt(shown.length)} จาก {fmt(byRoute.length)} เส้นทาง</span>}
+              </div>
               <div className="rp-tblwrap">
                 <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}
                   empty="ไม่มีข้อมูลตามตัวกรองที่เลือก" className="rp-tbl rp-tbl-sg" maxHeight={detail ? 350 : 620}

@@ -342,7 +342,7 @@ const m3 = (v: number): string => v.toLocaleString("th-TH", { maximumFractionDig
  * stats = null คือยังไม่ได้เลือกรถ
  */
 export function LoadTruckPanel({ stats, load, headCap, tailCap, truckPlate, trailerPlate, kind, fleetType, trailerKind,
-  hasLoad, noTruckText, noLoadText, overText, title, sub, picker, pictureKind }: {
+  hasLoad, noTruckText, noLoadText, overText, title, sub, picker, pictureKind, headExtra }: {
   stats: LoadStats | null; load: Load; headCap: Cap; tailCap: Cap | null;
   truckPlate: string; trailerPlate: string; kind: string; fleetType: string; trailerKind: string;
   /** มีของให้คิดแล้วหรือยัง (หน้าจัดรถ = ติ๊กบิลแล้ว) */
@@ -355,6 +355,8 @@ export function LoadTruckPanel({ stats, load, headCap, tailCap, truckPlate, trai
   /** ชนิดรถที่เลือกในช่อง (ยังไม่ต้องเลือกทะเบียน) — มีรูปของชนิดนั้น = ใช้รูป (TruckPicture)
    *  · มีหางพ่วง/ไม่มีรูป = รูปวาดที่ทรงเปลี่ยนตามชนิดรถ (truckShape) เพราะวาดหัว + หางแยกตู้ได้ */
   pictureKind?: string;
+  /** วางข้างหัวแผง เช่น ปุ่มสลับ จัดรถส่งสินค้า | เที่ยวเปล่า ของหน้าจัดรถ (เจ้าของงานสั่ง 29 ก.ย. 2569) */
+  headExtra?: ReactNode;
 }) {
   const over = !!stats && (stats.overWeight || stats.overVolume);
   const lf = stats ? stats.loadFactor : 0;
@@ -369,7 +371,7 @@ export function LoadTruckPanel({ stats, load, headCap, tailCap, truckPlate, trai
     <div className="dp-stage">
       <div className="dp-stage-h">
         <div>
-          <h2>{title}</h2>
+          <div className="dp-stage-title"><h2>{title}</h2>{headExtra}</div>
           <div className="dp-stage-sub">{sub}</div>
           <div className="dp-stage-truck">
             {stats ? `${truckPlate} · ${kind} (${fleetType})${tailCap ? ` + หาง ${trailerPlate}` : ""}` : "ยังไม่ได้เลือกรถ"}
