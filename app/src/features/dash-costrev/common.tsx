@@ -191,6 +191,14 @@ export interface Col<T> {
   sortable?: boolean;
 }
 
+/** ลำดับการเรียงหนึ่งชั้น */
+export interface SortLevel { key: string; dir: 1 | -1 }
+/**
+ * สถานะการเรียงที่ส่งให้ตาราง — key/dir = ชั้นแรก (ของเดิมที่หลายหน้าอ่านอยู่) · levels = ทุกชั้นตามลำดับที่กด
+ * (ไม่มี levels = ชั้นเดียว · ตารางที่ไม่ได้ใช้ useSort ส่งแบบเดิมได้)
+ */
+export interface SortState extends SortLevel { levels?: SortLevel[] }
+
 /**
  * เรียงตารางได้ทุกคอลัมน์ — **กดหัวคอลัมน์วนสามจังหวะ** (เจ้าของงานสั่ง 22 ก.ย. 2569)
  *
@@ -198,12 +206,13 @@ export interface Col<T> {
  *   กดซ้ำ       น้อยไปมาก ▲
  *   กดอีกครั้ง  ล้าง — กลับไปใช้การเรียงตั้งต้นของตารางนั้น
  *
+ * (30 ก.ย. 2569 ลองเรียงหลายคอลัมน์แบบ Excel แล้วเจ้าของงานให้กลับเป็นคอลัมน์เดียว — ชนิด SortState/levels กับ SortArrow ยังรองรับหลายชั้นอยู่)
  * `initial` อ่านครั้งเดียวผ่าน ref เพราะทุกหน้าส่งมาเป็น object literal ที่สร้างใหม่ทุก render
  * ถ้าอ้างตรง ๆ การเทียบว่า "กลับไปค่าเริ่มต้นแล้วหรือยัง" จะไม่มีวันจริง
  */
-export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; dir: 1 | -1 }) {
+export function useSort<T>(rows: T[], cols: Col<T>[], initial: SortLevel) {
   const base = useRef(initial);
-  const [sort, setSort] = useState(initial);
+  const [sort, setSort] = useState<SortState>(initial);
   const sorted = useMemo(() => {
     const c = cols.find((x) => x.key === sort.key);
     if (!c) return rows;
@@ -224,8 +233,20 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
   return { sorted, sort, toggle, isDefault };
 }
 
+/** คำอธิบายบนหัวคอลัมน์ที่เรียงได้ */
+export const SORT_TITLE = "กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อล้างกลับค่าเริ่มต้น";
+/** คอลัมน์นี้อยู่ในการเรียงไหม */
+export const sortOn = (sort: SortState, key: string): boolean => (sort.levels ?? [sort]).some((l) => l.key === key);
+/** ลูกศรของหัวคอลัมน์ ▲/▼ + เลขชั้น (เมื่อเรียงหลายชั้น) · ไม่อยู่ในการเรียง = ▲▼ */
+export function SortArrow({ sort, k }: { sort: SortState; k: string }) {
+  const ls = sort.levels ?? [sort];
+  const i = ls.findIndex((l) => l.key === k);
+  if (i < 0) return <>▲▼</>;
+  return <>{ls[i]!.dir === 1 ? "▲" : "▼"}{ls.length > 1 && <sup className="sort-n">{i + 1}</sup>}</>;
+}
+
 export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps, maxHeight, filterRow }: {
-  rows: T[]; cols: Col<T>[]; sort: { key: string; dir: 1 | -1 };
+  rows: T[]; cols: Col<T>[]; sort: SortState;
   onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;
   /** คลาสเพิ่มให้ตัวตาราง — ใช้ตกแต่งเฉพาะหน้า */
   className?: string;
@@ -249,10 +270,10 @@ export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, classNam
             <th key={c.key} className={c.num ? "n" : undefined}
               onClick={c.sortable === false ? undefined : () => onSort(c.key)}
               style={{ cursor: c.sortable === false ? undefined : "pointer", userSelect: "none" }}
-              title={c.sortable === false ? undefined : "กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อล้างกลับค่าเริ่มต้น"}>
+              title={c.sortable === false ? undefined : SORT_TITLE}>
               {c.label}
-              {c.sortable !== false && <span style={{ marginLeft: 4, opacity: sort.key === c.key ? 1 : .3, fontSize: 11.5 }}>
-                {sort.key === c.key ? (sort.dir === 1 ? "▲" : "▼") : "▲▼"}
+              {c.sortable !== false && <span style={{ marginLeft: 4, opacity: sortOn(sort, c.key) ? 1 : .3, fontSize: 11.5, whiteSpace: "nowrap" }}>
+                <SortArrow sort={sort} k={c.key} />
               </span>}
             </th>
           ))}

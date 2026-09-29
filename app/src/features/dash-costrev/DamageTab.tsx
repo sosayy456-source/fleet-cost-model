@@ -532,7 +532,7 @@ function KindBars({ data, series }: { data: KindBar[]; series: { key: string; la
       <BarChart data={data} layout="vertical" barSize={BAR_SIZE} margin={{ top: 6, right: 46, left: 0, bottom: 22 }}>
         <CartesianGrid {...gridProps(t)} />
         <XAxis {...axisProps(t)} type="number" tickFormatter={pctTick} label={xAxisLabel(t)} height={40} />
-        <YAxis {...axisProps(t)} type="category" dataKey="name" width={yWidth(data.map((r) => r.name))} />
+        <YAxis {...axisProps(t)} type="category" dataKey="name" interval={0} width={yWidth(data.map((r) => r.name))} />
         <Tooltip cursor={tip.cursor} content={({ active, payload }) => {
           const r = active ? (payload?.[0]?.payload as KindBar | undefined) : undefined;
           return r ? <TipBox t={t} title={r.name} lines={[
@@ -588,7 +588,7 @@ function RouteBars({ data }: { data: { name: string; v: number; dmg: number; n: 
       <BarChart data={data} layout="vertical" barSize={BAR_SIZE} margin={{ top: 6, right: 46, left: 0, bottom: 22 }}>
         <CartesianGrid {...gridProps(t)} />
         <XAxis {...axisProps(t)} type="number" tickFormatter={pctTick} label={xAxisLabel(t)} />
-        <YAxis {...axisProps(t)} type="category" dataKey="name" width={yWidth(data.map((r) => r.name))} />
+        <YAxis {...axisProps(t)} type="category" dataKey="name" interval={0} width={yWidth(data.map((r) => r.name))} />
         <Tooltip cursor={tip.cursor} content={({ active, payload }) => {
           const r = active ? (payload?.[0]?.payload as { name: string; v: number; dmg: number; n: number; all: number } | undefined) : undefined;
           return r ? <TipBox t={t} title={r.name} lines={[

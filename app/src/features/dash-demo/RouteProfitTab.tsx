@@ -239,7 +239,16 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
   const [oq, setOq] = useState("");
   const [dq, setDq] = useState("");
   const has = (v: string, q: string) => !q.trim() || v.toLowerCase().includes(q.trim().toLowerCase());
-  const shown = useMemo(() => byRoute.filter((r) => has(r.o, oq) && has(r.de, dq)), [byRoute, oq, dq]);
+  const placed = useMemo(() => byRoute.filter((r) => has(r.o, oq) && has(r.de, dq)), [byRoute, oq, dq]);
+  /* ปุ่มกรองสีของคอลัมน์อัตรากำไร (เจ้าของงานสั่ง 30 ก.ย. 2569) — เกณฑ์เดียวกับสีตัวเลข (sgTone · P50) · เลือกได้ทีละสี
+     · เส้นทางที่อัตรากำไรคิดไม่ได้ ("–") ไม่อยู่ในสีไหน เห็นเฉพาะ "ทั้งหมด" · จำนวนนับหลังตัวกรองต้นทาง/ปลายทาง */
+  const [tone, setTone] = useState<"g" | "y" | "r" | null>(null);
+  const toneN = useMemo(() => {
+    const n = { g: 0, y: 0, r: 0 };
+    for (const r of placed) if (r.margin != null) n[sgTone(r.margin, p50)]++;
+    return n;
+  }, [placed, p50]);
+  const shown = useMemo(() => (tone ? placed.filter((r) => r.margin != null && sgTone(r.margin, p50) === tone) : placed), [placed, tone, p50]);
   const oOpts = useMemo(() => [...new Set(byRoute.filter((r) => has(r.de, dq)).map((r) => r.o))].filter(Boolean).sort((a, b) => a.localeCompare(b, "th")), [byRoute, dq]);
   const dOpts = useMemo(() => [...new Set(byRoute.filter((r) => has(r.o, oq)).map((r) => r.de))].filter(Boolean).sort((a, b) => a.localeCompare(b, "th")), [byRoute, oq]);
   const { sorted, sort, toggle } = useSort(shown, cols, { key: "rank", dir: 1 });
@@ -306,7 +315,17 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
                 <PlaceInput label="ต้นทาง" value={oq} onChange={setOq} opts={oOpts} listId="rp-o-list" />
                 <span className="i3-arrow" aria-hidden="true">→</span>
                 <PlaceInput label="ปลายทาง" value={dq} onChange={setDq} opts={dOpts} listId="rp-de-list" />
-                {(oq || dq) && <span className="rp-tools-n">{fmt(shown.length)} จาก {fmt(byRoute.length)} เส้นทาง</span>}
+                {(oq || dq) && <span className="rp-tools-n">{fmt(placed.length)} จาก {fmt(byRoute.length)} เส้นทาง</span>}
+              </div>
+              <div className="rp-tone" role="group" aria-label="กรองตามสีอัตรากำไร">
+                <span className="rp-tone-l">อัตรากำไร</span>
+                <button type="button" className={tone == null ? "on" : ""} aria-pressed={tone == null} onClick={() => setTone(null)}>
+                  ทั้งหมด <small>{fmt(placed.length)}</small></button>
+                {([["g", "เขียว", `≥ P50${p50 == null ? "" : ` (${pct(p50)})`}`], ["y", "เหลือง", "0 ถึงต่ำกว่า P50"], ["r", "แดง", "ขาดทุน"]] as const).map(([k, name, why]) => (
+                  <button key={k} type="button" className={`t-${k}` + (tone === k ? " on" : "")} aria-pressed={tone === k}
+                    title={`${name}: อัตรากำไร ${why}`} onClick={() => setTone((t) => (t === k ? null : k))}>
+                    <i aria-hidden="true" />{name} <small>{fmt(toneN[k])}</small></button>
+                ))}
               </div>
               <div className="rp-tblwrap">
                 <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(r) => r.rt}

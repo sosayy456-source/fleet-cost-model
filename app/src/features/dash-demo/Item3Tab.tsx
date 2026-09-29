@@ -30,7 +30,7 @@ import imgSnow from "../../assets/icons3d/snow.webp";
 import imgBoxOpen from "../../assets/icons3d/box-open.webp";
 import { openExecTab } from "../../lib/ui/dashJump";
 import PlaceInput from "../../lib/ui/PlaceInput";
-import { fmt, pct, useSort } from "../dash-costrev/common";
+import { SORT_TITLE, SortArrow, fmt, pct, sortOn, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { CHERRY, IS_CHERRY } from "../../lib/ui/dashTheme";
 
@@ -142,10 +142,8 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
       <div className="i3-tbl-wrap"><table className="i3-tbl">
         <thead><tr>
           {costCols.map((c) => (
-            <th key={c.key} className={c.num ? "n i3-sort" : "i3-sort"} onClick={() => costSort.toggle(c.key)}
-              title="กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อกลับลำดับเดิม">
-              {c.label}<span className={costSort.sort.key === c.key ? "on" : ""}>
-                {costSort.sort.key === c.key ? (costSort.sort.dir === 1 ? "▲" : "▼") : "▲▼"}</span>
+            <th key={c.key} className={c.num ? "n i3-sort" : "i3-sort"} onClick={() => costSort.toggle(c.key)} title={SORT_TITLE}>
+              {c.label}<span className={sortOn(costSort.sort, c.key) ? "on" : ""}><SortArrow sort={costSort.sort} k={c.key} /></span>
             </th>
           ))}
         </tr></thead>
@@ -179,9 +177,8 @@ export default function Item3Tab({ trips, costTrips, year, hideFleet }: { trips:
           <thead><tr>
             {depCols.map((c) => (
               <th key={c.key} className={[c.num ? "n" : "", c.cls ?? "", "i3-sort"].join(" ").trim()} onClick={() => depSort.toggle(c.key)}
-                title="กดเพื่อเรียงมากไปน้อย · กดซ้ำเป็นน้อยไปมาก · กดอีกครั้งเพื่อกลับลำดับเดิม">
-                {c.label}<span className={depSort.sort.key === c.key ? "on" : ""}>
-                  {depSort.sort.key === c.key ? (depSort.sort.dir === 1 ? "▲" : "▼") : "▲▼"}</span>
+                title={SORT_TITLE}>
+                {c.label}<span className={sortOn(depSort.sort, c.key) ? "on" : ""}><SortArrow sort={depSort.sort} k={c.key} /></span>
               </th>
             ))}
           </tr></thead>
