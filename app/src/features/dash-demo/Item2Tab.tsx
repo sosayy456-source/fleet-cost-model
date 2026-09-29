@@ -21,13 +21,19 @@
  *   การ์ด 3-4 ผู้เรียกส่งเที่ยวที่กรองครบทุกตัวมาแล้ว · การ์ด 1-2 กรองไฟล์ LF เองด้วย ปี · เดือน · ประเภทรถ · ชนิดรถ
  *   (ไฟล์ LF มีแค่ "เส้นทางมาตรฐาน" ไม่มีต้นทาง/ปลายทางแยก และไม่มีกลุ่มบริการ — FilterScope บอกไว้)
  */
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import { summarize } from "../../lib/loadfactor/calc";
 import { perMonth, useEmptyHeroData, ytdYoyText } from "../dash-costrev/EmptyHeroes";
 import { fmt, pct } from "../dash-costrev/common";
 import { isPartialYear } from "../../lib/filter/period";
 import { ytdLabel } from "../../lib/empty/ytd";
+import { useFitText } from "../../lib/ui/useFitText";
+// รูป 3 มิติของการ์ด 4 ใบ (เจ้าของงานส่ง 29 ก.ย. 2569 · ตัดจากภาพที่ส่งมา ลบพื้นขาว)
+import imgTruckFull from "../../assets/icons3d/truck-full.webp";
+import imgTruckHalf from "../../assets/icons3d/truck-half.webp";
+import imgTruckEmpty from "../../assets/icons3d/truck-empty.webp";
+import imgCalcCost from "../../assets/icons3d/calc-cost.webp";
 import type { Trip } from "../../lib/data/useCostRev";
 import { openExecTab } from "../../lib/ui/dashJump";
 import { FilterScope, passLfDemo } from "./filter";
@@ -43,18 +49,35 @@ const toEmpty = (): void => openExecTab("empty");
  * การ์ดของส่วนนี้ (ดีไซน์ที่เจ้าของงานส่ง 28 ก.ย. 2569 — แทน Hero): tone = dark (LF เฉลี่ย) · light (สองใบสีอ่อน) · red (% เที่ยวเปล่า)
  * ชื่อ → ตัวเลขใหญ่ → บรรทัดรอง → ป้ายแคปซูล → หมายเหตุเล็ก · กดทั้งใบเปิดแท็บปลายทางของ Overall Dashboard
  */
-function I2Card({ tone, cls, l, unit, v, sub, pill, note, onClick }: {
-  tone: "dark" | "light" | "red"; cls: string; l: string; unit?: string; v: string;
-  sub?: ReactNode; pill?: ReactNode; note?: ReactNode; onClick: () => void;
+function I2Card({ tone, cls, l, unit, v, sub, pill, note, info, art, onClick }: {
+  tone: "dark" | "light" | "red"; cls: string; l: string; unit?: string; v: string; art?: string;
+  sub?: ReactNode; pill?: ReactNode; note?: ReactNode;
+  /** รายละเอียดรองที่ย้ายเข้าปุ่ม i เล็กซ้ายล่างของการ์ด (เจ้าของงานสั่ง 29 ก.ย. 2569) */
+  info?: ReactNode;
+  onClick: () => void;
 }) {
+  // ตัวเลขใหญ่ย่อเองให้พอดีการ์ดเสมอ (ข้อมูลจริงตัวเลขยาวกว่าชุดตัวอย่าง · เจ้าของงานขอ 29 ก.ย. 2569)
+  const vRef = useFitText<HTMLDivElement>([v]);
+  const [showInfo, setShowInfo] = useState(false);
   return (
     <div className={`i2c ${tone} ${cls}`} role="button" tabIndex={0} onClick={onClick}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}>
       <div className="i2c-h"><span className="i2c-l">{l}</span>{unit && <span className="i2c-u">{unit}</span>}</div>
-      <div className="i2c-v num-fd" key={v}>{v}</div>
+      {/* รูปประกอบข้างตัวเลข (เจ้าของงานส่งรูป 29 ก.ย. 2569) — ตัวเลขย่อเองถ้าที่เหลือไม่พอ (useFitText) */}
+      {art && <img className="i2c-art" src={art} alt="" aria-hidden="true" />}
+      <div className="i2c-vrow">
+        <div className="i2c-v num-fd" key={v} ref={vRef}>{v}</div>
+      </div>
       {sub && <div className="i2c-sub">{sub}</div>}
       {pill && <div className="i2c-pill">{pill}</div>}
       {note && <div className="i2c-note">{note}</div>}
+      {info && <>
+        {/* ปุ่ม i ไม่เปิดแท็บปลายทาง (หยุด event ไม่ให้ถึงการ์ด) */}
+        <button type="button" className={"i2c-i" + (showInfo ? " on" : "")} aria-expanded={showInfo} aria-label="รายละเอียดเพิ่มเติม"
+          onClick={(e) => { e.stopPropagation(); setShowInfo((o) => !o); }}
+          onKeyDown={(e) => e.stopPropagation()}>i</button>
+        {showInfo && <div className="i2c-info" onClick={(e) => e.stopPropagation()}>{info}</div>}
+      </>}
     </div>
   );
 }
@@ -108,31 +131,32 @@ export default function Item2Tab({ all, trips, tripsAnyYear, f, costSample, onIn
       <section className="i2-group lf" aria-label="Load Factor">
         <h3 className="i2-gh"><b>Load Factor</b></h3>
         <div className="i2-cards">
-          <I2Card tone="dark" cls="i2-lf" l="Load Factor เฉลี่ย" onClick={toLf}
+          <I2Card tone="dark" cls="i2-lf" l="อัตราการบรรทุกเฉลี่ย" onClick={toLf} art={imgTruckFull}
             v={sum ? pctOf(sum.avgLf) : "–"}
             sub={sum ? `เป้าหมาย ${pctOf(sum.avgTg)}` : lfNote}
             pill={gap == null ? undefined
-              : gap > 0 ? `ต่ำกว่าเป้าหมาย ${gap.toFixed(1)} จุดเปอร์เซ็นต์`
-              : gap < 0 ? `สูงกว่าเป้าหมาย ${Math.abs(gap).toFixed(1)} จุดเปอร์เซ็นต์` : "เท่ากับเป้าหมาย"} />
-          <I2Card tone="light" cls="i2-idle" l="ต้นทุนค่าเสียโอกาสจากการบรรทุกไม่เต็ม" unit="บาท" onClick={toLf}
+              : gap > 0 ? `ต่ำกว่าเป้าหมาย ${gap.toFixed(1)} PP`
+              : gap < 0 ? `สูงกว่าเป้าหมาย ${Math.abs(gap).toFixed(1)} PP` : "เท่ากับเป้าหมาย"} />
+          {/* 29 ก.ย. 2569 (เจ้าของงานสั่ง): ยอดต้นทุนขนส่งรวม + "มูลค่าประเมินตามแบบจำลอง" ย้ายเข้าปุ่ม i */}
+          <I2Card tone="light" cls="i2-idle" l="ต้นทุนค่าเสียโอกาสจากการบรรทุกไม่เต็ม" unit="บาท" onClick={toLf} art={imgTruckHalf}
             v={sum ? baht(sum.idle) : "–"}
-            pill={sum ? <>{pctOf(sum.share)} ของต้นทุนขนส่งรวม<br />{baht(sum.cost)} บาท</> : undefined}
+            pill={sum ? `${pctOf(sum.share)} ของต้นทุนขนส่งรวม` : undefined}
             sub={sum ? undefined : lfNote}
-            note={sum ? "มูลค่าประเมินตามแบบจำลอง" : undefined} />
+            info={sum && <>ต้นทุนขนส่งรวม {baht(sum.cost)} บาท<br />มูลค่าประเมินตามแบบจำลอง</>} />
         </div>
       </section>
       <section className="i2-group empty" aria-label="Empty Trips">
         <h3 className="i2-gh"><b>Empty Trips</b></h3>
         <div className="i2-cards">
-          <I2Card tone="red" cls="i2-empty" onClick={toEmpty}
+          <I2Card tone="red" cls="i2-empty" onClick={toEmpty} art={imgTruckEmpty}
             l={em.focusY != null ? `% ต้นทุนเที่ยวเปล่า · ปี พ.ศ. ${em.focusY + 543}` : "% ต้นทุนเที่ยวเปล่า"}
             v={em.focus ? pct(em.focus.share) : "–"}
-            sub={em.ytd && <>ต้นทุนเที่ยวเปล่าเฉลี่ย<br />{perMonth(em.ytd.avgPerMonth)}<br />{ytdText}</>}
-            pill={em.ytd && `เทียบ YoY (${em.ytd.year + 542}): ${ytdYoyText(em.ytd)}`} />
-          <I2Card tone="light" cls="i2-emptyc" onClick={toEmpty} l={`มูลค่าต้นทุนเที่ยวเปล่า · ${em.scope}`} unit="บาท"
+            pill={em.ytd && `เทียบ YoY (${em.ytd.year + 542}): ${ytdYoyText(em.ytd)}`}
+            info={em.ytd && <>ต้นทุนเที่ยวเปล่าเฉลี่ย {perMonth(em.ytd.avgPerMonth)}<br />{ytdText}</>} />
+          <I2Card tone="light" cls="i2-emptyc" onClick={toEmpty} art={imgCalcCost} l={`มูลค่าต้นทุนเที่ยวเปล่า · ${em.scope}`} unit="บาท"
             v={fmt(em.emptyCost)}
-            pill={<>{fmt(em.empties.length)} เที่ยววิ่งเปล่า จาก {fmt(em.total)} เที่ยว<br />
-              {em.total ? pct(em.empties.length / em.total * 100) : "–"} ของเที่ยวทั้งหมด</>} />
+            pill={`${fmt(em.empties.length)} เที่ยววิ่งเปล่า`}
+            info={<>จาก {fmt(em.total)} เที่ยว<br />{em.total ? pct(em.empties.length / em.total * 100) : "–"} ของเที่ยวทั้งหมด</>} />
         </div>
       </section>
       </div>

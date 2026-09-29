@@ -3977,14 +3977,39 @@ html.theme-cherry #view-dash #demo-cust .dso-heroes > .dz-kc.hero :is(.v,.vrow .
 #view-dash .i2c.i2-emptyc{background:linear-gradient(145deg,var(--th-i2EmptyCostA) 0%,var(--th-i2EmptyCostB) 100%)}
 #view-dash .i2c.light{color:var(--th-i2LightInk);box-shadow:0 12px 24px -20px rgba(60,0,15,.45)}
 #view-dash .i2c-h{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap}
-#view-dash .i2c-l{font-size:16.5px;font-weight:700;line-height:1.45}
-#view-dash .i2c-u{flex:none;font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;background:rgba(255,255,255,.22);margin-top:2px}
+/* ตัวอักษรใหญ่ขึ้นเท่ากล่องภาพรวมของ Profit Per Route (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิมชื่อ 16.5 · ตัวเลข 34–46 · ป้าย 14px) */
+#view-dash .i2c-l{font-size:21px;font-weight:700;line-height:1.35}
+/* หัวการ์ดจองที่เท่ากันทุกใบ (ชื่อ 2 บรรทัด + แถวป้าย "บาท") → ตัวเลขใหญ่อยู่ระดับเดียวกันทั้ง 4 ใบ (เจ้าของงานสั่ง 29 ก.ย. 2569) */
+#view-dash .i2c-h{min-height:calc(2 * 1.35 * 21px + 34px);align-content:flex-start}
+@media(max-width:1400px){#view-dash .i2c-h{min-height:calc(2 * 1.35 * 19px + 34px)}}
+#view-dash .i2c-u{flex:none;font-size:14px;font-weight:700;padding:3px 11px;border-radius:999px;background:rgba(255,255,255,.22);margin-top:3px}
 #view-dash .i2c.light .i2c-u{background:rgba(255,255,255,.75)}
-#view-dash .i2c-v{font-family:var(--d-num);font-size:clamp(34px,3vw,46px);font-weight:800;line-height:1.1;letter-spacing:-.01em;white-space:nowrap}
-#view-dash .i2c-sub{font-size:14.5px;line-height:1.55;font-weight:600}
-#view-dash .i2c-pill{align-self:flex-start;font-size:14px;line-height:1.55;padding:9px 14px;border-radius:14px;background:rgba(255,255,255,.14)}
+#view-dash .i2c-v{font-family:var(--d-num);font-size:clamp(34px,3vw,48px);font-weight:800;line-height:1.1;letter-spacing:-.01em;white-space:nowrap;
+  display:block;width:100%;min-width:0;overflow:hidden}  /* useFitText ย่อ font-size เองเมื่อยาวเกินกล่อง */
+#view-dash .i2c-sub{font-size:18px;line-height:1.5;font-weight:600}
+#view-dash .i2c-pill{align-self:flex-start;font-size:17px;line-height:1.5;padding:10px 16px;border-radius:14px;background:rgba(255,255,255,.14)}
 #view-dash .i2c.light .i2c-pill{background:rgba(255,255,255,.72)}
-#view-dash .i2c-note{font-size:13px;opacity:.85;margin-top:auto}
+#view-dash .i2c-note{font-size:15.5px;opacity:.85;margin-top:auto}
+/* แถวตัวเลข + รูปประกอบ 3 มิติทางขวา (29 ก.ย. 2569) — ตัวเลขกินที่เหลือ ย่อเองด้วย useFitText */
+#view-dash .i2c-vrow{display:flex;align-items:center;gap:10px;min-width:0}
+#view-dash .i2c-vrow .i2c-v{flex:1;width:auto}
+/* รอบสอง: รูปลอยมุมขวาบนของการ์ด แบบการ์ดกลุ่มบริการของ Profit Per Route (เจ้าของงานสั่ง 29 ก.ย. 2569) — ชื่อการ์ดเว้นขวาไม่ให้ทับรูป */
+/* สูงเท่ากันทุกรูป (รถกว้างกว่าเครื่องคิดเลข ถ้ากำหนดความกว้างเท่ากันรถจะดูเล็ก — เจ้าของงานให้รถเท่าเครื่องคิดเลข 29 ก.ย. 2569) */
+#view-dash .i2c-art{position:absolute;top:14px;right:12px;height:clamp(70px,6vw,98px);width:auto;max-width:40%;object-fit:contain;
+  filter:drop-shadow(0 8px 12px rgba(0,0,0,.25));pointer-events:none;z-index:0}
+#view-dash .i2c:has(.i2c-art) .i2c-h{padding-right:calc(40% + 10px)}  /* เว้นห่างรถมากขึ้น (29 ก.ย. 2569) */
+#view-dash .i2c > :not(.i2c-art){position:relative;z-index:1}
+#view-dash .i2c > .i2c-i,#view-dash .i2c > .i2c-info{position:absolute}
+/* ปุ่ม i เล็กซ้ายล่างของการ์ด + กล่องข้อความที่กางขึ้นเหนือปุ่ม (29 ก.ย. 2569) */
+#view-dash .i2c{padding-bottom:52px}
+#view-dash .i2c-i{position:absolute;right:18px;bottom:14px;width:26px;height:26px;border-radius:50%;border:1.5px solid currentColor;
+  background:transparent;color:inherit;opacity:.8;font:italic 700 14px/1 Georgia,'Times New Roman',serif;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center}
+#view-dash .i2c-i:hover,#view-dash .i2c-i.on{opacity:1;background:rgba(255,255,255,.25)}
+#view-dash .i2c-i:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+#view-dash .i2c-info{position:absolute;left:14px;right:14px;bottom:48px;z-index:3;padding:12px 14px;border-radius:12px;
+  background:#fff;color:#2A0A10;font-size:15.5px;line-height:1.6;box-shadow:0 10px 26px -10px rgba(0,0,0,.45);cursor:default}
+@media(max-width:1400px){#view-dash .i2c-l{font-size:19px}#view-dash .i2c-sub{font-size:16.5px}#view-dash .i2c-pill{font-size:15.5px}}
 .thp-heroes.sm{grid-template-columns:repeat(4,1fr)}
 .thp-heroes .i2lf{background:linear-gradient(135deg,var(--th-i2LfB),var(--th-i2LfA))}
 .thp-heroes .idle{background:linear-gradient(135deg,var(--th-i2IdleA),var(--th-i2IdleB))}

@@ -294,25 +294,24 @@ function Body({ trips, isSample, files, summary }: { trips: LfTrip[]; isSample: 
           <label htmlFor="lf-delta" className="lf-dlabel">เพิ่ม Load Factor ขึ้น <b>+{delta}%</b></label>
           <input id="lf-delta" type="range" min={0} max={40} step={1} value={delta} className="lf-range"
             onChange={(e) => setDelta(Number(e.target.value))} />
-          <div className="lf-presets">
-            {[5, 10, 15, 20, 30].map((d) => (
-              <button key={d} type="button" className={delta === d ? "on" : ""} onClick={() => setDelta(d)}>+{d}%</button>
-            ))}
-          </div>
+          {/* ปุ่มลัด +5/+10/+15/+20/+30% เอาออก (เจ้าของงานสั่ง 29 ก.ย. 2569) — เหลือตัวเลื่อนอย่างเดียว */}
           <div className="lf-wibar">
             <div className="cap"><span>ตอนนี้</span><span>ต้นทุนที่จม <b>{baht(wi.oldIdle)}</b> · LF เฉลี่ย {pctOf(wi.lfOld)}</span></div>
-            <CargoBar idleShare={wi.cost ? wi.oldIdle / wi.cost : 0} small />
+            {/* แถบใช้ LF เฉลี่ยรายเที่ยวแบบเดียวกับแถบ "ทุก 100 บาท" ข้างบน (ตอนนี้ = 59/41 ตรงกัน · เจ้าของงานสั่ง 29 ก.ย. 2569 —
+                เดิมถ่วงต้นทุน Σ Idle ÷ Σ ต้นทุน ได้ 57/43 ไม่ตรงกับข้างบน) · ยอดเงินบนหัวแถบยังเป็นยอดถ่วงต้นทุนเหมือนเดิม */}
+            <CargoBar idleShare={wi.n ? 1 - Math.max(0, Math.min(1, wi.lfOld)) : 0} small />
           </div>
           <div className="lf-wibar">
             <div className="cap"><span>หลังปรับ</span><span>ต้นทุนที่จม <b>{baht(wi.newIdle)}</b> · LF เฉลี่ย {pctOf(wi.lfNew)}</span></div>
-            <CargoBar idleShare={wi.cost ? wi.newIdle / wi.cost : 0} small />
+            <CargoBar idleShare={wi.n ? 1 - Math.max(0, Math.min(1, wi.lfNew)) : 0} small />
           </div>
           <div className="lf-out">
             <div><span className="k">ประหยัดต้นทุนที่จมได้</span><b className="v">{baht(wi.saved)}</b><span className="s">บาท · ในช่วงที่กรอง ({fmt(wi.n)} เที่ยว)</span></div>
             <div><span className="k">เทียบเท่าต้นทุนของ</span><b className="v">≈ {wi.tripsEq.toFixed(1)} เที่ยว</b><span className="s">ต้นทุนเฉลี่ย {baht(wi.avgCost)} บาทต่อเที่ยว</span></div>
             <div><span className="k">ต้นทุนที่จมลดลง</span><b className="v">{wi.oldIdle ? pctOf(wi.saved / wi.oldIdle) : "0%"}</b><span className="s">{baht(wi.oldIdle)} เหลือ {baht(wi.newIdle)}</span></div>
           </div>
-          <Note>คำนวณสดในเบราว์เซอร์ (ต้นทุนรวมของเที่ยว × ส่วนที่ว่างก่อนและหลังปรับ) · เที่ยวที่ LF เกิน 100% อยู่แล้วจะคงเดิม ไม่ถูกลดลง</Note>
+          <Note>LF เฉลี่ยหลังปรับ = LF เฉลี่ยเดิม + ที่เลื่อน (สูงสุด 100%) · ยอดเงินคิดสดรายเที่ยว (ต้นทุนรวมของเที่ยว × ส่วนที่ว่างก่อนและหลังปรับ)
+            แต่ละเที่ยวเต็มได้ไม่เกิน 100% และเที่ยวที่เกิน 100% อยู่แล้วคงเดิม ยอดที่ประหยัดจึงอาจน้อยกว่าสัดส่วนที่เลื่อนเล็กน้อย</Note>
         </div>
       </Pane>
     </>
