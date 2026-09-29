@@ -191,6 +191,7 @@ function Body({ trips, isSample, files, summary }: { trips: LfTrip[]; isSample: 
           <Hero kind="profit" l="เงินที่กู้คืนได้ถ้าถึงเป้า" v={baht(sum.recov)} unit="บาท"
             s={`${sum.idle ? pctOf(sum.recov / sum.idle) : "–"} ของต้นทุนที่จม · ต่ำกว่าเป้า ${fmt(sum.below)} จาก ${fmt(sum.n)} เที่ยว`} />
           <Hero kind="cust" l="LF เฉลี่ยเทียบเป้า" v={pctOf(sum.avgLf)} vSub={`เป้า ${pctOf(sum.avgTg)}`}
+            info="LF เฉลี่ยคำนวณโดยถือน้ำหนักทุกเที่ยวเท่ากัน ในขณะที่ต้นทุนที่สูญเสียคำนวณโดยถ่วงน้ำหนักตามมูลค่าต้นทุนจริงของแต่ละเที่ยว ด้วยวิธีคำนวณที่แตกต่างกันนี้ ตัวเลขทั้งสองจึงไม่สามารถแปลงกลับไปมาด้วยการคำนวณโดยตรงได้"
             s={`ห่างจากเป้า ${Math.round((sum.avgTg - sum.avgLf) * 100)} จุด`} />
         </div>
 

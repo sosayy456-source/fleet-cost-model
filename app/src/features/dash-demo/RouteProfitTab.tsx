@@ -380,11 +380,11 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
         </div>
         <div className="dz-cards four dm-avg">
           <KC dot={D.indigo} tone={kpi.perBill < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/บิล" icon={ICON_BILL}
-            v={signed(Math.round(kpi.perBill))} s={`บาท ต่อบิล · ${fmt(kpi.bills)} บิลของใบรายการที่จับคู่ได้`} />
+            v={signed(Math.round(kpi.perBill))} unit="บาท/บิล" s={`${fmt(kpi.bills)} บิลของใบรายการที่จับคู่ได้`} />
           <KC dot={D.violet} tone={kpi.perTrip < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/เที่ยว" icon={ICON_PIN}
-            v={signed(Math.round(kpi.perTrip))} s={`บาท ต่อเที่ยว · ${fmt(kpi.n)} เที่ยว`} />
+            v={signed(Math.round(kpi.perTrip))} unit="บาท/เที่ยว" s={`${fmt(kpi.n)} เที่ยว`} />
           <KC dot={D.teal} tone={kpi.perCust < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/ลูกค้า" icon={ICON_PERSON}
-            v={signed(Math.round(kpi.perCust))} s={`บาท ต่อลูกค้า · ${fmt(kpi.custs)} ราย (ผู้จ่ายเงินไม่ซ้ำ)`} />
+            v={signed(Math.round(kpi.perCust))} unit="บาท/ลูกค้า" s={`${fmt(kpi.custs)} ราย (ผู้จ่ายเงินไม่ซ้ำ)`} />
           {/* ย้ายมาจากแถวการ์ดกลุ่มบริการท้ายส่วน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           <button type="button" className="dz-kc dm-loss" disabled={!kpi.loss} onClick={() => setShowLoss(true)}
             title={kpi.loss ? "กดดูรายการเที่ยวที่ขาดทุนทั้งหมด" : undefined}>

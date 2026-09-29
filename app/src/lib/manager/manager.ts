@@ -12,7 +12,7 @@
  *   ไม่รู้ระยะทาง = วิ่งแค่วันปล่อยรถ
  *   แท็บการเงิน = เที่ยวที่ **ปล่อยรถ** ในช่วง (นับเข้าช่วงเดียว ไม่ซ้ำข้ามเดือน)
  * ★ เกณฑ์สีของ LF และ Margin = เกณฑ์ Performance Index (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิม LF 70/40 · Margin 10/5 ตายตัว):
- *   LF > P70 เขียว · P30–P70 เหลือง · < P30 แดง · Margin ขาดทุน แดง · ≥ P75 เขียว · ที่เหลือเหลือง
+ *   LF > P75 เขียว · P25–P75 เหลือง · < P25 แดง (เดิม P30/P70 — เปลี่ยนตาม PI 29 ก.ย. 2569) · Margin ขาดทุน แดง · ≥ P75 เขียว · ที่เหลือเหลือง
  *   percentile จากชุดอ้างอิง 12 เดือนล่าสุดของไฟล์ (tripThresholds · ผู้เรียกส่งค่ามา) — ดูหัวข้อเที่ยว
  * ★ ลูกหนี้ = ไฟล์ลูกหนี้ · ยอดคงค้าง ณ วันสิ้นช่วง แบ่งอายุหนี้ (lib/debtors/aging.ts ตัวเดียวกับ Customer Performance)
  *   DSO มาตรฐาน = ลูกหนี้คงค้าง ณ สิ้นช่วง ÷ ยอดวางบิลในช่วง × จำนวนวันในช่วง — ดูหัวข้อลูกหนี้ท้ายไฟล์
@@ -95,22 +95,22 @@ export type Band = "g" | "y" | "r";
 
 /**
  * เกณฑ์สีของเที่ยว = เกณฑ์ Performance Index (lib/pi/score.ts lfRule · marginRule · เจ้าของงานสั่ง 28 ก.ย. 2569)
- * lf = P30/P70 ของ LF (%) · margin = P75 ของ Margin (%) — จากชุดอ้างอิง (ManagerDash: 12 เดือนล่าสุดของแต่ละไฟล์ ·
+ * lf = P25/P75 ของ LF (%) · margin = P75 ของ Margin (%) — จากชุดอ้างอิง (ManagerDash: 12 เดือนล่าสุดของแต่ละไฟล์ ·
  * LF จากไฟล์ Load Factor ทุกเที่ยว (ไฟล์ไม่มีสาขา) · Margin จากเที่ยวของไฟล์ต้นทุนในสาขาที่เลือก) · null = ไม่มีข้อมูลให้คิด
  */
 export interface TripThresholds {
-  lf: { p30: number; p70: number } | null; margin: { p75: number } | null;
+  lf: { p25: number; p75: number } | null; margin: { p75: number } | null;
   /** ระดับของ Baseline ที่ใช้ (ป้ายใต้ตาราง) — "ระดับสาขา X" · "ระดับบริษัท (…)" (lib/pi/baseline.ts scopedValues) */
   lfScope?: string; mgScope?: string;
 }
 export function tripThresholds(lfRef: number[], marginRef: number[]): TripThresholds {
   const lf = lfRef.filter(Number.isFinite), mg = marginRef.filter(Number.isFinite);
-  const p30 = percentileInc(lf, 0.3), p70 = percentileInc(lf, 0.7), p75 = percentileInc(mg, 0.75);
-  return { lf: p30 == null || p70 == null ? null : { p30, p70 }, margin: p75 == null ? null : { p75 } };
+  const lo = percentileInc(lf, 0.25), hi = percentileInc(lf, 0.75), p75 = percentileInc(mg, 0.75);
+  return { lf: lo == null || hi == null ? null : { p25: lo, p75: hi }, margin: p75 == null ? null : { p75 } };
 }
-/** LF (%) — > P70 เขียว · P30 ถึง P70 เหลือง (ขอบพอดี = เหลือง) · < P30 แดง · ไม่มีเกณฑ์ = null */
+/** LF (%) — > P75 เขียว · P25 ถึง P75 เหลือง (ขอบพอดี = เหลือง) · < P25 แดง · ไม่มีเกณฑ์ = null */
 export const lfBand = (lf: number, th: TripThresholds): Band | null =>
-  !th.lf ? null : lf > th.lf.p70 ? "g" : lf >= th.lf.p30 ? "y" : "r";
+  !th.lf ? null : lf > th.lf.p75 ? "g" : lf >= th.lf.p25 ? "y" : "r";
 /** Margin (%) — ขาดทุน (< 0) แดง · ≥ P75 เขียว · 0 ถึง < P75 เหลือง · ไม่มีเกณฑ์ = ขาดทุนยังแดง ที่เหลือ null */
 export const marginBand = (m: number, th: TripThresholds): Band | null =>
   m < 0 ? "r" : !th.margin ? null : m >= th.margin.p75 ? "g" : "y";
@@ -271,7 +271,7 @@ export function issueLabel(k: IssueKey): string {
     const part = COST_PART_LABELS.find((x) => x.key === k.slice(5));
     return `${part?.label ?? k.slice(5)}สูงกว่าเฉลี่ย`;
   }
-  return ({ empty: "เที่ยววิ่งเปล่า", lfLow: "รถว่างมาก (LF ต่ำกว่า P30)", lfMid: "ยังเติมสินค้าได้ (LF P30–P70)", loss: "ขาดทุน",
+  return ({ empty: "เที่ยววิ่งเปล่า", lfLow: "รถว่างมาก (LF ต่ำกว่า P25)", lfMid: "ยังเติมสินค้าได้ (LF P25–P75)", loss: "ขาดทุน",
     revLow: "รายได้ต่ำกว่าเฉลี่ย", price: "Margin ต่ำแต่ต้นทุนปกติ (ทบทวนราคา)", costEst: "รอฝ่ายบัญชีกรอกค่าใช้จ่าย" } as Record<string, string>)[k] ?? k;
 }
 /** นับเที่ยวต่อปัญหา มากไปน้อย */

@@ -74,7 +74,7 @@ const BAND_RANK: Record<string, number> = { g: 3, y: 2, r: 1, na: 0 };
 const pc1 = (v: number): string => `${v.toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
 /** เกณฑ์สีของเที่ยวเป็นข้อความ (เกณฑ์ PI) — ตัวกรองคอลัมน์ + หมายเหตุใต้ตาราง */
 const lfCrit = (th: TripThresholds) => (th.lf
-  ? { g: `> P70 (${pc1(th.lf.p70)})`, y: `P30–P70 (${pc1(th.lf.p30)}–${pc1(th.lf.p70)})`, r: `< P30 (${pc1(th.lf.p30)})` }
+  ? { g: `> P75 (${pc1(th.lf.p75)})`, y: `P25–P75 (${pc1(th.lf.p25)}–${pc1(th.lf.p75)})`, r: `< P25 (${pc1(th.lf.p25)})` }
   : { g: "ไม่มีเกณฑ์", y: "ไม่มีเกณฑ์", r: "ไม่มีเกณฑ์" });
 const marginCrit = (th: TripThresholds) => ({
   g: th.margin ? `≥ P75 (${pc1(th.margin.p75)})` : "ไม่มีเกณฑ์",

@@ -20,6 +20,7 @@
 import imgDamageBox from "../../assets/icons3d/damage-box.webp";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { openExecTab } from "../../lib/ui/dashJump";
 import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import type { LfData } from "../../lib/data/useLoadFactor";
 import { vehicleRows } from "../../lib/detail3/calc";
@@ -481,7 +482,10 @@ export function DamageRateBox({ trips }: { trips: Trip[] | null }) {
     { l: "จำนวนเที่ยวที่มีบิลเคลียร์", v: kpi ? fmt(kpi.dmgTrips) : "–", s: "เที่ยว · มีบิลเคลียร์อย่างน้อย 1 รายการ" },
   ];
   return (
-    <div className="dz-kc hero loss pi-dmg4">
+    // กดทั้งกล่อง = เปิดแท็บ Damage Rate ของ Overall Dashboard (เจ้าของงานสั่ง 29 ก.ย. 2569 · ปุ่ม C กลับจุดเดิมได้เหมือนกล่องลิงก์อื่น)
+    <div className="dz-kc hero loss pi-dmg4 clickable" role="link" tabIndex={0} title="ดูรายละเอียดที่ Overall Dashboard › Damage Rate"
+      onClick={() => openExecTab("damage")}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openExecTab("damage"); } }}>
       <img className="pi-dmg-art" src={imgDamageBox} alt="" aria-hidden="true" />
       {rows.map((r) => (
         <div className="pi-dmg-row" key={r.l}>

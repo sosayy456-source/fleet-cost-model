@@ -2,8 +2,9 @@
  * ชิ้นส่วนหน้าตาของแดชบอร์ด — ตรงกับคลาสที่ index.html บน main ใช้
  * แยกไฟล์ไว้เพราะทั้ง 6 แท็บใช้ร่วมกัน และจะได้ไม่ปนกับตรรกะการคำนวณ
  */
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useNumFade } from "../../lib/chart/dashfx";
 
 /** เส้นประกอบในการ์ดเด่น — เป็นลายตกแต่ง ไม่ใช่ข้อมูลจริง (ตรงตาม main) */
@@ -41,7 +42,51 @@ function Trend({ data }: { data: number[] }) {
  * onClick/active = การ์ดกดได้ (แท็บกำไรลูกค้าของ Demo ใช้กรองตาราง) — ไม่ส่ง = การ์ดธรรมดา
  * foot  = บรรทัดใต้ชิป s เช่น ยอดกำไรของกลุ่มนั้น (แท็บกำไรลูกค้าของ Demo) — ไม่ส่ง = ไม่มีบรรทัดนี้
  */
-export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, title, art, icon }: {
+/**
+ * ปุ่ม i ของการ์ด Hero — กดกาง/พับคำอธิบาย · กดนอกกล่อง / Esc / เลื่อนหน้า = ปิด · ไม่ส่งคลิกต่อให้การ์ดที่กดได้
+ * ★ กล่องข้อความ portal ไป #view-dash (position fixed ใต้ปุ่ม) — การ์ดตัดขอบ (overflow) และตัวเลขใหญ่มี stacking ของตัวเอง
+ *   วางไว้ในการ์ดแล้วถูกตัวเลขทับ/ถูกตัดขอบล่าง (เจ้าของงานเจอ 29 ก.ย. 2569) · ไป body ไม่ได้เพราะโทเคนสีอยู่ใต้ #view-dash
+ */
+function HeroInfo({ text }: { text: string }) {
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  const pop = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!at) return;
+    const close = () => setAt(null);
+    const off = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!pop.current?.contains(t) && !btn.current?.contains(t)) close();
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+    document.addEventListener("mousedown", off);
+    document.addEventListener("keydown", esc);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", off); document.removeEventListener("keydown", esc);
+      window.removeEventListener("scroll", close, true); window.removeEventListener("resize", close);
+    };
+  }, [at]);
+  const toggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (at) return setAt(null);
+    const r = btn.current!.getBoundingClientRect();
+    setAt({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right - 4) });
+  };
+  const host = typeof document !== "undefined" ? document.getElementById("view-dash") ?? document.body : null;
+  return (
+    <>
+      <button type="button" ref={btn} className={"hero-i" + (at ? " on" : "")} aria-expanded={!!at}
+        aria-label={at ? "ซ่อนคำอธิบาย" : "ดูคำอธิบาย"} title={at ? "ซ่อนคำอธิบาย" : "ดูคำอธิบาย"} onClick={toggle}>i</button>
+      {at && host && createPortal(
+        <span className="hero-pop" role="note" ref={pop} style={{ top: at.top, right: at.right }}
+          onClick={(e) => e.stopPropagation()}>{text}</span>, host)}
+    </>
+  );
+}
+
+export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, title, art, icon, info }: {
   /** warn = เหลืองอำพัน (Manager Dashboard: เฝ้าระวัง / ค้าง 1–30 วัน) */
   kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc" | "warn";
   l: string; v: string; s?: ReactNode;
@@ -57,6 +102,8 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
   art?: ReactNode;
   /** ไอคอน 3 มิติมุมขวาบน **แทนป้ายหน่วย** (Customer Performance · 29 ก.ย. 2569 เจ้าของงานเลือก) — ไม่ส่ง = ป้ายหน่วยตามเดิม */
   icon?: ReactNode;
+  /** คำอธิบายซ่อนหลังปุ่ม i มุมขวาบน กดแล้วกางกล่องข้อความ (แทนป้ายหน่วย · Inefficient Cost › LF เฉลี่ย 29 ก.ย. 2569) */
+  info?: string;
 }) {
   const cls = `dz-kc hero ${kind}` + (trend ? " has-trend" : "") + (onClick ? " clickable" : "") + (active ? " on" : "");
   const press = onClick ? {
@@ -68,7 +115,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
     <div className={cls} title={title} {...press}>
       <div className="hh">
         <div className="l">{l}</div>
-        {icon ? <span className="hero-ic" aria-hidden="true">{icon}</span> : unit && <span className="u">{unit}</span>}
+        {info ? <HeroInfo text={info} /> : icon ? <span className="hero-ic" aria-hidden="true">{icon}</span> : unit && <span className="u">{unit}</span>}
       </div>
       {/* key = ค่าเปลี่ยนแล้วได้กล่องใหม่ ท่า fade-down เล่นใหม่ (useNumFade) */}
       {vSub ? (
@@ -97,8 +144,10 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
 }
 
 /** การ์ดตัวเลขธรรมดา — จุดสีหน้าป้ายมาจากตัวแปร --dot เหมือน main */
-export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon }: {
+export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon, unit }: {
   l: string; v: string; s?: ReactNode;
+  /** หน่วยตัวเล็กต่อท้ายตัวเลข เช่น "บาท/บิล" (Profit Per Route · 29 ก.ย. 2569) */
+  unit?: string;
   dot?: string;
   tone?: "good" | "warn" | "bad";
   /** ค่าที่เป็นข้อความ (ชื่อลูกค้า) main ย่อเหลือ 14px */
@@ -119,7 +168,7 @@ export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon }: {
     <div className={"dz-kc" + (tone ? ` t-${tone}` : "") + (onClick ? " clickable" : "") + (active ? " on" : "")}
       style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined} {...press}>
       <div className="l">{dot && <i className="d" />}{l}{icon && <span className="kc-ic" aria-hidden="true">{icon}</span>}</div>
-      <div className="v" key={v} data-real={v} style={small ? { fontSize: 15.5 } : undefined}>{v}</div>
+      <div className="v" key={v} data-real={v} style={small ? { fontSize: 15.5 } : undefined}>{v}{unit && <span className="u">{unit}</span>}</div>
       {s && <div className="s">{s}</div>}
       {bar && <div className="kbar"><i style={{ background: bar }} /></div>}
     </div>

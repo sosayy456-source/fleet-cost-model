@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildBench, buildTrips, fileSrc, issueCounts, issueLabel, managerTodo, marginBand, marginOf, overallBand, recordSrc, tripThresholds } from "./manager";
 
-const TH = { lf: { p30: 40, p70: 70 }, margin: { p75: 10 } };
+const TH = { lf: { p25: 40, p75: 70 }, margin: { p75: 10 } };
 import { buildForecast } from "../forecast/forecast";
 import type { Trip } from "../data/useCostRev";
 import type { TripRecord } from "../../types/record";
@@ -11,8 +11,8 @@ describe("สถานะรวม LF + Margin ของแท็บหน้า
     expect([10, 9.9, 0, -0.1].map((v) => marginBand(v, TH))).toEqual(["g", "y", "y", "r"]);
     expect([marginBand(-5, { lf: null, margin: null }), marginBand(5, { lf: null, margin: null })]).toEqual(["r", null]);
   });
-  it("tripThresholds = PERCENTILE.INC ของชุดอ้างอิง (LF P30/P70 · Margin P75)", () => {
-    expect(tripThresholds([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], [0, 10, 20, 30, 40])).toEqual({ lf: { p30: 30, p70: 70 }, margin: { p75: 30 } });
+  it("tripThresholds = PERCENTILE.INC ของชุดอ้างอิง (LF P25/P75 · Margin P75)", () => {
+    expect(tripThresholds([0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], [0, 10, 20, 30, 40])).toEqual({ lf: { p25: 25, p75: 75 }, margin: { p75: 30 } });
     expect(tripThresholds([], [])).toEqual({ lf: null, margin: null });
   });
   it("Margin รายได้ 0 แล้วขาดทุน = −100 · ไม่มีรายได้และไม่ขาดทุน = null", () => {

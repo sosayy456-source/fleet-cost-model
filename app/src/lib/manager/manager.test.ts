@@ -26,9 +26,9 @@ describe("ช่วงเวลา รายวัน / รายเดือน
   });
 });
 
-const TH = { lf: { p30: 40, p70: 70 }, margin: { p75: 10 } };
+const TH = { lf: { p25: 40, p75: 70 }, margin: { p75: 10 } };
 
-describe("เกณฑ์ Load Factor = เกณฑ์ PI (> P70 / P30–P70 / < P30)", () => {
+describe("เกณฑ์ Load Factor = เกณฑ์ PI (> P75 / P25–P75 / < P25)", () => {
   it("ขอบเขต (ขอบพอดี = เหลือง) · ไม่มีเกณฑ์ = null", () => {
     expect([70.1, 70, 40, 39.9].map((v) => lfBand(v, TH))).toEqual(["g", "y", "y", "r"]);
     expect(lfBand(90, { lf: null, margin: null })).toBeNull();

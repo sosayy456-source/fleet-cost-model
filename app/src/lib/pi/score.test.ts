@@ -16,8 +16,8 @@ describe("เกณฑ์ percentile ตาม \"แก้ Performance Index.pdf
     // P75 ติดลบ (เกือบทุกเส้นทางขาดทุน) — ไม่ขาดทุนก็เขียว ขาดทุนยังแดง
     expect(bands("route", [-50, -40, -30, -20, 0])).toEqual(["r", "r", "r", "r", "g"]);
   });
-  it("Load Factor: > P70 เขียว · P30–P70 เหลือง · < P30 แดง (ขอบพอดี = เหลือง)", () => {
-    // 11 ค่า 0.0–1.0 → P30 = 0.3 · P70 = 0.7
+  it("Load Factor: > P75 เขียว · P25–P75 เหลือง · < P25 แดง (ขอบพอดี = เหลือง)", () => {
+    // 11 ค่า 0.0–1.0 → P25 = 0.25 · P75 = 0.75
     const v = Array.from({ length: 11 }, (_, i) => i / 10);
     expect(bands("lf", v)).toEqual(["r", "r", "r", "y", "y", "y", "y", "y", "g", "g", "g"]);
   });
@@ -46,7 +46,7 @@ describe("คะแนน (เขียว + 0.5 × เหลือง) ÷ ร�
     expect(scoreOf({ g: 0, y: 0, r: 0, n: 0 })).toBeNull();
   });
   it("ตัวที่ให้สีที่อื่น (rule: null) = รอเกณฑ์ · ไม่มีข้อมูล = ไม่นับเข้าฐานของคะแนนรวม", () => {
-    // LF [0.9, 0.1] → P30 = 0.34 · P70 = 0.66 → เขียว 1 แดง 1 = 5 คะแนน
+    // LF [0.9, 0.1] → P25 = 0.3 · P75 = 0.7 → เขียว 1 แดง 1 = 5 คะแนน
     const rs = [metricResult("empty", [1, 2]), metricResult("lf", [0.9, 0.1]), metricResult("tkm", null)];
     expect(rs[0]).toMatchObject({ pending: true, score: null });
     expect(rs[2]).toMatchObject({ pending: false, tally: null, score: null });

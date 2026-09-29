@@ -60,12 +60,13 @@ const marginRule: Rule = (values, show) => {
   return { band: (v) => (v < 0 ? "r" : v >= p75 ? "g" : "y"), basis: `P75 = ${show(p75)}`,
     why: (v) => (v < 0 ? `${show(v)} < 0 (ขาดทุน)` : v >= p75 ? `${show(v)} ≥ P75 ${show(p75)}` : `0 ≤ ${show(v)} < P75 ${show(p75)}`) };
 };
-/** ค่ามาก = ดี · > P70 เขียว · P30 ถึง P70 เหลือง · < P30 แดง (ขอบพอดี = เหลือง) — Load Factor */
+/** ค่ามาก = ดี · > P75 เขียว · P25 ถึง P75 เหลือง · < P25 แดง (ขอบพอดี = เหลือง) — Load Factor
+ *  (เจ้าของงานเปลี่ยน 29 ก.ย. 2569 — เดิม P30/P70) */
 const lfRule: Rule = (values, show) => {
-  const a = percentileInc(finite(values), 0.3), b = percentileInc(finite(values), 0.7);
+  const a = percentileInc(finite(values), 0.25), b = percentileInc(finite(values), 0.75);
   if (a == null || b == null) return null;
-  return { band: (v) => (v > b ? "g" : v >= a ? "y" : "r"), basis: `P30 = ${show(a)} · P70 = ${show(b)}`,
-    why: (v) => (v > b ? `${show(v)} > P70 ${show(b)}` : v >= a ? `P30 ${show(a)} ≤ ${show(v)} ≤ P70 ${show(b)}` : `${show(v)} < P30 ${show(a)}`) };
+  return { band: (v) => (v > b ? "g" : v >= a ? "y" : "r"), basis: `P25 = ${show(a)} · P75 = ${show(b)}`,
+    why: (v) => (v > b ? `${show(v)} > P75 ${show(b)}` : v >= a ? `P25 ${show(a)} ≤ ${show(v)} ≤ P75 ${show(b)}` : `${show(v)} < P25 ${show(a)}`) };
 };
 /**
  * Depreciation Coverage — ค่ามาก = ดี · percentile + เพดานตามหลักของเอกสาร (เจ้าของงานสั่งแก้ logic 28 ก.ย. 2569):
@@ -105,8 +106,8 @@ export const METRICS: Record<MetricKey, MetricDef> = {
   // Max LF รายเที่ยวของไฟล์ Load Factor (สัดส่วน 0–1.3)
   lf: { label: "Load Factor", unit: "เที่ยว", rule: lfRule, show: (v) => `${fx(v * 100, 1)}%`,
     measure: "สินค้าที่บรรทุกจริง ÷ ความสามารถในการบรรทุกของรถ (Max LF ของแต่ละเที่ยว — ฝั่งที่เต็มกว่าระหว่างน้ำหนักกับปริมาตร)",
-    source: "ไฟล์ Load Factor ตามตัวกรอง ช่วงเวลา · ประเภทรถ · ชนิดรถ (ไฟล์ไม่มีต้นทาง/ปลายทาง/กลุ่มบริการ) · P30/P70 จากทุกเที่ยวใน Reference Baseline = 12 เดือนก่อนเดือนที่ประเมิน ระดับบริษัท ไม่ตามตัวกรอง",
-    criteria: ["> P70", "P30 – P70", "< P30"] },
+    source: "ไฟล์ Load Factor ตามตัวกรอง ช่วงเวลา · ประเภทรถ · ชนิดรถ (ไฟล์ไม่มีต้นทาง/ปลายทาง/กลุ่มบริการ) · P25/P75 จากทุกเที่ยวใน Reference Baseline = 12 เดือนก่อนเดือนที่ประเมิน ระดับบริษัท ไม่ตามตัวกรอง",
+    criteria: ["> P75", "P25 – P75", "< P25"] },
   // เกณฑ์ของแท็บ Empty Trips (P25/P75) — ให้สีใน lib/pi/empty.ts
   empty: { label: "Empty Return", unit: "เส้นทาง", rule: null, show: pctShow,
     measure: "% เที่ยววิ่งเปล่าของแต่ละเส้นทาง (ตามทิศ) = เที่ยวที่ไม่มีสินค้าบรรทุก ÷ เที่ยวทั้งหมด × 100",
