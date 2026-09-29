@@ -4387,6 +4387,8 @@ html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
 @media(max-width:1100px){#view-dash .pi-box .pi-row-sc .pi-t{font-size:21px}}
 /* กล่องคะแนนรวม: ตัวอักษรภาษาอังกฤษใหญ่ขึ้น (เจ้าของงานสั่ง 29 ก.ย. 2569) — หัว "คะแนนรวม Performance Index" · ชื่อหมวดในกล่องย่อย · ปุ่มดูที่มา */
 #view-dash .pi-total .pi-total-l{font-size:26px}
+#view-dash .pi-total .pi-total-status{display:inline-flex;align-items:center;justify-content:center;align-self:baseline;margin-left:14px;padding:5px 14px;
+  font-size:17px;line-height:1.2;white-space:nowrap}
 #view-dash .pi-total .pi-jump-h{font-size:21px;line-height:1.35}
 #view-dash .pi-total .pi-jump-h i{width:30px;height:30px;font-size:15px}
 #view-dash .pi-total .pi-more{font-size:15.5px;padding:6px 14px}
@@ -4534,3 +4536,25 @@ html.theme-cherry #view-dash .pi-box .pi-rm-h b .pi-delta.flat{color:#6B7280}
 #view-dash .rp-tools{margin:0;padding:12px 16px 0;flex-wrap:nowrap}
 #view-dash .rp-tools .i3-place{flex:1 1 160px}
 #view-dash .rp-tools-n{font-size:13px;color:var(--d-ink5);white-space:nowrap}
+/* แท็บ Empty Trips: การ์ดเที่ยวเปล่ากล่องเต็มแถวเท่าเดิม ขยายตัวหนังสือ/รูปข้างใน — เจ้าของงานสั่ง 29 ก.ย. 2569 */
+#view-dash .em-cards{margin-bottom:18px}
+#view-dash .em-cards .i2c{padding:28px 32px 30px;gap:16px}
+#view-dash .em-cards .i2c-l{font-size:30px}
+#view-dash .em-cards .i2c-h{min-height:0}
+#view-dash .em-cards .i2c-v{font-size:clamp(56px,5vw,84px)}
+#view-dash .em-cards .i2c-pill{font-size:24px;padding:14px 24px;border-radius:18px}
+#view-dash .em-cards .i2c-art{height:clamp(110px,10vw,170px);top:18px;right:24px}
+#view-dash .em-cards .i2c:has(.i2c-art) .i2c-h{padding-right:200px}
+/* ช่องเลือกเส้นทางในแถวปุ่มปีของกราฟเที่ยวเปล่า (หน้าตาเดียวกับปุ่ม .dmg-line) */
+#view-dash select.em-route{padding-right:26px;max-width:260px;cursor:pointer}
+/* ปุ่ม i เกณฑ์ประเมินโซนสี ต่อจากช่องเส้นทาง */
+#view-dash .em-zi{position:relative;display:inline-flex;align-items:center}
+#view-dash .em-zi-b{width:28px;height:28px;border-radius:50%;border:1.5px solid var(--d-ink);background:transparent;color:var(--d-ink);
+  font:italic 700 14px/1 Georgia,serif;cursor:pointer;opacity:.7}
+#view-dash .em-zi-b:hover,#view-dash .em-zi-b.on{opacity:1;background:color-mix(in srgb,var(--d-ink) 8%,transparent)}
+#view-dash .em-zi-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:20;min-width:250px;display:flex;flex-direction:column;gap:6px;
+  padding:12px 14px;border-radius:12px;background:#fff;color:var(--d-ink);font-size:14px;line-height:1.4;white-space:nowrap;
+  box-shadow:0 12px 28px -10px rgba(0,0,0,.3);border:1px solid rgba(0,0,0,.08)}
+#view-dash .em-zi-pop b{font-size:15px}
+#view-dash .em-zi-pop span{display:flex;align-items:center;gap:8px}
+#view-dash .em-zi-pop i{width:10px;height:10px;border-radius:50%;flex:none}

@@ -19,6 +19,9 @@ import type { EmptyAllYears, EmptyYtd } from "../../lib/empty/ytd";
 import type { Trip } from "../../lib/data/useCostRev";
 import { isPartialYear, monthsLabel, periodLabel } from "../../lib/filter/period";
 import type { Period } from "../../lib/filter/period";
+import I2Card from "../dash-demo/I2Card";
+import imgTruckEmpty from "../../assets/icons3d/truck-empty.webp";
+import imgCalcCost from "../../assets/icons3d/calc-cost.webp";
 
 /** เฉลี่ยต่อเดือน — หลักล้านเขียนเป็น "4.83 ล้านบาท" ตามตัวอย่างของเจ้าของงาน ต่ำกว่านั้นเขียนเต็ม */
 const perMonth = (v: number): string =>
@@ -71,6 +74,30 @@ export function useEmptyHeroData(all: Trip[], rows: Trip[], rowsAnyYear: Trip[],
   const emptyCost = empties.reduce((s, t) => s + t.cost, 0);
   const scope = year ? `ปี ${periodLabel(period)}` : `รวม ${yearShare.length} ปี`;
   return { yearShare, focusY, focus, ytd, allYears, empties, emptyCost, scope, total: rows.length };
+}
+
+/**
+ * การ์ดเที่ยวเปล่า 2 ใบแบบ I2Card — ใช้ทั้ง Executive Dashboard › Inefficient Transportation Cost และแท็บ Empty Trips
+ * (เจ้าของงานสั่ง 29 ก.ย. 2569 ให้สองหน้าหน้าตาเดียวกัน · แทน Hero สองใบของแท็บ Empty Trips)
+ * ใบแรก % จำนวนเที่ยวเปล่า · ใบสอง % ต้นทุนเที่ยวเปล่า (Σต้นทุนเปล่า ÷ Σต้นทุนทั้งหมด) · rows = เที่ยวที่กรองครบ · ไม่มี YoY
+ * ผู้เรียกวางใน .i2-cards
+ */
+export function EmptyCards({ rows, onOpen }: { rows: Trip[]; onOpen?: () => void }) {
+  const { empties, emptyCost, total, totalCost } = useMemo(() => {
+    let n = 0, ec = 0, tc = 0;
+    for (const t of rows) { tc += t.cost; if (t.empty) { n++; ec += t.cost; } }
+    return { empties: n, emptyCost: ec, total: rows.length, totalCost: tc };
+  }, [rows]);
+  return (
+    <>
+      <I2Card tone="red" cls="i2-empty" onClick={onOpen} art={imgTruckEmpty} l="จำนวนเที่ยวเปล่า"
+        v={total ? pct(empties / total * 100) : "–"}
+        pill={`${fmt(empties)} เที่ยววิ่งเปล่า จาก ${fmt(total)} เที่ยว`} />
+      <I2Card tone="light" cls="i2-emptyc" onClick={onOpen} art={imgCalcCost} l="ต้นทุนเที่ยวเปล่า"
+        v={totalCost ? pct(emptyCost / totalCost * 100) : "–"}
+        pill={`${fmt(emptyCost)} บาท จาก ${fmt(totalCost)} บาท`} />
+    </>
+  );
 }
 
 /** YoY ของการ์ดใบแรก — ข้อความชุดเดียวกับ YtdLines */
