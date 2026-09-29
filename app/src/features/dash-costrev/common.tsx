@@ -4,7 +4,7 @@
  * แดชบอร์ดชุดนี้อ่านจาก trips.json ของ etl/build_costrev.py ไม่ได้ผ่าน recCost/computeCost
  * เพราะต้นทุนมาเป็นยอดสำเร็จรูปจากไฟล์บริษัท ไม่ใช่จากสูตรของโมเดล
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { fmtN } from "../../lib/chart/theme";
 import { FF } from "../dash-fleet/parts";
@@ -119,6 +119,44 @@ export function ListFF({ label, all, value, onChange, opts, labelOf }: {
   );
 }
 
+/** ค่าหลายตัวในช่องเดียว คั่นด้วย "|" — เก็บเป็นสตริงให้ `{ ...f, x: "" }` / isFiltered / การเทียบค่าตั้งต้นใช้ได้เหมือนช่องเลือกเดียว */
+export const multiOf = (v: string): string[] => (v ? v.split("|") : []);
+export const multiHas = (v: string, x: string): boolean => !v || v.split("|").includes(x);
+
+/**
+ * ช่องตัวกรองแบบติ๊กได้หลายค่า (กลุ่มบริการของ Executive Dashboard · เจ้าของงานขอ 30 ก.ย. 2569) — ไม่ติ๊ก = ทุกค่า
+ * ค่าที่ส่งออกเป็นสตริงคั่น "|" (อ่านด้วย multiOf/multiHas) · กดนอกกล่อง/Esc = ปิด
+ */
+export function MultiFF({ label, all, value, onChange, opts }: {
+  label: string; all: string; value: string; onChange: (v: string) => void; opts: string[];
+}) {
+  const box = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: PointerEvent) => { if (box.current && !box.current.contains(e.target as Node)) box.current.open = false; };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  const sel = multiOf(value);
+  // เรียงตามลำดับตัวเลือกเสมอ ค่าเดิมจึงได้สตริงเดียวกันไม่ว่าติ๊กลำดับไหน
+  const toggle = (o: string) => onChange(opts.filter((x) => (x === o ? !sel.includes(x) : sel.includes(x))).join("|"));
+  const text = !sel.length ? all : sel.length === 1 ? sel[0] : `${label} ${sel.length} กลุ่ม`;
+  return (
+    <div className="ff ff-multi">
+      <label>{label}</label>
+      <details ref={box}
+        onKeyDown={(e) => { if (e.key === "Escape" && box.current) { box.current.open = false; box.current.querySelector("summary")?.focus(); } }}>
+        <summary title={sel.length ? sel.join(" · ") : `${all} (ติ๊กได้หลายค่า)`}>{text}</summary>
+        <div className="ff-multi-list">
+          <button type="button" className="ff-multi-all" onClick={() => onChange("")} disabled={!sel.length}>ล้าง ({all})</button>
+          {opts.map((o) => (
+            <label key={o}><input type="checkbox" checked={sel.includes(o)} onChange={() => toggle(o)} />{o}</label>
+          ))}
+        </div>
+      </details>
+    </div>
+  );
+}
+
 /**
  * เงื่อนไขที่ทุกแท็บใช้ร่วม — เดือนใช้ 2 หลัก "01".."12" · ค่าว่าง = ไม่กรองมิตินั้น
  * เวลามีสองแบบ: `month` เดือนเดียว (MonthFF — แท็บกำไรรายเที่ยว · ต้นทุน) กับ `from`–`to` ช่วงเดือน (PeriodFF — แท็บอื่น)
@@ -197,19 +235,24 @@ export interface Col<T> {
  * `initial` อ่านครั้งเดียวผ่าน ref เพราะทุกหน้าส่งมาเป็น object literal ที่สร้างใหม่ทุก render
  * ถ้าอ้างตรง ๆ การเทียบว่า "กลับไปค่าเริ่มต้นแล้วหรือยัง" จะไม่มีวันจริง
  */
-export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; dir: 1 | -1 }) {
+type SortKey = { key: string; dir: 1 | -1 };
+
+/** เทียบสองแถวตามคอลัมน์เดียว — ค่าว่างไปท้ายเสมอ ไม่ว่าทิศไหน */
+function cmpBy<T>(c: Col<T>, dir: 1 | -1, a: T, b: T): number {
+  const x = c.get(a), y = c.get(b);
+  if (typeof x === "number" && typeof y === "number") return (x - y) * dir;
+  if (x == null) return y == null ? 0 : 1;
+  if (y == null) return -1;
+  return String(x).localeCompare(String(y), "th") * dir;
+}
+
+export function useSort<T>(rows: T[], cols: Col<T>[], initial: SortKey) {
   const base = useRef(initial);
   const [sort, setSort] = useState(initial);
   const sorted = useMemo(() => {
     const c = cols.find((x) => x.key === sort.key);
     if (!c) return rows;
-    return [...rows].sort((a, b) => {
-      const x = c.get(a), y = c.get(b);
-      if (typeof x === "number" && typeof y === "number") return (x - y) * sort.dir;
-      if (x == null) return 1;
-      if (y == null) return -1;
-      return String(x).localeCompare(String(y), "th") * sort.dir;
-    });
+    return [...rows].sort((a, b) => cmpBy(c, sort.dir, a, b));
   }, [rows, cols, sort]);
   const toggle = (key: string) => setSort((s) =>
     s.key !== key ? { key, dir: -1 }
@@ -221,7 +264,7 @@ export function useSort<T>(rows: T[], cols: Col<T>[], initial: { key: string; di
 }
 
 export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps, maxHeight, filterRow }: {
-  rows: T[]; cols: Col<T>[]; sort: { key: string; dir: 1 | -1 };
+  rows: T[]; cols: Col<T>[]; sort: SortKey;
   onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;
   /** คลาสเพิ่มให้ตัวตาราง — ใช้ตกแต่งเฉพาะหน้า */
   className?: string;

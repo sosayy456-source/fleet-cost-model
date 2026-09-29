@@ -64,6 +64,9 @@ import imgPeople from "../../assets/icons3d/people-red.webp";
 /** รูปกลุ่มคนสีแดงอ่อนของการ์ด "จำนวนลูกค้าทั้งหมด" (เจ้าของงานส่งรูป 29 ก.ย. 2569 · ย้อมจากม่วงเป็นแดงอ่อน) */
 const ICON_PEOPLE = <img className="hero-art-img cp-people" src={imgPeople} alt="" />;
 
+/** "(xx.x%)" ของลูกค้าทั้งหมดตามตัวกรอง — ข้างตัวเลขการ์ดนับลูกค้า (เจ้าของงานขอ 30 ก.ย. 2569) */
+const shareOfAll = (n: number, all: number): string | undefined => (all ? `(${(n / all * 100).toFixed(1)}%)` : undefined);
+
 /** ลูกค้าหนึ่งรายหลังยุบตามตัวกรอง — ci ชี้กลับไป customers[] ของชุด alloc */
 export interface CustRow extends AllocCustomer, ReviewCounts {
   ci: number;
@@ -417,13 +420,13 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
           {/* ลำดับ: มีกำไร · ขาดทุน (กลาง) · ทั้งหมด (ขวาสุด — เจ้าของงานสลับ 29 ก.ย. 2569) · ไอคอนคนเฉพาะใบทั้งหมด · มีกำไร/ขาดทุน = ลูกศร 3 มิติขึ้น/ลงแบบการ์ดกำไร (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
-          <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} art={trendArrow(true)}
+          <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} vSub={shareOfAll(kpi.gain, kpi.n)} art={trendArrow(true)}
             s="คน · รายได้ ≥ ต้นทุน" foot={`กำไรรวม ${signed(kpi.gainAmt)} บาท`}
             onClick={() => toggle(sel("gain"))} active={sameSel(pick, sel("gain"))} />
-          <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} art={trendArrow(false)}
+          <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} vSub={shareOfAll(kpi.loss, kpi.n)} art={trendArrow(false)}
             s="คน · รายได้ < ต้นทุน" foot={`ขาดทุนรวม ${fmt(-kpi.lossAmt)} บาท`}
             onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
-          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง" art={ICON_PEOPLE}
+          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} vSub={kpi.n ? "(100%)" : undefined} s="คน · ลูกค้าที่ผ่านตัวกรอง" art={ICON_PEOPLE}
             foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
             onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
         </div>
