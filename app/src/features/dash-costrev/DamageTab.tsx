@@ -138,11 +138,14 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
       .filter((a) => a.n >= MIN_TRIPS_ALERT && damageLevel(a, th) === "high")
       .sort((a, b) => a.key.localeCompare(b.key)), [rows, th]);
 
-  /* ---------- แท่งนอน: อัตราความถี่การเกิดความเสียหาย (DIR) ตามชนิดรถ · ท่อน = สัดส่วนประเภทรถของเที่ยวที่มีบิลเคลียร์ ---------- */
+  /* ---------- แท่งนอน: อัตราความถี่การเกิดความเสียหายตามชนิดรถ · ท่อน = สัดส่วนประเภทรถของเที่ยวที่มีบิลเคลียร์ ----------
+   * ★ ตัวหาร = เที่ยวทั้งหมดของทุกชนิดรถตามตัวกรอง (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิมหารด้วยเที่ยวของชนิดรถนั้นเอง)
+   *   ค่า = เที่ยวที่มีบิลเคลียร์ของชนิดนั้น ÷ เที่ยวทั้งหมด → ทุกแท่งรวมกัน = DIR ของทั้งชุด · อันดับจึงเท่ากับเรียงตามจำนวนเที่ยวที่มีบิลเคลียร์ */
   const kindBars = useMemo(() => {
+    const all = rows.length;
     const top = aggregateDamage(rows, (t) => orNone(t.vk))
       .filter((a) => a.dmgTrips > 0)
-      .sort((a, b) => b.incidence - a.incidence || b.dmgTrips - a.dmgTrips).slice(0, TOP_BARS);
+      .sort((a, b) => b.dmgTrips - a.dmgTrips || b.incidence - a.incidence).slice(0, TOP_BARS);
     const keep = new Set(top.map((a) => a.key));
     const byKind = new Map<string, Map<string, number>>();
     for (const t of rows) {
@@ -155,11 +158,12 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
       .sort((a, b) => (FT_ORDER.indexOf(a) + 1 || 99) - (FT_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b, "th"));
     const data = top.map((a) => {
       const m = byKind.get(a.key) ?? new Map<string, number>();
-      const row: KindBar = { name: a.key, total: a.incidence, dmg: a.dmgTrips, n: a.n, amt: a.clrAmt, shares: {} };
-      // ท่อน = DIR ของชนิดรถ × สัดส่วนประเภทรถในเที่ยวที่มีบิลเคลียร์ → ทุกท่อนรวมเท่ากับ DIR ของชนิดรถพอดี
+      const v = all ? a.dmgTrips / all * 100 : 0;
+      const row: KindBar = { name: a.key, total: v, dmg: a.dmgTrips, n: a.n, all, amt: a.clrAmt, shares: {} };
+      // ท่อน = ค่าของชนิดรถ × สัดส่วนประเภทรถในเที่ยวที่มีบิลเคลียร์ → ทุกท่อนรวมเท่ากับค่าของชนิดรถพอดี
       fts.forEach((ft, i) => {
         const share = (m.get(ft) ?? 0) / a.dmgTrips;
-        row[`f${i}`] = a.incidence * share;
+        row[`f${i}`] = v * share;
         row.shares[ft] = share * 100;
       });
       return row;
@@ -167,12 +171,15 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
     return { data, series: fts.map((ft, i) => ({ key: `f${i}`, label: ft, color: ftColor(ft) })) };
   }, [rows]);
 
-  /* ---------- แท่งนอน: DIR ตามเส้นทาง 15 อันดับ · แท่งสีเดียว ตัวเลข % ในแท่ง ---------- */
-  const routeBars = useMemo(() =>
-    aggregateDamage(rows, rtKey)
+  /* ---------- แท่งนอน: ตามเส้นทาง 15 อันดับ · แท่งสีเดียว ตัวเลข % ในแท่ง ----------
+   * ★ ค่า = เที่ยวที่มีบิลเคลียร์ของเส้นทางนั้น ÷ เที่ยวทั้งหมดรวมทุกเส้นทางตามตัวกรอง (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิม ÷ เที่ยวของเส้นทางนั้น) */
+  const routeBars = useMemo(() => {
+    const all = rows.length;
+    return aggregateDamage(rows, rtKey)
       .filter((a) => a.dmgTrips > 0)
-      .sort((a, b) => b.incidence - a.incidence || b.dmgTrips - a.dmgTrips).slice(0, TOP_BARS)
-      .map((a) => ({ name: a.key, v: a.incidence, dmg: a.dmgTrips, n: a.n })), [rows]);
+      .sort((a, b) => b.dmgTrips - a.dmgTrips || b.incidence - a.incidence).slice(0, TOP_BARS)
+      .map((a) => ({ name: a.key, v: all ? a.dmgTrips / all * 100 : 0, dmg: a.dmgTrips, n: a.n, all }));
+  }, [rows]);
 
   /* ---------- ตาราง: ตัวกรองหัวตารางทับตัวกรองด้านบนทีละมิติ ---------- */
   const eff: Dims = { rt: tf.rt || f.rt, ft: tf.ft || f.ft, vk: tf.vk || f.vk };
@@ -471,7 +478,7 @@ function TrendLines({ data, hidden, th, band }: {
 }
 
 interface KindBar {
-  name: string; total: number; dmg: number; n: number; amt: number;
+  name: string; total: number; dmg: number; n: number; all: number; amt: number;
   /** % ของเที่ยวที่มีบิลเคลียร์ แยกประเภทรถ (รวม 100) */
   shares: Record<string, number>;
   [seg: string]: string | number | Record<string, number>;
@@ -484,7 +491,7 @@ const yWidth = (names: string[]): number => Math.min(230, Math.max(70, names.red
 const BAR_SIZE = 16;
 /** ชื่อแกนนอน — ใต้ป้ายแกน ขนาด/สีเดียวกับป้ายแกนของโมเดล */
 const xAxisLabel = (t: ChartTheme) => ({
-  value: "% Damage Incidence Rate", position: "insideBottom" as const, offset: -10,
+  value: "% ของเที่ยวทั้งหมด (เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมดตามตัวกรอง)", position: "insideBottom" as const, offset: -10,
   fill: t.ink2, fontSize: 13, fontFamily: DFONT,
 });
 
@@ -529,8 +536,9 @@ function KindBars({ data, series }: { data: KindBar[]; series: { key: string; la
         <Tooltip cursor={tip.cursor} content={({ active, payload }) => {
           const r = active ? (payload?.[0]?.payload as KindBar | undefined) : undefined;
           return r ? <TipBox t={t} title={r.name} lines={[
-            <>Damage Incidence Rate <b>{pct(r.total, 2)}</b></>,
-            <>มีบิลเคลียร์ <b>{fmt(r.dmg)}</b> จาก {fmt(r.n)} เที่ยว</>,
+            <>อัตราความถี่ <b>{pct(r.total, 2)}</b> ของเที่ยวทั้งหมด</>,
+            <>มีบิลเคลียร์ <b>{fmt(r.dmg)}</b> เที่ยว ÷ เที่ยวทั้งหมด {fmt(r.all)} เที่ยว (ทุกชนิดรถ)</>,
+            <>ชนิดนี้วิ่ง {fmt(r.n)} เที่ยว</>,
             <>มูลค่า <b>{fmt(r.amt, 2)}</b> บาท</>,
             ...series.map((s) => <span key={s.label}>
               <i style={{ display: "inline-block", width: 9, height: 9, borderRadius: 3, background: s.color, marginRight: 6 }} />
@@ -572,7 +580,7 @@ function InBarLabel(p: { x?: number; y?: number; width?: number; height?: number
 }
 
 /** แท่งนอน DIR ตามเส้นทาง — แท่งสีเดียว ตัวเลข % ในแท่ง · ป็อบอัพ = กี่เที่ยว */
-function RouteBars({ data }: { data: { name: string; v: number; dmg: number; n: number }[] }) {
+function RouteBars({ data }: { data: { name: string; v: number; dmg: number; n: number; all: number }[] }) {
   const t = useChartTheme();
   const tip = tooltipProps(t);
   return (
@@ -582,10 +590,11 @@ function RouteBars({ data }: { data: { name: string; v: number; dmg: number; n: 
         <XAxis {...axisProps(t)} type="number" tickFormatter={pctTick} label={xAxisLabel(t)} />
         <YAxis {...axisProps(t)} type="category" dataKey="name" width={yWidth(data.map((r) => r.name))} />
         <Tooltip cursor={tip.cursor} content={({ active, payload }) => {
-          const r = active ? (payload?.[0]?.payload as { name: string; v: number; dmg: number; n: number } | undefined) : undefined;
+          const r = active ? (payload?.[0]?.payload as { name: string; v: number; dmg: number; n: number; all: number } | undefined) : undefined;
           return r ? <TipBox t={t} title={r.name} lines={[
-            <>Damage Incidence Rate <b>{pct(r.v, 2)}</b></>,
-            <>มีบิลเคลียร์ <b>{fmt(r.dmg)}</b> จาก {fmt(r.n)} เที่ยว</>,
+            <>อัตราความถี่ <b>{pct(r.v, 2)}</b> ของเที่ยวทั้งหมด</>,
+            <>มีบิลเคลียร์ <b>{fmt(r.dmg)}</b> เที่ยว ÷ เที่ยวทั้งหมด {fmt(r.all)} เที่ยว (ทุกเส้นทาง)</>,
+            <>เส้นทางนี้วิ่ง {fmt(r.n)} เที่ยว</>,
           ]} /> : null;
         }} />
         <Bar dataKey="v" name="Damage Incidence Rate" fill={D.cyan} radius={BAR_RADIUS} {...anim}>

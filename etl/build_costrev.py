@@ -86,7 +86,7 @@ from src.svcalloc import SvcAlloc  # noqa: E402
 from src.tripcols import encode as encode_trips  # noqa: E402
 from src.sheetcache import cached_rows  # noqa: E402
 from src.progress import report, span  # noqa: E402
-from src.excluded_bills import ABSURD_KG, RULES_VERSION, excluded_list, is_absurd_weight, is_excluded, weight_kg  # noqa: E402
+from src.excluded_bills import ABSURD_KG, RULES_VERSION, excluded_list, is_absurd_weight, is_excluded  # noqa: E402
 
 #: บิลที่ตัดทิ้งอัตโนมัติเพราะน้ำหนักเกิน ABSURD_KG ในการแปลงรอบนี้ (เลขที่บิล → ใบรายการ, กก.) — log + manifest.absurdWeight
 ABSURD_SEEN: dict[str, tuple[str, float]] = {}
@@ -371,7 +371,7 @@ def load_revenue(rev_dir: Path, want: set[str], svc: SvcAlloc | None = None,
             # น้ำหนักเกินพันตัน = กรอกผิดแน่ (ตัดอัตโนมัติ · เจ้าของงานสั่ง 28 ก.ย. 2569)
             q_, u_, t_ = num(g(r, "จำนวน")), num(g(r, "น้ำหนักต่อหน่วย")), num(g(r, "น้ำหนักรวม"))
             if is_absurd_weight(q_, u_, t_):
-                ABSURD_SEEN[text(g(r, "เลขที่บิล"))] = (doc, weight_kg(q_, u_, t_))
+                ABSURD_SEEN[text(g(r, "เลขที่บิล"))] = (doc, line_weight_kg(q_, u_, t_))   # ★ ห้ามเรียก weight_kg: ในฟังก์ชันนี้ชื่อนั้นเป็น dict น้ำหนักรายใบ
                 continue
             doc_set.add(doc)
             # มูลค่าความเสียหาย = ราคารวมของบิลที่ประเภทสินค้าเป็น "บิลเคลียร์" (นิยามเดียวกับ

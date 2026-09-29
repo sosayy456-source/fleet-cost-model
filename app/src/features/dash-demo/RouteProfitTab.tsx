@@ -210,7 +210,8 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
   const cols = useMemo<Col<RouteRow>[]>(() => [
     { key: "rank", label: "#", get: (r) => r.rank,
       render: (r) => <span className="rp-rank">{String(r.rank).padStart(2, "0")}</span> },
-    { key: "rt", label: "เส้นทาง", get: (r) => r.rt,
+    // กดหัว "เส้นทาง" = เรียงตามจำนวนเที่ยว มากไปน้อยก่อน (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิมเรียงตามชื่อ) · useSort วนสามจังหวะเหมือนทุกตาราง
+    { key: "rt", label: "เส้นทาง", get: (r) => r.n,   // ไม่ใส่ num — num ทำให้ชิดขวา (เรียงตัวเลขได้อยู่แล้ว)
       render: (r) => <div className="rp-rt"><b>{r.rt}</b><small>{fmt(r.n)} เที่ยว</small></div> },
     // %Margin รายกลุ่มบริการเป็นชิป (ตามภาพที่เจ้าของงานส่ง 28 ก.ย. 2569 แทนคอลัมน์แท่งกำไร/เที่ยว) · ไม่มีเที่ยวของกลุ่ม = N/A กรอบประ
     ...SERVICE_GROUPS.map((g, i): Col<RouteRow> => ({
