@@ -29,9 +29,10 @@ import {
   claimsIn, costByPart, costKpis, custRevenue, finTotals, fleetStatusAt, monthlyFin, pctChange, prevPeriod,
 } from "../../lib/manager/overview";
 import { useRoster } from "../../lib/store/roster";
-import { inWindow, refWindow } from "../../lib/pi/baseline";
+import { baselineOf, inRange, scopedValues } from "../../lib/pi/baseline";
+import { firstDay } from "../../lib/pi/baseline";
 import { METRICS } from "../../lib/pi/score";
-import { collectionDays, collectionDaysBy, debtorFileEnd } from "../../lib/debtors/aging";
+import { collectionDays, collectionDaysBy } from "../../lib/debtors/aging";
 import type { ReactNode } from "react";
 import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
 import EtlBanner from "../../lib/ui/EtlBanner";
@@ -116,17 +117,6 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
   const newRows = useMemo(
     () => recordSrc(records, new Set((cr.data?.trips ?? []).map((t) => t.id)), fc),
     [records, cr.data, fc]);
-  // เกณฑ์สีของเที่ยว = เกณฑ์ Performance Index (เจ้าของงานสั่ง 28 ก.ย. 2569) — percentile จาก 12 เดือนล่าสุดของแต่ละไฟล์
-  //   LF = ทุกเที่ยวในไฟล์ Load Factor (ไฟล์ไม่มีสาขา) · Margin = เที่ยวของไฟล์ต้นทุนในสาขาที่เลือก (ตามตัวกรองยกเว้นเวลา)
-  const th = useMemo(() => {
-    const lw = lf.data ? refWindow(lf.data.trips.map((t) => t.mo)) : null;
-    const lfRef = lf.data && lw ? lf.data.trips.filter((t) => inWindow(t.mo, lw)).map((t) => t.lf * 100) : [];
-    const cw = refWindow(fileRows.map((t) => t.d.slice(0, 7)));
-    const mRef = cw ? fileRows.filter((t) => inWindow(t.d.slice(0, 7), cw) && inBranch({ br: branchOf(t.br) }))
-      .flatMap((t) => { const m = marginOf(t.rev, t.profit); return m == null ? [] : [m]; }) : [];
-    return tripThresholds(lfRef, mRef);
-  }, [lf.data, fileRows, branch]); // eslint-disable-line react-hooks/exhaustive-deps
-  const all = useMemo(() => buildTrips(fileRows, newRows, th), [fileRows, newRows, th]);
   // ช่วงข้อมูล = ไฟล์ + ใบที่บันทึกใหม่ (เจ้าของงานเลือก 27 ก.ย. 2569 — ช่วงตั้งต้นเปิดที่ช่วงล่าสุดของทั้งสองแหล่ง)
   const newSpan = useMemo(() => newRows.reduce<[string, string]>(
     ([lo, hi], t) => [!lo || t.d < lo ? t.d : lo, t.d > hi ? t.d : hi], ["", ""]), [newRows]);
@@ -143,6 +133,25 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
   const pickValue = (v: string) => { picked.current = true; setValue(v); };
   const period: MgrPeriod | null = value ? { kind, value } : null;
   const range = useMemo(() => (period ? periodRange(period) : null), [period?.kind, period?.value]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // เกณฑ์สีของเที่ยว = เกณฑ์ Performance Index (เจ้าของงานสั่ง 28 ก.ย. 2569) · Methodology 29 ก.ย. 2569:
+  //   percentile จาก Reference Baseline = 12 เดือนปฏิทินก่อนเดือนที่เลือก (lib/pi/baseline.ts) · ไฟล์ย้อนหลังไม่ครบ 12 เดือน = ไม่มีเกณฑ์ (ขาดทุนยังแดง)
+  //   **สาขาที่เลือกมีเที่ยวใน Baseline ≥ 30 = ใช้ของสาขา · ไม่ถึง/ทุกสาขา = ระดับบริษัท** (เจ้าของงานสั่ง 29 ก.ย. 2569 · ป้ายบอกระดับใต้ตาราง)
+  //   Margin = เที่ยวของไฟล์ต้นทุน · LF บริษัท = ไฟล์ Load Factor · LF สาขา = LF ที่จับคู่กับเที่ยวของไฟล์ต้นทุนในสาขา (ไฟล์ LF ไม่มีสาขา)
+  const th = useMemo(() => {
+    if (!range) return tripThresholds([], []);
+    const lfTrips = lf.data?.trips ?? [];
+    const lb = baselineOf(range, firstDay(lfTrips), lfTrips.map((t) => t.mo));
+    const lfCompany = lb.full ? lfTrips.filter((t) => inRange(t, lb, "inside")).map((t) => t.lf * 100) : [];
+    const cb = baselineOf(range, firstDay(fileRows.map((t) => ({ mo: t.d.slice(0, 7), d: t.d }))), fileRows.map((t) => t.d.slice(0, 7)));
+    const base = cb.full ? fileRows.filter((t) => t.d >= cb.start && t.d <= cb.end) : [];
+    const brRows = branch ? base.filter((t) => branchOf(t.br) === branch) : null;
+    const margins = (rows: typeof base) => rows.flatMap((t) => { const m = marginOf(t.rev, t.profit); return m == null ? [] : [m]; });
+    const lfs = scopedValues(lfCompany, brRows && lb.full ? brRows.flatMap((t) => (t.lf == null ? [] : [t.lf])) : null, branch, "เที่ยว");
+    const mgs = scopedValues(margins(base), brRows && margins(brRows), branch, "เที่ยว");
+    return { ...tripThresholds(lfs.values, mgs.values), lfScope: lfs.scope, mgScope: mgs.scope };
+  }, [lf.data, fileRows, range, branch]);
+  const all = useMemo(() => buildTrips(fileRows, newRows, th), [fileRows, newRows, th]);
 
   const branches = useMemo(() => [...new Set(all.map((t) => t.br))].sort((a, b) => a.localeCompare(b, "th")), [all]);
 
@@ -246,7 +255,7 @@ export default function ManagerDash({ role, records }: { role: RoleKey; records:
       {!branch && <BranchCompare running={running} released={released} />}
       <OpsTab trips={running} records={records} th={th} lfMissing={!!lf.error}
         focus={focus?.tab === "ops" ? focus : null} onFocusDone={() => setFocus(null)} />
-      <DebtPart rows={debtRows} fileRows={debtors.data?.rows ?? []} open={open} range={range} period={period} sample={debtors.data?.manifest.isSample} error={debtors.error}
+      <DebtPart branch={branch} rows={debtRows} fileRows={debtors.data?.rows ?? []} open={open} range={range} period={period} sample={debtors.data?.manifest.isSample} error={debtors.error}
         focus={focus?.tab === "fin" ? focus : null} onFocusDone={() => setFocus(null)} />
     </>
   );
@@ -447,6 +456,8 @@ function OpsTab({ trips, records, th, lfMissing, focus, onFocusDone }: {
             ))}
           </div>
         )}
+        {/* ป้ายระดับของ Baseline ที่ใช้ให้สี (29 ก.ย. 2569) — มองเห็นเสมอ ไม่ซ่อนหลังปุ่ม i */}
+        <p className="mg-scope">เกณฑ์สี: Baseline 12 เดือนก่อนเดือนที่เลือก · LF <b>{th.lfScope ?? "ระดับบริษัท"}</b> · Margin <b>{th.mgScope ?? "ระดับบริษัท"}</b></p>
         <SortTable rows={sorted} cols={cols} sort={sort} onSort={toggle} rowKey={(t) => t.id}
           empty={trips.length ? "ไม่มีเที่ยวตามตัวกรอง" : "ไม่มีเที่ยวที่วิ่งอยู่ในช่วงที่เลือก"}
           className="mg-tbl mg-click" filterRow={cf.filterRow}
@@ -456,7 +467,8 @@ function OpsTab({ trips, records, th, lfMissing, focus, onFocusDone }: {
           สถานะ = คะแนน Load Factor + Margin (เขียว 1 · เหลือง 0.5 · แดง 0): ≥ 1.5 ผ่าน · 1 เฝ้าระวัง · ≤ 0.5 ไม่ผ่าน · ขาดทุน = ไม่ผ่านเสมอ ·
           เกณฑ์สีตาม Performance Index: LF เขียว {lfc.g} · เหลือง {lfc.y} · แดง {lfc.r} ·
           Margin เขียว {mgc.g} · เหลือง {mgc.y} · แดง {mgc.r} ·
-          P30/P70 ของ LF จากทุกเที่ยวในไฟล์ Load Factor 12 เดือนล่าสุด · P75 ของ Margin จากเที่ยวในไฟล์ต้นทุน 12 เดือนล่าสุดของสาขาที่เลือก ·
+          <b>Baseline = 12 เดือนก่อนเดือนที่เลือก · LF {th.lfScope ?? "ระดับบริษัท"} · Margin {th.mgScope ?? "ระดับบริษัท"}</b>
+          (สาขามีเที่ยวใน Baseline ถึง 30 เที่ยวใช้ของสาขา ไม่ถึงใช้ระดับบริษัท) ·
           เที่ยวที่ไม่มีในไฟล์ Load Factor ให้สีตาม Margin อย่างเดียว · เที่ยววิ่งเปล่านับ LF 0% ·
           ใบที่บันทึกใหม่ในโมเดล (ป้าย "ใหม่") ขึ้นเฉพาะเลขที่ใบรายการที่ไฟล์ของบริษัทยังไม่มี · LF ของใบใหม่ = น้ำหนักบรรทุก ÷ ความจุ (กก.) จากหน้าจัดรถ ·
           ฝ่ายบัญชียังไม่กรอกค่าใช้จ่าย = ต้นทุนพยากรณ์ (ป้าย "พยากรณ์") ·
@@ -588,7 +600,9 @@ const pickOk = (p: DebtPick, b: MgrBill): boolean =>
  * ลูกหนี้คงค้าง ณ วันสิ้นช่วง (27 ก.ย. 2569) — การ์ด 5 ใบ (คงค้างรวม · 1–30 · 31–60 · 61+ · DSO) + กระแสของช่วง
  * + ตารางลูกค้าที่ค้าง (กดแถว = กรองตารางบิลเหลือลูกค้ารายนั้น กดซ้ำเพื่อยกเลิก) + ตารางบิลค้าง
  */
-function DebtPart({ rows, fileRows, open, range, period, sample, error, focus, onFocusDone }: {
+function DebtPart({ branch, rows, fileRows, open, range, period, sample, error, focus, onFocusDone }: {
+  /** สาขาที่เลือก ("" = ทุกสาขา) — Baseline ของสี DSO */
+  branch: string;
   period: MgrPeriod; open: MgrBill[]; focus: FinFocus | null; onFocusDone: () => void;
   /** rows = บิลของสาขาที่เลือก · fileRows = ทั้งไฟล์ (หาช่วงอ้างอิง 12 เดือนล่าสุด + วันสุดท้ายของไฟล์ แบบ PI) */
   rows: DebtorRow[]; fileRows: DebtorRow[]; range: { start: string; end: string }; sample?: boolean; error: string | null;
@@ -610,11 +624,16 @@ function DebtPart({ rows, fileRows, open, range, period, sample, error, focus, o
   const custName = (c: string) => custCode(numberForDebtor(c)) || c;
   /* ---------- สี DSO รายลูกค้า = เกณฑ์ DSO ของ Performance Index (เจ้าของงานสั่ง 28 ก.ย. 2569) ----------
      ค่าของลูกค้า = วันเก็บเงินเฉลี่ยของทุกบิลที่วางถึงวันสิ้นช่วง นับถึงวันสิ้นช่วง (collectionDays ของ PI) ·
-     P25/P75 = ลูกค้าที่วางบิลใน 12 เดือนล่าสุดของไฟล์ (สาขาที่เลือก) นับถึงวันสุดท้ายของไฟล์ · ≤ P25 เขียว · ≤ P75 เหลือง · > P75 แดง */
-  const dsoRule = useMemo(() => {
-    const w = refWindow(fileRows.map((r) => r.mo)), end = debtorFileEnd(fileRows);
-    return w && end ? METRICS.dso.rule!(collectionDays(rows.filter((r) => inWindow(r.mo, w)), end)) : null;
-  }, [rows, fileRows]);
+     P25/P75 = Reference Baseline (Methodology 29 ก.ย. 2569): ลูกค้า**ทุกสาขา**ที่วางบิลใน 12 เดือนปฏิทินก่อนเดือนแรกของช่วง นับถึงวันสุดท้ายของ Baseline
+     ไฟล์ลูกหนี้ยังไม่ครบปี = ใช้เท่าที่มี (เจ้าของงานเลือก) · ไม่มีบิลก่อนช่วงเลย = ไม่มีเกณฑ์ · ≤ P25 เขียว · ≤ P75 เหลือง · > P75 แดง */
+  const dsoScoped = useMemo(() => {
+    const b = baselineOf(range, null, []);
+    const inB = (r: DebtorRow) => r.issue >= b.start && r.issue <= b.end;
+    const base = fileRows.filter(inB);
+    // สาขามีลูกค้าใน Baseline ≥ 30 = ใช้ของสาขา · ไม่ถึง/ทุกสาขา = ทุกสาขา (29 ก.ย. 2569)
+    return scopedValues(collectionDays(base, b.end), branch ? collectionDays(rows.filter(inB), b.end) : null, branch, "ลูกค้า");
+  }, [fileRows, rows, range, branch]);
+  const dsoRule = useMemo(() => (dsoScoped.values.length ? METRICS.dso.rule!(dsoScoped.values, METRICS.dso.show) : null), [dsoScoped]);
   const dsoBy = useMemo(() => collectionDaysBy(rows, range.end), [rows, range.end]);
   const dsoOf = (c: string): number | null => dsoBy.get(c) ?? null;
   const dsoBand = (c: string): "g" | "y" | "r" | "na" => { const v = dsoOf(c); return v == null || !dsoRule ? "na" : dsoRule.band(v); };
@@ -719,6 +738,7 @@ function DebtPart({ rows, fileRows, open, range, period, sample, error, focus, o
                 เกินกำหนดเกิน 30 วัน <b>{fmt(Math.round(s.late60 + s.late61))} บาท</b>
               </button>
             </div>
+            <p className="mg-scope">เกณฑ์สี DSO: Baseline 12 เดือนก่อนเดือนที่เลือก · <b>{dsoScoped.scope}</b></p>
             <SortTable rows={cs.sorted} cols={custCols} sort={cs.sort} onSort={cs.toggle} rowKey={(c) => c.cust}
               empty={open.length ? "ไม่มีลูกค้าตามตัวกรอง" : "ไม่มีบิลค้างชำระ ณ วันสิ้นช่วง"}
               className="mg-tbl mg-click" filterRow={ccf.filterRow} maxHeight="45vh"
@@ -731,7 +751,8 @@ function DebtPart({ rows, fileRows, open, range, period, sample, error, focus, o
               กดแถวเพื่อดูบิลของลูกค้ารายนั้นในตารางบิลค้างชำระ · ค้างนานสุด = บิลที่เลยกำหนดนานที่สุดของลูกค้า ·
               DSO = วันเก็บเงินเฉลี่ยของทุกบิลที่ลูกค้าวางถึง {thDateSafe(range.end)} (บิลที่ยังไม่ชำระนับถึงวันนั้น) · สีตามเกณฑ์ DSO ของ Performance Index:
               ≤ P25 เขียว · P25–P75 เหลือง · &gt; P75 แดง {dsoRule ? `(${dsoRule.basis})` : "(ยังคิดเกณฑ์ไม่ได้)"} ·
-              P25/P75 จากลูกค้าที่วางบิลใน 12 เดือนล่าสุดของไฟล์ลูกหนี้ในสาขาที่เลือก นับถึงวันสุดท้ายของไฟล์
+              <b>Baseline = ลูกค้าที่วางบิลใน 12 เดือนก่อนเดือนที่เลือก นับถึงวันสุดท้ายของ Baseline · {dsoScoped.scope}</b>
+              (สาขามีลูกค้าถึง 30 รายใช้ของสาขา ไม่ถึงใช้ทุกสาขา · ไฟล์ยังไม่ครบปีใช้เท่าที่มี)
             </Note>
           </div>
 

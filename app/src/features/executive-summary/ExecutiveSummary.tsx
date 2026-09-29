@@ -26,6 +26,10 @@ import CustomerProfitTab from "../dash-demo/CustomerProfitTab";
 import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
 import { fmt } from "../dash-costrev/common";
 import SummaryTab from "./SummaryTab";
+import { useSummaryPiReports } from "./usePiReports";
+import { DamageRateBox, PiBox, PiRecommend, PiTotal, jumpToIndex } from "../dash-demo/PiIndex";
+import { INDEXES } from "../../lib/pi/score";
+import type { IndexDef } from "../../lib/pi/score";
 import "./ExecutiveSummary.css";
 
 /** short = ชื่อบนแท็บของแคปซูล (ชื่อเต็มอยู่ใน tooltip + หัวข้อแท็บ แบบ Overall Dashboard) */
@@ -40,18 +44,39 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
-function Metric({ label, tone }: { label: string; tone?: "good" | "warn" | "bad" }) {
-  return <div className={`es-metric${tone ? ` es-${tone}` : ""}`}>
-    <span className="es-label">{label}</span>
-    <strong className="es-empty-value" aria-label="ยังไม่มีข้อมูล">—</strong>
+/**
+ * แท็บ Performance Index = กล่อง PI ทุกหมวดของ Executive Dashboard (ผลชุดเดียวกับหน้า Summary · usePiReports.ts)
+ * เรียงตามหน้า Executive Dashboard: Route & Service · Fleet & Trip · Cost & Depreciation · Customer ·
+ * การ์ด Damage Rate คู่ Service Quality · คะแนนรวม /100 (29 ก.ย. 2569) · jump = หมวดที่กดมาจากแท็บ Recommendations
+ */
+function IndexTab({ jump, onJumped }: { jump: string | null; onJumped: () => void }) {
+  const reports = useSummaryPiReports();
+  const { data } = useCostRev();
+  const all = useMemo(() => (data ? data.trips.filter(inProfitScope) : null), [data]);
+  const box = (ix: IndexDef) => reports[ix.id] && <PiBox index={ix} results={reports[ix.id]!} />;
+  useEffect(() => {
+    if (!jump) return;
+    // รอเฟรมถัดไปให้กล่องวาดเสร็จก่อนเลื่อน
+    const id = requestAnimationFrame(() => { jumpToIndex(jump); onJumped(); });
+    return () => cancelAnimationFrame(id);
+  }, [jump, onJumped]);
+  return <div className="es-pi">
+    {box(INDEXES.route)}
+    {box(INDEXES.fleet)}
+    {box(INDEXES.cost)}
+    {box(INDEXES.cust)}
+    <div className="pi-pair">
+      <DamageRateBox trips={all} />
+      {box(INDEXES.service)}
+    </div>
+    <PiTotal reports={reports} />
   </div>;
 }
 
-function Panel({ title, className = "" }: { title: string; className?: string }) {
-  return <section className={`es-panel ${className}`} aria-label={title}>
-    <h3>{title}</h3>
-    <div className="es-placeholder">รอข้อมูล</div>
-  </section>;
+/** แท็บ Recommendations = ข้อเสนอแนะจากคะแนน PI ของ Executive Dashboard (PiRecommend) — กดการ์ด = ไปกล่องของหมวดในแท็บ Performance Index */
+function RecTab({ onPick }: { onPick: (indexId: string) => void }) {
+  const reports = useSummaryPiReports();
+  return <PiRecommend reports={reports} onPick={onPick} />;
 }
 
 /** หัวข้อย่อยภายในแท็บ */
@@ -76,7 +101,9 @@ function CostRevParts({ tab }: { tab: "route" | "fleet" }) {
   </>;
 }
 
-function TabContent({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
+function TabContent({ tab, onTab, jump, setJump }: {
+  tab: TabId; onTab: (t: TabId) => void; jump: string | null; setJump: (id: string | null) => void;
+}) {
   switch (tab) {
     // การ์ด 4 ใบ · คะแนน PI รวม · ประเด็นสำคัญ · กราฟน้ำตก (ภาพที่เจ้าของงานส่ง 28 ก.ย. 2569)
     case "summary": return <SummaryTab onRecommend={() => onTab("recommendations")} />;
@@ -84,20 +111,8 @@ function TabContent({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
     case "fleet": return <CostRevParts tab="fleet" />;
     // ทั้งส่วน Customer Performance ของ Executive Dashboard (กำไรลูกค้า + DSO) — ชุด alloc/ กับ debtors/ ของตัวเอง ไม่ใช้ไฟล์ต้นทุน
     case "customer": return <CustomerProfitTab f={DEMO_F0} />;
-    case "index": return <>
-      <div className="es-grid es-grid-three">
-        <Metric label="Damage Rate" tone="good" />
-        <Metric label="On-time delivery" tone="good" />
-        <Metric label="จำนวนชิ้นสินค้ารวม" />
-      </div>
-      <Panel title="องค์ประกอบ Performance Index" className="es-chart" />
-      <div className="es-total"><span>คะแนนรวม</span><strong aria-label="ยังไม่มีข้อมูล">— <small>/ 100</small></strong></div>
-    </>;
-    case "recommendations": return <>
-      <div className="es-recommendations">
-        {[1, 2, 3].map((number) => <Panel key={number} title={`ข้อเสนอแนะ ${number}`} className="es-recommendation" />)}
-      </div>
-    </>;
+    case "index": return <IndexTab jump={jump} onJumped={() => setJump(null)} />;
+    case "recommendations": return <RecTab onPick={(id) => { setJump(id); onTab("index"); }} />;
   }
 }
 
@@ -108,6 +123,7 @@ function TabContent({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
  */
 export default function ExecutiveSummary() {
   const [tab, setTab] = useState<TabId>("summary");
+  const [jump, setJump] = useState<string | null>(null);
   const cr = useCostRev();
   useAutoReloadOnEtl(useEtlStatus("costrev"), cr.reload);
   const m = cr.data?.manifest;
@@ -133,10 +149,10 @@ export default function ExecutiveSummary() {
     <DashShell title="Executive Summary" sample={m?.isSample} meta={meta || undefined}
       onRefresh={cr.reload} loading={!cr.data && !cr.error} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้มาใหม่"
       capsule={{ tabs, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
-      <div className={tab === "summary" || tab === "route" || tab === "fleet" || tab === "customer" ? "es-page es-wide" : "es-page"}>
+      <div className={"es-page es-wide"}>
         <section id="es-tab-content" className="es-content" aria-label={label}>
           <h2 className="dm-part-h">{tab === "recommendations" ? "Recommendations & Financial Impact" : label}</h2>
-          <TabContent tab={tab} onTab={setTab} />
+          <TabContent tab={tab} onTab={setTab} jump={jump} setJump={setJump} />
         </section>
       </div>
     </DashShell>

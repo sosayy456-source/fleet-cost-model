@@ -4442,3 +4442,63 @@ html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
 #view-dash .pi-total .pi-jump-sc b{font-size:clamp(22px,14cqi,38px)}
 #view-dash .pi-total .pi-jump .pi-st{flex:0 0 46cqi;width:46cqi;min-width:0;box-sizing:border-box;text-align:center;
   font-size:clamp(11px,6.4cqi,16px);padding:.4em .3em;overflow:hidden;text-overflow:ellipsis}
+
+/* PI · ความโปร่งใสของตัวชี้วัด (Methodology 29 ก.ย. 2569): Baseline · P25/P30/P70/P75 · Actual → สี → ตีความ */
+#view-dash .pi-rm-detail .pi-pcts,#view-dash .pi-rm-detail .pi-na{font-size:.95em}
+#view-dash .pi-act{display:inline-flex;align-items:baseline;gap:6px;font-weight:700}
+#view-dash .pi-act .pi-dm-dot{flex:none;transform:translateY(1px)}
+#view-dash .pi-act.g{color:#0B7A62}
+#view-dash .pi-act.y{color:#8A5A07}
+#view-dash .pi-act.r{color:#B4233A}
+#view-dash .pi-na{color:#8A5A07}
+#view-dash .pi-total .pi-bl{margin-top:6px;opacity:.85}
+/* ป้ายระดับของ Baseline ต่อตัวชี้วัด (29 ก.ย. 2569) — บริษัท = เทา · สาขา = ม่วง · * = ถอยไปใช้บริษัท (ชี้ดูเหตุผล) */
+#view-dash .pi-scope{align-self:flex-start;display:inline-block;margin:2px 0 4px;padding:1px 9px;border-radius:999px;font-size:12.5px;font-weight:700;
+  background:rgba(0,0,0,.06);color:#4b5563;cursor:help}
+#view-dash .pi-scope.br{background:#EEE7FB;color:#5B3AA8}
+/* Manager Dashboard: ป้ายระดับของ Baseline เหนือตาราง (29 ก.ย. 2569) */
+#view-dash .mg-scope{margin:4px 0 8px;font-size:14px;color:var(--d-ink3)}
+#view-dash .mg-scope b{color:#5B3AA8}
+
+/* ── PI: คะแนนเทียบ Baseline หลังคะแนน · จำนวนสีทีละบรรทัด + % · ป็อบอัพคะแนน Baseline (เจ้าของงานขอ 29 ก.ย. 2569) ──
+   ป้าย +/− เป็นแคปซูลพื้นขาว สีเขียว/แดงอ่านได้ทั้งกล่องพื้นเข้ม (ธีมเดิม) และพื้นอ่อน (ธีมเชอร์รี) */
+#view-dash .pi-delta{display:inline-flex;align-items:center;gap:3px;font-family:var(--d-num);font-size:.55em;font-weight:800;line-height:1.3;
+  white-space:nowrap}
+/* ไม่มีกรอบ (เจ้าของงานสั่ง 29 ก.ย. 2569) · คอลัมน์แคบ = ป้ายขึ้นบรรทัดใหม่ใต้คะแนน ไม่ล้นขอบ */
+#view-dash .pi-rm-h{flex-wrap:wrap}
+#view-dash .pi-rm-h b{display:inline-flex;align-items:baseline;flex-wrap:wrap;justify-content:flex-end;column-gap:8px;white-space:normal;min-width:0}
+#view-dash .pi-row-sc,#view-dash .pi-rm{min-width:0}
+#view-dash .pi-delta svg{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+#view-dash .pi-delta.up{color:#15803D}
+#view-dash .pi-delta.down{color:#B91C1C}
+#view-dash .pi-delta.flat{color:#6B7280}
+#view-dash .pi-score .pi-delta{font-size:22px;align-self:center}
+html.theme-cherry #view-dash .pi-box .pi-rm-h b .pi-delta.up{color:#15803D}
+html.theme-cherry #view-dash .pi-box .pi-rm-h b .pi-delta.down{color:#B91C1C}
+html.theme-cherry #view-dash .pi-box .pi-rm-h b .pi-delta.flat{color:#6B7280}
+#view-dash .pi-rm-count.lines{flex-direction:column;flex-wrap:nowrap;gap:2px}
+#view-dash .pi-rm-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+#view-dash .pi-rm-btns .pi-rm-more{margin-top:0}
+#view-dash .pi-bm{position:relative;max-width:420px;width:calc(100% - 32px);padding:26px 28px 22px;text-align:center}
+#view-dash .pi-bm .sm-x{position:absolute;top:10px;right:12px}
+#view-dash .pi-bm-k{font-size:15px;font-weight:700;color:var(--d-sub,#6B7280);margin-bottom:6px}
+#view-dash .pi-bm-p{margin:0 0 6px;font-size:18px;font-weight:700;color:var(--d-ink,#111827)}
+#view-dash .pi-bm-s{margin:0;font-size:17px;color:var(--d-ink,#111827)}
+#view-dash .pi-bm-s b{font-family:var(--d-num);font-size:36px;font-weight:800;margin-right:4px}
+#view-dash .pi-bm-n{margin:12px 0 0;font-size:13px;color:var(--d-sub,#6B7280)}
+/* สีป้าย +/− ของคะแนนหมวด — ชนะกฎ .pi-score span ที่ย้อมเป็นสีหมึกจาง (29 ก.ย. 2569) */
+#view-dash .pi-box .pi-score .pi-delta.up,html.theme-cherry #view-dash .pi-box .pi-score .pi-delta.up{color:#15803D}
+#view-dash .pi-box .pi-score .pi-delta.down,html.theme-cherry #view-dash .pi-box .pi-score .pi-delta.down{color:#B91C1C}
+#view-dash .pi-box .pi-score .pi-delta.flat,html.theme-cherry #view-dash .pi-box .pi-score .pi-delta.flat{color:#6B7280}
+/* หัวตัวชี้วัดบรรทัดเดียว (useFitLine ใน PiIndex.tsx · 29 ก.ย. 2569) — ขนาดย่อใส่เป็น inline ส่วนนี้แค่ห้ามตัดบรรทัด */
+#view-dash .pi-rm-h.one,#view-dash .pi-rm-h.one b{flex-wrap:nowrap}
+#view-dash .pi-rm-h.one > span{white-space:nowrap}
+/* บรรทัดเดียว: ห้ามลูกหดทับกัน (ชื่อยาวเคยล้นไปทับคะแนน) — ให้ล้นกล่องแทนเพื่อให้ useFitLine วัดเจอแล้วย่อ/ตัดบรรทัด */
+#view-dash .pi-rm-h.one > *{flex-shrink:0;min-width:max-content}
+/* แถบสีของตัวชี้วัดอยู่แนวเดียวกัน (เจ้าของงานขอ 29 ก.ย. 2569) — กล่องแถวเดียวแบ่งเป็น 2 แถว: หัว | เนื้อ
+   ตัวชี้วัดใช้ subgrid ร่วมแถวกัน หัวที่ขึ้นสองบรรทัดจึงดันหัวของอีกคอลัมน์ให้สูงเท่ากัน · กล่องคู่กับ Damage (.pi-pair) เรียงบนลงล่าง ไม่ต้องทำ */
+#view-dash .pi-rm-top,#view-dash .pi-rm-body{display:flex;flex-direction:column;gap:inherit;min-width:0}
+#view-dash .pi-rm-body{flex:1}
+#view-dash .pi-box.pi-row:not(.pi-pair > *){grid-template-rows:auto 1fr}
+#view-dash .pi-box.pi-row:not(.pi-pair > *) > .pi-row-sc{grid-row:span 2}
+#view-dash .pi-box.pi-row:not(.pi-pair > *) > .pi-rm{display:grid;grid-row:span 2;grid-template-rows:subgrid}

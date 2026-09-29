@@ -27,7 +27,7 @@ const isDark = () => document.body.classList.contains("dark");
 
 /* จุดที่แสดงชื่อตลอด (จุดอื่นแสดงชื่อเมื่อซูมเข้า) และจุดที่วางป้ายชื่อไว้ทางซ้าย */
 const MAJOR = new Set(["เชียงใหม่","เชียงราย","ลำปาง","น่าน","แพร่","พะเยา","พิษณุโลก","ตาก",
-  "กำแพงเพชร","ฝาง","แม่สาย","ท่าลี่","ตลาดไท","ราชบุรี"]);
+  "กำแพงเพชร","ฝาง","แม่สาย","ท่าลี่","ตลาดไท","ราชบุรี","พัทลุง"]);
 const LEFT = new Set(["ปากคลองตลาด","ปากคลองตลาดใหม่","พุทธมณฑลสาย 5","มหาชัย","ราชบุรี",
   "ป่าซาง","บ้านกาด","บ้านโฮ่ง","กองลอย","ฝาง","ตาก","ท่าลี่"]);
 const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้วแสดงชื่อทุกจุด
@@ -296,7 +296,7 @@ const LABEL_ALL_AT = 4;   // ซูมถึงระดับนี้แล้
     });
 
   // ปุ่มเลือกจุดในแผง แบ่งตามกลุ่ม
-  [["north", "#chipsNorth"], ["bkk", "#chipsBkk"]].forEach(([grp, el]) => {
+  [["north", "#chipsNorth"], ["bkk", "#chipsBkk"], ["south", "#chipsSouth"]].forEach(([grp, el]) => {
     const b = d3.select(el).selectAll("button").data(names.filter(n => STOPS[n].group === grp))
       .join("button").attr("class", "stopbtn").attr("type", "button")
       .on("click", (e, n) => selectStop(n));

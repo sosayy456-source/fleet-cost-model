@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { METRICS, metricResult, scoreOf, sumScores, tally } from "./score";
+import { DAILY_NA, METRICS, asDaily, metricResult, scoreOf, sumScores, tally } from "./score";
 
 /** สีของทุกค่าตามเกณฑ์ percentile ที่คิดจากชุดเดียวกัน */
 const bands = (k: keyof typeof METRICS, values: number[]) => {
-  const r = METRICS[k].rule!(values)!;
+  const r = METRICS[k].rule!(values, METRICS[k].show)!;
   return values.map(r.band);
 };
 
@@ -51,5 +51,15 @@ describe("คะแนน (เขียว + 0.5 × เหลือง) ÷ ร�
     expect(rs[0]).toMatchObject({ pending: true, score: null });
     expect(rs[2]).toMatchObject({ pending: false, tally: null, score: null });
     expect(sumScores(rs)).toEqual({ score: 5, max: 10 });
+  });
+});
+
+describe("Daily View (ช่วงไม่เต็มเดือน) — แสดงสีแต่ไม่คิดคะแนน (ข้อ 5 ของ Methodology 29 ก.ย. 2569)", () => {
+  it("คงจำนวนสี · score = null · ป้าย ดูรายวัน · ไม่นับเข้าคะแนนรวม", () => {
+    const r = metricResult("route", [-5, 10, 90], { values: Array.from({ length: 101 }, (_, i) => i), label: "B" });
+    const d = asDaily(r);
+    expect(d.tally).toEqual(r.tally);
+    expect(d).toMatchObject({ score: null, daily: true, na: DAILY_NA });
+    expect(sumScores([d]).max).toBe(0);
   });
 });

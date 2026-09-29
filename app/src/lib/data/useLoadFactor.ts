@@ -21,6 +21,11 @@ export interface LfTrip {
   y: number;
   /** "YYYY-MM" */
   mo: string;
+  /**
+   * วันที่ของเที่ยว "YYYY-MM-DD" — มีเมื่อไฟล์ LF มีคอลัมน์ "วันที่"/"วัน" (29 ก.ย. 2569) · ไม่มี/"" = รู้แค่เดือน
+   * ตัวกรองรายวันนับทั้งเดือนแทน (lib/filter/period.ts inPeriod · lib/pi/baseline.ts inRange)
+   */
+  d?: string;
   /** ประเภทรถ — รถบริษัท / รถร่วม */
   ft: string;
   /** ทะเบียนรถ */

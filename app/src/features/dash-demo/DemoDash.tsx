@@ -35,7 +35,9 @@ import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
 import * as Pi from "./PiIndex";
-import { PiRecommend, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import { firstDay, minEvalStart } from "../../lib/pi/baseline";
+import { PiDailyProvider, PiRecommend, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import { hasDays } from "../../lib/filter/period";
 import ThemeScope, { useThemeScope } from "../../lib/ui/ThemeScope";
 
 /*
@@ -124,7 +126,6 @@ export default function DemoDash() {
     vehicles: duniq(all.map((t) => t.vk)),
     services: duniq(all.map((t) => t.sg || "ไม่ระบุ")),
   }), [all]);
-  const branchTrips = useMemo(() => all.filter((t) => !fv.br || t.br === fv.br), [all, fv.br]);
   const emptyAll = useMemo(() => data?.trips ?? [], [data]);
   const emptyBranchTrips = useMemo(() => emptyAll.filter((t) => !fv.br || t.br === fv.br), [emptyAll, fv.br]);
   const emptyTrips = useMemo(() => emptyAll.filter((t) => passDemo(t, fv)), [emptyAll, fv]);
@@ -181,6 +182,8 @@ export default function DemoDash() {
   }, []);
 
   const m = data?.manifest;
+  /** วันแรกที่ประเมินได้ = เดือนแรกของชุดกำไร + 12 เดือน (lib/pi/baseline.ts minEvalStart) */
+  const minStart = useMemo(() => { const d = firstDay(all); return d ? minEvalStart(d) : null; }, [all]);
   /** เที่ยวที่กรองแล้วสำหรับกล่อง PI — null = ไฟล์ต้นทุนยังไม่มี/โหลดไม่ได้ (กล่องขึ้น "ไม่มีข้อมูล") */
   // ช่วงที่ประเมินของ PI: ไม่เลือกปี = เดือนล่าสุดของไฟล์ (เจ้าของงานเลือก 28 ก.ย. 2569) — การ์ด/กราฟอื่นยังตามตัวกรองเดิม
   const piEval = useMemo(() => (m && !error ? Pi.tripEvalOf(all, fv) : null), [m, error, all, fv]);
@@ -238,7 +241,8 @@ export default function DemoDash() {
   );
 
   const renderFilters = () => <>
-    <PeriodFF trips={all} value={f} onChange={setF} />
+    {/* ปี → เดือน → วัน · วันที่ที่ไฟล์ต้นทุนมีข้อมูลย้อนหลังไม่ครบ 12 เดือนเลือกไม่ได้ (Baseline ของ PI ไม่ครบ · Methodology 29 ก.ย. 2569) */}
+    <PeriodFF trips={all} value={f} onChange={setF} days minStart={minStart ?? undefined} />
     <ListFF label="สาขา" all="ทุกสาขา" value={f.br} onChange={set("br")} opts={branches} />
     <ListFF label="ต้นทาง" all="ทุกต้นทาง" value={f.o} onChange={set("o")} opts={filterOptions.origins} />
     <ListFF label="ปลายทาง" all="ทุกปลายทาง" value={f.de} onChange={set("de")} opts={filterOptions.dests} />
@@ -294,13 +298,14 @@ export default function DemoDash() {
         onRefresh={reload} loading={loading} refreshTitle="ดึงไฟล์ที่ ETL สร้างไว้ (costrev/) มาใหม่"
         capsule={{ tabs: partTabs, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined, tools: filterTool, info: infoContent }}>
         <PiReportProvider value={pi.report}>
+        <PiDailyProvider value={hasDays(fv)}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
           {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" />
             <PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
             onInfo={registerItem2Info} />}
-            <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
+            <PiFleet f={fv} all={piRef} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
             <PiCost trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("cust", <>
@@ -312,10 +317,11 @@ export default function DemoDash() {
           {part("svc", <div className="pi-pair">
             {/* การ์ด Damage Rate ใบเดียวกับแท็บ Damage — ตามตัวกรองของหน้า ไม่ใช่ช่วงที่ประเมินของ PI */}
             <DamageRateBox trips={m && !error ? trips : null} />
-            <PiService trips={piTrips} refTrips={piRefs?.trips ?? null} period={piEval?.label} />
+            <PiService trips={piTrips} refs={piRefs} period={piEval?.label} />
           </div>)}
           {part("pi", <PiTotal reports={pi.reports} />)}
           {part("rec", <PiRecommend reports={pi.reports} />)}
+        </PiDailyProvider>
         </PiReportProvider>
       </DashShell>
     </>

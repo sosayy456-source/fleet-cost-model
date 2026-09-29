@@ -302,19 +302,6 @@ export const SCOPE_TOKENS: ThemeToken[] = THEME_TOKENS.filter((t) => !t.global);
 
 const SCOPE_KEY = "dashThemeScopes";
 
-/**
- * สีรายแท็บตั้งต้นของทุกเครื่อง (theme-export.json ที่เจ้าของงานส่ง 29 ก.ย. 2569)
- * ใช้เมื่อเครื่องนั้นยังไม่เคยตั้งสีรายแท็บเอง (localStorage ไม่มีคีย์ dashThemeScopes) — ตั้งเองแล้วใช้ของเครื่องนั้นทั้งชุด
- * ล้างทุกแท็บแล้วเก็บเป็น "{}" (ไม่ลบคีย์) ไม่งั้นค่าตั้งต้นชุดนี้กลับมาเอง
- */
-export const DEFAULT_SCOPE_COLORS: Record<string, ThemeColors> = {
-  "demo:route": { partBorder: "#6C6519", pageMuted: "#EBEBEB", partBg: "#C7C7C7", pageText: "#344783", partAlpha: "0" },
-  "demo:item2": { pageText: "#2243A5", partAlpha: "100", partBg: "#FFFFFF", custA: "#660505", lossA: "#FF2E2E", costA: "#E0298B", lossB: "#FA0526" },
-  "demo:cust": { lossA: "#C52645", profitA: "#B28024" },
-  "demo:svc": { lossA: "#D08686", lossB: "#DA5D80", i2EmptyCostA: "#E1A8B4", i2EmptyCostB: "#DB9EAC", fleet: "#A1455D", custB: "#B7526C", dmgInk: "#4C1A1A" },
-  "demo:pi": { piTotalBg: "#E8D4B1" },
-  "overall:detail3": { fleet: "#DDA836", svc: "#459EB0" },
-};
 const SCOPE_OK = new Set(SCOPE_TOKENS.map((t) => t.key));
 
 /**

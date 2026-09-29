@@ -1,26 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { evalPeriod, inWindow, monthsBack, noTime, refSet, refWindow } from "./baseline";
+import { addDays, baselineOf, evalPeriod, evalRange, inRange, minEvalStart, refSet, scopedValues } from "./baseline";
 import { indexStatus, metricResult } from "./score";
 import { coverageByVehicleMonth, tkmByVehicleMonth } from "./cost";
 import { serviceMonthMarginValues } from "./route";
 import type { VRow } from "../detail3/calc";
 import type { MetricResult } from "./score";
 
-describe("ช่วงอ้างอิง 12 เดือนล่าสุดของไฟล์ (InDex_revised v2.md)", () => {
-  it("นับย้อน 12 เดือนปฏิทินจากเดือนล่าสุด ข้ามปีได้", () => {
-    expect(monthsBack("2026-05", 11)).toBe("2025-06");
-    const w = refWindow(["2024-01", "2025-06", "2025-12", "2026-05", ""])!;
-    expect(w).toEqual({ from: "2025-06", to: "2026-05", months: 3 });
-    expect([inWindow("2025-05", w), inWindow("2025-06", w), inWindow("2026-05", w)]).toEqual([false, true, true]);
-    expect(refWindow([])).toBeNull();
+describe("Reference Baseline = 12 เดือนปฏิทินก่อนเดือนที่ประเมิน (Methodology 29 ก.ย. 2569)", () => {
+  it("ประเมิน พ.ค. 2569 → Baseline 1 พ.ค. 2568 – 30 เม.ย. 2569 · ไม่รวมช่วงประเมิน", () => {
+    const ev = evalRange({ year: "2026", from: "05", to: "05" }, [])!;
+    expect(ev).toMatchObject({ start: "2026-05-01", end: "2026-05-31" });
+    const b = baselineOf(ev, "2024-01-01", ["2025-05", "2025-12", "2026-04", "2026-05"]);
+    expect(b).toMatchObject({ start: "2025-05-01", end: "2026-04-30", months: 3, spanMonths: 12, full: true });
   });
-  it("ตัวกรองยกเว้นเวลา = ล้างปี/ช่วงเดือน/เดือนเดียว ตัวกรองอื่นคงไว้", () => {
-    expect(noTime({ year: "2026", from: "03", to: "05", month: "04", vk: "รถ 10 ล้อ" }))
-      .toEqual({ year: "", from: "01", to: "12", month: "", vk: "รถ 10 ล้อ" });
+  it("ประเมินถึงระดับวัน → Baseline ยังเป็น 12 เดือนเต็มชุดเดิม (ไม่เปลี่ยนตามวัน) · ไฟล์เริ่มหลังเดือนแรกของ Baseline = ไม่ครบ", () => {
+    const ev = evalRange({ year: "2026", from: "05", to: "05", d1: "16", d2: "20" }, [])!;
+    expect(ev).toMatchObject({ start: "2026-05-16", end: "2026-05-20" });
+    expect(baselineOf(ev, "2025-05-20", [])).toMatchObject({ start: "2025-05-01", end: "2026-04-30", full: true });
+    expect(baselineOf(ev, "2025-06-01", [])).toMatchObject({ full: false });
+    expect(minEvalStart("2024-01-05")).toBe("2025-01-01");
+    expect(addDays("2024-02-28", 2)).toBe("2024-03-01");
   });
-  it("ไฟล์ไม่ครบ 12 เดือนบอกว่าเป็นเกณฑ์ชั่วคราว (DSO)", () => {
-    expect(refSet([1, 2, NaN], "ลูกค้า", { from: "2025-12", to: "2026-11", months: 7 }).label)
-      .toMatch(/จาก 2 ลูกค้า · 12 เดือนล่าสุด 2025-12 ถึง 2026-11 \(มีข้อมูล 7 เดือน/);
+  it("ไม่เลือกปี = เดือนล่าสุดของไฟล์", () => {
+    expect(evalRange({ year: "", from: "01", to: "12" }, ["2026-03", "2026-05"])).toMatchObject({ start: "2026-05-01", end: "2026-05-31" });
+  });
+  it("รายการที่มีแค่เดือน: Baseline นับเฉพาะเดือนเต็ม · ช่วงประเมินนับเดือนที่คร่อม", () => {
+    const r = { start: "2025-05-16", end: "2026-05-15" };
+    expect([inRange({ mo: "2025-05" }, r, "inside"), inRange({ mo: "2025-06" }, r, "inside"), inRange({ mo: "2026-05" }, r, "inside")])
+      .toEqual([false, true, false]);
+    expect(inRange({ mo: "2026-05" }, { start: "2026-05-16", end: "2026-05-20" }, "overlap")).toBe(true);
+    expect(inRange({ mo: "2026-05", d: "2026-05-10" }, { start: "2026-05-16", end: "2026-05-20" }, "overlap")).toBe(false);
+  });
+  it("Baseline ไม่ครบ 365 วัน = N/A · DSO (partialOk) ใช้เท่าที่มี · ไม่มีรายการ = N/A", () => {
+    const b = { start: "2025-05-01", end: "2026-04-30", months: 4, spanMonths: 12, full: false, first: "2026-01-02" };
+    expect(refSet([1, 2], "ลูกค้า", b)).toMatchObject({ ok: false, na: "Baseline ไม่ครบ" });
+    expect(refSet([1, 2], "ลูกค้า", b, true)).toMatchObject({ ok: true });
+    expect(refSet([], "ลูกค้า", b, true)).toMatchObject({ ok: false, na: "ไม่มี Baseline" });
   });
 });
 
@@ -58,7 +73,7 @@ describe("สถานะของทุกหมวด: ผ่าน 15–20 ·
 describe("ช่วงที่ประเมิน: ไม่เลือกปี = เดือนล่าสุดของไฟล์", () => {
   it("ไม่เลือกปีได้เดือนล่าสุด · เลือกปีแล้วใช้ช่วงที่เลือก", () => {
     const f0 = { year: "", from: "01", to: "12", vk: "x" };
-    expect(evalPeriod(f0, ["2026-03", "2026-05", "2025-12"])).toEqual({ year: "2026", from: "05", to: "05", vk: "x" });
+    expect(evalPeriod(f0, ["2026-03", "2026-05", "2025-12"])).toEqual({ year: "2026", from: "05", to: "05", vk: "x", d1: "", d2: "" });
     const f1 = { year: "2025", from: "01", to: "06", vk: "" };
     expect(evalPeriod(f1, ["2026-05"])).toBe(f1);
   });
@@ -91,5 +106,35 @@ describe("Depreciation Coverage: เขียวต้อง ≥ 1 เท่า 
     const r = metricResult("coverage", [0.5, 1.2, -0.5, -9], { values: past, label: "อดีต" });
     // 0.5 ≥ P75 แต่ < 1 → เหลือง · 1.2 → เขียว · −0.5 ติดลบ → แดง · −9 < P25 → แดง
     expect(r.tally).toEqual({ g: 1, y: 1, r: 2, n: 4 });
+  });
+});
+
+describe("Baseline ระดับสาขา + ขั้นต่ำ (29 ก.ย. 2569)", () => {
+  it("สาขามีรายการถึงขั้นต่ำใช้ของสาขา · ไม่ถึงใช้บริษัทพร้อมเหตุผล · ไม่เลือกสาขา = บริษัท", () => {
+    const co = [1, 2, 3], br30 = Array.from({ length: 30 }, (_, i) => i), br5 = [1, 2, 3, 4, 5];
+    expect(scopedValues(co, br30, "เชียงใหม่", "เส้นทาง")).toMatchObject({ values: br30, scope: "ระดับสาขา เชียงใหม่" });
+    const few = scopedValues(co, br5, "เชียงใหม่", "เส้นทาง");
+    expect(few.values).toBe(co);
+    expect(few.scope).toContain("ไม่ถึงขั้นต่ำ 30");
+    expect(scopedValues(co, null, "", "เส้นทาง")).toMatchObject({ values: co, scope: "ระดับบริษัท" });
+    expect(scopedValues(co, Array(12).fill(1), "ลำปาง", "เดือน", 12).scope).toBe("ระดับสาขา ลำปาง");
+  });
+});
+
+describe("คะแนน Baseline (เจ้าของงานขอ 29 ก.ย. 2569 · แบบที่ 1)", () => {
+  const b = { start: "2025-05-01", end: "2026-04-30", months: 12, spanMonths: 12, full: true, first: "2024-01-01" };
+  it("ช่วงของป็อบอัพเป็นชื่อเดือนเต็ม พ.ศ.", () => {
+    expect(refSet([1], "เส้นทาง", b).period).toBe("ปีก่อนหน้า พฤษภาคม 2568 – เมษายน 2569");
+  });
+  it("รายการใน Baseline ให้สีด้วยเกณฑ์ของ Baseline เอง แล้วคิดสูตรเดียวกับคะแนนปัจจุบัน", () => {
+    // Margin: P75 ของ [-10, 0, 10, 20, 30] = 20 → Baseline: แดง 1 · เหลือง 2 · เขียว 2 → (2 + 1) ÷ 5 × 10 = 6
+    const r = metricResult("route", [25, 25], refSet([-10, 0, 10, 20, 30], "เส้นทาง", b));
+    expect(r.score).toBe(10);
+    expect(r.base?.score).toBe(6);
+    expect(r.base?.tally).toEqual({ g: 2, y: 2, r: 1, n: 5 });
+  });
+  it("Baseline ไม่ครบ = ไม่มีคะแนน Baseline แต่ยังมีช่วง", () => {
+    const r = metricResult("route", [25], refSet([1, 2], "เส้นทาง", { ...b, full: false }));
+    expect(r.base).toEqual({ score: null, tally: null, period: "ปีก่อนหน้า พฤษภาคม 2568 – เมษายน 2569" });
   });
 });

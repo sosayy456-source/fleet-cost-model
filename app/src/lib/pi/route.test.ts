@@ -27,17 +27,17 @@ describe("Empty Return — เกณฑ์ P25/P75 ของแท็บ Empty T
   it("≤ P25 เขียว · P25–P75 เหลือง · เกิน P75 แดง", () => {
     // 4 เส้นทาง 0% · 25% · 50% · 100% → P25 = 18.75 · P75 = 62.5
     const all = [...trips("A", 4, 0), ...trips("B", 4, 1), ...trips("C", 4, 2), ...trips("D", 4, 4)];
-    const r = emptyResult(all, all);
+    const r = emptyResult(all, all, { values: [1], label: "Baseline", ok: true });
     expect(r.tally).toEqual({ g: 1, y: 2, r: 1, n: 4 });
     expect(r.score).toBe(5);
     expect(r.basis).toContain("P25 = 18.75%");
   });
   it("P25 = P75 → ไม่มีช่วงเหลือง", () => {
     const all = [...trips("A", 2, 0), ...trips("B", 2, 0), ...trips("C", 2, 0), ...trips("D", 2, 2)];
-    expect(emptyResult(all, all).tally).toEqual({ g: 3, y: 0, r: 1, n: 4 });
+    expect(emptyResult(all, all, { values: [1], label: "Baseline", ok: true }).tally).toEqual({ g: 3, y: 0, r: 1, n: 4 });
   });
   it("ไม่มีข้อมูล = score null ไม่ใช่ 0", () => {
-    expect(emptyResult(null, null)).toMatchObject({ pending: false, score: null });
+    expect(emptyResult(null, null, null)).toMatchObject({ pending: false, score: null });
     expect(bandResult("empty", [])).toMatchObject({ score: null });
   });
 });

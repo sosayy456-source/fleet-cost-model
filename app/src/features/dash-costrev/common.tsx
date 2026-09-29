@@ -9,7 +9,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { fmtN } from "../../lib/chart/theme";
 import { FF } from "../dash-fleet/parts";
 import GrowBox from "../../lib/ui/GrowBox";
-import { MONTHS, inMonths, withFrom, withTo, withYear } from "../../lib/filter/period";
+import { MONTHS, dayFrom, dayTo, daysIn, inDays, inMonths, withD1, withD2, withFrom, withTo, withYear } from "../../lib/filter/period";
 import type { Period } from "../../lib/filter/period";
 import type { Trip } from "../../lib/data/useCostRev";
 
@@ -33,12 +33,16 @@ export const monthName = (m: string): string => TH_MONTHS[Number(m) - 1] ?? m;
 export const marginOf = (t: Trip): number | null => (t.rev ? t.profit / t.rev * 100 : null);
 
 /* ---------------- ตัวกรองมาตรฐานของทั้งสามแท็บ ---------------- */
-export function YearFF({ trips, value, onChange }: { trips: { y: number }[]; value: string; onChange: (v: string) => void }) {
+export function YearFF({ trips, value, onChange, isLocked }: {
+  trips: { y: number }[]; value: string; onChange: (v: string) => void;
+  /** ปีที่เลือกไม่ได้ (ช่วงประเมินที่ Baseline ไม่ครบ — PeriodFF minStart) */
+  isLocked?: (y: string) => boolean;
+}) {
   const years = [...new Set(trips.map((t) => String(t.y)))].sort();
   return (
     <FF label="ปี" value={value} onChange={onChange}>
       <option value="">ทุกปี</option>
-      {years.map((y) => <option key={y} value={y}>พ.ศ. {+y + 543}</option>)}
+      {years.map((y) => <option key={y} value={y} disabled={isLocked?.(y)}>พ.ศ. {+y + 543}{isLocked?.(y) ? " (Baseline ไม่ครบ)" : ""}</option>)}
     </FF>
   );
 }
@@ -56,17 +60,49 @@ export function MonthFF({ value, onChange }: { value: string; onChange: (v: stri
  * ปี + ช่วงเดือน ตั้งแต่–ถึง — แบบเดียวกับแท็บ Damage Rate (เจ้าของงานสั่ง 24 ก.ย. 2569)
  * เดือนเลือกได้เมื่อเลือกปีแล้ว · ล้างปี = ช่วงเดือนกลับเป็นทั้งปี · "ถึงเดือน" มีเฉพาะเดือนที่ไม่ก่อนเดือนเริ่ม
  */
-export function PeriodFF<T extends Period>({ trips, value, onChange }: {
+export function PeriodFF<T extends Period>({ trips, value, onChange, days, minStart }: {
   trips: { y: number }[]; value: T; onChange: (p: T) => void;
+  /** เลือกถึงรายวันได้ (ปี → เดือน → วัน · Executive Dashboard เจ้าของงานสั่ง 29 ก.ย. 2569) */
+  days?: boolean;
+  /**
+   * วันแรกที่เริ่มช่วงได้ "YYYY-MM-DD" — ก่อนหน้านี้ Baseline 12 เดือนก่อนเดือนที่ประเมินไม่ครบ (lib/pi/baseline.ts)
+   * ปี/เดือน/วันที่ทำให้วันเริ่มก่อนวันนี้เลือกไม่ได้ · เลือกปีแล้ววันเริ่มยังก่อน = ขยับวันเริ่มมาที่วันนี้ให้เอง
+   */
+  minStart?: string;
 }) {
+  const lockY = minStart ? (y: string) => `${y}-12-31` < minStart : undefined;
+  // วันเริ่มก่อน minStart → ขยับเดือน/วันเริ่มมาที่ minStart (เฉพาะปีเดียวกัน · ปีก่อนหน้าถูกล็อกไว้แล้ว)
+  const clamp = (p: T): T => {
+    if (!minStart || !p.year || p.year !== minStart.slice(0, 4)) return p;
+    const start = `${p.year}-${p.from}-${dayFrom(p)}`;
+    if (start >= minStart) return p;
+    const mm = minStart.slice(5, 7), d = minStart.slice(8, 10);
+    const moved = p.from < mm ? withFrom(p, mm) : p;
+    return days ? withD1(moved, d) : moved;
+  };
+  const set = (p: T) => onChange(clamp(p));
+  const lockM = (m: string) => !!minStart && `${value.year}-${m}-${String(daysIn(value.year, m)).padStart(2, "0")}` < minStart;
+  const dayOpts = (mm: string) => Array.from({ length: daysIn(value.year, mm) }, (_, i) => String(i + 1).padStart(2, "0"));
   return <>
-    <YearFF trips={trips} value={value.year} onChange={(y) => onChange(withYear(value, y))} />
-    <FF label="ตั้งแต่เดือน" value={value.from} disabled={!value.year} onChange={(m) => onChange(withFrom(value, m))}>
-      {MONTHS.map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
+    <YearFF trips={trips} value={value.year} onChange={(y) => set(withYear(value, y))} isLocked={lockY} />
+    <FF label="ตั้งแต่เดือน" value={value.from} disabled={!value.year} onChange={(m) => set(withFrom(value, m))}>
+      {MONTHS.map((m) => <option key={m} value={m} disabled={lockM(m)}>{monthName(m)}</option>)}
     </FF>
-    <FF label="ถึงเดือน" value={value.to} disabled={!value.year} onChange={(m) => onChange(withTo(value, m))}>
+    {days && (
+      <FF label="วันที่" value={dayFrom(value)} disabled={!value.year} onChange={(d) => set(withD1(value, d))}>
+        {dayOpts(value.from).map((d) => <option key={d} value={d}
+          disabled={!!minStart && `${value.year}-${value.from}-${d}` < minStart}>{Number(d)}</option>)}
+      </FF>
+    )}
+    <FF label="ถึงเดือน" value={value.to} disabled={!value.year} onChange={(m) => set(withTo(value, m))}>
       {MONTHS.filter((m) => m >= value.from).map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
     </FF>
+    {days && (
+      <FF label="วันที่" value={dayTo(value)} disabled={!value.year} onChange={(d) => set(withD2(value, d))}>
+        {dayOpts(value.to).filter((d) => value.from !== value.to || d >= dayFrom(value))
+          .map((d) => <option key={d} value={d}>{Number(d)}</option>)}
+      </FF>
+    )}
   </>;
 }
 
@@ -105,6 +141,8 @@ export const passBase = (
   && (opts.ignoreMonth || !f.month || t.mo.slice(5) === f.month)
   // ignoreYear ยังกรองช่วงเดือน — ชุดที่เทียบหลายปีต้องได้ช่วงเดือนเดียวกันทุกปี
   && (opts.ignoreMonth || inMonths(t.mo, f))
+  // ช่วงวัน (ปี → เดือน → วัน · Executive Dashboard) — เทียบเดือน-วัน จึงใช้กับ ignoreYear ได้เหมือนช่วงเดือน
+  && (opts.ignoreMonth || !f.year || inDays(t.d, f))
   && (!f.o || t.o === f.o)
   && (!f.de || t.de === f.de)
   && (opts.ignoreVehicle || ((!f.ft || t.ft === f.ft) && (!f.vk || t.vk === f.vk)));

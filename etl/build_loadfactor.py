@@ -53,7 +53,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from build_costrev import iter_sheet, num, text as txt, utf8_stdout, xlsx_files
+from datetime import date, timedelta
+
+from build_costrev import iter_sheet, num, parse_date, text as txt, utf8_stdout, xlsx_files
 from src.progress import report, span
 
 HERE = Path(__file__).resolve().parent
@@ -71,6 +73,9 @@ COLS = {
     "สถานะข้อมูล": "st", "(Max LF)": "lf", "ข้อจำกัดหลัก (ปริมาตรหรือน้ำหนักเต็มก่อน)": "bind",
     "เป้าของกลุ่ม": "tg", "ต้นทุนรวม": "cost", "รายได้": "rev",
     "ระยะทาง": "km", "น้ำหนักจริง": "wt", "VC": "vc",
+    # วันที่ของเที่ยว (Performance Index ประเมินถึงระดับวัน · เจ้าของงานเพิ่มคอลัมน์เอง 29 ก.ย. 2569) — มีคอลัมน์ไหนก็ได้
+    # "วันที่" = วันที่เต็ม (dd/mm/yyyy · ค.ศ./พ.ศ. · เซลล์วันที่) · "วัน" = เลขวันที่ของเดือน (ใช้คู่กับ ปี/เดือน)
+    "วันที่": "dt", "วัน": "dd",
 }
 #: ไฟล์ที่ไม่มีคอลัมน์เหล่านี้ = ไม่ใช่ไฟล์ Load Factor → ข้ามทั้งไฟล์
 REQUIRED = ("เลขที่ใบรายการ", "(Max LF)", "ต้นทุนรวม", "รายได้", "เป้าของกลุ่ม", "ชนิดรถ", "เส้นทางมาตรฐาน")
@@ -129,6 +134,26 @@ def read_file(path: Path, routes: dict[str, dict[str, float]] | None = None,
 
     out: list[dict] = []
     dropped: dict[str, int] = {}
+    has_day = idx["dt"] >= 0 or idx["dd"] >= 0
+
+    def day_of(row, y: int, m: int) -> str:
+        """วันที่ ISO ของเที่ยว — อ่านไม่ออก/ไม่ตรงกับ ปี/เดือน ของแถว = "" (แอปนับทั้งเดือนแทน)"""
+        d: date | None = None
+        if idx["dt"] >= 0:
+            v = g(row, "dt")
+            if isinstance(v, (int, float)) and 20000 <= v <= 80000:      # เลขลำดับวันของ Excel
+                d = date(1899, 12, 30) + timedelta(days=int(v))
+            else:
+                d = parse_date(v)
+        if d is None and idx["dd"] >= 0:
+            n = int(num(g(row, "dd")))
+            try:
+                d = date(y, m, n) if n else None
+            except ValueError:
+                d = None
+        if d is None or d.year != y or d.month != m:
+            return ""
+        return d.isoformat()
 
     def drop(reason: str) -> None:
         dropped[reason] = dropped.get(reason, 0) + 1
@@ -172,6 +197,8 @@ def read_file(path: Path, routes: dict[str, dict[str, float]] | None = None,
             "cost": round(cost, 2), "rev": round(num(g(r, "rev")), 2),
             # ตัน-กม. — ไม่มีคอลัมน์ = null (ไม่ใช่ 0) แอปจะได้แยกออกว่า "ไฟล์รุ่นเก่า" กับ "เที่ยวที่ไม่มีน้ำหนัก"
             "km": km, "wt": opt(r, "wt", 4), "vc": opt(r, "vc", 2),
+            # มีคีย์เฉพาะไฟล์ที่มีคอลัมน์วันที่ (ทุกแถวคีย์ชุดเดียวกัน · อ่านไม่ออก = "")
+            **({"d": day_of(r, y, m)} if has_day else {}),
         })
     return out, dropped
 

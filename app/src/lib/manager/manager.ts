@@ -98,7 +98,11 @@ export type Band = "g" | "y" | "r";
  * lf = P30/P70 ของ LF (%) · margin = P75 ของ Margin (%) — จากชุดอ้างอิง (ManagerDash: 12 เดือนล่าสุดของแต่ละไฟล์ ·
  * LF จากไฟล์ Load Factor ทุกเที่ยว (ไฟล์ไม่มีสาขา) · Margin จากเที่ยวของไฟล์ต้นทุนในสาขาที่เลือก) · null = ไม่มีข้อมูลให้คิด
  */
-export interface TripThresholds { lf: { p30: number; p70: number } | null; margin: { p75: number } | null }
+export interface TripThresholds {
+  lf: { p30: number; p70: number } | null; margin: { p75: number } | null;
+  /** ระดับของ Baseline ที่ใช้ (ป้ายใต้ตาราง) — "ระดับสาขา X" · "ระดับบริษัท (…)" (lib/pi/baseline.ts scopedValues) */
+  lfScope?: string; mgScope?: string;
+}
 export function tripThresholds(lfRef: number[], marginRef: number[]): TripThresholds {
   const lf = lfRef.filter(Number.isFinite), mg = marginRef.filter(Number.isFinite);
   const p30 = percentileInc(lf, 0.3), p70 = percentileInc(lf, 0.7), p75 = percentileInc(mg, 0.75);

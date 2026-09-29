@@ -10,34 +10,27 @@
  */
 import { useMemo } from "react";
 import { inProfitScope, useCostRev } from "../../lib/data/useCostRev";
-import { useLoadFactor } from "../../lib/data/useLoadFactor";
 import { useAlloc } from "../../lib/data/useAlloc";
-import { useDebtors } from "../../lib/data/useDebtors";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
-import { INDEXES } from "../../lib/pi/score";
 import { costSteps, customerLoss, emptyCostPerYear, execTotals } from "../../lib/summary/execSummary";
 import { DWaterfall } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { DEMO_F0 } from "../dash-demo/filter";
-import { PiTotal, costPiResults, emptyPiResult, lfPiResult, routePiResults, servicePiResults, serviceRef, tripEvalOf, tripRefOf } from "../dash-demo/PiIndex";
+import { PiTotal } from "../dash-demo/PiIndex";
+import { useSummaryPiReports } from "./usePiReports";
 import { Hero, Note, Pane } from "../dash-fleet/parts";
 import { fmt, pct } from "../dash-costrev/common";
-import { custPiResults, rollupCustomers } from "../dash-demo/CustomerProfitTab";
-import { defaultAsOf } from "../dash-demo/OverdueSection";
+import { rollupCustomers } from "../dash-demo/CustomerProfitTab";
 
 /** ล้านบาท ทศนิยม 1 ตำแหน่ง — 55,912,345 → "55.9" */
 const mb = (v: number): string => (v / 1e6).toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 export default function SummaryTab({ onRecommend }: { onRecommend: () => void }) {
   const cr = useCostRev();
-  const lf = useLoadFactor();
   const alloc = useAlloc();
-  const debtors = useDebtors();
   useAutoReloadOnEtl(useEtlStatus("costrev"), cr.reload);
-  useAutoReloadOnEtl(useEtlStatus("loadfactor"), lf.reload);
   useAutoReloadOnEtl(useEtlStatus("alloc"), alloc.reload);
-  useAutoReloadOnEtl(useEtlStatus("debtors"), debtors.reload);
 
   const all = useMemo(() => (cr.data ? cr.data.trips.filter(inProfitScope) : null), [cr.data]);
   const tot = useMemo(() => (all ? execTotals(all) : null), [all]);
@@ -46,22 +39,8 @@ export default function SummaryTab({ onRecommend }: { onRecommend: () => void })
   const custRows = useMemo(() => (alloc.data?.custMonths ? rollupCustomers(alloc.data, DEMO_F0) : null), [alloc.data]);
   const loss = useMemo(() => (custRows ? customerLoss(custRows) : null), [custRows]);
 
-  // ผลรายหมวดชุดเดียวกับกล่อง PI ของ Executive Dashboard → กล่องคะแนนรวม PiTotal ตัวเดียวกัน (กดดูที่มาของคะแนนได้)
-  // ชุดที่ยังโหลดไม่เสร็จ/ไม่มีไฟล์ ไม่นับเข้าฐาน ("คิดได้ x จาก 100")
-  const reports = useMemo(() => {
-    const asOf = debtors.data ? defaultAsOf(debtors.data.manifest.dateRange.min, debtors.data.manifest) : null;
-    // ชุดอ้างอิงเกณฑ์ percentile = 12 เดือนล่าสุดของไฟล์ (ตัวกรองว่าง) — ตัวเดียวกับ Executive Dashboard ตอนไม่กรอง
-    const refs = all ? tripRefOf(all, DEMO_F0) : null;
-    // ไม่มีตัวกรองปี = ประเมินเดือนล่าสุดของไฟล์ — ตัวเดียวกับ Executive Dashboard ตอนไม่กรอง
-    const ev = all ? tripEvalOf(all, DEMO_F0) : null;
-    return {
-      [INDEXES.route.id]: routePiResults(ev?.trips ?? null, refs, ev?.label),
-      [INDEXES.fleet.id]: [lfPiResult(lf.error ? null : lf.data, DEMO_F0), emptyPiResult(all, DEMO_F0)],
-      [INDEXES.cost.id]: costPiResults(ev?.trips ?? null, refs, ev?.label),
-      [INDEXES.cust.id]: custPiResults(alloc.data, debtors.data, asOf, DEMO_F0),
-      [INDEXES.service.id]: servicePiResults(ev?.trips ?? null, serviceRef(refs ? refs.trips : null), ev?.label),
-    };
-  }, [all, lf.data, lf.error, alloc.data, debtors.data]);
+  // ผลรายหมวดชุดเดียวกับกล่อง PI ของ Executive Dashboard (usePiReports.ts — ใช้ร่วมแท็บ Performance Index/Recommendations)
+  const reports = useSummaryPiReports();
 
   if (cr.error) return <div className="card"><div className="banner">{cr.error}</div></div>;
   if (!all || !tot || !steps) return <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>;
@@ -81,16 +60,17 @@ export default function SummaryTab({ onRecommend }: { onRecommend: () => void })
 
   return (
     <Pane deps={[all]}>
+      {/* คะแนนรวม Performance Index เป็นกล่องแรก (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิมอยู่ใต้การ์ดเด่น) */}
+      <PiTotal reports={reports} />
+
       {/* การ์ดเด่นชุดเดียวกับ Profit Per Route */}
-      <div className="dz-heroes">
+      <div className="dz-heroes es-block">
         <Hero kind={tot.profit < 0 ? "loss" : "profit"} l={tot.profit < 0 ? "ขาดทุนสุทธิ" : "กำไรสุทธิ"}
           v={mb(Math.abs(tot.profit))} unit="ล้านบาท" s="รายได้ – ต้นทุน" />
         <Hero kind="rev" l="รายได้รวม" v={mb(tot.rev)} unit="ล้านบาท" s={`${fmt(tot.n)} เที่ยว`} />
         <Hero kind="cost" l="ต้นทุนรวม" v={mb(tot.cost)} unit="ล้านบาท" />
         <Hero kind="svc" l="%Margin" v={tot.margin == null ? "–" : pct(tot.margin)} s="กำไร ÷ รายได้" />
       </div>
-
-      <div className="es-block"><PiTotal reports={reports} /></div>
 
       {insight && <div className="dmg-alert es-block" role="note">
         <b><span aria-hidden="true">⚠ </span>{insight}</b>

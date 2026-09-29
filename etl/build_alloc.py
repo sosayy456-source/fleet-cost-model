@@ -258,6 +258,12 @@ class Rollup:
         self.sides: dict[str, set[str]] = defaultdict(set)
         # รหัสตัวแทน -> เลข CUS (ตั้งใน canonicalize)
         self.numbers: dict[str, int] = {}
+        # รหัสดิบ -> รหัสตัวแทน (ตั้งใน canonicalize) — ไฟล์รายวันใช้แปลงรหัสตอนเขียน
+        self.alias: dict[str, str] = {}
+        # ลูกค้า × วัน (Performance Index ประเมินถึงระดับวัน · เจ้าของงานสั่ง 29 ก.ย. 2569) — เก็บลงดิสก์ทีละไฟล์บิล
+        # แยกไฟล์ตามเดือน (day_dir/<YYYY-MM>.jsonl) ไม่ถือทั้งชุดในหน่วยความจำ (ข้อมูลจริงบิล ~2 ล้านใบ) · None = ไม่ทำ
+        self.day_dir: Path | None = None
+        self._bill_date: dict[str, str] = {}
         self.months: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0, 0.0])
         self.dist_src: Counter[str] = Counter()
         self.basis_cond: Counter[int] = Counter()
@@ -312,6 +318,8 @@ class Rollup:
         b = self._bills.get(it.bill)
         if b is None:
             b = self._bills[it.bill] = [side, code, it.revenue, alloc, it.month, 0.0] + [0] * len(FLAGS)
+            if it.date:
+                self._bill_date[it.bill] = it.date
         else:
             b[2] += it.revenue
             b[3] += alloc
@@ -341,6 +349,7 @@ class Rollup:
     def flush_file(self) -> int:
         """ปิดไฟล์: ยกบิลที่สะสมไว้ขึ้นเป็นลูกค้า แล้วล้างถังของไฟล์นั้น"""
         n = len(self._bills)
+        self._flush_days()
         for side, code, rev, alc, month, frev, *fn in self._bills.values():
             for c in (self.cust[(side, code)], self.cust_mo[(side, code, month)]):
                 c[0] += 1
@@ -355,12 +364,75 @@ class Rollup:
         self._bills = {}
         return n
 
+    def _flush_days(self) -> None:
+        """ยุบบิลของไฟล์นี้เป็น ลูกค้า(รหัสดิบ) × วัน แล้วต่อท้ายไฟล์ชั่วคราวรายเดือน — ส่วนต่างปัดเศษ (adjust) ไม่ลงระดับวัน"""
+        if self.day_dir is None:
+            self._bill_date = {}
+            return
+        acc: dict[tuple[str, str], list[float]] = {}
+        for bill, (_side, code, rev, alc, *_rest) in self._bills.items():
+            d = self._bill_date.get(bill)
+            if not d:
+                continue
+            a = acc.get((code, d))
+            if a is None:
+                a = acc[(code, d)] = [0, 0.0, 0.0, 0.0, 0]
+            a[0] += 1; a[1] += rev; a[2] += alc; a[3] += rev - alc
+            if rev - alc < 0:
+                a[4] += 1
+        by_month: dict[str, list[str]] = defaultdict(list)
+        for (code, d), a in acc.items():
+            by_month[d[:7]].append(json.dumps([code, d, *a], ensure_ascii=False, separators=(",", ":")))
+        for mo, lines in by_month.items():
+            with (self.day_dir / f"{mo}.jsonl").open("a", encoding="utf-8") as fh:
+                fh.write("\n".join(lines) + "\n")
+        self._bill_date = {}
+
+    def write_days(self, out: Path, index: dict[CustKey, int]) -> list[str]:
+        """ไฟล์ชั่วคราวรายเดือน → cust_days_<YYYY-MM>.json (ci ตามลำดับของ customers.json) · คืนรายการเดือน"""
+        for old in out.glob("cust_days_*.json"):
+            old.unlink()
+        if self.day_dir is None:
+            return []
+        months: list[str] = []
+        for src in sorted(self.day_dir.glob("*.jsonl")):
+            acc: dict[tuple[int, str], list[float]] = {}
+            with src.open(encoding="utf-8") as fh:
+                for line in fh:
+                    if not line.strip():
+                        continue
+                    code, d, bills, rev, alc, profit, loss = json.loads(line)
+                    ci = index.get(("", self.alias.get(code, code)))
+                    if ci is None:
+                        continue
+                    a = acc.get((ci, d))
+                    if a is None:
+                        a = acc[(ci, d)] = [0, 0.0, 0.0, 0.0, 0]
+                    a[0] += bills; a[1] += rev; a[2] += alc; a[3] += profit; a[4] += loss
+            rows = sorted(acc.items())
+            obj = {
+                "ci": [k[0] for k, _ in rows],
+                "day": [k[1][8:10] for k, _ in rows],
+                "bills": [int(v[0]) for _, v in rows],
+                "revenue": [round(v[1], 2) for _, v in rows],
+                "cost": [round(v[2], 2) for _, v in rows],
+                "profit": [round(v[3], 2) for _, v in rows],
+                "lossBills": [int(v[4]) for _, v in rows],
+            }
+            mo = src.stem
+            (out / f"cust_days_{mo}.json").write_text(json.dumps(obj, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+            months.append(mo)
+        size = sum(p.stat().st_size for p in out.glob("cust_days_*.json"))
+        print(f"  cust_days_*.json {size / 1024:>9,.1f} KB / {len(months)} เดือน")
+        return months
+
     # ---------------- ลำดับลูกค้า + รายที่เปิดดูบิลได้ต่อช่วงเวลา ----------------
     def canonicalize(self, numbers_of: Callable[[set[str]], dict[str, int]]) -> dict[str, str]:
         """รวมรหัสดิบของลูกค้ารายเดียวกันเป็นคีย์เดียว (canonical_groups) — เรียกหลังปันและเกลี่ยเศษครบ ก่อนจัดอันดับ
         คืน รหัสดิบ -> รหัสตัวแทน ให้รอบสาม (collect_bills) ใช้หาลูกค้าของบิล · เลข CUS เก็บไว้ที่ self.numbers"""
         raw = sorted({k[1] for k in self.cust})
         alias, self.numbers = canonical_groups(raw, numbers_of(set(raw)))
+        self.alias = alias
         width = FLAG_REV + 1 + len(FLAGS)
 
         def fold(src: dict, key_of) -> dict:
@@ -530,6 +602,8 @@ class Rollup:
         manifest["topCustomers"] = len({ci for v in top.values()
                                         for ci in v["gain"] + v["loss"] + [ci for bucket in v["margin"] for ci in bucket]})
         manifest["billsKept"] = len(bills)
+        # ลูกค้า × วัน แยกไฟล์รายเดือน — แอปโหลดเฉพาะเดือนที่ช่วงที่เลือกคร่อมไม่เต็มเดือน (useAlloc loadCustDays)
+        manifest["custDays"] = self.write_days(out, index)
         manifest["billShards"] = BILL_SHARDS
         for name, obj in (("customers.json", customers),
                           ("months.json", months), ("unlinked.json", unlinked),
@@ -685,7 +759,7 @@ def item_reader(path: Path, extra: dict[str, str] | None = None):
 
 # ================================================================ ปันส่วนจากไฟล์ดิบ
 def from_raw(cost_files: list[Path], rev_files: list[Path], routes: dict[str, dict[str, float]],
-             numbers_of: Callable[[set[str]], dict[str, int]], trip_out: TripBillWriter) -> tuple[Rollup, dict, dict, list[list]]:
+             numbers_of: Callable[[set[str]], dict[str, int]], day_dir: Path | None, trip_out: TripBillWriter) -> tuple[Rollup, dict, dict, list[list]]:
     """คำนวณเองจากไฟล์ดิบด้วยสูตรใน src/alloc.py — เดินไฟล์บิลสองรอบ
 
     ★ ไม่เก็บรายการไว้ในหน่วยความจำ ข้อมูลจริง 29 ไฟล์ = 5.2 ล้านแถว ถ้าอ่านค้าง
@@ -747,6 +821,11 @@ def from_raw(cost_files: list[Path], rev_files: list[Path], routes: dict[str, di
 
     print("รอบสอง: ปันต้นทุนแล้วยุบเป็นระดับลูกค้า")
     roll = Rollup()
+    if day_dir is not None:
+        day_dir.mkdir(parents=True, exist_ok=True)
+        for old in day_dir.glob("*.jsonl"):
+            old.unlink()
+        roll.day_dir = day_dir
     # ปัดเศษ: รายการละสตางค์ · จำ Σ ที่ปัดแล้วกับรายการที่มากสุดของแต่ละเที่ยว (รายการแรกถ้าเท่ากัน = round_allocs)
     rounded_sum: dict[str, float] = defaultdict(float)
     biggest: dict[str, tuple[float, tuple[int, int], tuple]] = {}
@@ -960,7 +1039,9 @@ def build(dataset: str) -> None:
         numbers_of = lambda _codes: sample_nums  # noqa: E731
     else:
         numbers_of = lambda codes: resolve_codes(ROOT, codes)  # noqa: E731
-    roll, info, top, bills = from_raw(cost_files, rev_files, routes, numbers_of, TripBillWriter(out, TRIP_BILL_SHARDS[dataset]))
+    # ไฟล์ชั่วคราวลูกค้า × วัน — etl/.cache (ติด .gitignore · ข้อมูลจริงเป็นรหัสลูกค้าดิบ)
+    day_dir = HERE / ".cache" / "alloc_days" / dataset
+    roll, info, top, bills = from_raw(cost_files, rev_files, routes, numbers_of, day_dir, TripBillWriter(out, TRIP_BILL_SHARDS[dataset]))
 
     manifest = {
         "dataset": dataset,

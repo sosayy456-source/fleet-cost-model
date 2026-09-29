@@ -39,6 +39,8 @@ export interface AllocManifest {
   billShards?: number;
   /** บิลทุกใบของทุกเที่ยว (trip_bills_XX.ndjson · 28 ก.ย. 2569) · ไม่มี = ไฟล์รุ่นก่อน ต้องรัน build_alloc.py ใหม่ */
   tripBills?: { shards: number; bills: number; docs: number };
+  /** เดือนที่มีไฟล์ลูกค้า × วัน (cust_days_<YYYY-MM>.json · 29 ก.ย. 2569) · ไม่มี = ไฟล์รุ่นก่อน กรองได้แค่ระดับเดือน */
+  custDays?: string[];
 }
 
 /**
@@ -285,6 +287,46 @@ export async function loadTripBills(data: AllocData, doc: string): Promise<TripB
 let cache: Promise<AllocData> | null = null;
 const billShardCache = new Map<string, Promise<AllocBill[]>>();
 
+/**
+ * ลูกค้า × วันของหนึ่งเดือน (cust_days_<YYYY-MM>.json · ETL 29 ก.ย. 2569) — โหลดเฉพาะเดือนที่ช่วงที่เลือกคร่อมไม่เต็มเดือน
+ * (ตัวกรองรายวันของ Executive Dashboard + Baseline ของ PI) · ยอดไม่รวมส่วนต่างปัดเศษรายเที่ยว (ต่างจากรายเดือนไม่เกินหลักสตางค์)
+ */
+export interface AllocCustDay { ci: number; d: string; bills: number; revenue: number; cost: number; profit: number; lossBills: number }
+interface CustDayColumns { ci: number[]; day: string[]; bills: number[]; revenue: number[]; cost: number[]; profit: number[]; lossBills: number[] }
+const custDayCache = new Map<string, Promise<AllocCustDay[]>>();
+/** ค่าคงที่ตอนไม่ต้องใช้รายวัน — identity เดิมทุก render ไม่ให้ useMemo ของผู้เรียกคิดใหม่ */
+const NO_DAYS: Map<string, AllocCustDay[]> = new Map();
+export function loadCustDays(data: AllocData, mo: string): Promise<AllocCustDay[]> {
+  const key = `${data.manifest.dataset}/${data.manifest.generatedAt}/${mo}`;
+  let promise = custDayCache.get(key);
+  if (!promise) {
+    promise = fetchJson<CustDayColumns>(data.manifest.dataset, `cust_days_${mo}.json`)
+      .then((c) => c.ci.map((ci, i) => ({ ci, d: `${mo}-${c.day[i]}`, bills: c.bills[i] ?? 0, revenue: c.revenue[i] ?? 0,
+        cost: c.cost[i] ?? 0, profit: c.profit[i] ?? 0, lossBills: c.lossBills[i] ?? 0 })))
+      .catch((error) => { custDayCache.delete(key); throw error; });
+    custDayCache.set(key, promise);
+  }
+  return promise;
+}
+
+/** โหลดลูกค้า × วันของหลายเดือน — null = ยังโหลดไม่เสร็จ/ไม่มีไฟล์ (ผู้เรียกใช้รายเดือนไปก่อน) · months ว่าง = Map ว่าง */
+export function useCustDays(data: AllocData | null, months: string[]): Map<string, AllocCustDay[]> | null {
+  const avail = data?.manifest.custDays;
+  const want = useMemo(() => (avail ? months.filter((m) => avail.includes(m)) : []), [avail, months.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [state, setState] = useState<{ key: string; map: Map<string, AllocCustDay[]> } | null>(null);
+  const key = `${data?.manifest.generatedAt ?? ""}|${want.join(",")}`;
+  useEffect(() => {
+    if (!data || !want.length) return;
+    let alive = true;
+    Promise.all(want.map((m) => loadCustDays(data, m).then((rows) => [m, rows] as const)))
+      .then((list) => { if (alive) setState({ key, map: new Map(list) }); })
+      .catch(() => { /* ไม่มีไฟล์/โหลดไม่ได้ = ใช้รายเดือนต่อ */ });
+    return () => { alive = false; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!want.length) return NO_DAYS;
+  return state?.key === key ? state.map : null;
+}
+
 /** โหลดเฉพาะชุดย่อยของลูกค้าที่กดดู · ไฟล์รุ่นเก่ายังอ่าน bills.json ตามเดิม */
 export async function loadAllocBills(data: AllocData, ci: number): Promise<AllocBill[]> {
   const shards = data.manifest.billShards;
@@ -334,7 +376,7 @@ export function useAlloc(): AllocState {
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
 
-  const reload = useCallback(() => { cache = null; billShardCache.clear(); tripShardCache.clear(); resetAllocDataset(); setTick((t) => t + 1); }, []);
+  const reload = useCallback(() => { cache = null; billShardCache.clear(); tripShardCache.clear(); custDayCache.clear(); resetAllocDataset(); setTick((t) => t + 1); }, []);
 
   useEffect(() => {
     let alive = true;
