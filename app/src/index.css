@@ -4271,3 +4271,13 @@ html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
 /* การ์ด "จำนวนลูกค้าทั้งหมด": รูปกลุ่มคนตำแหน่ง/ขนาดเดียวกับลูกศรของการ์ดข้าง ๆ (เจ้าของงานสั่ง 29 ก.ย. 2569) */
 #view-dash .dz-kc.hero .hero-art:has(.cp-people){width:118px;height:92px;right:22px;transform:translateY(-30%)}
 #view-dash .dz-kc.hero:has(.cp-people) .s{margin-right:136px;white-space:nowrap}
+/* ตารางจัดอันดับเส้นทาง: พอดีกว้างการ์ด ไม่ต้องเลื่อนขวา (เจ้าของงานสั่ง 29 ก.ย. 2569)
+   เดิมคอลัมน์ 3 ถูกบังคับ 34% (กฎของคอลัมน์แท่งกำไรที่เอาออกแล้ว) + ชื่อเส้นทางไม่ตัดบรรทัด → ตารางกว้างเกินการ์ด */
+.rp-tbl.rp-tbl-sg{table-layout:auto;width:100%;min-width:0}
+.rp-tbl.rp-tbl-sg th:nth-child(3),.rp-tbl.rp-tbl-sg td:nth-child(3){width:auto}
+.rp-tbl.rp-tbl-sg th:nth-child(4),.rp-tbl.rp-tbl-sg td:nth-child(4){padding-left:4px}
+.rp-tbl.rp-tbl-sg th,.rp-tbl.rp-tbl-sg td{padding-left:6px;padding-right:6px}
+.rp-tbl.rp-tbl-sg .rp-rt b{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.rp-tbl.rp-tbl-sg .rp-sgc{min-width:52px;padding:5px 6px;font-size:13px}
+.rp-tbl.rp-tbl-sg .rp-margin{white-space:nowrap}
+.rp-tbl.rp-tbl-sg thead th{white-space:nowrap}
