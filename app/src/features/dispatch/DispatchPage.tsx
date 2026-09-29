@@ -27,7 +27,7 @@
  *        แล้วมีแถบให้กดอัปเดตสถานะ (useBills ก็ลองส่งบิลที่ค้างให้เองทุกครั้งที่เปิดหน้า)
  */
 import { useEffect, useMemo, useState } from "react";
-import { ACTIVE_VEHICLE_NAMES, REF, TRAILER_VEHICLE_NAMES, costFleetType, distanceFor } from "../../lib/refdata";
+import { ACTIVE_VEHICLE_NAMES, REF, ROUTES, TRAILER_VEHICLE_NAMES, costFleetType, distanceFor } from "../../lib/refdata";
 import { vehicleSpec } from "../../lib/refdata/vehicleSpecs";
 import { useOverrides } from "../../lib/store/overrides";
 import { useRoster } from "../../lib/store/roster";
@@ -70,6 +70,14 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   const [roster] = useRoster();
   const [ovr] = useOverrides();
   const [f, setF] = useState<Filter>(F0);
+  /**
+   * โหมดของหน้า (เจ้าของงานสั่ง 29 ก.ย. 2569): cargo = จัดรถส่งสินค้า (ติ๊กบิล) · empty = เที่ยวเปล่า
+   * เที่ยวเปล่าไม่มีบิล — เลือกต้นทาง → ปลายทางจากตารางเส้นทาง (routes.json · ได้ระยะทางและต้นทุนพยากรณ์) + รถ แล้วออกใบรายการติดธง emptyLeg
+   */
+  const [mode, setMode] = useState<"cargo" | "empty">("cargo");
+  const isEmpty = mode === "empty";
+  const [eOrigin, setEOrigin] = useState("");
+  const [eDest, setEDest] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [releaseDate, setReleaseDate] = useState(todayISO());
   const [busy, setBusy] = useState(false);
@@ -105,7 +113,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     && (!f.group || b.serviceGroup === f.group)
     && (!anchor || b.origin === anchor.origin)), [waiting, f, anchor]);
 
-  const chosen = useMemo(() => waiting.filter((b) => picked.has(b.id)), [waiting, picked]);
+  // โหมดเที่ยวเปล่าไม่มีบิล — ตัวเลขทุกตัวที่คิดจากบิล (น้ำหนัก · รายได้ · Load Factor) เป็น 0
+  const chosen = useMemo(() => (isEmpty ? [] : waiting.filter((b) => picked.has(b.id))), [waiting, picked, isEmpty]);
   const sum = useMemo(() => ({
     bills: chosen.length,
     customers: new Set(chosen.flatMap((b) => [b.sender, b.receiver]).filter(Boolean)).size,
@@ -149,9 +158,12 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   /* ---------- เส้นทางของเที่ยว ---------- */
   const origins = uniq(chosen.map((b) => b.origin));
   const dests = uniq(chosen.map((b) => b.dest));
-  const origin = origins[0] ?? "";
-  const dest = dests[dests.length - 1] ?? "";
-  const mixedRoute = origins.length > 1 || dests.length > 1;
+  const origin = isEmpty ? eOrigin : origins[0] ?? "";
+  const dest = isEmpty ? eDest : dests[dests.length - 1] ?? "";
+  const mixedRoute = !isEmpty && (origins.length > 1 || dests.length > 1);
+  /** ตัวเลือกของโหมดเที่ยวเปล่า — ต้นทาง/ปลายทางตามตารางเส้นทาง (คู่ที่รู้ระยะทาง) */
+  const routeOrigins = useMemo(() => uniq(Object.keys(ROUTES)), []);
+  const routeDests = useMemo(() => uniq(Object.keys(ROUTES[eOrigin] ?? {})), [eOrigin]);
 
   const forecast: ForecastResult | null = fc && origin && dest && kind
     ? forecastFor(fc, origin, dest, kind) : null;
@@ -162,7 +174,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
   [forecast, chosen, truck, capKg, capM3]);
 
   const blocked = !bills.connected ? "ยังไม่ได้เชื่อม Google Sheet — จัดรถได้เมื่อเชื่อมแล้วเท่านั้น"
-    : !chosen.length ? "ยังไม่ได้เลือกบิล"
+    : isEmpty && (!eOrigin || !eDest) ? "ยังไม่ได้เลือกต้นทาง/ปลายทางของเที่ยวเปล่า"
+    : !isEmpty && !chosen.length ? "ยังไม่ได้เลือกบิล"
     : !truck ? "ยังไม่ได้เลือกทะเบียนรถ"
     : overWeight ? `น้ำหนักรวม ${baht(sum.weight)} กก. เกินความจุรถ ${baht(capKg)} กก.`
     : overVolume ? `ปริมาตรรวม ${num3(sum.volume)} ลบ.ม. เกินความจุรถ ${num3(capM3)} ลบ.ม.`
@@ -196,6 +209,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     // เลขที่ใบรายการ 13 หลัก — กันซ้ำกับใบที่มีอยู่ทั้งในเครื่องและบนชีต รวมถึงบิลที่จัดรถไปแล้ว
     const used = [...state.records.map((r) => r.docNo), ...bills.bills.map((b) => b.docNo)].filter(Boolean);
     const docNo = newDocNo(releaseDate, used);
+    if (isEmpty) { await confirmEmpty(docNo); return; }
     const rec = {
       ...emptyRecord(),
       id: genId(), docNo,
@@ -257,6 +271,47 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
     setBusy(false);
   }
 
+  /**
+   * เที่ยวเปล่า — ใบรายการไม่มีบิล รายได้ 0 · ติดธง emptyLeg (Load Factor 0% · Manager Dashboard นับเป็นเที่ยวเปล่า)
+   * ประทับฝ่ายบริการลูกค้าด้วย (ไม่มีบิลให้ฝ่ายนั้นกรอก ไม่งั้นใบค้าง "ยังไม่ครบ" ตลอด) · ฝ่ายบัญชีกรอกค่าใช้จ่ายจริงต่อได้ตามปกติ
+   */
+  async function confirmEmpty(docNo: string) {
+    if (!truck) return;
+    const rec = {
+      ...emptyRecord(),
+      id: genId(), docNo,
+      date: releaseDate, branch: truck.branches?.[0] ?? eOrigin,
+      origin: eOrigin, dest: eDest,
+      dist: distanceFor(eOrigin, eDest) ?? 0,
+      revenue: 0,
+      bills: [],
+      plate: truck.plate,
+      fleetType: costFleetType(hp.fleetType),
+      vehicle: kind,
+      ...(trailer ? { trailerPlate: trailer.plate, trailerFleetType: tp.fleetType, trailerVehicle: tp.vehicle } : {}),
+      releaseDate,
+      capacity: capKg,
+      loadActual: 0,
+      emptyLeg: true,
+    };
+    stampRole(rec, "cs");
+    stampRole(rec, "dispatch");
+    rec._v2 = true; rec._v3 = true; rec._v4 = true; rec._v5 = true;
+    try {
+      await saveRecord(rec as never, { role, overrides: ovr });
+    } catch (e) {
+      await removeRecord(rec.id).catch(() => { /* ไม่มีในเครื่องอยู่แล้ว */ });
+      state.reload();
+      setMsg({ text: `บันทึกเที่ยวเปล่าไม่สำเร็จ — ยังไม่ได้สร้างใบรายการ กดยืนยันใหม่ได้ · ${(e as Error).message}`, tone: "err" });
+      setBusy(false);
+      return;
+    }
+    state.reload();
+    closeTrailer();
+    setMsg({ text: `บันทึกเที่ยวเปล่าแล้ว — ใบรายการ ${docNo} · ${eOrigin} → ${eDest} · ${truck.plate}${trailer ? ` + หาง ${trailer.plate}` : ""}`, tone: "ok" });
+    setBusy(false);
+  }
+
   /** อัปเดตสถานะบิลที่ค้างครึ่งทางให้ตรงกับใบรายการที่บิลนั้นอยู่ */
   async function fixStuck() {
     setBusy(true);
@@ -298,9 +353,8 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
             แถว 4  ขั้นที่ 3 ต้นทุนพยากรณ์ + ปุ่มยืนยัน (ล่างสุด) */}
       {/* ทั้งหน้ารวมอยู่ในกรอบขาวกรอบเดียว (เจ้าของงานสั่ง 27 ก.ย. 2569) — ส่วนย่อยข้างในไม่มีกรอบ คั่นด้วยเส้น */}
       <div className="card dp-shell">
-        <div className="card dp-filtercard">
-          <div className="dp-step-h"><span className="step">1</span><h3>เลือกบิล</h3>
-            <span className="hint">{rows.length} บิล{rows.length !== waiting.length ? ` จาก ${waiting.length}` : ""}</span></div>
+        {!isEmpty && <div className="card dp-filtercard">
+          {/* หัว "1 เลือกบิล" ตัดออก (เจ้าของงานสั่ง 29 ก.ย. 2569) — ตัวกรองบิลยังอยู่ · ลำดับขั้นใหม่: 1 เลือกรถ · 2 บิลที่รอจัดรถ · 3 ต้นทุนพยากรณ์ */}
           {/* ★ ใช้ dh-filters ไม่ใช่ dz-filters — สไตล์ของ dz-* ประกาศใต้ #view-dash เท่านั้น
               หน้านี้เป็นหน้าฟอร์ม ถ้าใช้ dz-filters ช่องกรองจะกลายเป็น select เปล่าไม่มีกรอบ */}
           <div className="dh-filters dp-filterbar">
@@ -331,12 +385,33 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
               </select></div>
             <button type="button" className="dh-clear" onClick={() => setF(F0)}>↺ ล้างตัวกรอง</button>
           </div>
-        </div>
+        </div>}
 
         <div className="dp-row">
+            {isEmpty ? (
+              <div className="card dp-bills dp-emptytrip">
+                <div className="dp-step-h"><span className="step">2</span><h3>เส้นทางเที่ยวเปล่า</h3>
+                  <span className="hint">ไม่ต้องใส่บิล · เลือกจากตารางเส้นทาง</span></div>
+                <div className="bill-grid dp-grid2">
+                  <div className="f"><label>ต้นทาง</label>
+                    <select value={eOrigin} onChange={(e) => { setEOrigin(e.target.value); setEDest(""); }}>
+                      <option value="">เลือกต้นทาง</option>
+                      {routeOrigins.map((x) => <option key={x} value={x}>{x}</option>)}
+                    </select></div>
+                  <div className="f"><label>ปลายทาง</label>
+                    <select value={eDest} onChange={(e) => setEDest(e.target.value)} disabled={!eOrigin}>
+                      <option value="">{eOrigin ? "เลือกปลายทาง" : "เลือกต้นทางก่อน"}</option>
+                      {routeDests.map((x) => <option key={x} value={x}>{x}</option>)}
+                    </select></div>
+                </div>
+                {eOrigin && eDest && (
+                  <p className="muted">ระยะทาง {baht(distanceFor(eOrigin, eDest) ?? 0)} กม. · รายได้ 0 บาท · ใบรายการจะติดธง "เที่ยวเปล่า" (Load Factor 0%)</p>
+                )}
+                <p className="muted">ฝ่ายบัญชีกรอกค่าใช้จ่ายจริงของเที่ยวนี้ต่อได้ที่หน้าบันทึกข้อมูล · คนขับเห็นงานนี้เหมือนงานปกติ</p>
+              </div>
+            ) : (
             <div className="card dp-bills">
-              <div className="card-h">
-                <h2>บิลที่รอจัดรถ</h2>
+              <div className="dp-step-h"><span className="step">2</span><h3>บิลที่รอจัดรถ</h3>
                 <span className="hint">{rows.length} บิล{rows.length !== waiting.length ? ` จากทั้งหมด ${waiting.length}` : ""} · ติ๊กเลือกบิลที่จะไปด้วยกัน</span>
               </div>
 
@@ -387,19 +462,29 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
               )} />
             )}
             </div>
+            )}
 
           <div className="dp-right">
             <LoadTruckPanel stats={stats} load={sum} headCap={headCap} tailCap={tailCap}
               truckPlate={truck?.plate ?? ""} trailerPlate={trailer?.plate ?? ""} kind={kind} fleetType={hp.fleetType}
               trailerKind={tp.vehicle} hasLoad={chosen.length > 0}
-              noTruckText="เลือกประเภทรถ ชนิดรถ และทะเบียนในขั้นที่ 2" noLoadText="ยังไม่ได้เลือกบิล"
+              noTruckText="เลือกประเภทรถ ชนิดรถ และทะเบียนในขั้นที่ 1" noLoadText={isEmpty ? "เที่ยวเปล่า — ไม่มีสินค้า" : "ยังไม่ได้เลือกบิล"}
               overText="เกินความจุรถ — เอาบิลออกหรือเปลี่ยนคันก่อนจึงจะยืนยันได้"
               title={origin && dest ? `${origin} → ${dest}` : "สถานะการบรรทุก"}
-              sub={<>{releaseDate ? thDateSafe(releaseDate) : "ยังไม่ได้เลือกวันปล่อยรถ"} · {sum.bills} บิล จาก {waiting.length} ·
+              sub={isEmpty ? <>{releaseDate ? thDateSafe(releaseDate) : "ยังไม่ได้เลือกวันปล่อยรถ"} · เที่ยวเปล่า ไม่มีบิล</>
+                : <>{releaseDate ? thDateSafe(releaseDate) : "ยังไม่ได้เลือกวันปล่อยรถ"} · {sum.bills} บิล จาก {waiting.length} ·
                 {" "}{baht(sum.weight)} กก.</>}
               pictureKind={hp.vehicle || DEFAULT_PICTURE_KIND}
+              headExtra={
+                // ปุ่มสลับโหมด ข้างหัว "สถานะการบรรทุก" (เจ้าของงานสั่ง 29 ก.ย. 2569 — รุ่นแรกอยู่บนสุดของหน้า)
+                <div className="dp-mode" role="group" aria-label="ประเภทการจัดรถ">
+                  {([["cargo", "จัดรถส่งสินค้า"], ["empty", "เที่ยวเปล่า"]] as const).map(([k, l]) => (
+                    <button key={k} type="button" className={mode === k ? "on" : ""} aria-pressed={mode === k}
+                      onClick={() => { setMode(k); setMsg(null); }}>{l}</button>
+                  ))}
+                </div>}
             picker={<>
-              <div className="dp-step-h"><span className="step">2</span><h3>เลือกรถ</h3>
+              <div className="dp-step-h"><span className="step">1</span><h3>เลือกรถ</h3>
                 <span className="hint">สถานะ "ใช้งาน" {usable.length} คัน</span></div>
               <div className="bill-grid dp-grid4">
                 <VehiclePickFields pick={hp} setPick={setHp} pool={heads} trailer={false}
@@ -430,14 +515,14 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
           </div>
         </div>
 
-            <div className="dispatch-sum">
+            {!isEmpty && <div className="dispatch-sum">
               <div><span>จำนวนบิล</span><b>{sum.bills}</b></div>
               <div><span>จำนวนลูกค้า</span><b>{sum.customers}</b></div>
               <div><span>จำนวนสินค้า</span><b>{num3(sum.qty)} <small>ชิ้น</small></b></div>
               <div><span>น้ำหนักรวม</span><b>{baht(sum.weight)} <small>กก.</small></b></div>
               <div><span>ปริมาตรรวม</span><b>{num3(sum.volume)} <small>ลบ.ม.</small></b></div>
               <div><span>รายได้รวม</span><b>{baht(sum.revenue)} <small>บาท</small></b></div>
-            </div>
+            </div>}
 
         <div className="card dp-final">
           <div className="dp-step-h"><span className="step">3</span><h3>ต้นทุนพยากรณ์</h3></div>
@@ -456,6 +541,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
                 {forecast
                   ? <>ต้นทุนพยากรณ์จากค่าเฉลี่ยข้อมูลเก่า <b>{forecast.n}</b> เที่ยว ({forecast.note}) ·
                       ช่วง {forecast.from} – {forecast.to} · ตั้งจำนวนเดือนได้ที่หน้าการตั้งค่า</>
+                  : isEmpty ? "เลือกเส้นทางและรถให้ครบเพื่อคำนวณต้นทุนพยากรณ์ (ใช้ค่าเฉลี่ยข้อมูลเก่าตามเส้นทางและชนิดรถ)"
                   : "เลือกบิลและรถให้ครบเพื่อคำนวณต้นทุนพยากรณ์ (ใช้ค่าเฉลี่ยข้อมูลเก่าตามเส้นทางและชนิดรถ)"}
                 {mixedRoute && <> · <b>บิลที่เลือกมีหลายเส้นทาง</b> — ใบรายการจะใช้ {origin}–{dest} เป็นเส้นทางหลัก</>}
               </div>
@@ -464,12 +550,12 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
             {msg && <div className={"save-msg " + msg.tone}>{msg.text}</div>}
             <div className="dp-confirm">
               {busy ? <TruckLoader label="กำลังสร้างใบรายการ…" /> : blocked && <span className="muted">{blocked}</span>}
-              {role === "admin" && <button type="button" className="btn-ghost" onClick={fillRandom}
+              {role === "admin" && !isEmpty && <button type="button" className="btn-ghost" onClick={fillRandom}
                 disabled={busy || bills.loading || waiting.length === 0} title="สุ่มบิลรอจัดรถและเลือกรถที่บรรทุกได้ โดยยังไม่บันทึก">
                 🎲 สุ่มข้อมูล
               </button>}
               <button type="button" className="btn btn-save" disabled={!!blocked || busy} onClick={confirmDispatch}>
-                ยืนยันการจัดรถ
+                {isEmpty ? "ยืนยันเที่ยวเปล่า" : "ยืนยันการจัดรถ"}
               </button>
             </div>
             </div>

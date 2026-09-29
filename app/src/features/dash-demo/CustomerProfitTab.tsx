@@ -357,16 +357,16 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
         </>}
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
-          {/* ลำดับ: มีกำไร · ทั้งหมด (กลาง) · ขาดทุน · ไอคอนคนเฉพาะใบกลาง · มีกำไร/ขาดทุน = ลูกศร 3 มิติขึ้น/ลงแบบการ์ดกำไร (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
+          {/* ลำดับ: มีกำไร · ขาดทุน (กลาง) · ทั้งหมด (ขวาสุด — เจ้าของงานสลับ 29 ก.ย. 2569) · ไอคอนคนเฉพาะใบทั้งหมด · มีกำไร/ขาดทุน = ลูกศร 3 มิติขึ้น/ลงแบบการ์ดกำไร (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
           <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} art={trendArrow(true)}
             s="คน · รายได้ ≥ ต้นทุน" foot={`กำไรรวม ${signed(kpi.gainAmt)} บาท`}
             onClick={() => toggle(sel("gain"))} active={sameSel(pick, sel("gain"))} />
-          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง" art={ICON_PEOPLE}
-            foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
-            onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
           <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} art={trendArrow(false)}
             s="คน · รายได้ < ต้นทุน" foot={`ขาดทุนรวม ${fmt(-kpi.lossAmt)} บาท`}
             onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
+          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง" art={ICON_PEOPLE}
+            foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
+            onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
         </div>
 
         {/* 4 — วงกลมสัดส่วน Top 10 (ซ้าย) + กราฟช่วง %Margin (ขวา) */}

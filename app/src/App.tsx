@@ -57,6 +57,8 @@ const I = {
   chart: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
   split: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4" /></svg>,
   truck: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17V6h11v11" /><path d="M14 10h4l3 3v4h-7" /><circle cx="7.5" cy="17.5" r="2" /><circle cx="17.5" cy="17.5" r="2" /></svg>,
+  /* คนขับรถ: หัว + หมวกคนขับ + พวงมาลัย — เส้นชุดเดียวกับไอคอนอื่น สีตาม currentColor (เมนูที่เลือก = น้ำเงินของธีม · เจ้าของงานขอ 29 ก.ย. 2569) */
+  driver: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5.2" r="2.4" /><path d="M9.4 4.3a2.6 2.6 0 0 1 5.2 0z" fill="currentColor" /><circle cx="12" cy="15.6" r="5.9" /><circle cx="12" cy="15.6" r="1.3" /><path d="M6.4 14.2h4.3M13.3 14.2h4.3M12 16.9v4.4" /></svg>,
   gear: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" /></svg>,
 };
 
@@ -105,7 +107,7 @@ const PAGES: PageDef[] = [
   // Overall Dashboard (exec-dash) ย้ายขึ้นไปใต้ Executive Dashboard แล้ว (25 ก.ย. 2569)
   // แท็บ "Dashboard รายได้" / "Dashboard ลูกหนี้" / "กำไรลูกค้า (ปันส่วนต้นทุน)" ลบออกแล้ว 24 ก.ย. 2569 (เจ้าของงานสั่ง)
   // หน้าของคนขับ — ใช้ view "records" เพราะเป็นการ์ด/ตารางธรรมดา ไม่มีกราฟที่ต้องใช้โทเคนของ #view-dash
-  { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: null, h1: "เที่ยวรถของฉัน (คนขับ)" },
+  { id: "driver", view: "records", label: "เที่ยวรถของฉัน", icon: I.driver, h1: "เที่ยวรถของฉัน (คนขับ)" },
   // ★ "การตั้งค่า" อยู่ท้ายอาร์เรย์นี้ (สั่ง 23 ก.ย. 2569) — แถบเมนูเรียงตาม PAGES ไม่ใช่ตาม ROLE_VIEWS
   //   ยกเว้น "Cost to Serve" ที่เจ้าของงานสั่งให้อยู่ใต้การตั้งค่า (25 ก.ย. 2569 · เห็นเฉพาะผู้ดูแลระบบ) — ห้ามแทรกอะไรเพิ่มต่อท้าย
   { id: "settings", view: "settings", label: "การตั้งค่า", icon: I.gear, h1: "การตั้งค่า" },
