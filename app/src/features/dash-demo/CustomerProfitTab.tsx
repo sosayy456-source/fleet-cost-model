@@ -34,7 +34,7 @@ import { collectionDays, debtorFileEnd } from "../../lib/debtors/aging";
 import { INDEXES, metricResult, withPeriod } from "../../lib/pi/score";
 import type { MetricResult } from "../../lib/pi/score";
 import { PiBox } from "./PiIndex";
-import { DBar, DPieSplit } from "../../lib/chart/dcharts";
+import { DBar } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { ShortId, shortIdText } from "../../lib/custmap/ShortId";
 import { useAutoReloadOnEtl, useEtlStatus } from "../../lib/data/etlStatus";
@@ -55,6 +55,12 @@ import OverdueSection from "./OverdueSection";
 import { FilterScope } from "./filter";
 import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
+import { trendArrow } from "./RouteProfitTab";
+import imgPeople from "../../assets/icons3d/people-red.webp";
+
+/** ไอคอนคนมุมขวาบนของการ์ดจำนวนลูกค้าทั้ง 3 ใบ — รูปเดียวกับการ์ดกำไรเฉลี่ย/ลูกค้า */
+/** รูปกลุ่มคนสีแดงอ่อนของการ์ด "จำนวนลูกค้าทั้งหมด" (เจ้าของงานส่งรูป 29 ก.ย. 2569 · ย้อมจากม่วงเป็นแดงอ่อน) */
+const ICON_PEOPLE = <img className="hero-art-img cp-people" src={imgPeople} alt="" />;
 
 /** ลูกค้าหนึ่งรายหลังยุบตามตัวกรอง — ci ชี้กลับไป customers[] ของชุด alloc */
 export interface CustRow extends AllocCustomer, ReviewCounts {
@@ -334,7 +340,6 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
   // เขียว/แดงชุดเดียวกับการ์ดรายได้/ต้นทุนของธีม (revA/revB · costA/costB) · Top 10 = เข้ม · ลูกค้าอื่น = อ่อน ·
   // กรอบ = เฉดเข้มกว่าของฝั่งนั้น (เจ้าของงานสั่ง 28 ก.ย. 2569 — แทนกรอบดำ)
   const pieColors = pieSide === "gain" ? ["#0C5A45", "#34A07F"] : ["#8E1B1B", "#D44C45"];
-  const pieStroke = pieSide === "gain" ? "#073628" : "#5A0F0F";
   const pieData = useMemo(() => [
     { name: pieSide === "gain" ? "Top 10 กำไรสูงสุด" : "Top 10 ขาดทุนมากสุด", v: pieNow.top },
     { name: "ลูกค้าอื่น", v: pieNow.rest },
@@ -352,16 +357,16 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
         </>}
         {/* 3 — การ์ดใหญ่ 3 ใบขนาดเท่ากัน กดเพื่อกรองตาราง */}
         <div className="dz-heroes cp-heroes">
-          {/* ลำดับ: มีกำไร → ขาดทุน → ทั้งหมด (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
-          <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} vSub={`(${pct(kpi.gainPct, 0)})`}
+          {/* ลำดับ: มีกำไร · ทั้งหมด (กลาง) · ขาดทุน · ไอคอนคนเฉพาะใบกลาง · มีกำไร/ขาดทุน = ลูกศร 3 มิติขึ้น/ลงแบบการ์ดกำไร (เจ้าของงานสั่ง 29 ก.ย. 2569) */}
+          <Hero kind="profit" l="จำนวนลูกค้าที่มีกำไร" v={fmt(kpi.gain)} art={trendArrow(true)}
             s="คน · รายได้ ≥ ต้นทุน" foot={`กำไรรวม ${signed(kpi.gainAmt)} บาท`}
             onClick={() => toggle(sel("gain"))} active={sameSel(pick, sel("gain"))} />
-          <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} vSub={`(${pct(kpi.lossPct, 0)})`}
-            s="คน · รายได้ < ต้นทุน" foot={`ขาดทุนรวม ${fmt(-kpi.lossAmt)} บาท`}
-            onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
-          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง"
+          <Hero kind="cust" l="จำนวนลูกค้าทั้งหมด" v={fmt(kpi.n)} s="คน · ลูกค้าที่ผ่านตัวกรอง" art={ICON_PEOPLE}
             foot={`กำไรสุทธิรวม ${signed(kpi.netAmt)} บาท`}
             onClick={() => toggle(sel("all"))} active={sameSel(pick, sel("all"))} />
+          <Hero kind="loss" l="จำนวนลูกค้าขาดทุน" v={fmt(kpi.loss)} art={trendArrow(false)}
+            s="คน · รายได้ < ต้นทุน" foot={`ขาดทุนรวม ${fmt(-kpi.lossAmt)} บาท`}
+            onClick={() => toggle(sel("loss"))} active={sameSel(pick, sel("loss"))} />
         </div>
 
         {/* 4 — วงกลมสัดส่วน Top 10 (ซ้าย) + กราฟช่วง %Margin (ขวา) */}
@@ -375,11 +380,10 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
               <button type="button" className={pieSide === "loss" ? "on" : ""} aria-pressed={pieSide === "loss"} onClick={() => setPieSide("loss")}>ขาดทุน</button>
             </div>
           </div>
-          <div className={"cp-pie-cap " + pieSide}>
-            {pieSide === "gain" ? "กำไรทั้งหมด" : "ขาดทุนทั้งหมด"} <b>{fmt(Math.round(pieTotal))}</b> บาท
-          </div>
           {pieTotal > 0 ? <>
-            <div className="cp-pie-box"><DPieSplit data={pieData} colors={pieColors} stroke={pieStroke} /></div>
+            {/* โดนัทแบบวงสถานะการชำระเงินของ DSO (เจ้าของงานสั่ง 29 ก.ย. 2569 — แทนวงกลมเต็ม) · ยอดรวมอยู่กลางวง */}
+            <Top10Donut values={pieData.map((d) => d.v)} colors={pieColors}
+              label={pieSide === "gain" ? "กำไรทั้งหมด" : "ขาดทุนทั้งหมด"} total={pieTotal} />
             <ul className="cp-pie-legend">
               {pieData.map((d, i) => <li key={d.name}>
                 <i style={{ background: pieColors[i] }} />
@@ -461,4 +465,39 @@ function CustomerProfitTable({ rows, cols, lossMode, detailSet, onOpen, empty }:
         ? { onClick: () => onOpen(r.ci), title: "กดเพื่อดูรายการบิลของลูกค้ารายนี้" }
         : { className: "nolink", title: "ดูบิลได้เฉพาะลูกค้า Top 100 กำไร/ขาดทุน หรือ Top 10 ของช่วง Margin" };
     }} />;
+}
+
+/**
+ * โดนัท Top 10 ของ Customer Performance — หน้าตาเดียวกับวง "ภาพรวมสถานะการชำระเงิน" ของส่วน DSO (.dso2-ov-donut · 29 ก.ย. 2569)
+ * ชิ้น = values ตามลำดับ (Top 10 · ลูกค้าอื่น) คั่นด้วยเส้นขาว · % บนชิ้นที่กว้างพอ · กลางวง = ยอดรวมเป็นล้านบาท
+ */
+function Top10Donut({ values, colors, label, total }: { values: number[]; colors: string[]; label: string; total: number }) {
+  const C = 110, R = 104, IR = 62;
+  const pt = (r: number, a: number): [number, number] => [C + r * Math.sin(a), C - r * Math.cos(a)];
+  const arc = (a0: number, a1: number): string => {
+    if (a1 - a0 >= Math.PI * 2 - 1e-6) a1 = a0 + Math.PI * 2 - 1e-4;
+    const big = a1 - a0 > Math.PI ? 1 : 0;
+    const [x0, y0] = pt(R, a0), [x1, y1] = pt(R, a1), [x2, y2] = pt(IR, a1), [x3, y3] = pt(IR, a0);
+    return `M${x0} ${y0}A${R} ${R} 0 ${big} 1 ${x1} ${y1}L${x2} ${y2}A${IR} ${IR} 0 ${big} 0 ${x3} ${y3}Z`;
+  };
+  let a = 0;
+  const mil = (total / 1e6).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    <div className="dso2-ov-donut cp-pie-donut">
+      <svg viewBox="0 0 220 220" role="img" aria-label={`${label} ${fmt(Math.round(total))} บาท`}>
+        {values.map((v, i) => {
+          const a0 = a, a1 = a + (total ? v / total : 0) * Math.PI * 2;
+          a = a1;
+          if (v <= 0) return null;
+          const frac = v / total, [lx, ly] = pt((R + IR) / 2, (a0 + a1) / 2);
+          return <g key={i}>
+            <path d={arc(a0, a1)} fill={colors[i]} stroke="var(--d-card,#fff)" strokeWidth={2.5} />
+            {frac >= 0.08 && <text x={lx} y={ly} textAnchor="middle" dominantBaseline="central"
+              style={{ fill: "#fff", fontSize: 12, fontWeight: 800, fontFamily: "var(--d-num)" }}>{pct(frac * 100, 1)}</text>}
+          </g>;
+        })}
+      </svg>
+      <div className="dso2-ov-m"><span>{label}</span><b>{mil}</b><em>ล้านบาท</em></div>
+    </div>
+  );
 }

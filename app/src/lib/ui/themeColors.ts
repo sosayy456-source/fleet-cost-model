@@ -22,6 +22,8 @@ export interface ThemeToken {
   global?: true;
   /** selector ของจุดจริงในหน้า — กรอบตัวอย่างรายแท็บใช้ไฮไลต์/เลือกจุด (★ token ใหม่ต้องมี) */
   sel?: string;
+  /** ค่าเป็นเปอร์เซ็นต์ 0–100 (สไลเดอร์) ไม่ใช่สี #rrggbb */
+  pct?: true;
 }
 
 export interface ThemeGroup {
@@ -39,6 +41,11 @@ export const THEME_GROUPS: ThemeGroup[] = [
       { key: "pageGlow", label: "แสงเรืองมุมบนซ้าย", hint: "ตั้งเท่าพื้นหลัง (บน) = ไม่มีแสง", def: "#1E2D37" , global: true },
       { key: "pageText", label: "หัวข้อบนพื้นหลัง", hint: "เช่น Route · หัวข้อส่วน", def: "#EEE8EA" , sel: ".dm-part-h, .dz-t, .cp-sec h3, .mg-debt > .mg-h" },
       { key: "pageMuted", label: "ข้อความรอง/เส้นคั่นบนพื้นหลัง", def: "#8E9BA3" , sel: ".dz-note, .cp-sec p" },
+      // กรอบที่ครอบแต่ละส่วน/แท็บ (.dm-part ของ Executive Dashboard) — เจ้าของงานขอ 28 ก.ย. 2569
+      // ค่าตั้งต้นเท่าหน้าตาเดิม: พื้น = สีหัวข้อบนพื้นหลัง ทึบ 5% · ขอบ ≈ สีหัวข้อ 12% บนพื้นกรมท่า
+      { key: "partBg", label: "พื้นกรอบส่วน", hint: "กรอบที่ครอบแต่ละส่วนของ Executive Dashboard", def: "#EEE8EA", sel: ".dm-part" },
+      { key: "partAlpha", label: "ความทึบพื้นกรอบส่วน", hint: "0 = ใส · 100 = ทึบเต็ม", def: "5", pct: true, sel: ".dm-part" },
+      { key: "partBorder", label: "ขอบกรอบส่วน", def: "#3A474F", sel: ".dm-part" },
     ],
   },
   {
@@ -61,6 +68,8 @@ export const THEME_GROUPS: ThemeGroup[] = [
       { key: "headText", label: "ข้อความ/ค่าในตัวกรอง", def: "#2A0A10" , global: true },
       { key: "headMuted", label: "ข้อความรอง/ป้ายตัวกรอง", def: "#7A5A60" , global: true },
       { key: "headLine", label: "เส้นขอบช่องตัวกรอง", def: "#E4CDD3" , global: true },
+      // แท็บที่เลือกในแคปซูลหัว — แยกจากสีเน้น (เจ้าของงานสั่ง 28 ก.ย. 2569 ให้เป็นแดงแม้สีเน้นเป็นน้ำเงิน)
+      { key: "tabOn", label: "แท็บที่เลือกในหัว", def: "#C62828" , global: true, sel: ".cap-tabs button.on" },
     ],
   },
   {
@@ -74,10 +83,27 @@ export const THEME_GROUPS: ThemeGroup[] = [
       { key: "costB", label: "ต้นทุน · สีปลาย", def: "#D2493F" , sel: ".dz-kc.hero.cost" },
       { key: "custA", label: "ลูกค้า · สีเริ่ม", def: "#7A1A2E" , sel: ".dz-kc.hero.cust" },
       { key: "custB", label: "ลูกค้า · สีปลาย", def: "#3F0110" , sel: ".dz-kc.hero.cust" },
-      { key: "lossA", label: "ขาดทุน · สีเริ่ม", def: "#9E2C42" , sel: ".dz-kc.hero.loss" },
-      { key: "lossB", label: "ขาดทุน · สีปลาย", def: "#D9707E" , sel: ".dz-kc.hero.loss" },
+      // การ์ดแดงสองใบของ Inefficient Transportation Cost (.i2-group) มีสีของตัวเอง (idle/empty) — ไม่ไฮไลต์/ไม่ถูกเลือกเป็น "ขาดทุน"
+      { key: "lossA", label: "ขาดทุน · สีเริ่ม", def: "#9E2C42" , sel: ".dz-kc.hero.loss:not(.i2-group *)" },
+      { key: "lossB", label: "ขาดทุน · สีปลาย", def: "#D9707E" , sel: ".dz-kc.hero.loss:not(.i2-group *)" },
       { key: "fleet", label: "กองรถ", def: "#8E5A68" , sel: ".dz-kc.hero.fleet" },
       { key: "svc", label: "บริการ", def: "#B0473A" , sel: ".dz-kc.hero.svc" },
+      // Inefficient Transportation Cost: การ์ด 4 ใบตั้งสีแยกได้ (เจ้าของงานสั่ง 28 ก.ย. 2569 · ดีไซน์แผงขาวรอบสอง — Item2Tab I2Card)
+      //   ใบ 1 เบอร์กันดีเข้ม · ใบ 2/4 ชมพูอ่อนตัวเข้ม · ใบ 3 แดง · คีย์ i2* ใหม่ (รุ่นแรก idleA/emptyA ทิ้งไป)
+      { key: "i2LfA", label: "Load Factor เฉลี่ย · สีเริ่ม", def: "#4A0616" , sel: ".i2c.i2-lf" },
+      { key: "i2LfB", label: "Load Factor เฉลี่ย · สีปลาย", def: "#8A1530" , sel: ".i2c.i2-lf" },
+      { key: "i2IdleA", label: "ต้นทุนค่าเสียโอกาส (LF) · สีเริ่ม", def: "#F8E1E6" , sel: ".i2c.i2-idle" },
+      { key: "i2IdleB", label: "ต้นทุนค่าเสียโอกาส (LF) · สีปลาย", def: "#E7B7C2" , sel: ".i2c.i2-idle" },
+      { key: "i2EmptyA", label: "% ต้นทุนเที่ยวเปล่า · สีเริ่ม", def: "#A3161C" , sel: ".i2c.i2-empty" },
+      { key: "i2EmptyB", label: "% ต้นทุนเที่ยวเปล่า · สีปลาย", def: "#D13A36" , sel: ".i2c.i2-empty" },
+      { key: "i2EmptyCostA", label: "มูลค่าต้นทุนเที่ยวเปล่า · สีเริ่ม", def: "#F8E1E6" , sel: ".i2c.i2-emptyc" },
+      { key: "i2EmptyCostB", label: "มูลค่าต้นทุนเที่ยวเปล่า · สีปลาย", def: "#E7B7C2" , sel: ".i2c.i2-emptyc" },
+      { key: "i2LightInk", label: "ตัวอักษรในการ์ดสีอ่อน (Inefficient Transportation)", def: "#4A0616" , sel: ".i2c.light .i2c-v, .i2c.light .i2c-l" },
+      { key: "i2Title", label: "หัวแผง Load Factor / Empty Trips", def: "#8A1530" , sel: ".i2-v3 .i2-gh" },
+      // กล่องแดง 4 ตัวเลขของ Damage (Service Performance) — ตัวอักษรดำ (เจ้าของงานสั่ง 28 ก.ย. 2569 · เดิมขาวตามการ์ดเด่น)
+      { key: "dmgInk", label: "ตัวอักษรในกล่อง Damage (Service Performance)", def: "#141414" , sel: ".pi-dmg-row" },
+      { key: "dmgA", label: "กล่อง Damage (Service Performance) · สีเริ่ม", def: "#F8BCBC" , sel: ".pi-dmg4" },
+      { key: "dmgB", label: "กล่อง Damage (Service Performance) · สีปลาย", def: "#EE8A8A" , sel: ".pi-dmg4" },
       { key: "heroText", label: "ตัวอักษรในการ์ดเด่น", def: "#FFFFFF" , sel: ".dz-kc.hero .v, .dz-kc.hero .l" },
     ],
   },
@@ -101,8 +127,17 @@ export const THEME_GROUPS: ThemeGroup[] = [
       { key: "secA", label: "หัวส่วน/หัวตาราง สีที่ 1", hint: "Vehicle Utilization Cost · ไอคอนการ์ดเส้นทาง", def: "#5E0718" , sel: ".i3-h.violet, .rp-ico.violet, .i3-sec:nth-child(1) .i3-tbl thead tr" },
       { key: "secB", label: "หัวส่วน/หัวตาราง สีที่ 2", def: "#1B7A60" , sel: ".i3-h.green, .rp-ico.green, .i3-sec:nth-child(2) .i3-tbl thead tr, .rp-rank" },
       { key: "secC", label: "หัวส่วน/หัวตาราง สีที่ 3", def: "#8E5A68" , sel: ".i3-h.blue" },
-      { key: "piBg", label: "กล่อง Performance Index", def: "#590212" , sel: ".pi-box, .pi-total" },
-      { key: "piAccent", label: "คะแนน/แถบใน Performance Index", def: "#F3E6C4" , sel: ".pi-score b, .pi-meter, .pi-bar" },
+      // 28 ก.ย. 2569 (ภาพที่เจ้าของงานส่ง): กล่อง Index 5 หมวด = เงินเงา ตัวเข้ม · กล่องคะแนนรวม = แชมเปญทอง ตัวเบอร์กันดี
+      //   เดิมคีย์ piBg #590212 (เบอร์กันดี) ใช้ทั้งสองกล่อง · piAccent #F3E6C4 — **เปลี่ยนชื่อคีย์เป็น piBox/piBoxAccent**
+      //   ให้ค่าเก่าที่เครื่องเคยบันทึก (สีรวม/รายแท็บ) ถูกทิ้งเงียบ ๆ ไม่งั้นแท็บที่เคยตั้งสีค้างพื้นแดงทับเงิน (เจ้าของงานเจอ 28 ก.ย. 2569)
+      { key: "piBox", label: "กล่อง Index 5 หมวด (พื้นเงิน)", def: "#CDD1D6" , sel: ".pi-box" },
+      { key: "piBoxAccent", label: "คะแนน/แถบในกล่อง Index", def: "#4A4F57" , sel: ".pi-box .pi-score b, .pi-box .pi-meter, .pi-box .pi-bar" },
+      { key: "piInk", label: "ตัวอักษรในกล่อง Index", def: "#1F2328" , sel: ".pi-box .pi-t, .pi-box .pi-rm-h" },
+      // กล่องคะแนนรวม ไล่ 3 สี (เจ้าของงานส่งรหัสสี 28 ก.ย. 2569): 115deg แชมเปญอ่อน → ทองกลาง 55% → ทองเข้ม
+      { key: "piTotalA", label: "กล่องคะแนนรวม · สีเริ่ม (แชมเปญอ่อน)", def: "#F7ECDA" , sel: ".pi-total" },
+      { key: "piTotalM", label: "กล่องคะแนนรวม · สีกลาง (ทองกลาง)", def: "#E8D4B1" , sel: ".pi-total" },
+      { key: "piTotalBg", label: "กล่องคะแนนรวม · สีปลาย (ทองเข้ม)", def: "#C6A774" , sel: ".pi-total" },
+      { key: "piTotalInk", label: "ตัวเลข/แถบ/ตัวอักษรในกล่องคะแนนรวม", def: "#5A0F1E" , sel: ".pi-total .pi-score b, .pi-total .pi-meter, .pi-jump-sc" },
     ],
   },
   {
@@ -147,7 +182,7 @@ export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
     colors: {
       pageTop: "#F8F1F2", pageBottom: "#F3E9EC", pageText: "#590212", pageMuted: "#7A5A60",
       sideTop: "#EDE0E3", sideBottom: "#EDE0E3", sideText: "#7A5F66",
-      headBg: "#FBF6F7", headTitle: "#590212",
+      headBg: "#FBF6F7", headTitle: "#590212", partBg: "#590212", partBorder: "#E6D6DA",
       profitA: "#9A7A3E", profitB: "#CFAF7A", revA: "#0C5A45", revB: "#34A07F", costA: "#8E1B1B", costB: "#D44C45",
     },
   },
@@ -156,7 +191,7 @@ export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
     colors: {
       pageTop: "#14233A", pageBottom: "#070E19", sideTop: "#E9D8B4", sideBottom: "#C8CCD2", sideText: "#2F3441",
       sideActiveText: "#14233A", accent: "#14233A", headBg: "#F5F1E8", headBorder: "#B08A3E", headTitle: "#14233A",
-      headLine: "#E3D9C4", piBg: "#14233A", sg1: "#14233A", secA: "#14233A",
+      headLine: "#E3D9C4", sg1: "#14233A", secA: "#14233A",
     },
   },
   {
@@ -166,6 +201,7 @@ export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
     name: "น้ำเงินเรืองแสง",
     colors: {
       pageTop: "#101737", pageBottom: "#0A0D22", pageGlow: "#1F52E0", pageText: "#EEF2FF", pageMuted: "#A7B4D8",
+      partBg: "#EEF2FF", partBorder: "#2B3566",
     },
   },
   {
@@ -174,7 +210,7 @@ export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
       pageTop: "#F4F5F7", pageBottom: "#E9ECF0", pageText: "#1F2933", pageMuted: "#6B7280",
       sideTop: "#FFFFFF", sideBottom: "#EEF0F3", sideText: "#374151", sideActiveBg: "#E8EDF5", sideActiveText: "#1E3A8A",
       accent: "#1E3A8A", headBg: "#FFFFFF", headBorder: "#1E3A8A", headTitle: "#1E3A8A", headLine: "#E5E7EB",
-      piBg: "#1E3A8A", sg1: "#1E3A8A", secA: "#1E3A8A",
+      sg1: "#1E3A8A", secA: "#1E3A8A", partBg: "#1F2933", partBorder: "#D9DDE3",
     },
   },
 ];
@@ -182,6 +218,10 @@ export const THEME_PRESETS: { name: string; colors: ThemeColors }[] = [
 const KEY = "dashThemeColors";
 export const THEME_EVENT = "dashthemecolors";
 const HEX = /^#[0-9a-f]{6}$/i;
+const PCT = /^(100|[1-9]?\d)$/;
+const PCT_KEYS = new Set(THEME_TOKENS.filter((t) => t.pct).map((t) => t.key));
+/** ค่าถูกรูปแบบของ token นั้น — สี #rrggbb หรือเปอร์เซ็นต์ 0–100 (token pct) */
+export const validFor = (key: string, v: string): boolean => (PCT_KEYS.has(key) ? PCT : HEX).test(v);
 
 /** ค่าที่ผู้ใช้เลือก — เฉพาะคีย์ที่รู้จักและเป็น #rrggbb (ค่าเพี้ยน/คีย์ที่ถูกลบไปแล้วทิ้งเงียบ ๆ) */
 export function loadThemeColors(): ThemeColors {
@@ -190,7 +230,7 @@ export function loadThemeColors(): ThemeColors {
     const out: ThemeColors = {};
     for (const k of Object.keys(THEME_DEFAULTS)) {
       const v = raw[k];
-      if (typeof v === "string" && HEX.test(v)) out[k] = v;
+      if (typeof v === "string" && validFor(k, v)) out[k] = v;
     }
     return out;
   } catch {
@@ -208,7 +248,7 @@ export function applyThemeColors(colors: ThemeColors = loadThemeColors()): void 
 export function saveThemeColors(colors: ThemeColors): void {
   const diff: ThemeColors = {};
   for (const [k, v] of Object.entries(colors)) {
-    if (k in THEME_DEFAULTS && HEX.test(v) && v.toUpperCase() !== THEME_DEFAULTS[k]!.toUpperCase()) diff[k] = v.toUpperCase();
+    if (k in THEME_DEFAULTS && validFor(k, v) && v.toUpperCase() !== THEME_DEFAULTS[k]!.toUpperCase()) diff[k] = v.toUpperCase();
   }
   try {
     if (Object.keys(diff).length) localStorage.setItem(KEY, JSON.stringify(diff));
@@ -269,7 +309,7 @@ export function loadAllScopeColors(): Record<string, ThemeColors> {
       const src = raw[sc.id];
       if (!src || typeof src !== "object") continue;
       const c: ThemeColors = {};
-      for (const [k, v] of Object.entries(src)) if (SCOPE_OK.has(k) && typeof v === "string" && HEX.test(v)) c[k] = v;
+      for (const [k, v] of Object.entries(src)) if (SCOPE_OK.has(k) && typeof v === "string" && validFor(k, v)) c[k] = v;
       if (Object.keys(c).length) out[sc.id] = c;
     }
     return out;
@@ -285,7 +325,7 @@ export function saveScopeColors(scope: string, colors: ThemeColors): void {
   const global = { ...THEME_DEFAULTS, ...loadThemeColors() };
   const c: ThemeColors = {};
   for (const [k, v] of Object.entries(colors)) {
-    if (SCOPE_OK.has(k) && HEX.test(v) && v.toUpperCase() !== global[k]!.toUpperCase()) c[k] = v.toUpperCase();
+    if (SCOPE_OK.has(k) && validFor(k, v) && v.toUpperCase() !== global[k]!.toUpperCase()) c[k] = v.toUpperCase();
   }
   const all = loadAllScopeColors();
   if (Object.keys(c).length) all[scope] = c;

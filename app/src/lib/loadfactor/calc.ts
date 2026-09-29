@@ -169,15 +169,19 @@ export interface WhatIf {
 }
 
 export function whatIf(trips: LfTrip[], delta: number): WhatIf {
-  let oldIdle = 0, newIdle = 0, lfO = 0, lfN = 0, cost = 0;
+  let oldIdle = 0, newIdle = 0, lfO = 0, cost = 0;
   for (const t of trips) {
     const nl = Math.max(t.lf, Math.min(1, t.lf + delta));   // เกิน 100% อยู่แล้วคงเดิม
     oldIdle += t.idle;
     newIdle += t.cost * Math.max(0, 1 - nl);
-    lfO += t.lf; lfN += nl; cost += t.cost;
+    lfO += t.lf; cost += t.cost;
   }
   const n = trips.length, avgCost = n ? cost / n : 0, saved = oldIdle - newIdle;
-  return { oldIdle, newIdle, saved, cost, avgCost, lfOld: n ? lfO / n : 0, lfNew: n ? lfN / n : 0, n,
+  // LF เฉลี่ยหลังปรับ = LF เฉลี่ยเดิม + ที่เลื่อน (เพดาน 100%) — เลื่อน +10 จาก 59% ต้องขึ้น 69% (เจ้าของงานสั่ง 29 ก.ย. 2569)
+  //   เดิมเฉลี่ยจาก LF รายเที่ยวที่ตัดเพดานแล้ว เที่ยวที่เกือบเต็มเพิ่มได้ไม่ครบ ค่าเฉลี่ยจึงขึ้นไม่ถึง +10 จุด
+  //   ยอดเงิน (newIdle/saved) ยังคิดรายเที่ยวตามเดิม — เที่ยวหนึ่งเต็มเกิน 100% ไม่ได้
+  const lfOld = n ? lfO / n : 0;
+  return { oldIdle, newIdle, saved, cost, avgCost, lfOld, lfNew: n ? Math.max(lfOld, Math.min(1, lfOld + delta)) : 0, n,
     tripsEq: avgCost ? saved / avgCost : 0 };
 }
 

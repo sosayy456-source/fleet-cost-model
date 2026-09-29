@@ -41,7 +41,7 @@ function Trend({ data }: { data: number[] }) {
  * onClick/active = การ์ดกดได้ (แท็บกำไรลูกค้าของ Demo ใช้กรองตาราง) — ไม่ส่ง = การ์ดธรรมดา
  * foot  = บรรทัดใต้ชิป s เช่น ยอดกำไรของกลุ่มนั้น (แท็บกำไรลูกค้าของ Demo) — ไม่ส่ง = ไม่มีบรรทัดนี้
  */
-export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, title, art }: {
+export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, title, art, icon }: {
   /** warn = เหลืองอำพัน (Manager Dashboard: เฝ้าระวัง / ค้าง 1–30 วัน) */
   kind: "rev" | "cost" | "profit" | "loss" | "cust" | "fleet" | "svc" | "warn";
   l: string; v: string; s?: ReactNode;
@@ -55,6 +55,8 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
   title?: string;
   /** ภาพแทนเส้นตกแต่ง SPARK มุมขวาล่าง (การ์ดกำไรของ Executive Dashboard = ลูกศรขึ้น/ลง) */
   art?: ReactNode;
+  /** ไอคอน 3 มิติมุมขวาบน **แทนป้ายหน่วย** (Customer Performance · 29 ก.ย. 2569 เจ้าของงานเลือก) — ไม่ส่ง = ป้ายหน่วยตามเดิม */
+  icon?: ReactNode;
 }) {
   const cls = `dz-kc hero ${kind}` + (trend ? " has-trend" : "") + (onClick ? " clickable" : "") + (active ? " on" : "");
   const press = onClick ? {
@@ -66,7 +68,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
     <div className={cls} title={title} {...press}>
       <div className="hh">
         <div className="l">{l}</div>
-        {unit && <span className="u">{unit}</span>}
+        {icon ? <span className="hero-ic" aria-hidden="true">{icon}</span> : unit && <span className="u">{unit}</span>}
       </div>
       {/* key = ค่าเปลี่ยนแล้วได้กล่องใหม่ ท่า fade-down เล่นใหม่ (useNumFade) */}
       {vSub ? (

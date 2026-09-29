@@ -28,6 +28,7 @@ import {
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { BAR_RADIUS, anim, axisProps, gridProps, legendProps, tooltipProps } from "../../lib/chart/primitives";
+import { IS_CHERRY } from "../../lib/ui/dashTheme";
 import { D, DFONT, useChartTheme } from "../../lib/chart/theme";
 import type { ChartTheme } from "../../lib/chart/theme";
 import { FF, Hero, KC, Note, Pane, TableHead } from "../dash-fleet/parts";
@@ -56,10 +57,17 @@ const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"
 const pctTick = (v: number): string =>
   v === 0 ? "0%" : `${Number(v.toFixed(Math.abs(v) < 0.01 ? 4 : Math.abs(v) < 0.1 ? 3 : Math.abs(v) < 1 ? 2 : 1))}%`;
 
+/**
+ * สีเส้นแนวโน้ม — ธีม cherry เดิมเป็น ต้นทุน #C86253 กับ ชุดที่ 5 #DDA39F โทนแดงทั้งคู่จนกลืนกัน · เจ้าของงานขอ "เป็นสีแดง แต่แยกได้ชัด"
+ * (29 ก.ย. 2569) → แดงสองระดับความสว่างต่างกันมาก · ธีม classic ใช้สีเดิม (rose/cyan แยกกันอยู่แล้ว) · เส้นประ P75 ใช้สีเดียวกับเส้นของมัน
+ */
+const DR_COLOR = IS_CHERRY ? "#8E1B2B" : D.rose;   // Damage Rate — แดงเลือดหมูเข้ม
+const DIR_COLOR = IS_CHERRY ? "#F2665A" : D.cyan;  // Damage Incidence Rate — แดงสดอ่อน
+
 /** สองเส้นของกราฟแนวโน้ม — แกนเดียว กดปุ่มหัวการ์ดเปิด-ปิดทีละเส้น (เจ้าของงานเลือก 23 ก.ย. 2569) */
 const LINES = [
-  { key: "dr", label: "Damage Rate", color: D.rose, p75: "p75Rate", p75Label: "เส้นเกณฑ์ระดับมูลค่าความเสียหาย (P75)" },
-  { key: "dir", label: "Damage Incidence Rate", color: D.cyan, p75: "p75Incidence", p75Label: "เส้นเกณฑ์ระดับการเกิดความเสียหาย (P75)" },
+  { key: "dr", label: "Damage Rate", color: DR_COLOR, p75: "p75Rate", p75Label: "เส้นเกณฑ์ระดับมูลค่าความเสียหาย (P75)" },
+  { key: "dir", label: "Damage Incidence Rate", color: DIR_COLOR, p75: "p75Incidence", p75Label: "เส้นเกณฑ์ระดับการเกิดความเสียหาย (P75)" },
 ] as const;
 
 /** ชื่อเดือนเต็ม — Damage Alert รายเดือนตามตัวอย่างในไฟล์ "เดือน มกราคม …" */

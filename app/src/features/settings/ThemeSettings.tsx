@@ -16,7 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import { IS_CHERRY } from "../../lib/ui/dashTheme";
 import {
-  CHART_AT_LOAD, THEME_DEFAULTS, THEME_EVENT, THEME_GROUPS, THEME_PRESETS, THEME_SCOPES, THEME_TOKENS, isHex,
+  CHART_AT_LOAD, THEME_DEFAULTS, THEME_EVENT, THEME_GROUPS, THEME_PRESETS, THEME_SCOPES, THEME_TOKENS, isHex, validFor,
   loadAllScopeColors, loadThemeColors, saveScopeColors, saveThemeColors, type ThemeColors,
 } from "../../lib/ui/themeColors";
 import ThemePreviewFrame from "./ThemePreviewFrame";
@@ -36,6 +36,7 @@ function Preview() {
           <i className="thp-bar" data-th="headBorder" />
           <div className="thp-hrow">
             <b data-th="headTitle">Executive Dashboard</b>
+            <span className="thp-tab" data-th="tabOn">Route</span>
             <span className="thp-btn" data-th="accent">เปลี่ยนหน้าที่</span>
           </div>
           <div className="thp-meta" data-th="headMuted headText">จับคู่ได้ <b>4,007</b> เที่ยว</div>
@@ -46,7 +47,7 @@ function Preview() {
             })}
           </div>
         </div>
-        <div className="thp-h2"><span data-th="pageText">Route</span><i data-th="pageMuted" /></div>
+        <div className="thp-h2" data-th="partBg partAlpha partBorder"><span data-th="pageText">Route</span><i data-th="pageMuted" /></div>
         <div className="thp-heroes">
           {([["profit", "กำไรสุทธิ", "55.9M"], ["rev", "รายได้รวม", "97.5M"], ["cost", "ต้นทุนรวม", "41.6M"]] as const).map(([k, l, v]) => (
             <div key={k} className={k} data-th={`${k}A ${k}B`}><small data-th="heroText">{l}</small><b data-th="heroText">{v}</b></div>
@@ -57,11 +58,17 @@ function Preview() {
           <div className="loss" data-th="lossA lossB"><small data-th="heroText">ขาดทุน</small></div>
           <div className="fleet" data-th="fleet"><small data-th="heroText">กองรถ</small></div>
           <div className="svc" data-th="svc"><small data-th="heroText">บริการ</small></div>
+          <div className="dmg" data-th="dmgA dmgB dmgInk"><small>Damage</small></div>
+          <div className="i2lf" data-th="i2LfA i2LfB i2Title"><small>LF เฉลี่ย</small></div>
+          <div className="idle" data-th="i2IdleA i2IdleB i2LightInk"><small>เสียโอกาส</small></div>
+          <div className="emptyc" data-th="i2EmptyA i2EmptyB"><small>% เที่ยวเปล่า</small></div>
+          <div className="emptyv" data-th="i2EmptyCostA i2EmptyCostB"><small>มูลค่าเที่ยวเปล่า</small></div>
         </div>
         <div className="thp-cards">
           <div data-th="cardBg cardLine"><small data-th="cardLabel">อัตรากำไร</small><b data-th="cardValue">57.4%</b></div>
           <div data-th="cardBg cardLine"><small data-th="cardLabel">จำนวนเที่ยว</small><b data-th="cardValue">4,407</b></div>
-          <div className="thp-pi" data-th="piBg"><small>Performance Index</small><b data-th="piAccent">18.4</b><i data-th="piAccent" /></div>
+          <div className="thp-pi" data-th="piBox"><small data-th="piInk">Index</small><b data-th="piBoxAccent">18.4</b><i data-th="piBoxAccent" /></div>
+          <div className="thp-pit" data-th="piTotalA piTotalM piTotalBg"><small data-th="piTotalInk">คะแนนรวม</small><b data-th="piTotalInk">48.3</b><i data-th="piTotalInk" /></div>
         </div>
         <div className="thp-sg">
           <span className="s1" data-th="sg1">ทั่วไป 63%</span>
@@ -136,7 +143,7 @@ export default function ThemeSettings() {
 
   const set = (key: string, v: string) => {
     if (scope) {
-      if (isHex(v)) {
+      if (validFor(key, v)) {
         saveScopeColors(scope, { ...own, [key]: v });
         setDraft((d) => { const n = { ...d }; delete n[key]; return n; });
       } else setDraft((d) => ({ ...d, [key]: v }));
@@ -144,7 +151,7 @@ export default function ThemeSettings() {
     }
     const next = { ...colors, [key]: v };
     setColors(next);
-    if (isHex(v)) saveThemeColors(next);
+    if (validFor(key, v)) saveThemeColors(next);
   };
   const reset = (key: string) => {
     if (scope) { const n = { ...own }; delete n[key]; saveScopeColors(scope, n); return; }
@@ -154,7 +161,7 @@ export default function ThemeSettings() {
     saveThemeColors(next);
   };
   const usePreset = (c: ThemeColors) => { setColors({ ...c }); saveThemeColors({ ...c }); };
-  const changed = Object.keys(colors).filter((k) => isHex(colors[k]!) && colors[k]!.toUpperCase() !== THEME_DEFAULTS[k]!.toUpperCase()).length;
+  const changed = Object.keys(colors).filter((k) => validFor(k, colors[k]!) && colors[k]!.toUpperCase() !== THEME_DEFAULTS[k]!.toUpperCase()).length;
 
   const jumpTo = (key: string) => {
     setOpen(GROUP_OF[key] ?? null);
@@ -268,7 +275,7 @@ export default function ThemeSettings() {
             <details key={g.title} className="thm-group" open={open === g.title}
               onToggle={(e) => { if ((e.currentTarget as HTMLDetailsElement).open) setOpen(g.title); }}>
               <summary>
-                <span className="thm-dots">{g.tokens.slice(0, 6).map((t) => <i key={t.key} style={{ background: own[t.key] ?? global[t.key] }} />)}</span>
+                <span className="thm-dots">{g.tokens.filter((t) => !t.pct).slice(0, 6).map((t) => <i key={t.key} style={{ background: own[t.key] ?? global[t.key] }} />)}</span>
                 {g.title}
               </summary>
               <div className="thm-grid">
@@ -280,16 +287,22 @@ export default function ThemeSettings() {
                     <label key={t.key} id={`thm-${t.key}`}
                       className={"thm-item" + (dirty ? " dirty" : "") + (hot === t.key ? " hot" : "")}
                       onMouseEnter={() => setHot(t.key)} onFocus={() => setHot(t.key)}>
-                      <input type="color" value={isHex(v) ? v : base} onChange={(e) => set(t.key, e.target.value.toUpperCase())} />
+                      {t.pct
+                        ? <input type="range" min={0} max={100} value={Number(validFor(t.key, v) ? v : base)}
+                            aria-label={t.label} onChange={(e) => set(t.key, e.target.value)} />
+                        : <input type="color" value={isHex(v) ? v : base} onChange={(e) => set(t.key, e.target.value.toUpperCase())} />}
                       <span className="thm-lb">
                         <b>{t.label}</b>
                         {scope
                           ? <small className={dirty ? "thm-own" : ""}>{dirty ? "ตั้งเฉพาะแท็บนี้" : "ใช้สีรวม"}</small>
                           : t.hint && <small>{t.hint}</small>}
                       </span>
-                      <input className="thm-hex" type="text" value={v} maxLength={7} spellCheck={false}
-                        aria-label={`รหัสสี ${t.label}`}
-                        onChange={(e) => set(t.key, e.target.value.startsWith("#") ? e.target.value : "#" + e.target.value)} />
+                      {t.pct
+                        ? <input className="thm-hex" type="text" inputMode="numeric" value={v} maxLength={3} spellCheck={false}
+                            aria-label={`${t.label} (%)`} onChange={(e) => set(t.key, e.target.value.replace(/\D/g, ""))} />
+                        : <input className="thm-hex" type="text" value={v} maxLength={7} spellCheck={false}
+                            aria-label={`รหัสสี ${t.label}`}
+                            onChange={(e) => set(t.key, e.target.value.startsWith("#") ? e.target.value : "#" + e.target.value)} />}
                       <button type="button" className="thm-undo" disabled={!dirty}
                         title={scope ? `กลับไปใช้สีรวม ${base}` : `กลับเป็นค่าตั้งต้น ${t.def}`}
                         onClick={(e) => { e.preventDefault(); reset(t.key); }}>↺</button>
