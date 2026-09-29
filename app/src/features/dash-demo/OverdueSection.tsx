@@ -302,22 +302,23 @@ function OverdueBody({ rows, refDate, range, isSample, infoInHeader, onAsOf }: {
 
       <div className="dz-heroes dso-heroes">
         {/* ลำดับ (เจ้าของงานสั่ง 29 ก.ย. 2569): เกินกำหนดชำระ · ชำระตามกำหนด · ยังไม่ถึงกำหนดชำระ · บิลที่วางถึง… · DSO
+            สีสลับกัน: ชำระตามกำหนด = เขียว (kind rev) · DSO = เหลือง (kind profit) · ชื่อ "จำนวนบิลรวม" ไม่มีวันที่ (เจ้าของงานสั่ง 29 ก.ย. 2569)
             ไอคอน 3 มิติมุมขวาบนแทนป้ายหน่วย (assets/icons3d: late · ontime · notdue · billed · calendar)
             การ์ดเกินกำหนด/ชำระตามกำหนดตรงกับโดนัทภาพรวม (27 ก.ย. 2569): ชำระตามกำหนด = จ่ายตรงเวลา ·
             เกินกำหนดชำระ = เกินกำหนดชำระแต่ชำระแล้ว + เกินกำหนดชำระและยังไม่ได้ชำระ */}
         <Hero kind="loss" l="เกินกำหนดชำระ" v={fmt(late.bills + lateUnpaid.bills)} vSub={`(${pctOf(late.bills + lateUnpaid.bills, kpi.all)})`}
           icon={<img src={imgLate} alt="" />}
           s={`${fmt(Math.round(late.amt + lateUnpaid.amt))} บาท (${pctOf(late.amt + lateUnpaid.amt, kpi.allAmt)})`} />
-        <Hero kind="profit" l="ชำระตามกำหนด" v={fmt(onTime.bills)} vSub={`(${pctOf(onTime.bills, kpi.all)})`}
+        <Hero kind="rev" l="ชำระตามกำหนด" v={fmt(onTime.bills)} vSub={`(${pctOf(onTime.bills, kpi.all)})`}
           icon={<img src={imgOnTime} alt="" />}
           s={`${fmt(Math.round(onTime.amt))} บาท (${pctOf(onTime.amt, kpi.allAmt)})`} />
         <Hero kind="fleet" l="ยังไม่ถึงกำหนดชำระ" v={fmt(kpi.notdue)} vSub={`(${pctOf(kpi.notdue, kpi.all)})`}
           icon={<img src={imgNotDue} alt="" />}
           s={`${fmt(Math.round(kpi.notdueAmt))} บาท (${pctOf(kpi.notdueAmt, kpi.allAmt)})`} />
-        <Hero kind="cust" l={`บิลที่วางถึง ${thDateSafe(asOf)}`} v={fmt(kpi.all)} unit="บิล" icon={<img src={imgBilled} alt="" />}
+        <Hero kind="cust" l="จำนวนบิลรวม" v={fmt(kpi.all)} unit="บิล" icon={<img src={imgBilled} alt="" />}
           s={`มูลค่า ${fmt(Math.round(kpi.allAmt))} บาท`} />
         {/* การ์ด DSO — ตัดออกแล้วเจ้าของงานขอคืน 28 ก.ย. 2569 · ไม่มีบรรทัดเทียบเดือนก่อน (เจ้าของงานสั่งตัด · ยังอยู่ใน tooltip) */}
-        <Hero kind="rev" l="DSO · วันเก็บหนี้เฉลี่ย" v={kpi.dso == null ? "–" : fmt(Math.round(kpi.dso))} unit="วัน" icon={<img src={imgCalendar} alt="" />}
+        <Hero kind="profit" l="DSO · วันเก็บหนี้เฉลี่ย" v={kpi.dso == null ? "–" : fmt(Math.round(kpi.dso))} unit="วัน" icon={<img src={imgCalendar} alt="" />}
           title={dsoDiff == null ? "ไม่มีข้อมูลเดือนก่อนหน้า"
             : `${dsoDiff === 0 ? "เท่าเดิม" : `${dsoDiff < 0 ? "↓" : "↑"} ${fmt(Math.abs(dsoDiff))} วัน`} เทียบ ณ ${thSlash(prevMonthISO(asOf))}`} />
       </div>
