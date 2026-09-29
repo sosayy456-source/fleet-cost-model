@@ -19,6 +19,10 @@ export const DEMO_PARTS = [
   { id: "item2", label: "Inefficient Transportation Cost" },
   { id: "item3", label: "Vehicle Utilization Cost" },
   { id: "cust", label: "Customer Performance" },
+  // 3 ส่วนท้าย (เจ้าของงานสั่ง 28 ก.ย. 2569): แถว Damage + Service Quality · คะแนนรวม PI · ข้อเสนอแนะจากผล PI
+  { id: "svc", label: "Service Performance" },
+  { id: "pi", label: "Performance Index" },
+  { id: "rec", label: "Recommendation" },
 ] as const;
 
 export interface DemoNavState {

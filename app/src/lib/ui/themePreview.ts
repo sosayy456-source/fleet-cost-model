@@ -83,7 +83,11 @@ export function bootThemePreview(): void {
   // ข้อมูลโหลดทีหลัง/ตารางวาดใหม่ → ไฮไลต์ตามจุดที่เพิ่งโผล่ (ไม่เลื่อนจอซ้ำ)
   setInterval(() => { if (hotKey) highlight(hotKey, false); }, 1500);
 
-  // กดในกรอบ = เลือกจุด — ไล่จากตัวที่กดขึ้นไปหา token ที่ selector ตรงตัวแรก
+  // กดในกรอบ = เลือกจุด — ไล่จากตัวที่กดขึ้นไปหา token ที่ selector ตรง
+  // หลาย token ตรงจุดเดียวกัน = เลือกตัวที่เจาะจงสุด (selector ยาวสุด) — เช่นการ์ดต้นทุนค่าเสียโอกาสตรงทั้ง "ขาดทุน" (.dz-kc.hero.loss)
+  // และ idleA (.i2-group.lf .dz-kc.hero.loss) ต้องได้ idleA ไม่งั้นแก้สีแล้วการ์ดแดงทุกใบเปลี่ยนพร้อมกัน (เจ้าของงานเจอ 28 ก.ย. 2569)
+  const specificity = (sel: string, el: Element): number =>
+    Math.max(0, ...sel.split(",").map((s) => s.trim()).filter((s) => el.matches(s)).map((s) => s.length));
   document.addEventListener("click", (e) => {
     const root = scopeRoot(sc.id);
     const t = e.target as Element | null;
@@ -91,8 +95,11 @@ export function bootThemePreview(): void {
     e.preventDefault();
     e.stopPropagation();
     for (let el: Element | null = t; el && el !== root; el = el.parentElement) {
-      const tok = SCOPE_TOKENS.find((k) => k.sel && el!.matches(k.sel));
-      if (tok) { post({ type: "th:pick", key: tok.key }); return; }
+      const hits = SCOPE_TOKENS.filter((k) => k.sel && el!.matches(k.sel));
+      if (!hits.length) continue;
+      const tok = hits.reduce((a, b) => (specificity(b.sel!, el!) > specificity(a.sel!, el!) ? b : a));
+      post({ type: "th:pick", key: tok.key });
+      return;
     }
   }, true);
 }

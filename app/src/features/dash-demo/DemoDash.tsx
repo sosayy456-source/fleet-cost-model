@@ -35,8 +35,8 @@ import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
 import * as Pi from "./PiIndex";
-import { PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
-import ThemeScope from "../../lib/ui/ThemeScope";
+import { PiRecommend, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import ThemeScope, { useThemeScope } from "../../lib/ui/ThemeScope";
 
 /*
  * ★ ทุกส่วนห่อ memo (26 ก.ย. 2569 · docs/แผนแก้-ข้อมูลจริงช้า.md ข้อ 2)
@@ -197,11 +197,14 @@ export default function DemoDash() {
     ]} />
   );
   const infoForScreen = sectionInfo[activeInfo];
-  const sectionLabel = activeInfo === "route" ? "Profit Per Route" : "Vehicle Utilization Cost";
-  const infoContent = activeInfo === "route" || activeInfo === "item3"
-    ? <><h3>{sectionLabel}</h3>{meta && <p className="dh-meta">{meta}</p>}</>
+  // ส่วนที่ไม่ได้ลงทะเบียนข้อมูลเอง (อ่านไฟล์ต้นทุนชุดเดียวกับหัว) = ชื่อส่วน + ที่มาของไฟล์ต้นทุน
+  const costInfo = activeInfo === "route" || activeInfo === "item3" || activeInfo === "svc" || activeInfo === "pi" || activeInfo === "rec";
+  const sectionLabel = PARTS.find((p) => p.id === activeInfo)?.label ?? "";
+  const infoContent = costInfo
+    ? <><h3>{sectionLabel}</h3>{meta && <p className="dh-meta">{meta}</p>}
+      {(activeInfo === "pi" || activeInfo === "rec") && <p>คะแนนรวมจากกล่อง Performance Index ทุกส่วน — ตัวชี้วัดแต่ละตัวอ่านชุดข้อมูลของส่วนนั้น (ไฟล์ต้นทุน · Load Factor · ปันส่วนลูกค้า · ลูกหนี้)</p>}</>
     : infoForScreen?.content ?? <p>กำลังโหลดที่มาและข้อจำกัดของข้อมูลส่วนนี้…</p>;
-  const infoSample = activeInfo === "route" || activeInfo === "item3" ? m?.isSample : infoForScreen?.sample;
+  const infoSample = costInfo ? m?.isSample : infoForScreen?.sample;
 
   /** สามส่วนแรกใช้ trips — ไฟล์ต้นทุนพัง/ยังโหลด/ว่าง ขึ้นข้อความแทนเนื้อหา แต่ส่วนกำไรลูกค้ายังวาดได้ */
   const tripsState: ReactNode = error ? (
@@ -223,15 +226,15 @@ export default function DemoDash() {
     </div>
   ) : null;
 
-  // headInBody = ส่วนวางหัวข้อเอง (Profit Per Route วางใต้การ์ด Service Category — เจ้าของงานสั่ง 28 ก.ย. 2569)
-  const part = (id: PartId, body: ReactNode, headInBody = false) => (
-    <section key={id} id={`demo-${id}`} className={stale ? "dm-part dm-stale" : "dm-part"} ref={(el) => { partRefs.current[id] = el; }}>
+  const part = (id: PartId, body: ReactNode) => (
+    <PartFrame key={id} id={id} stale={stale} refCb={(el) => { partRefs.current[id] = el; }}>
       {/* สีรายส่วนจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) — ครอบหัวส่วนด้วย สีหัวข้อบนพื้นหลังจึงตั้งรายส่วนได้ */}
       <ThemeScope scope={`demo:${id}`}>
-        {!headInBody && <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>}
+        {/* Profit Per Route วาดชื่อส่วนเองเหนือแผนที่ (RouteProfitTab partTitle) — ไฟล์ต้นทุนยังไม่พร้อมค่อยวาดที่หัวส่วนตามเดิม */}
+        {(id !== "route" || tripsState) && <h2 className="dm-part-h">{PARTS.find((p) => p.id === id)!.label}</h2>}
         {body}
       </ThemeScope>
-    </section>
+    </PartFrame>
   );
 
   const renderFilters = () => <>
@@ -268,11 +271,19 @@ export default function DemoDash() {
       </div>}
     </div>
   );
-  /** แท็บ 4 ส่วนในแคปซูล = เลื่อนไปหาส่วน · ไฮไลต์ตามส่วนที่เลื่อนถึง (ชุดเดียวกับแท็บย่อยในเมนูซ้าย) */
-  const partTabs = PARTS.map((p) => (
-    <button key={p.id} type="button" className={active === p.id ? "on" : ""} aria-current={active === p.id ? "true" : undefined}
-      onClick={() => go(p.id)}>{p.label}</button>
-  ));
+  /** แท็บทุกส่วนในแคปซูล = เลื่อนไปหาส่วน · ไฮไลต์ตามส่วนที่เลื่อนถึง (ชุดเดียวกับแท็บย่อยในเมนูซ้าย) */
+  // 7 แท็บยาวเกินแคปซูล (เจ้าของงานสั่ง 28 ก.ย. 2569): แท็บที่ไม่ได้เลือกเหลือคำแรก + "…" · แท็บที่เลือกชื่อเต็ม · ชื่อเต็มใน tooltip
+  const partTabs = PARTS.map((p) => {
+    const on = active === p.id;
+    const words = p.label.split(" ");
+    const short = words.length > 1 ? `${words[0]}…` : p.label;
+    return (
+      <button key={p.id} type="button" className={on ? "on" : ""} aria-current={on ? "true" : undefined}
+        title={p.label} aria-label={p.label} onClick={() => go(p.id)}>
+        {/* ชี้เมาส์ = กางชื่อเต็ม (เจ้าของงานสั่ง 28 ก.ย. 2569) · แท็บที่เลือกเต็มเสมอ */}
+        {on ? p.label : <><span className="cap-t-s">{short}</span><span className="cap-t-f">{p.label}</span></>}</button>
+    );
+  });
 
   return (
     <>
@@ -285,10 +296,8 @@ export default function DemoDash() {
         <PiReportProvider value={pi.report}>
           {/* 6 กล่องภาพรวมอยู่นอกกรอบส่วน — ส่วน Profit Per Route เริ่มที่กราฟรายเดือน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
-          {part("route", <>{tripsState
-            ? <><h2 className="dm-part-h">{ROUTE_LABEL}</h2>{tripsState}</>
-            : <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" />
-            <PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>, true)}
+          {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" />
+            <PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
           {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
             onInfo={registerItem2Info} />}
             <PiFleet f={fv} all={piRef ? branchTrips : null} /></>)}
@@ -297,20 +306,33 @@ export default function DemoDash() {
           {part("cust", <>
             <CustomerProfitTab f={fv}
               onProfitInfo={registerProfitInfo} onDebtorInfo={registerDebtorInfo} />
-            {/* การ์ด Damage Rate (ซ้าย) + Service Quality (ขวา · แบ่งสองคอลัมน์ในกล่อง) — ตามภาพที่เจ้าของงานส่ง 28 ก.ย. 2569 */}
-            {/* เส้นคั่นระหว่างกล่อง Customer PI กับแถว Damage Rate + Service Quality (เจ้าของงานขอ 28 ก.ย. 2569) */}
-            <hr className="dm-pi-sep" />
-            <div className="pi-pair">
-              {/* การ์ด Damage Rate ใบเดียวกับแท็บ Damage — ตามตัวกรองของหน้า ไม่ใช่ช่วงที่ประเมินของ PI */}
-              <DamageRateBox trips={m && !error ? trips : null} />
-              <PiService trips={piTrips} refTrips={piRefs?.trips ?? null} period={piEval?.label} />
-            </div>
-            {/* เส้นคั่นก่อนกล่องคะแนนรวม (เจ้าของงานขอ 28 ก.ย. 2569) */}
-            <hr className="dm-pi-sep" />
-            <PiTotal reports={pi.reports} />
           </>)}
+          {/* 3 ส่วนท้ายแยกเป็นแท็บของตัวเอง (เจ้าของงานสั่ง 28 ก.ย. 2569 — เดิมอยู่ท้าย Customer Performance) */}
+          {/* การ์ด Damage Rate (ซ้าย) + Service Quality (ขวา · แบ่งสองคอลัมน์ในกล่อง) — ตามภาพที่เจ้าของงานส่ง 28 ก.ย. 2569 */}
+          {part("svc", <div className="pi-pair">
+            {/* การ์ด Damage Rate ใบเดียวกับแท็บ Damage — ตามตัวกรองของหน้า ไม่ใช่ช่วงที่ประเมินของ PI */}
+            <DamageRateBox trips={m && !error ? trips : null} />
+            <PiService trips={piTrips} refTrips={piRefs?.trips ?? null} period={piEval?.label} />
+          </div>)}
+          {part("pi", <PiTotal reports={pi.reports} />)}
+          {part("rec", <PiRecommend reports={pi.reports} />)}
         </PiReportProvider>
       </DashShell>
     </>
+  );
+}
+
+/**
+ * กรอบของแต่ละส่วน (section.dm-part) — ใส่สีที่แท็บนั้นตั้งเองลงบนกรอบด้วย ไม่งั้นพื้น/ขอบกรอบ (--th-partBg/partAlpha/partBorder)
+ * ตั้งรายแท็บไม่ได้ เพราะ ThemeScope อยู่ข้างในกรอบ (เจ้าของงานขอ 28 ก.ย. 2569) · ห้ามครอบ section ด้วย div — `.cap-bar ~ .dm-part` ต้องเป็นพี่น้องกัน
+ */
+function PartFrame({ id, stale, refCb, children }: {
+  id: string; stale: boolean; refCb: (el: HTMLElement | null) => void; children: ReactNode;
+}) {
+  const style = useThemeScope(`demo:${id}`);
+  return (
+    <section id={`demo-${id}`} className={stale ? "dm-part dm-stale" : "dm-part"} ref={refCb} style={style}>
+      {children}
+    </section>
   );
 }
