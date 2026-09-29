@@ -4408,3 +4408,6 @@ html.theme-cherry #view-dash .pi-flash{animation-name:piFlashInk}
 .rp-tbl.rp-tbl-sg .rp-sgc{min-width:52px;padding:5px 6px;font-size:13px}
 .rp-tbl.rp-tbl-sg .rp-margin{white-space:nowrap}
 .rp-tbl.rp-tbl-sg thead th{white-space:nowrap}
+/* Overall › Vehicle Utilization Cost ส่วนที่ 2: แท่ง FC + ป้าย FC นอกแท่ง = สีรถร่วมของกราฟ "ต้นทุนของรถแต่ละชนิด" (--th-svc · 29 ก.ย. 2569) · VC ตั้งใน Part2.tsx */
+.d3-kb-stack .fc,.d3-kb-stripe{background:var(--th-svc,#F59E0B)}
+.d3-kb-fcout{color:color-mix(in srgb,var(--th-svc,#B45309) 75%,#000)}

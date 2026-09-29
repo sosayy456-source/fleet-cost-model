@@ -26,6 +26,13 @@ const spct = (n: number): string => `${n > 0 ? "+" : n < 0 ? "−" : ""}${pct(Ma
 const STATUS_PILL: Record<DepStatus, string> = { ok: "comp", watch: "only-comp", low: "low" };
 type RouteRow = ReturnType<typeof depByRoute>[number];
 type KindRow = ReturnType<typeof depByKind>[number];
+/**
+ * สีแท่ง VC/FC = สีแท่งกราฟ "ต้นทุนของรถแต่ละชนิด · บาท/กม." ของส่วนที่ 1 (Part1 useCardColors: รถบริษัท --th-fleet · รถร่วม --th-svc)
+ * เจ้าของงานสั่ง 29 ก.ย. 2569 · ใช้ตัวแปรธีมตรง ๆ ใน CSS ตั้งสีรายแท็บในหน้าการตั้งค่าแล้วเปลี่ยนตาม · ธีม classic ไม่มีตัวแปร = สีเดิม
+ * FC ตั้งที่ .d3-kb-stack .fc / .d3-kb-stripe / .d3-kb-fcout ใน index.css
+ */
+const VC_COLOR = `var(--th-fleet, ${D.indigo})`;
+
 /** สัดส่วนต่ำสุดที่ใส่ป้าย "VC 91%"/"FC 12%" ในแท่งได้ไม่ล้น — ต่ำกว่านี้ย้ายป้าย FC ไปท้ายแท่ง */
 const FIT_PCT = 14;
 type AdviceRow = ReturnType<typeof depAdvice>[number];
@@ -76,8 +83,8 @@ function KindBoard({ kinds }: { kinds: KindRow[] }) {
     <div className="fl-legend d3-kb-legend">
       <span><i style={{ background: D.emeraldLight }} />คุ้มค่าเสื่อมกว่าค่าเฉลี่ยรวม</span>
       <span><i style={{ background: D.rose }} />ต่ำกว่าค่าเฉลี่ยรวม</span>
-      <span><i style={{ background: D.indigo }} />แท่งคราม = ต้นทุนผันแปร (VC)</span>
-      <span><i className="d3-kb-stripe" />แท่งส้ม = ต้นทุนคงที่ · ค่าเสื่อม (FC)</span>
+      <span><i style={{ background: VC_COLOR }} />ต้นทุนผันแปร (VC)</span>
+      <span><i className="d3-kb-stripe" />ต้นทุนคงที่ · ค่าเสื่อม (FC)</span>
     </div>
     <div className="d3-kb" role="table">
       <div className="d3-kb-row d3-kb-th" role="row">
@@ -99,7 +106,7 @@ function KindBoard({ kinds }: { kinds: KindRow[] }) {
           <span className="num d3-kb-pct" style={{ color: good ? "var(--green)" : "var(--red)" }}>{spct(k.vsAvg)}</span>
           <span className="d3-kb-cost" title={`VC ${fmt(k.vc)} บาท · FC ${fmt(k.fc)} บาท`}>
             <span className="d3-kb-stack">
-              <span className="vc" style={{ width: `${k.vcShare}%`, background: D.indigo }}>
+              <span className="vc" style={{ width: `${k.vcShare}%`, background: VC_COLOR }}>
                 {k.vcShare >= FIT_PCT && <>VC {pct(k.vcShare, 0)}</>}</span>
               <span className="fc" style={{ width: `${100 - k.vcShare}%` }}>
                 {100 - k.vcShare >= FIT_PCT && <>FC {pct(100 - k.vcShare, 0)}</>}</span>

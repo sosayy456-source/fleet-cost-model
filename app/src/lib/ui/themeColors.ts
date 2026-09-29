@@ -40,7 +40,7 @@ export const THEME_GROUPS: ThemeGroup[] = [
       // แสงเรืองมุมบนซ้าย + ลำแสงทแยง (เจ้าของงานส่งภาพพื้นน้ำเงินเรืองแสง 28 ก.ย. 2569) — ค่าตั้งต้น = สีพื้นบน จึงแทบมองไม่เห็น
       { key: "pageGlow", label: "แสงเรืองมุมบนซ้าย", hint: "ตั้งเท่าพื้นหลัง (บน) = ไม่มีแสง", def: "#FFFFFF" , global: true },
       { key: "pageText", label: "หัวข้อบนพื้นหลัง", hint: "เช่น Route · หัวข้อส่วน", def: "#1F2933" , sel: ".dm-part-h, .dz-t, .cp-sec h3, .mg-debt > .mg-h" },
-      { key: "pageMuted", label: "ข้อความรอง/เส้นคั่นบนพื้นหลัง", def: "#FFFFFF" , sel: ".dz-note, .cp-sec p" },
+      { key: "pageMuted", label: "ข้อความรอง/เส้นคั่นบนพื้นหลัง", def: "#5B6470" , sel: ".dz-note, .cp-sec p" },   // เดิม #FFFFFF จาก theme-export — ขาวบนพื้นสว่างอ่านไม่ออก (เจ้าของงานแจ้ง 29 ก.ย. 2569)
       // กรอบที่ครอบแต่ละส่วน/แท็บ (.dm-part ของ Executive Dashboard) — เจ้าของงานขอ 28 ก.ย. 2569
       // ค่าตั้งต้นเท่าหน้าตาเดิม: พื้น = สีหัวข้อบนพื้นหลัง ทึบ 5% · ขอบ ≈ สีหัวข้อ 12% บนพื้นกรมท่า
       { key: "partBg", label: "พื้นกรอบส่วน", hint: "กรอบที่ครอบแต่ละส่วนของ Executive Dashboard", def: "#1F2933", sel: ".dm-part" },
