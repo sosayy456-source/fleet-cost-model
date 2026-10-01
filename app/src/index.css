@@ -4676,3 +4676,7 @@ html #view-dash .dz-heroes.hero-align > .dz-kc.hero.hero > .s,html #view-dash .d
 html #view-dash .dz-kc.dz-kc:has(> .hero-note) > .s{max-width:calc(100% - 38px);margin-right:0}
 /* เลขชั้นของการเรียงซ้อน (SortArrow · ตารางจัดอันดับเส้นทาง useMultiSort) */
 .sort-n{font-size:10px;font-weight:800;margin-left:1px}
+
+/* ตัวกรองแหล่งข้อมูล = ดรอปดาวน์ (.ff-multi) ข้างในติ๊ก ข้อมูลเก่า · ข้อมูลใหม่ (lib/data/dataSource.tsx · เจ้าของงานสั่ง 1 ต.ค. 2569) */
+#view-dash .ff-src .ff-multi-list input:disabled{cursor:not-allowed}
+#view-dash .ff-src .ff-multi-list label:has(input:disabled){cursor:not-allowed}

@@ -126,7 +126,8 @@ function CostRevDashBody() {
         ) : (
           <>
             {tab === "fleet" && <FleetTab trips={trips} />}
-            {tab === "empty" && <EmptyTab trips={data.trips} />}
+            {/* ชุด inProfitScope เหมือนทุกแท็บ (เจ้าของงานเคาะ 24 ก.ย. 2569) — 3a0d95c เผลอส่ง data.trips ทั้งไฟล์ ตัวหารเที่ยว/ต้นทุนจึงเกิน (แก้ 1 ต.ค. 2569) */}
+            {tab === "empty" && <EmptyTab trips={trips} />}
             {tab === "damage" && <DamageTab trips={trips} matchedTotal={m.matched} isSample={m.isSample} />}
             {tab === "detail3" && <Detail3Tab trips={trips} />}
           </>

@@ -1,13 +1,14 @@
 /**
  * ตัวกรอง "แหล่งข้อมูล" ของ Executive Dashboard + Overall Dashboard (เจ้าของงานสั่ง 1 ต.ค. 2569)
- *   ทั้งหมด (ตั้งต้น) · ข้อมูลเก่า = ไฟล์ Excel ที่ ETL แปลง · ข้อมูลใหม่ = ใบที่บันทึกในโมเดล
+ *   ข้อมูลเก่า (ตั้งต้น) = ไฟล์ Excel ที่ ETL แปลง · ข้อมูลใหม่ = ใบที่บันทึกในโมเดล · ติ๊กทั้งสอง = ทั้งหมด
  *   ค่าเดียวร่วมกันทั้งสองหน้า จำใน sessionStorage จนปิดแท็บ (เจ้าของงานเลือก)
+ *   ★ 1 ต.ค. 2569 (เจ้าของงานสั่ง): ค่าตั้งต้นเปลี่ยนจาก "ทั้งหมด" เป็น "ข้อมูลเก่า" · ช่องเลือกเป็นดรอปดาวน์ที่ข้างในติ๊ก 2 ช่อง (เหลืออย่างน้อยหนึ่งช่อง)
  *
  * ทำงานผ่าน Provider: สองหน้านี้ครอบเนื้อหาด้วย <DataSourceProvider records> แล้ว hook ข้อมูลทั้ง 4 ชุด
  * (useCostRev · useLoadFactor · useAlloc · useDebtors) ผสมใบใหม่ให้เอง — ทุกส่วน/กล่อง PI ตามโดยไม่ต้องแก้ทีละหน้า
  * ★ หน้าอื่น (Manager · Executive Summary · จัดรถ · ตั้งค่า) ไม่มี Provider = ได้ไฟล์ล้วนเหมือนเดิม
  */
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { TripRecord } from "../../types/record";
 import type { PendingBill } from "../../types/bill";
 import { getAllBills } from "../store/bills";
@@ -31,8 +32,8 @@ export const DATA_SOURCES: { id: DataSource; label: string; hint: string }[] = [
 function readSource(): DataSource {
   try {
     const v = sessionStorage.getItem(KEY);
-    return v === "old" || v === "new" ? v : "all";
-  } catch { return "all"; }
+    return v === "all" || v === "new" ? v : "old";
+  } catch { return "old"; }
 }
 
 export function setDataSource(v: DataSource): void {
@@ -74,21 +75,41 @@ export function DataSourceProvider({ records, children }: { records: TripRecord[
 
 /**
  * ช่องเลือกแหล่งข้อมูล — วางในแผงตัวกรองของ Executive / Overall Dashboard
- * หน้าตาเดียวกับช่องเลือกอื่นในแผง (.ff + select · ชื่อชุดเดียวกับ SrcFF ของหน้าเดิม) · ข้อมูลใหม่บอกจำนวนใบ
+ * ดรอปดาวน์หน้าตาเดียวกับตัวกรองกลุ่มบริการ (.ff-multi ของ MultiFF) ข้างในติ๊ก ข้อมูลเก่า · ข้อมูลใหม่
+ * (ติ๊กทั้งสอง = ทั้งหมด · ช่องที่ติ๊กอยู่ช่องเดียวเอาออกไม่ได้) · ข้อมูลใหม่บอกจำนวนใบ
+ * ไม่ใช้ MultiFF ตรง ๆ เพราะ MultiFF ถือว่าไม่ติ๊กเลย = ทั้งหมด
  */
 export function DataSourceFilter({ newCount }: { newCount?: number }) {
   const [v, set] = useDataSourcePref();
+  const dd = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const close = (e: PointerEvent) => { if (dd.current && !dd.current.contains(e.target as Node)) dd.current.open = false; };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, []);
+  const old = v !== "new", fresh = v !== "old";
+  const pick = (o: boolean, n: boolean) => set(o && n ? "all" : n ? "new" : "old");
+  const box = (id: "old" | "new", on: boolean, toggle: () => void) => {
+    const d = DATA_SOURCES.find((s) => s.id === id)!;
+    return (
+      <label title={d.hint}>
+        <input type="checkbox" checked={on} disabled={on && (id === "old" ? !fresh : !old)} onChange={toggle} />
+        {d.label}{id === "new" && newCount != null ? ` (${newCount.toLocaleString("th-TH")} ใบ)` : ""}
+      </label>
+    );
+  };
+  const text = old && fresh ? "ข้อมูลเก่า + ข้อมูลใหม่" : fresh ? "ข้อมูลใหม่" : "ข้อมูลเก่า";
   return (
-    <div className="ff">
+    <div className="ff ff-multi ff-src">
       <label>แหล่งข้อมูล</label>
-      <select value={v} onChange={(e) => set(e.target.value as DataSource)}
-        title={DATA_SOURCES.find((s) => s.id === v)?.hint}>
-        {DATA_SOURCES.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.label}{s.id === "new" && newCount != null ? ` (${newCount.toLocaleString("th-TH")} ใบ)` : ""}
-          </option>
-        ))}
-      </select>
+      <details ref={dd}
+        onKeyDown={(e) => { if (e.key === "Escape" && dd.current) { dd.current.open = false; dd.current.querySelector("summary")?.focus(); } }}>
+        <summary title={DATA_SOURCES.find((x) => x.id === v)?.hint}>{text}</summary>
+        <div className="ff-multi-list" role="group" aria-label="แหล่งข้อมูล">
+          {box("old", old, () => pick(!old, fresh))}
+          {box("new", fresh, () => pick(old, !fresh))}
+        </div>
+      </details>
     </div>
   );
 }
