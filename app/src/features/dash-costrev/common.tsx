@@ -286,6 +286,35 @@ export function SortArrow({ sort, k }: { sort: SortState; k: string }) {
   return <>{ls[i]!.dir === 1 ? "▲" : "▼"}{ls.length > 1 && <sup className="sort-n">{i + 1}</sup>}</>;
 }
 
+/**
+ * เรียงซ้อนหลายคอลัมน์ (สูงสุด `max` คอลัมน์) ตามลำดับที่กด — คอลัมน์แรกที่กดเป็นหลัก ถัดไปใช้ตัดสินเมื่อค่าเท่ากัน (แบบ Excel)
+ * ตารางจัดอันดับเส้นทาง (เจ้าของงานสั่ง 29 ก.ย. 2569) · แต่ละคอลัมน์ยังวนสามจังหวะ ▼ → ▲ → เอาออกจากชุด ·
+ * กดคอลัมน์ใหม่ตอนครบแล้ว = ตัดคอลัมน์ที่กดก่อนสุดออก · ไม่มีคอลัมน์ในชุด = การเรียงตั้งต้นของตาราง
+ */
+export function useMultiSort<T>(rows: T[], cols: Col<T>[], initial: SortLevel, max = 3) {
+  const base = useRef(initial);
+  const [sorts, setSorts] = useState<SortLevel[]>([]);
+  const sorted = useMemo(() => {
+    const list = (sorts.length ? sorts : [base.current])
+      .map((s) => ({ c: cols.find((x) => x.key === s.key), dir: s.dir }))
+      .filter((s): s is { c: Col<T>; dir: 1 | -1 } => !!s.c);
+    if (!list.length) return rows;
+    return [...rows].sort((a, b) => {
+      for (const s of list) { const d = cmpBy(s.c, s.dir, a, b); if (d) return d; }
+      return 0;
+    });
+  }, [rows, cols, sorts]);
+  const toggle = (key: string) => setSorts((cur) => {
+    const i = cur.findIndex((s) => s.key === key);
+    if (i < 0) return [...cur, { key, dir: -1 as const }].slice(-max);
+    if (cur[i]!.dir === -1) return cur.map((s, j) => (j === i ? { key, dir: 1 as const } : s));
+    return cur.filter((_, j) => j !== i);
+  });
+  // ส่งให้ SortTable ในรูป SortState (levels = ทุกชั้น) — ลูกศร + เลขชั้นมาจาก SortArrow ตัวเดียวกับทุกตาราง
+  const sort = useMemo<SortState>(() => (sorts.length ? { ...sorts[0]!, levels: sorts } : base.current), [sorts]);
+  return { sorted, sort, toggle };
+}
+
 export function SortTable<T>({ rows, cols, sort, onSort, rowKey, empty, className, rowProps, maxHeight, filterRow }: {
   rows: T[]; cols: Col<T>[]; sort: SortState;
   onSort: (key: string) => void; rowKey: (r: T, i: number) => string; empty: string;

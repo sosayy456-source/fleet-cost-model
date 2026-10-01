@@ -15,7 +15,7 @@ import type { Cell } from "./serialize";
 import { toISODate } from "../record/date";
 
 /** ต้องตรงกับ var VERSION ใน apps-script/Code.gs */
-export const GS_VERSION = 18;
+export const GS_VERSION = 19;
 
 const LS_URL = "gsWebAppUrl";
 const URL_PATTERN = /^https:\/\/script\.google\.com\/.*\/exec$/;

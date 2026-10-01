@@ -4674,3 +4674,5 @@ html #view-dash .dz-heroes.hero-align > .dz-kc.hero.hero > .s,html #view-dash .d
   white-space:nowrap;max-width:100%;box-sizing:border-box;overflow:hidden}
 /* เว้นที่ขวาให้ปุ่ม i เฉพาะการ์ดที่มีปุ่ม */
 html #view-dash .dz-kc.dz-kc:has(> .hero-note) > .s{max-width:calc(100% - 38px);margin-right:0}
+/* เลขชั้นของการเรียงซ้อน (SortArrow · ตารางจัดอันดับเส้นทาง useMultiSort) */
+.sort-n{font-size:10px;font-weight:800;margin-left:1px}

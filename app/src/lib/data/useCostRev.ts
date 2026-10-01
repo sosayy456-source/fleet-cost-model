@@ -9,7 +9,9 @@
  * trips.json 1 ระเบียน = 1 เที่ยว คีย์สั้น ๆ เพื่อให้ไฟล์เล็ก — ความหมายอยู่ใน interface Trip
  * ไฟล์เก็บเป็นคอลัมน์ + ตารางข้อความ (tripCols.ts · 26 ก.ย. 2569) แปลงกลับเป็น Trip[] ตอนโหลด หน้าจอไม่ต้องรู้
  */
-import { startTransition, useCallback, useEffect, useState } from "react";
+import { useDataSourceCtx } from "./dataSourceCtx";
+import { mixCostRev } from "./mixSources";
+import { startTransition, useCallback, useEffect, useState, useMemo } from "react";
 import { decodeTripColumnsAsync, isTripColumns } from "./tripCols";
 import type { TripColumns } from "./tripCols";
 
@@ -239,5 +241,8 @@ export function useCostRev(): CostRevState {
     return () => { alive = false; };
   }, [tick]);
 
-  return { data, error, loading, reload };
+  // ตัวกรองแหล่งข้อมูลของ Executive/Overall Dashboard (dataSource.tsx) — หน้าอื่นไม่มี Provider ได้ไฟล์ล้วน
+  const ctx = useDataSourceCtx();
+  const mixed = useMemo(() => mixCostRev(data, ctx), [data, ctx]);
+  return { data: mixed, error, loading, reload };
 }

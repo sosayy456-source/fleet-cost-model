@@ -9,7 +9,9 @@
  * trips.json เก็บเป็นคอลัมน์ (array ต่อฟิลด์) แปลงเป็นระเบียนที่นี่ครั้งเดียว และคิดค่าที่ทุกส่วนใช้ซ้ำ
  * (idle · recoverable · profit) ตอนโหลด — สูตรตามเอกสาร lf_executive_dashboard.html ข้อแก้ 6 จุด
  */
-import { useCallback, useEffect, useState } from "react";
+import { useDataSourceCtx } from "./dataSourceCtx";
+import { mixLoadFactor } from "./mixSources";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { thMonthRange } from "../record/date";
 
 export type LfDataset = "sample" | "real";
@@ -186,5 +188,8 @@ export function useLoadFactor(): LfState {
     return () => { alive = false; };
   }, [tick]);
 
-  return { data, error, loading, reload };
+  // ตัวกรองแหล่งข้อมูลของ Executive/Overall Dashboard (dataSource.tsx) — หน้าอื่นไม่มี Provider ได้ไฟล์ล้วน
+  const ctx = useDataSourceCtx();
+  const mixed = useMemo(() => mixLoadFactor(data, ctx), [data, ctx]);
+  return { data: mixed, error, loading, reload };
 }

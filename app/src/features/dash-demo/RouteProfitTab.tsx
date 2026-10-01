@@ -28,7 +28,7 @@ import { DLine } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import { Hero, KC, Pane } from "../dash-fleet/parts";
 import {
-  SortTable, fmt, groupBy, monthLabel, pct, signed, useSort,
+  SortTable, fmt, groupBy, monthLabel, pct, signed, useMultiSort,
 } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import { passDemo } from "./filter";
@@ -251,7 +251,8 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
   const shown = useMemo(() => (tone ? placed.filter((r) => r.margin != null && sgTone(r.margin, p50) === tone) : placed), [placed, tone, p50]);
   const oOpts = useMemo(() => [...new Set(byRoute.filter((r) => has(r.de, dq)).map((r) => r.o))].filter(Boolean).sort((a, b) => a.localeCompare(b, "th")), [byRoute, dq]);
   const dOpts = useMemo(() => [...new Set(byRoute.filter((r) => has(r.o, oq)).map((r) => r.de))].filter(Boolean).sort((a, b) => a.localeCompare(b, "th")), [byRoute, oq]);
-  const { sorted, sort, toggle } = useSort(shown, cols, { key: "rank", dir: 1 });
+  // เรียงซ้อนได้ 3 คอลัมน์ตามลำดับที่กด (เจ้าของงานสั่ง 29 ก.ย. 2569 · เช่น ทั่วไปสูงสุด แล้วแช่เย็นสูงสุด)
+  const { sorted, sort, toggle } = useMultiSort(shown, cols, { key: "rank", dir: 1 });
 
   /**
    * เส้นบนแผนที่ = เฉพาะเส้นทางที่ผู้ใช้กดในตารางด้านขวา (เจ้าของงานกำหนด 24 ก.ย. 2569) — เปิดมายังไม่กด = แผนที่เปล่า
@@ -321,7 +322,8 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
                 <span className="rp-tone-l">อัตรากำไร</span>
                 <button type="button" className={tone == null ? "on" : ""} aria-pressed={tone == null} onClick={() => setTone(null)}>
                   ทั้งหมด <small>{fmt(placed.length)}</small></button>
-                {([["g", "เขียว", `≥ P50${p50 == null ? "" : ` (${pct(p50)})`}`], ["y", "เหลือง", "0 ถึงต่ำกว่า P50"], ["r", "แดง", "ขาดทุน"]] as const).map(([k, name, why]) => (
+                {/* ชื่อปุ่มเป็นความหมาย ไม่ใช่ชื่อสี (เจ้าของงานสั่ง 1 ต.ค. 2569 — เดิม เขียว/เหลือง/แดง) */}
+                {([["g", "กำไรดี", `≥ P50${p50 == null ? "" : ` (${pct(p50)})`}`], ["y", "กำไรพอประมาณ", "0 ถึงต่ำกว่า P50"], ["r", "ขาดทุน", "ต่ำกว่า 0"]] as const).map(([k, name, why]) => (
                   <button key={k} type="button" className={`t-${k}` + (tone === k ? " on" : "")} aria-pressed={tone === k}
                     title={`${name}: อัตรากำไร ${why}`} onClick={() => setTone((t) => (t === k ? null : k))}>
                     <i aria-hidden="true" />{name} <small>{fmt(toneN[k])}</small></button>

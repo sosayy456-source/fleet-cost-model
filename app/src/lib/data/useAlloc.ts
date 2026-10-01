@@ -9,6 +9,8 @@
  * เพราะลูกค้าเดือนเดียวมี 38,978 ราย — เก็บเป็น object จะมีชื่อคีย์ซ้ำทุกระเบียน
  * (★ Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์ ต้องดู content-type ไม่ใช่แค่ status)
  */
+import { useDataSourceCtx } from "./dataSourceCtx";
+import { mixAlloc } from "./mixSources";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Period } from "../filter/period";
 
@@ -105,6 +107,8 @@ export interface AllocUnlinked {
  */
 export interface AllocCustMonth {
   ci: number; mo: string; bills: number; revenue: number; cost: number; profit: number; lossBills: number;
+  /** วันที่ — มีเฉพาะแถวของใบที่บันทึกใหม่ (ลูกค้า × วัน · mixSources.ts) ไฟล์เป็นรายเดือนล้วน */
+  d?: string;
   /** รายได้ของรายการที่ปันตามรายได้ (น้ำหนัก/ขนาดเชื่อไม่ได้) + จำนวนรายการแยกเหตุผล (lib/alloc/review.ts) — ไฟล์เก่าไม่มี = 0 */
   flagRev: number; fNoSize: number; fBig: number; fTiny: number;
 }
@@ -147,6 +151,15 @@ export interface AllocData {
   hasReview: boolean;
   bills: AllocBill[] | null;
   top: AllocTop | null;
+  /**
+   * ตัวกรองแหล่งข้อมูลรวมใบที่บันทึกใหม่ (mixSources.ts · 1 ต.ค. 2569): top.json ไม่รู้จักใบใหม่ → top = null + liveTop
+   * ให้หน้าจอจัดอันดับเองจากแถวที่ยุบแล้ว · extraBills = บิลรายใบของใบใหม่ตามดัชนีลูกค้า · onlyNew = เลือก "ข้อมูลใหม่"
+   */
+  liveTop?: boolean;
+  extraBills?: Map<number, AllocBill[]>;
+  onlyNew?: boolean;
+  /** จำนวนลูกค้าของไฟล์ (ดัชนี < ค่านี้ = มีบิลในไฟล์) — ไม่มี = customers ทั้งหมดมาจากไฟล์ */
+  fileCustomers?: number;
 }
 
 interface CustMonthColumns {
@@ -329,6 +342,16 @@ export function useCustDays(data: AllocData | null, months: string[]): Map<strin
 
 /** โหลดเฉพาะชุดย่อยของลูกค้าที่กดดู · ไฟล์รุ่นเก่ายังอ่าน bills.json ตามเดิม */
 export async function loadAllocBills(data: AllocData, ci: number): Promise<AllocBill[]> {
+  // ใบที่บันทึกใหม่อยู่ในหน่วยความจำ · ลูกค้าที่ไม่มีในไฟล์ (ดัชนีเกินตาราง) / เลือกข้อมูลใหม่ = ไม่ต้องเปิดไฟล์
+  const extra = data.extraBills?.get(ci) ?? [];
+  if (data.onlyNew || !fileHasCustomer(data, ci)) return extra;
+  return [...extra, ...await loadFileBills(data, ci)];
+}
+
+/** ดัชนีลูกค้านี้มาจากไฟล์ (ไม่ใช่ลูกค้าใหม่ที่ต่อท้าย) */
+const fileHasCustomer = (data: AllocData, ci: number): boolean => data.fileCustomers == null || ci < data.fileCustomers;
+
+async function loadFileBills(data: AllocData, ci: number): Promise<AllocBill[]> {
   const shards = data.manifest.billShards;
   if (!shards) return data.bills?.filter((b) => b.ci === ci) ?? [];
   const file = `bills_${(ci % shards).toString(16).padStart(2, "0")}.json`;
@@ -387,7 +410,10 @@ export function useAlloc(): AllocState {
     return () => { alive = false; };
   }, [tick]);
 
-  return { data, error, loading, reload };
+  // ตัวกรองแหล่งข้อมูลของ Executive/Overall Dashboard (dataSource.tsx) — หน้าอื่นไม่มี Provider ได้ไฟล์ล้วน
+  const ctx = useDataSourceCtx();
+  const mixed = useMemo(() => mixAlloc(data, ctx), [data, ctx]);
+  return { data: mixed, error, loading, reload };
 }
 
 /** ยอดรวมของชุดลูกค้าที่กรองมาแล้ว — การ์ดหัวหน้าจอใช้ */

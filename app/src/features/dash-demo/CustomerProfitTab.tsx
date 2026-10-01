@@ -118,7 +118,9 @@ export function rollupCustomers(data: AllocData, f: Period, keep?: (mo: string) 
     return a;
   };
   for (const r of data.custMonths ?? []) {
-    if (days?.days.has(r.mo)) continue;   // เดือนนี้ใช้รายวันแทน
+    // แถวของใบที่บันทึกใหม่เป็นรายวันอยู่แล้ว (มี d) — เดือนที่คร่อมไม่เต็มเดือนตัดด้วยวันของตัวเอง
+    if (r.d && days?.days.has(r.mo)) { if (!days.inDay(r.d)) continue; }
+    else if (days?.days.has(r.mo)) continue;   // เดือนนี้ใช้รายวันแทน
     // ปี + ช่วงเดือน (ตั้งแต่–ถึง) แบบ Damage Rate — ชุดเดียวกับตัวกรองของหน้า Demo
     // keep = เลือกเดือนเอง (Baseline ของ Performance Index ข้ามปีได้ Period แทนไม่ได้)
     if (keep ? !keep(r.mo) : !inPeriod({ y: Number(r.mo.slice(0, 4)), mo: r.mo }, f)) continue;
@@ -141,6 +143,15 @@ export function rollupCustomers(data: AllocData, f: Period, keep?: (mo: string) 
     a.margin = a.revenue ? a.m : null;
   }
   return [...acc.values()];
+}
+
+/** Top 10 กำไรสูงสุด/ขาดทุนมากสุด (บาท) + Top 10 ของแต่ละช่วง %Margin — ใช้แทน top.json เมื่อรวมใบที่บันทึกใหม่ */
+function liveTopOf(rows: CustRow[]): { gain: number[]; loss: number[]; margin: number[][] } {
+  const gain = rows.filter((r) => r.profit >= 0).sort((a, b) => b.profit - a.profit || a.ci - b.ci).slice(0, 100).map((r) => r.ci);
+  const loss = rows.filter((r) => r.profit < 0).sort((a, b) => a.profit - b.profit || a.ci - b.ci).slice(0, 100).map((r) => r.ci);
+  const margin = BUCKETS.map((_, i) => rows.filter((r) => bucketOf(r.m) === i)
+    .sort((a, b) => b.profit - a.profit || a.ci - b.ci).slice(0, 10).map((r) => r.ci));
+  return { gain, loss, margin };
 }
 
 /** เดือนที่ต้องโหลดรายวัน = เดือนหัว/ท้ายที่ช่วงประเมินและ Baseline คร่อมไม่เต็มเดือน */
@@ -339,7 +350,8 @@ function ProfitPart({ data, f: page, infoInHeader }: { data: AllocData; f: DemoF
   }, [rows]);
 
   /* ---------- Top 100 สำหรับรายละเอียด และ Top 10 สำหรับป้าย/ช่วง Margin ---------- */
-  const top = data.top?.[allocTopKey(f)];
+  // รวมใบที่บันทึกใหม่ (liveTop) = top.json ของไฟล์ไม่รู้จักใบใหม่ จัดอันดับเองจากแถวที่ยุบแล้ว (กติกาเดียวกับ ETL: บาท ไม่ใช่ %)
+  const top = useMemo(() => (data.liveTop ? liveTopOf(rows) : data.top?.[allocTopKey(f)]), [data, rows, f]);
   const gainSet = useMemo(() => new Set(top?.gain.slice(0, 10) ?? []), [top]);
   const lossSet = useMemo(() => new Set(top?.loss.slice(0, 10) ?? []), [top]);
   const detailSet = useMemo(() => new Set([

@@ -287,8 +287,8 @@ export default function App() {
               <Suspense fallback={<div className="card"><p className="muted">กำลังโหลดแดชบอร์ด... <TruckLoader label={null} /></p></div>}>
                 {page === "dash-fleet" && <ManagerDash role={role} records={state.records} />}
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
-                {page === "exec-dash" && <CostRevDash />}
-                {page === "demo" && <DemoDash />}
+                {page === "exec-dash" && <CostRevDash records={state.records} />}
+                {page === "demo" && <DemoDash records={state.records} />}
                 {page === "executive-summary" && <ExecutiveSummary />}
               </Suspense>
             </DashPageContext.Provider>

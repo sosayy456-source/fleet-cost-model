@@ -238,7 +238,7 @@ export default function DispatchPage({ state, role }: { state: RecordsState; rol
         no: b.no, goodsType: b.serviceGroup, sender: b.sender, receiver: b.receiver,
         origin: b.origin, dest: b.dest, qty: b.qty, total: b.total,
         payType: b.payType as never, paid: false, payDate: null,
-        unitPrice: b.unitPrice, pricingType: b.pricingType,
+        unitPrice: b.unitPrice, pricingType: b.pricingType, term: b.term ?? null,
       })),
       plate: truck.plate,
       // รถร่วมนอกพิเศษคิดต้นทุนแบบรถร่วม (costFleetType) — ใบรายการเก็บฝั่งของตารางต้นทุน

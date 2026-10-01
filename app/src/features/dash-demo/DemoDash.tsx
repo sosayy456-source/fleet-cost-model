@@ -17,6 +17,8 @@
  * ★ Performance Index (เจ้าของงานสั่ง 25 ก.ย. 2569 · PiIndex.tsx · สูตร lib/pi/score.ts) — กล่องยาวท้ายทุกส่วน
  *   วาดเสมอแม้ส่วนนั้นขึ้นข้อความแทนเนื้อหา (ขึ้น "ไม่มีข้อมูล" เอง) · คะแนนรวม XX/100 เป็นบรรทัดสุดท้ายของหน้า
  */
+import { DataSourceFilter, DataSourceProvider, useDataSourceCtx } from "../../lib/data/dataSource";
+import type { TripRecord } from "../../types/record";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
@@ -65,8 +67,17 @@ type SectionInfo = { content: ReactNode; sample?: boolean };
 /** เส้นอ้างอิงของการไฮไลต์ตามการเลื่อน — ส่วนที่หัวของมันเลยเส้นนี้ขึ้นไปแล้ว = ส่วนที่กำลังอ่าน (px จากขอบบนจอ) */
 const SPY_LINE = 160;
 
-export default function DemoDash() {
+/**
+ * ตัวกรองแหล่งข้อมูล ทั้งหมด / ข้อมูลเก่า / ข้อมูลใหม่ (เจ้าของงานสั่ง 1 ต.ค. 2569 · lib/data/dataSource.tsx) —
+ * Provider ต้องอยู่เหนือ hook ข้อมูลทุกตัวของหน้า จึงห่อหน้าไว้อีกชั้น
+ */
+export default function DemoDash({ records }: { records: TripRecord[] }) {
+  return <DataSourceProvider records={records}><DemoDashBody /></DataSourceProvider>;
+}
+
+function DemoDashBody() {
   const { data, error, loading, reload } = useCostRev();
+  const srcCtx = useDataSourceCtx();
   const debtors = useDebtors();
   const etl = useEtlStatus("costrev");
   // แถบที่หัวหน้า = สถานะรวมทุกงาน ETL (งานปันส่วนกำไรลูกค้าแปลงต่อหลังงานนี้อีกนาน)
@@ -252,6 +263,7 @@ export default function DemoDash() {
   );
 
   const renderFilters = () => <>
+    <DataSourceFilter newCount={srcCtx?.trips?.length} />
     {/* ปี → เดือน → วัน · วันที่ที่ไฟล์ต้นทุนมีข้อมูลย้อนหลังไม่ครบ 12 เดือนเลือกไม่ได้ (Baseline ของ PI ไม่ครบ · Methodology 29 ก.ย. 2569) */}
     <PeriodFF trips={all} value={f} onChange={setF} days />
     <ListFF label="สาขา" all="ทุกสาขา" value={f.br} onChange={set("br")} opts={branches} />

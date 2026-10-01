@@ -19,6 +19,9 @@
  *
  * แยกขาดจากแดชบอร์ดเดิม (dash-fleet) ทั้งข้อมูลและโค้ด ใช้ร่วมแค่คอมโพเนนต์แสดงผล
  */
+import { DataSourceFilter, DataSourceProvider, useDataSourceCtx } from "../../lib/data/dataSource";
+import type { TripRecord } from "../../types/record";
+import FilterBar from "../../lib/ui/FilterBar";
 import { useEffect, useMemo, useState } from "react";
 import { clearExecTab, peekExecTab } from "../../lib/ui/dashJump";
 import DashShell, { Meta, dataRangeText } from "../../lib/ui/DashShell";
@@ -41,8 +44,14 @@ type TabId = OverallTabId;
 /** แท็บที่ไม่ใช้ trips — แสดงได้ทันทีโดยไม่รอ/ไม่สน error ของ costrev */
 const STANDALONE: ReadonlySet<TabId> = new Set<TabId>(["lf", "tonkm"]);
 
-export default function CostRevDash() {
+/** ตัวกรองแหล่งข้อมูลร่วมกับ Executive Dashboard (lib/data/dataSource.tsx · 1 ต.ค. 2569) — Provider อยู่เหนือ hook ข้อมูลทุกตัว */
+export default function CostRevDash({ records }: { records: TripRecord[] }) {
+  return <DataSourceProvider records={records}><CostRevDashBody /></DataSourceProvider>;
+}
+
+function CostRevDashBody() {
   const { data, error, loading, reload } = useCostRev();
+  const srcCtx = useDataSourceCtx();
   // dev server แปลงไฟล์ให้เองเมื่อวางไฟล์ใน etl/data/Dashboard real data/ — ขึ้นแถบแล้วรีเฟรชเองตอนเสร็จ
   const etl = useEtlStatus("costrev");
   // แถบที่หัวหน้า = สถานะรวมทุกงาน ETL (งานปันส่วนกำไรลูกค้าแปลงต่อหลังงานนี้อีกนาน)
@@ -91,6 +100,8 @@ export default function CostRevDash() {
         onRefresh={reload} loading={loading} refreshTitle={refreshTitle}
         capsule={{ tabs, filters: true, sub: m ? dataRangeText(m.dateRange.min, m.dateRange.max) : undefined }}>
         <h2 className="dm-part-h">{tabLabel}</h2>
+        {/* อยู่ในแผงตัวกรองของทุกแท็บ (FilterBar portal เข้าแผงเดียวกับตัวกรองของแท็บ) */}
+        <FilterBar><DataSourceFilter newCount={srcCtx?.trips?.length} /></FilterBar>
         {/* สีรายแท็บจากหน้าการตั้งค่า (lib/ui/ThemeScope.tsx) */}
         <ThemeScope scope={`overall:${tab}`}>
         {STANDALONE.has(tab) ? (

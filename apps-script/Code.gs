@@ -27,7 +27,7 @@
  * "ข้อมูลเก่า" คือขึ้นในโมเดลทันที อ่านอย่างเดียว ไม่ต้องรอสถานะ 3 ฝ่ายครบ
  */
 
-var VERSION = 18;                        // ต้องตรงกับ GS_VERSION ใน app/src/lib/sheet/client.ts
+var VERSION = 19;                        // ต้องตรงกับ GS_VERSION ใน app/src/lib/sheet/client.ts
 
 // ★ ชีตปลายทางที่จะเขียนข้อมูลลง
 //   ปล่อยว่าง ''  = เขียนลงชีตที่สคริปต์นี้ผูกอยู่ (กรณีเปิดจาก ส่วนขยาย → Apps Script)  ← ค่าเริ่มต้น
@@ -48,7 +48,9 @@ var BILL_HEADERS = [
   'BillID','เลขที่บิล','สถานะ','เลขที่ใบรายการ','วันที่รับสินค้า','สาขา',
   'ผู้ส่ง','ผู้รับ','ต้นทาง','ปลายทาง','กลุ่มบริการ',
   'จำนวน','น้ำหนักรวม(กก.)','กว้าง(ซม.)','ยาว(ซม.)','สูง(ซม.)','ปริมาตรรวม(ลบ.ม.)',
-  'ประเภทการชำระเงิน','เกณฑ์คิดราคา','ราคา/หน่วย','ราคารวม','เวลาที่บันทึก','เวลาที่แก้ล่าสุด'];
+  'ประเภทการชำระเงิน','เกณฑ์คิดราคา','ราคา/หน่วย','ราคารวม','เวลาที่บันทึก','เวลาที่แก้ล่าสุด',
+  // v19 (1 ต.ค. 2569) ต่อท้ายเท่านั้น — แถวเดิมว่าง = ไม่มีเครดิต (แอปถอยไปใช้เครดิตที่พบบ่อยของลูกค้า)
+  'เครดิต(วัน)'];
 
 // ── ข้อมูลเก่า ──────────────────────────────────────────────
 // ★ เลิกอ่านแท็บ "ข้อมูลเก่า*" / "ข้อมูลเก่าลูกหนี้*" จากชีตแล้ว (24 ก.ย. 2569)
@@ -131,7 +133,8 @@ function billToRow_(b) {
     Number(b.qty) || 0, Number(b.weight) || 0,
     Number(b.width) || 0, Number(b.length) || 0, Number(b.height) || 0, Number(b.volume) || 0,
     String(b.payType || ''), String(b.pricingType || ''), Number(b.unitPrice) || 0, Number(b.total) || 0,
-    String(b.createdAt || ''), String(b.updatedAt || '')];
+    String(b.createdAt || ''), String(b.updatedAt || ''),
+    (b.term === null || b.term === undefined || b.term === '') ? '' : Number(b.term)];
 }
 
 /** ออบเจ็กต์บิล ← แถวชีต */
@@ -145,7 +148,8 @@ function rowToBill_(r) {
     width: Number(r[13]) || 0, length: Number(r[14]) || 0, height: Number(r[15]) || 0, volume: Number(r[16]) || 0,
     payType: String(r[17] || ''), pricingType: String(r[18] || ''),
     unitPrice: Number(r[19]) || 0, total: Number(r[20]) || 0,
-    createdAt: String(r[21] || ''), updatedAt: String(r[22] || '')
+    createdAt: String(r[21] || ''), updatedAt: String(r[22] || ''),
+    term: (r[23] === '' || r[23] === null || r[23] === undefined) ? null : Number(r[23])
   };
 }
 

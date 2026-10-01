@@ -14,7 +14,7 @@
 import { useMemo, useState } from "react";
 import { BRANCHES, ORIGINS, destsFor } from "../../lib/refdata";
 import { PAY_TYPES, PRICE_BASIS } from "../../types/record";
-import { emptyDraft, n, problem, randomDraft } from "./draft";
+import { emptyDraft, isCash, n, problem, randomDraft, termOf } from "./draft";
 import type { Draft } from "./draft";
 import { SERVICE_GROUPS_V2, billTotalOf, billVolume, priceBaseOf } from "../../types/bill";
 import type { PendingBill } from "../../types/bill";
@@ -75,7 +75,7 @@ export default function BillEntry() {
           origin: d.origin, dest: d.dest, serviceGroup: d.serviceGroup,
           qty: v.qty, weight: v.weight,
           width: n(d.width), length: n(d.length), height: n(d.height), volume: v.volume,
-          payType: d.payType, pricingType: d.pricingType, unitPrice: n(d.unitPrice), total: v.total,
+          payType: d.payType, term: termOf(d), pricingType: d.pricingType, unitPrice: n(d.unitPrice), total: v.total,
           status: "รอจัดรถ", docNo: "",
           createdAt: stamp, updatedAt: stamp,
         };
@@ -127,7 +127,7 @@ export default function BillEntry() {
               <thead><tr>
                 <th>#</th><th>วันที่</th><th>สาขา</th><th>ผู้ส่ง → ผู้รับ</th><th>เส้นทาง</th>
                 <th>กลุ่มบริการ</th><th className="n">จำนวน</th><th className="n">น้ำหนัก (กก.)</th>
-                <th className="n">ปริมาตร (ลบ.ม.)</th><th>การชำระ</th><th className="n">ราคารวม</th>
+                <th className="n">ปริมาตร (ลบ.ม.)</th><th>การชำระ</th><th className="n">เครดิต (วัน)</th><th className="n">ราคารวม</th>
               </tr></thead>
               <tbody>
                 {review.map((d, i) => {
@@ -144,6 +144,7 @@ export default function BillEntry() {
                       <td className="n">{baht(v.weight)}</td>
                       <td className="n">{v.volume.toFixed(3)}</td>
                       <td>{d.payType}</td>
+                      <td className="n">{termOf(d) ?? "–"}</td>
                       <td className="n"><b>{baht(v.total)}</b></td>
                     </tr>
                   );
@@ -154,7 +155,7 @@ export default function BillEntry() {
                 <td className="n">{baht(review.reduce((s, d) => s + derive(d).qty, 0))}</td>
                 <td className="n">{baht(review.reduce((s, d) => s + derive(d).weight, 0))}</td>
                 <td className="n">{review.reduce((s, d) => s + derive(d).volume, 0).toFixed(3)}</td>
-                <td />
+                <td /><td />
                 <td className="n"><b>{baht(review.reduce((s, d) => s + derive(d).total, 0))}</b></td>
               </tr></tfoot>
             </table>
@@ -233,6 +234,11 @@ export default function BillEntry() {
                     <select value={d.payType} onChange={(e) => set(i, { payType: e.target.value })}>
                       {PAY_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
                     </select></div>
+                  <div className="f"><label>ระยะเวลาเครดิต (วัน)</label>
+                    {isCash(d.payType)
+                      ? <input value="0 (เงินสด)" disabled />
+                      : <input type="number" min={0} step={1} value={d.term} placeholder="เช่น 30"
+                          onChange={(e) => set(i, { term: e.target.value })} />}</div>
                   <div className="f"><label>เกณฑ์คิดราคา</label>
                     <select value={d.pricingType} onChange={(e) => set(i, { pricingType: e.target.value })}>
                       {PRICE_BASIS.map((p) => <option key={p} value={p}>{p}</option>)}

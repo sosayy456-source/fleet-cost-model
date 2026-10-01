@@ -16,6 +16,8 @@ export interface Draft {
   sender: string; receiver: string; origin: string; dest: string; serviceGroup: string;
   qty: string; weight: string; width: string; length: string; height: string;
   payType: string; pricingType: string; unitPrice: string;
+  /** ระยะเวลาเครดิต (วัน) — บิลเชื่อต้องกรอก · บิลเงินสด = 0 เสมอ (เจ้าของงานสั่ง 1 ต.ค. 2569 · ใช้คิด DSO ของข้อมูลใหม่) */
+  term: string;
 }
 
 export const emptyDraft = (): Draft => ({
@@ -23,8 +25,15 @@ export const emptyDraft = (): Draft => ({
   date: todayISO(), branch: BRANCHES[0] ?? "",
   sender: "", receiver: "", origin: "", dest: "", serviceGroup: SERVICE_GROUPS_V2[0],
   qty: "", weight: "", width: "", length: "", height: "",
-  payType: PAY_TYPES[0], pricingType: PRICE_BASIS[0], unitPrice: "",
+  payType: PAY_TYPES[0], pricingType: PRICE_BASIS[0], unitPrice: "", term: "",
 });
+
+/** บิลเงินสด (สดต้นทาง/สดปลายทาง) ไม่มีเครดิต */
+export const isCash = (payType: string): boolean => payType.startsWith("สด");
+
+/** เครดิตที่จะบันทึก — เงินสด = 0 · ว่าง = null */
+export const termOf = (d: Pick<Draft, "payType" | "term">): number | null =>
+  isCash(d.payType) ? 0 : d.term.trim() === "" ? null : Math.round(Number(d.term));
 
 /** ช่องตัวเลขที่เก็บเป็นสตริง → ตัวเลข (ว่าง/พิมพ์ผิด = 0) */
 export const n = (s: string): number => Number(s) || 0;
@@ -36,6 +45,7 @@ export function problem(d: Draft): string {
   if (!d.origin || !d.dest) return "ยังไม่ได้เลือกต้นทาง/ปลายทาง";
   if (!d.serviceGroup) return "ยังไม่ได้เลือกกลุ่มบริการ";
   if (!d.payType) return "ยังไม่ได้เลือกประเภทการชำระเงิน";
+  if (!isCash(d.payType) && (d.term.trim() === "" || !(Number(d.term) >= 0))) return "ยังไม่ได้กรอกระยะเวลาเครดิต (วัน)";
   // สเปกบังคับ: ทุกค่าต้องมากกว่า 0 — กันบิลที่มีน้ำหนัก/ขนาดเป็น 0 หรือค่าติดลบ
   for (const [label, v] of [["จำนวน", d.qty], ["น้ำหนักรวม", d.weight],
                             ["กว้าง", d.width], ["ยาว", d.length], ["สูง", d.height],
@@ -76,6 +86,7 @@ export function randomDraft(key: string = crypto.randomUUID()): Draft {
     width: String(c.width), length: String(c.length), height: String(c.height),
     payType: pick(PAY_TYPES),
     pricingType,
+    term: pick(["7", "15", "30", "45", "60"]),
     // บาท/กก. · บาท/ชิ้น · บาท/ลบ.ม. — มาจากค่าขนส่งต่อ กก. ตัวเดียวกัน ราคารวมจึงพอ ๆ กัน
     unitPrice: String(pricingType === "คิดตามน้ำหนัก" ? c.perKg : pricingType === "คิดตามปริมาตร" ? c.perM3 : c.perUnit),
   };

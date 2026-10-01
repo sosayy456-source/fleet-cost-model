@@ -9,7 +9,9 @@
  * json จริง = real ไม่งั้น sample
  * (★ Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์ ต้องดู content-type ไม่ใช่แค่ status)
  */
-import { useCallback, useEffect, useState } from "react";
+import { useDataSourceCtx } from "./dataSourceCtx";
+import { mixDebtors } from "./mixSources";
+import { useCallback, useEffect, useState, useMemo } from "react";
 
 export type DebtorDataset = "sample" | "real";
 
@@ -48,6 +50,8 @@ export interface DebtorManifest {
    * ในส่วนลูกหนี้ค้างชำระของแท็บกำไรลูกค้า (Demo) · ไฟล์รุ่นเก่า/ETL รุ่นก่อน 22 ก.ย. 2569 ไม่มี → ใช้ asOf แทน
    */
   refDate?: string | null;
+  /** ตัวกรองแหล่งข้อมูลรวมใบที่บันทึกใหม่ (mixSources.ts) — ค่าเริ่มต้นของช่อง "ข้อมูล ณ วันที่" เป็นวันนี้ ไม่งั้นบิลใหม่ไม่ขึ้น */
+  liveAsOf?: string;
   rows: number;
   skipped: number;
   customers: number;
@@ -138,5 +142,8 @@ export function useDebtors(): DebtorState {
     return () => { alive = false; };
   }, [tick]);
 
-  return { data, error, loading, reload };
+  // ตัวกรองแหล่งข้อมูลของ Executive/Overall Dashboard (dataSource.tsx) — หน้าอื่นไม่มี Provider ได้ไฟล์ล้วน
+  const ctx = useDataSourceCtx();
+  const mixed = useMemo(() => mixDebtors(data, ctx), [data, ctx]);
+  return { data: mixed, error, loading, reload };
 }

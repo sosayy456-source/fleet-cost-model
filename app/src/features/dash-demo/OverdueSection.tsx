@@ -120,7 +120,9 @@ const DEFAULT_AS_OF = "2026-05-31";
  * ค่าเริ่มต้นของ "ข้อมูล ณ วันที่" — ใช้ได้เฉพาะเมื่อไฟล์มีใบวางบิลก่อนวันนั้น ไม่งั้นทุกใบ "ยังไม่วางบิล" หน้าจะว่าง
  * min = วันวางบิลแรกของชุดที่แสดง · Executive Summary ใช้ตัวเดียวกันคิดคะแนน DSO
  */
-export function defaultAsOf(min: string | null, m: Pick<DebtorManifest, "refDate" | "asOf">): string {
+export function defaultAsOf(min: string | null, m: Pick<DebtorManifest, "refDate" | "asOf" | "liveAsOf">): string {
+  // รวมใบที่บันทึกใหม่ (ตัวกรองแหล่งข้อมูล) = วันนี้ ไม่งั้นบิลหลังวันที่ตั้งต้นของไฟล์ไม่ขึ้นเลย
+  if (m.liveAsOf) return m.liveAsOf;
   return min && min <= DEFAULT_AS_OF ? DEFAULT_AS_OF : m.refDate ?? m.asOf;
 }
 
@@ -133,7 +135,8 @@ export default function OverdueSection({ state, branch, onAsOf, onInfo }: {
   const rows = useMemo(() => data ? (branch ? data.rows.filter((r) => r.br === branch) : data.rows) : [], [data, branch]);
   const range = useMemo(() => {
     if (!data) return { min: null, max: null };
-    if (!branch) return data.manifest.dateRange;
+    // รวมใบที่บันทึกใหม่ = ช่วงของไฟล์ใช้ไม่ได้ คิดจากแถวจริง
+    if (!branch && !data.manifest.liveAsOf) return data.manifest.dateRange;
     let min: string | null = null, max: string | null = null;
     for (const r of rows) {
       if (!min || r.issue < min) min = r.issue;
