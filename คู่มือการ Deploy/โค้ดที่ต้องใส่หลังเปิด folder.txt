@@ -1,3 +1,7 @@
+===== Windows =====
+
+ติดตั้งครั้งแรก: ดับเบิลคลิก คู่มือการ Deploy\ติดตั้งครั้งแรก\ติดตั้งครั้งแรก.cmd (ครั้งเดียว)
+
 1.เปิดเซิร์ฟ Dev (localhost:5173) -> หากใส่ข้อมูลจริงแล้วค้างหรือหน่วงให้ ใช้วิธีที่ 2
 
 cd app
@@ -10,7 +14,28 @@ cd app
 npm.cmd run build:real
 npm.cmd run serve:real
 
-ก่อนเริ่ม: เปิดโฟลเดอร์ที่มี app กับ etl อยู่ข้างใน แล้วพิมพ์ cd app
+หมายเหตุ: เปิดโฟลเดอร์ที่มี app กับ etl อยู่ข้างใน แล้วพิมพ์ cd app
 (ถ้าเปิดโฟลเดอร์ชั้นนอกที่ได้จากการแตก zip ให้พิมพ์ cd fleet-cost-model-main\app แทน)
 
 
+===== Mac =====
+
+ติดตั้งครั้งแรก: ดับเบิลคลิก คู่มือการ Deploy/ติดตั้งครั้งแรก/ติดตั้งครั้งแรก-mac.command (ครั้งเดียว)
+ถ้า macOS ไม่ยอมเปิด ให้เปิด Terminal พิมพ์ sh เว้นวรรค ลากไฟล์นั้นมาวาง แล้วกด Enter
+(เครื่องที่ไม่มี Homebrew ต้องติดตั้งจาก https://brew.sh ก่อน)
+
+1.เปิดเซิร์ฟ Dev (localhost:5173) -> หากใส่ข้อมูลจริงแล้วค้างหรือหน่วงให้ ใช้วิธีที่ 2
+
+cd app
+npm ci
+npm run dev
+
+2.สร้าง Build + เซิร์ฟ (localhost:4174) -> Build หลังใส่ข้อมูลจริง เพื่อเปิดเซิร์ฟเวอร์ 4174
+
+cd app
+npm run build:real
+npm run serve:real
+
+หมายเหตุ: Mac ใช้ npm (ไม่มี .cmd) และใช้ / แทน \ ในที่อยู่โฟลเดอร์
+(ถ้าเปิดโฟลเดอร์ชั้นนอกที่ได้จากการแตก zip ให้พิมพ์ cd fleet-cost-model-main/app แทน)
+ไฟล์ข้อมูลจริงวางที่ etl/data/Loadfactor · etl/data/Dashboard real data · etl/data/revenue เหมือน Windows
