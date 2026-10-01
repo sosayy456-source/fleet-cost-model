@@ -41,6 +41,7 @@ python etl/build_custmap.py "แปลงรหัสลูกหนี้รว
 python etl/build_fleet.py "ทะเบียนในกองรถ.xlsx"   # → refdata/fleet.json (899 คัน · ไฟล์ 24 ก.ย. 2569) + เติมสาขาใน enums.json
 python etl/build_costrev.py --dataset sample|real  # ต้นทุน+รายได้รายเที่ยว → public/data/<ds>/costrev/ (openpyxl ล้วน)
 python etl/build_loadfactor.py --dataset sample|real  # Load Factor รายเที่ยว → public/data/<ds>/loadfactor/
+python etl/check_match.py --dataset real   # ตรวจการจับคู่ไฟล์ต้นทุน ↔ รายได้ รายเดือน/รายไฟล์ (ไฟล์ถูกข้ามเพราะขาดคอลัมน์ · รูปแบบเลขที่ใบต่างกัน) พิมพ์แค่จำนวน/ชื่อคอลัมน์ ไม่พิมพ์ค่า
 ```
 
 `build_costrev.py` อ่าน `.xlsx` ด้วย **python-calamine** (เร็วกว่า openpyxl ~10 เท่า ไฟล์รายได้จริงเดือนละ ~110k แถว) ถอยไป openpyxl ถ้าไม่มี · **calamine คืนเซลล์ตัวเลขเป็น float เสมอ** เลขที่ใบรายการ 13 หลักจะกลายเป็น `"6250753132426.0"` ถ้าไม่ตัด `.0` ทิ้งใน `text()` จะจับคู่หายไปเงียบ ๆ (ตอนพบ: ได้ 526 แทน 536) · **อ่านไฟล์รายได้หลังไฟล์ต้นทุนเสมอ** แล้วเก็บบิลเฉพาะใบที่มีในไฟล์ต้นทุน — ข้อมูลรายได้จริง 29 ไฟล์เกือบ 2 ล้านแถว ถ้าเก็บทุกใบจะกินหน่วยความจำหลาย GB
