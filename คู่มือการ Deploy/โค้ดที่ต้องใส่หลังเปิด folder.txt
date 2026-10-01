@@ -1,11 +1,11 @@
 1.เปิดเซิร์ฟ Dev (localhost:5173) -> หากใส่ข้อมูลจริงแล้วค้างหรือหน่วงให้ ใช้วิธีที่ 2
 
-cd app
+cd fleet-cost-model-main\app
 npm.cmd ci
 npm.cmd run dev
 
 2.สร้าง Build + เซิร์ฟ (localhost:4174) -> Build หลังใส่ข้อมูลจริง เพื่อเปิดเซิร์ฟเวอร์ 4174
 
-cd app
+cd fleet-cost-model-main\app
 npm.cmd run build:real
 npm.cmd run serve:real
