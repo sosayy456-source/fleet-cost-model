@@ -128,4 +128,4 @@ else {
 Write-Host ""
 Write-Host "เสร็จแล้ว ✓" -ForegroundColor Green
 Write-Host "เปิดโมเดล: เปิด cmd ในโฟลเดอร์ app แล้วพิมพ์  npm.cmd run dev   → http://localhost:5173/fleet-cost-model/"
-Write-Host "ดูคำสั่งอื่นใน คู่มือการ Deploy\โค้ดสำหรับใส่ใน Terminal.txt"
+Write-Host "ดูคำสั่งอื่นใน คู่มือการ Deploy\โค้ดที่ต้องใส่หลังเปิด folder.txt"
