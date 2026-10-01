@@ -39,9 +39,10 @@ import { REC_LEVEL_LABEL, recommendations } from "../../lib/pi/recommend";
 import { damageRef, damageResults } from "../../lib/pi/damage";
 import type { DamageRef } from "../../lib/pi/damage";
 import type { IndexDef, IndexStatus, MetricKey, MetricResult } from "../../lib/pi/score";
+import { inProfitScope } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
 import { PeriodFF, fmt, pct } from "../dash-costrev/common";
-import { passDemo, passLfDemo } from "./filter";
+import { DEMO_F0, passDemo, passLfDemo } from "./filter";
 import type { DemoFilter } from "./filter";
 
 /**
@@ -96,6 +97,11 @@ const marginAll = (trips: { rev: number; profit: number }[]): number | null => {
 
 /** คะแนนทศนิยมไม่เกิน 1 ตำแหน่ง — 6.25 → "6.3" · 10 → "10" */
 const sc = (n: number): string => n.toLocaleString("en-US", { maximumFractionDigits: 1 });
+
+/** "(72.5%)" ตัวเล็กต่อท้าย x/20 ของกล่องหมวด — % ของคะแนนเต็มหมวด (เจ้าของงานขอ 1 ต.ค. 2569 · /10 กับ /100 ไม่ใส่) */
+function PctOf({ v, full }: { v: number; full: number }) {
+  return <small className="pi-pct">({sc(full ? v / full * 100 : 0)}%)</small>;
+}
 
 type Report = (id: string, results: MetricResult[]) => void;
 const PiReportCtx = createContext<Report | null>(null);
@@ -424,7 +430,7 @@ export function PiRow({ index, results: raw, note }: { index: IndexDef; results:
       <div className="pi-row-sc">
         <h4 className="pi-t">{index.title} <small className="pi-bsc">{index.bsc}</small></h4>
         <StatusChip status={indexStatus(results)} />
-        <div className="pi-score"><b>{max ? sc(score) : "–"}</b><span>/{full}</span><Delta v={catDelta} /></div>
+        <div className="pi-score"><b>{max ? sc(score) : "–"}</b><span>/{full}{max > 0 && <PctOf v={score} full={full} />}</span><Delta v={catDelta} /></div>
         <Meter v={score} max={full} cls="pi-meter" />
         {daily ? <em className="pi-row-part">{DAILY_NA}</em>
           : max > 0 && max < full && <em className="pi-row-part">คิดได้ {max} จาก {full}</em>}
@@ -438,34 +444,42 @@ export function PiRow({ index, results: raw, note }: { index: IndexDef; results:
 }
 
 /**
- * Service Quality = Damage Performance (On-time Delivery ตัดออกแล้ว) — DR + DIR ตัวละ 10 เทียบ P75 (lib/pi/damage.ts)
- *   trips = เที่ยวที่กรองตามหน้า · refTrips = ชุดอ้างอิง 12 เดือนล่าสุดตามตัวกรองยกเว้นเวลา (tripRefOf · InDex_revised v2.md
- *   — เดิมภาพรวมบริษัทไม่ตามตัวกรอง) · null = ไฟล์ต้นทุนยังไม่มี
- *   นับเฉพาะเที่ยวที่จับคู่บิลได้และไม่ใช่เที่ยววิ่งเปล่า ตัวหารเดียวกับแท็บ Damage
+ * Service Quality = Damage Performance — ให้สี DR / DIR รายเดือนด้วย P25/P75 แล้วนับสี (เจ้าของงานเลือก 1 ต.ค. 2569 · lib/pi/damage.ts)
+ *   Current KPI ตามตัวกรอง ปี / ช่วงเดือน / วันที่ / สาขา เท่านั้น (ตัวกรองอื่นของหน้าไม่มีผล — ไฟล์กำหนด) ·
+ *   ชุดอ้างอิง P25/P75 = KPI รายเดือนของทั้งบริษัท (ไม่ตามสาขา) ในช่วง Reference Baseline · ไม่เทียบ Baseline = ช่วงที่เลือกเอง
+ *   นับเที่ยวที่จับคู่บิลได้ + เที่ยววิ่งเปล่า (inProfitScope · เจ้าของงานสั่ง 1 ต.ค. 2569) ตัวหารเดียวกับแท็บ Damage
  */
+/** ตัวกรองของ Damage = เฉพาะเวลา + สาขาจากตัวกรองของ PI */
+export const damageFilterOf = (f: DemoFilter): DemoFilter =>
+  ({ ...DEMO_F0, year: f.year, from: f.from, to: f.to, d1: f.d1, d2: f.d2, br: f.br, noBase: f.noBase });
+/** ชุดอ้างอิงของ Damage — ทั้งบริษัทเสมอ (ไม่ใช้ Baseline ระดับสาขา) */
 export const serviceRef = (ref: TripRef | null): DamageRef | null => {
   if (!ref) return null;
-  const ok = (ts: Trip[]) => ts.filter((t) => t.m && !t.empty);
+  const base = ref.trips.filter(inProfitScope);
   if (ref.self) {
-    const d = damageRef(ok(ref.trips), null);
+    const d = damageRef(base, null);
     return { ...d, ref: selfRefSet(d.dirValues, "เดือน") };
   }
-  // สาขามีเดือนใน Baseline ถึง 12 = P75 จาก KPI รายเดือนของสาขา · ไม่ถึง = บริษัท
-  const base = ok(ref.trips), bra = ref.branch ? ok(ref.branch) : null;
-  const ones = (ts: Trip[]) => [...new Set(ts.map((t) => t.mo))].map(() => 1);
-  const sv = scopedValues(ones(base), bra && ones(bra), ref.br, "เดือน", BRANCH_MIN_MONTHLY);
-  return damageRef(bra && sv.scope.startsWith("ระดับสาขา") ? bra : base, ref.b, sv.scope);
+  return damageRef(base, ref.b, "ระดับบริษัท");
 };
 export const servicePiResults = (trips: Trip[] | null, ref: DamageRef | null, period?: string): MetricResult[] =>
-  (trips && ref ? damageResults(trips.filter((t) => t.m && !t.empty), ref)
+  (trips && ref ? damageResults(trips.filter(inProfitScope), ref)
     : INDEXES.service.subs.map((key): MetricResult => ({ key, pending: false, tally: null, score: null }))).map((r) => withPeriod(r, period));
-export function PiService({ trips, refs, period }: { trips: Trip[] | null; refs: TripRef | null; period?: string }) {
-  const ref = useMemo(() => serviceRef(refs), [refs]);
-  const results = useMemo(() => servicePiResults(trips, ref, period), [trips, ref, period]);
-  const note = ref && (ref.p75Dr != null || ref.p75Dir != null)
-    ? `นับสีรายเดือน: เขียว < P75 · เหลือง P75 ถึง < 2×P75 · แดง ≥ 2×P75 · P75 จาก KPI รายเดือนของ ${ref.ref.label}:`
-      + ` Damage Rate ${ref.p75Dr == null ? "–" : `${ref.p75Dr.toFixed(3)}%`} · Damage Incidence Rate ${ref.p75Dir == null ? "–" : `${ref.p75Dir.toFixed(2)}%`}`
-      + ` · เดือนที่มีเที่ยวน้อยกว่า ${fmt(ref.minTrips)} เที่ยวไม่นับใน Incidence`
+/** all = ทุกเที่ยวในชุดกำไร (ไม่กรอง) · f = ตัวกรองของ PI (piF) — ใช้แค่เวลา + สาขา */
+export function damagePiResults(all: Trip[] | null, f: DemoFilter): { results: MetricResult[]; ref: DamageRef | null } {
+  if (!all) return { results: servicePiResults(null, null), ref: null };
+  const df = damageFilterOf(f);
+  const ev = tripEvalOf(all, df);
+  const ref = serviceRef(tripRefOf(all, { ...df, br: "" }));
+  return { results: servicePiResults(ev.trips, ref, ev.label), ref };
+}
+export function PiService({ all, f }: { all: Trip[] | null; f: DemoFilter }) {
+  const { results, ref } = useMemo(() => damagePiResults(all, f), [all, f]);
+  const note = ref && ref.p25Dr != null
+    ? `ให้สีรายเดือน ≤ P25 เขียว · P25 – P75 เหลือง · > P75 แดง แล้วนับสี · P25/P75 จาก KPI รายเดือนของทั้งบริษัท (${ref.ref.label}):`
+      + ` Damage Rate ${ref.p25Dr.toFixed(3)}% / ${ref.p75Dr == null ? "–" : `${ref.p75Dr.toFixed(3)}%`}`
+      + ` · Damage Incidence Rate ${ref.p25Dir == null ? "–" : `${ref.p25Dir.toFixed(2)}%`} / ${ref.p75Dir == null ? "–" : `${ref.p75Dir.toFixed(2)}%`}`
+      + " · ตามตัวกรอง ปี / ช่วงเดือน / วันที่ / สาขา เท่านั้น"
     : undefined;
   return <PiBox index={INDEXES.service} results={results} note={note} />;
 }
@@ -554,10 +568,10 @@ export function PiCost({ trips, refs, period }: { trips: Trip[] | null; refs: Tr
 
 /**
  * การ์ด Damage Rate ข้างกล่อง Service Quality — ใบเดียวกับการ์ดแรกของแท็บ Damage Rate ใน Executive Dashboard
- * นับเฉพาะเที่ยวที่จับคู่บิลได้ และไม่ใช่เที่ยววิ่งเปล่า (ตัวหารเดียวกับแท็บนั้น) · ตามตัวกรองของหน้า Demo
+ * นับเที่ยวที่จับคู่บิลได้ + เที่ยววิ่งเปล่า (ตัวหารเดียวกับแท็บนั้น) · ตามตัวกรองของหน้า Demo
  */
 export function DamageRateBox({ trips }: { trips: Trip[] | null }) {
-  const kpi = useMemo(() => (trips ? totalDamage(trips.filter((t) => t.m && !t.empty)) : null), [trips]);
+  const kpi = useMemo(() => (trips ? totalDamage(trips.filter(inProfitScope)) : null), [trips]);
   // 4 ตัวเลขชุดเดียวกับหัวแท็บ Damage Rate ของ Overall Dashboard (DamageTab.tsx) รวมในกล่องแดงกล่องเดียว เรียงบนลงล่าง
   // (เจ้าของงานสั่ง 28 ก.ย. 2569 — รุ่นแรกเป็น 4 การ์ด 2×2 แยกสี)
   const rows: { l: string; v: string; s: string }[] = [
@@ -648,7 +662,7 @@ export function PiTotal({ reports }: { reports: Record<string, MetricResult[]> }
                 <span className="pi-jump-h"><i>{i + 1}</i>{g.index.title}</span>
                 {/* คะแนน + ป้ายสถานะต่อท้ายตัวเลข (ชุดเดียวกับกล่อง Index ของหมวด · เจ้าของงานสั่ง 29 ก.ย. 2569) */}
                 <span className="pi-jump-row">
-                  <span className="pi-jump-sc"><b>{r.max ? sc(r.score) : "–"}</b>/{full}</span>
+                  <span className="pi-jump-sc"><b>{r.max ? sc(r.score) : "–"}</b>/{full}{r.max > 0 && <PctOf v={r.score} full={full} />}</span>
                   <StatusChip status={indexStatus(g.results)} />
                 </span>
                 <Meter v={r.score} max={full} cls="pi-bar" />

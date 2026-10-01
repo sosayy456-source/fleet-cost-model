@@ -45,11 +45,13 @@ export default function Part2({ rows }: { rows: VRow[] }) {
 
   if (!d.list.length) return <div className="dz-cc"><p className="dz-note">ไม่มีเที่ยวของรถบริษัทที่มีค่าเสื่อมในปีที่เลือก</p></div>;
   return <>
-    <div className="dz-heroes">
+    <div className="dz-heroes hero-align">
       <Hero kind="cost" l="ค่าเสื่อมสะสมทั้งหมด" v={fmt(d.totalDep)} unit="บาท"
         s={<>{fmt(d.list.length)} เที่ยว จาก {fmt(kinds.length)} ชนิด (เฉพาะรถบริษัท)</>} />
-      <Hero kind="profit" l="กำไรก่อนหักค่าเสื่อม เฉลี่ย/เที่ยว" v={fmt(d.avgContribution)} unit="บาท" s="กำไร + ค่าเสื่อม" />
-      <Hero kind="svc" l="coverage เฉลี่ยรวม" v={fmt(d.avgCoverage, 2)} unit="เท่า" s="Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม" />
+      <Hero kind="profit" l="กำไรก่อนหักค่าเสื่อม เฉลี่ย/เที่ยว" v={fmt(d.avgContribution)} unit="บาท"
+        s={`${fmt(d.totalContribution)}\u00a0บาท ÷ ${fmt(d.list.length)}\u00a0เที่ยว`} note="(กำไร + ค่าเสื่อม) ÷ จำนวนเที่ยว" />
+      <Hero kind="svc" l="coverage เฉลี่ยรวม" v={fmt(d.avgCoverage, 2)} unit="เท่า"
+        s={`${fmt(d.totalContribution)} ÷ ${fmt(d.totalDep)}\u00a0บาท`} note="Σกำไรก่อนหักค่าเสื่อม ÷ Σค่าเสื่อม" />
       <Hero kind="loss" l="เที่ยวที่ไม่คุ้มค่าเสื่อม" v={fmt(d.notWorth)} vSub={`/ ${fmt(d.list.length)} เที่ยว`}
         s={`coverage ต่ำกว่า ${fmt(DEP_BREAKEVEN, 2)} เท่า`} />
     </div>

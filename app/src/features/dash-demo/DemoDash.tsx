@@ -30,7 +30,7 @@ import RouteProfitTabRaw from "./RouteProfitTab";
 import Item2TabRaw from "./Item2Tab";
 import Item3TabRaw from "./Item3Tab";
 import CustomerProfitTabRaw from "./CustomerProfitTab";
-import { DEMO_F0, passDemo } from "./filter";
+import { DEMO_F0, passDemo, sgName } from "./filter";
 import type { DemoFilter } from "./filter";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
@@ -125,12 +125,8 @@ export default function DemoDash() {
     dests: duniq(all.map((t) => t.de)),
     fleetTypes: duniq(all.map((t) => t.ft)),
     vehicles: duniq(all.map((t) => t.vk)),
-    services: duniq(all.map((t) => t.sg || "ไม่ระบุ")),
+    services: duniq(all.map(sgName)),
   }), [all]);
-  const emptyAll = useMemo(() => data?.trips ?? [], [data]);
-  const emptyBranchTrips = useMemo(() => emptyAll.filter((t) => !fv.br || t.br === fv.br), [emptyAll, fv.br]);
-  const emptyTrips = useMemo(() => emptyAll.filter((t) => passDemo(t, fv)), [emptyAll, fv]);
-  const emptyTripsAnyYear = useMemo(() => emptyAll.filter((t) => passDemo(t, fv, { ignoreYear: true })), [emptyAll, fv]);
   const trips = useMemo(() => all.filter((t) => passDemo(t, fv)), [all, fv]);
   // ข้อ 3 ส่วนที่ 1 เทียบปีที่เลือกกับปีก่อนหน้า — ต้องได้เที่ยวทุกปีที่ผ่านตัวกรองอื่น
   const tripsAnyYear = useMemo(() => all.filter((t) => passDemo(t, fv, { ignoreYear: true })), [all, fv]);
@@ -319,7 +315,7 @@ export default function DemoDash() {
           {!tripsState && <div className={stale ? "dm-overview dm-stale" : "dm-overview"}><RouteProfitTab trips={all} f={fv} overview /></div>}
           {part("route", <>{tripsState ?? <RouteProfitTab trips={all} f={fv} partTitle={ROUTE_LABEL} />}<hr className="dm-pi-sep" />
             <PiRoute trips={piTrips} refs={piRefs} period={piEval?.label} /></>)}
-          {part("item2", <>{tripsState ?? <Item2Tab all={emptyBranchTrips} trips={emptyTrips} tripsAnyYear={emptyTripsAnyYear} f={fv} costSample={m?.isSample}
+          {part("item2", <>{tripsState ?? <Item2Tab all={all} trips={trips} tripsAnyYear={tripsAnyYear} f={fv} costSample={m?.isSample}
             onInfo={registerItem2Info} />}
             <PiFleet f={piF} all={piRef} /></>)}
           {part("item3", <>{tripsState ?? <Item3Tab trips={trips} costTrips={tripsAnyYear} year={fv.year} />}
@@ -333,7 +329,7 @@ export default function DemoDash() {
           {part("svc", <div className="pi-pair">
             {/* การ์ด Damage Rate ใบเดียวกับแท็บ Damage — ตามตัวกรองของหน้า ไม่ใช่ช่วงที่ประเมินของ PI */}
             <DamageRateBox trips={m && !error ? trips : null} />
-            <PiService trips={piTrips} refs={piRefs} period={piEval?.label} />
+            <PiService all={piRef} f={piF} />
           </div>)}
           {part("pi", <PiTotal reports={pi.reports} />)}
           {part("rec", <PiRecommend reports={pi.reports} />)}

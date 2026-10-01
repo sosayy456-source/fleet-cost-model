@@ -30,9 +30,15 @@ const LABEL: Record<DemoKey, string> = {
 const ORDER: DemoKey[] = ["year", "month", "br", "o", "de", "ft", "vk", "sg"];
 const isSet = (f: DemoFilter, k: DemoKey): boolean => (k === "month" ? isPartialYear(f) : !!f[k]);
 
-/** เที่ยวผ่านตัวกรองของหน้า — กลุ่มบริการว่าง = "ไม่ระบุ" (กติกาเดิมของแท็บกำไรรายเส้นทาง) */
+/**
+ * ชื่อกลุ่มบริการบนจอ (ตัวกรอง · คอลัมน์ป็อบอัพ) — เที่ยวเปล่า = "เที่ยววิ่งเปล่า" · มีรายได้แต่ไม่มีกลุ่ม = "ไม่ระบุ"
+ * (เจ้าของงานสั่ง 1 ต.ค. 2569 — เดิมทั้งสองแบบรวมเป็น "ไม่ระบุ" ซึ่งเกือบทั้งหมดคือเที่ยวเปล่า)
+ */
+export const sgName = (t: Trip): string => (t.empty ? "เที่ยววิ่งเปล่า" : t.sg || "ไม่ระบุ");
+
+/** เที่ยวผ่านตัวกรองของหน้า — กลุ่มบริการเทียบด้วย sgName */
 export const passDemo = (t: Trip, f: DemoFilter, opts?: Parameters<typeof passBase>[2]): boolean =>
-  passBase(t, f, opts) && (!f.br || t.br === f.br) && multiHas(f.sg, t.sg || "ไม่ระบุ");
+  passBase(t, f, opts) && (!f.br || t.br === f.br) && multiHas(f.sg, sgName(t));
 
 /** เที่ยวของไฟล์ Load Factor ผ่านตัวกรองของหน้า — ไฟล์ LF มีแค่ ปี · เดือน · ประเภทรถ · ชนิดรถ
  *  (ใช้ทั้งกล่อง LF ของข้อ 2 และคะแนน Load Factor ของ Performance Index ให้นับชุดเดียวกัน) */

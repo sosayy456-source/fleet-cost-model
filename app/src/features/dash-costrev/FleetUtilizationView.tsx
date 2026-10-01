@@ -58,18 +58,19 @@ export default function FleetUtilizationView({ rows, trips, use }: { rows: Fleet
   }, [routes, openRt, trips]);
 
   return <>
-    <div className="dz-heroes fleet-util-heroes">
+    <div className="dz-heroes fleet-util-heroes hero-align">
       <Hero kind="fleet" l="จำนวนรถที่ใช้งานจริง" v={fmt(kpi.vehicles)} s="คัน · นับทะเบียนไม่ซ้ำ" />
       <Hero kind="rev" l="จำนวนเที่ยววิ่งรวม" v={fmt(kpi.n)} s="เที่ยว · นับเลขที่ใบรายการไม่ซ้ำ" />
-      <Hero kind="svc" l="อัตราหมุนรอบรถเฉลี่ย" v={fmt(kpi.turnover, 1)} s="เที่ยว/คัน · เที่ยวรวม ÷ รถที่ใช้งาน" />
-      <Hero kind={kpi.profitPerVehicle < 0 ? "loss" : "profit"} l="กำไรเฉลี่ยต่อคัน"
-        v={signed(kpi.profitPerVehicle)} s="บาท/คัน · กำไรรวม ÷ รถที่ใช้งาน" />
+      <Hero kind="svc" l="อัตราหมุนรอบรถเฉลี่ย" v={fmt(kpi.turnover, 1)}
+        s={`${fmt(kpi.n)}\u00a0เที่ยว ÷ ${fmt(kpi.vehicles)}\u00a0คัน`} note="เที่ยว/คัน · จำนวนเที่ยววิ่งรวม ÷ จำนวนรถที่ใช้งานจริง" />
+      <Hero kind={kpi.profitPerVehicle < 0 ? "loss" : "profit"} l="กำไรเฉลี่ยต่อคัน" v={signed(kpi.profitPerVehicle)}
+        s={`${signed(kpi.profit)}\u00a0บาท ÷ ${fmt(kpi.vehicles)}\u00a0คัน`} note="บาท/คัน · กำไรรวม ÷ จำนวนรถที่ใช้งานจริง" />
     </div>
     <div className="fleet-util-secondary">
       <KC dot={D.rose} l="รถที่ขาดทุนสะสม" v={`${fmt(kpi.lossVehicles)} คัน`}
         s="รถที่มีเดือนกำไรสุทธิติดลบ · เลือกหลายเดือน รถหนึ่งคันนับครั้งเดียว" />
       <KC dot={D.amber} l="สัดส่วนเที่ยวขาดทุน" v={pct(kpi.lossPct)}
-        s="เที่ยวที่กำไรสุทธิติดลบ ÷ เที่ยวทั้งหมด" />
+        s={`${fmt(kpi.lossTrips)} ÷ ${fmt(kpi.n)}\u00a0เที่ยว`} note="เที่ยวที่กำไรสุทธิติดลบ ÷ เที่ยวทั้งหมด × 100" />
     </div>
     <div className="fleet-util-secondary fu-use">
       {/* Meter ไม่ใช่ KC — แถบยาวตามค่าจริง (KC วาดแถบเต็มเสมอ ค่า 2% จะดูเหมือน 100%) */}

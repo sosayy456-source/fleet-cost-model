@@ -17,8 +17,6 @@ import { DWaterfall } from "../../lib/chart/dcharts";
 import { D } from "../../lib/chart/theme";
 import TruckLoader from "../../lib/ui/TruckLoader";
 import { DEMO_F0 } from "../dash-demo/filter";
-import { PiTotal } from "../dash-demo/PiIndex";
-import { useSummaryPiReports } from "./usePiReports";
 import { Hero, Note, Pane } from "../dash-fleet/parts";
 import { fmt, pct } from "../dash-costrev/common";
 import { rollupCustomers } from "../dash-demo/CustomerProfitTab";
@@ -39,9 +37,6 @@ export default function SummaryTab({ onRecommend }: { onRecommend: () => void })
   const custRows = useMemo(() => (alloc.data?.custMonths ? rollupCustomers(alloc.data, DEMO_F0) : null), [alloc.data]);
   const loss = useMemo(() => (custRows ? customerLoss(custRows) : null), [custRows]);
 
-  // ผลรายหมวดชุดเดียวกับกล่อง PI ของ Executive Dashboard (usePiReports.ts — ใช้ร่วมแท็บ Performance Index/Recommendations)
-  const reports = useSummaryPiReports();
-
   if (cr.error) return <div className="card"><div className="banner">{cr.error}</div></div>;
   if (!all || !tot || !steps) return <div className="card"><p className="muted">กำลังโหลดข้อมูล... <TruckLoader label={null} /></p></div>;
 
@@ -60,11 +55,8 @@ export default function SummaryTab({ onRecommend }: { onRecommend: () => void })
 
   return (
     <Pane deps={[all]}>
-      {/* คะแนนรวม Performance Index เป็นกล่องแรก (เจ้าของงานสั่ง 29 ก.ย. 2569 — เดิมอยู่ใต้การ์ดเด่น) */}
-      <PiTotal reports={reports} />
-
-      {/* การ์ดเด่นชุดเดียวกับ Profit Per Route */}
-      <div className="dz-heroes es-block">
+      {/* การ์ดเด่นชุดเดียวกับ Profit Per Route · กล่องคะแนนรวม PI ย้ายไปบนสุดของแท็บ Performance Index (เจ้าของงานสั่ง 1 ต.ค. 2569) */}
+      <div className="dz-heroes">
         <Hero kind={tot.profit < 0 ? "loss" : "profit"} l={tot.profit < 0 ? "ขาดทุนสุทธิ" : "กำไรสุทธิ"}
           v={mb(Math.abs(tot.profit))} unit="ล้านบาท" s="รายได้ – ต้นทุน" />
         <Hero kind="rev" l="รายได้รวม" v={mb(tot.rev)} unit="ล้านบาท" s={`${fmt(tot.n)} เที่ยว`} />

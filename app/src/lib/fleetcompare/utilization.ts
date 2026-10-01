@@ -96,9 +96,11 @@ export function fleetKpis(rows: FleetSlice[]) {
   const lossVehicles = new Set(monthly.filter((r) => r.profit < 0).map((r) => JSON.parse(r.key)[0] as string)).size;
   const n = total?.n ?? 0;
   const vehicles = total?.vehicles ?? 0;
+  const lossTrips = docs.filter((r) => r.profit < 0).length;
+  // profit / lossTrips = ตัวตั้งของการ์ด (แสดงตัวเลขจริงแทนสูตร · 1 ต.ค. 2569)
   return { n, vehicles, turnover: vehicles ? n / vehicles : 0,
-    profitPerVehicle: total?.perVehicle ?? 0, lossVehicles,
-    lossPct: n ? docs.filter((r) => r.profit < 0).length / n * 100 : 0 };
+    profit: total?.profit ?? 0, profitPerVehicle: total?.perVehicle ?? 0, lossVehicles,
+    lossTrips, lossPct: n ? lossTrips / n * 100 : 0 };
 }
 
 /* ------------------------------------------------------------------------------------------------

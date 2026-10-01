@@ -69,11 +69,13 @@ export function overview(trips: Trip[]) {
   const withTkm = withKm.filter((t) => (t.wt ?? 0) > 0);
   const km = sum(withKm, (t) => t.km!);
   const tkm = sum(withTkm, (t) => t.km! * t.wt!);
+  // kmCost/km · tkmCost/tkm = ตัวตั้ง/ตัวหารของการ์ด (แสดงตัวเลขจริงแทนสูตร · 1 ต.ค. 2569)
+  const kmCost = sum(withKm, (t) => t.cost), tkmCost = sum(withTkm, (t) => t.cost);
   return {
-    cost, n: trips.length,
+    cost, n: trips.length, km, tkm, kmCost, tkmCost,
     perTrip: trips.length ? cost / trips.length : 0,
-    perKm: km ? sum(withKm, (t) => t.cost) / km : 0,
-    perTkm: tkm ? sum(withTkm, (t) => t.cost) / tkm : 0,
+    perKm: km ? kmCost / km : 0,
+    perTkm: tkm ? tkmCost / tkm : 0,
     noKm: trips.length - withKm.length, noTkm: trips.length - withTkm.length,
   };
 }
@@ -325,7 +327,7 @@ export function depreciation(rows: VRow[]) {
     const status: DepStatus = vsAvg < DEP_LOW_PCT ? "low" : vsAvg < 0 ? "watch" : "ok";
     return { ...r, vc, contribution, coverage, worth: coverage >= DEP_BREAKEVEN, vsAvg, status };
   });
-  return { list, avgCoverage, totalDep, noDep: company.length - base.length,
+  return { list, avgCoverage, totalDep, totalContribution, noDep: company.length - base.length,
     avgContribution: avg(list.map((r) => r.contribution)) ?? 0,
     below: list.filter((r) => r.status !== "ok").length,
     notWorth: list.filter((r) => !r.worth).length };
