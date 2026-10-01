@@ -1,6 +1,3 @@
-ก่อนเริ่ม: เปิดโฟลเดอร์ที่มี app กับ etl อยู่ข้างใน แล้วพิมพ์ cd app
-(ถ้าเปิดโฟลเดอร์ชั้นนอกที่ได้จากการแตก zip ของ GitHub ให้พิมพ์ cd fleet-cost-model-main\app แทน)
-
 1.เปิดเซิร์ฟ Dev (localhost:5173) -> หากใส่ข้อมูลจริงแล้วค้างหรือหน่วงให้ ใช้วิธีที่ 2
 
 cd app
@@ -12,3 +9,8 @@ npm.cmd run dev
 cd app
 npm.cmd run build:real
 npm.cmd run serve:real
+
+ก่อนเริ่ม: เปิดโฟลเดอร์ที่มี app กับ etl อยู่ข้างใน แล้วพิมพ์ cd app
+(ถ้าเปิดโฟลเดอร์ชั้นนอกที่ได้จากการแตก zip ให้พิมพ์ cd fleet-cost-model-main\app แทน)
+
+
