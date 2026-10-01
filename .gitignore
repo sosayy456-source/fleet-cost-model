@@ -45,6 +45,9 @@ app/node_modules/
 app/dist/
 # สำเนาเว็บที่ build พร้อมข้อมูลจริง (npm run build:real) — ห้ามขึ้น repo
 app/dist-real/
+# โฟลเดอร์ส่งงาน (npm run pack:real) = dist-real + ตัวเปิดเว็บ — มีข้อมูลจริง ห้ามขึ้น repo
+app/pack-real/
+app/pack-real*.zip
 # ข้อมูลจริงที่ ETL สร้าง ห้ามขึ้น repo (GitHub Pages เป็นเว็บสาธารณะ)
 app/public/data/real/
 # ไฟล์เดิมที่เก็บไว้เทียบตอนตรวจ (app/tools/verify-trips.mjs) — ลบหลังตรวจเสร็จ

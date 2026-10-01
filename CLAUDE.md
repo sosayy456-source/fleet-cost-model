@@ -14,6 +14,7 @@ npm run build             # tsc -b แล้วค่อย vite build
 npm run serve             # build แล้วเปิด preview → http://localhost:4173/fleet-cost-model/  แก้โค้ดแล้วหน้าไม่เปลี่ยนจนกว่าจะรันใหม่ (ไม่มี autoEtl)
 npm run build:real        # สำเนาเว็บ + ข้อมูลจริงแยกไว้ที่ dist-real/ (ติด .gitignore) · ไม่มี real/costrev/manifest.json = ไม่ build
 npm run serve:real        # เปิด dist-real/ → http://localhost:4174/fleet-cost-model/  ไม่เปลี่ยนตามโค้ด/ETL จนกว่าจะ build:real ใหม่
+npm run pack:real         # dist-real/ + ตัวเปิดเว็บ → pack-real/ (ติด .gitignore) zip เดียวส่งเครื่องอื่น ไม่ต้องมี Node · Windows พิมพ์ run-model ใน cmd (PowerShell HttpListener) · Mac sh run-model.sh (python3/ruby) · เว็บอยู่ site/fleet-cost-model/ ให้ตรง base · tools/pack/
 npm test                  # vitest run — 20 ตัว
 npm test -- src/lib/cost/computeCost.test.ts     # เฉพาะไฟล์เดียว
 npm test -- -t "ชื่อเทส"                          # เฉพาะเคสเดียว
