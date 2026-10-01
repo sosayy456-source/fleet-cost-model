@@ -167,7 +167,7 @@ IndexedDB (`lib/store/records.ts`, db `fleet-cost-model`) เป็นหลั�
 
 ## กติกาที่พลาดแล้วพัง
 
-**`index.css` ส่วนที่ 1 คัดลอกมาจาก `<style>` ของ `index.html` บน branch `main` ทั้งดุ้น ห้ามแก้** ของใหม่ให้เติมในส่วนที่ 2 ท้ายไฟล์ (มีคอมเมนต์คั่นไว้) — เทียบความตรงด้วยการ diff กับต้นฉบับได้
+**`index.css` ส่วนที่ 1 คัดลอกมาจาก `<style>` ของ `index.html` บน branch `main-เดิม` (เดิมคือ `main` · ย้าย 1 ต.ค. 2569) ทั้งดุ้น ห้ามแก้** ของใหม่ให้เติมในส่วนที่ 2 ท้ายไฟล์ (มีคอมเมนต์คั่นไว้) — เทียบความตรงด้วยการ diff กับต้นฉบับได้
 
 **โทเคนสีของแดชบอร์ด (`--d-card`, `--d-ink`, `--d-num`) ประกาศไว้ใต้ `#view-dash` เท่านั้น** ทุกหน้าจึงต้องถูกครอบด้วย `<section class="view active" id="view-...">` ใน `App.tsx` ถ้าลืม ตัวแปรจะเป็นค่าว่าง กราฟกับตัวกรองกลายเป็นพื้นใสโดยไม่มี error
 
@@ -194,9 +194,9 @@ sheetTotal = แก๊ส + น้ำมัน + ค่าแรง + ค่า�
 
 ## branch และ deploy
 
-`main` กับ `โมเดล-Anda` **แยกกันคนละสายโดยตั้งใจ** — `main` คือไฟล์ HTML เดี่ยวเวอร์ชันเก่า ใช้เป็น**ต้นแบบดีไซน์อ่านอย่างเดียว** (`git show origin/main:index.html`) **ห้าม merge เข้ามา**
+**`main` = สำเนาของ `โมเดล-Anda` ตั้งแต่ 1 ต.ค. 2569** (เจ้าของงานสั่ง — force-push ทับ) · ไฟล์ HTML เดี่ยวเวอร์ชันเก่าที่เคยอยู่บน `main` ย้ายไปสาย **`main-เดิม`** ใช้เป็น**ต้นแบบดีไซน์อ่านอย่างเดียว** (`git show origin/main-เดิม:index.html`) **ห้าม merge `main-เดิม` เข้ามา** (ไม่มีประวัติร่วมกัน) · งานทำบน `โมเดล-Anda` แล้ว push ทั้งสองสายให้ตรงกัน (`git push origin โมเดล-Anda:main`)
 
-push ขึ้น `โมเดล-Anda` = deploy ขึ้น GitHub Pages อัตโนมัติ workflow บังคับ `VITE_DATASET=sample` เสมอ และ fail ทันทีถ้าเจอไฟล์ใน `app/public/data/real/`
+push ขึ้น `โมเดล-Anda` **หรือ `main`** = deploy ขึ้น GitHub Pages อัตโนมัติ (สองสายต้องตรงกัน ไม่งั้นเว็บสลับรุ่นตามสายที่ push ล่าสุด) workflow บังคับ `VITE_DATASET=sample` เสมอ และ fail ทันทีถ้าเจอไฟล์ใน `app/public/data/real/`
 
 `base: "/fleet-cost-model/"` ใน `app/vite.config.ts` ต้องตรงกับชื่อ repo ตั้งผิดแล้ว asset 404 ทั้งหน้า
 

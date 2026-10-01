@@ -6,7 +6,8 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ["โมเดล-Anda"]
+    # main = สำเนาของ โมเดล-Anda (1 ต.ค. 2569) — push สายไหนก็ deploy · สองสายต้องตรงกัน
+    branches: ["โมเดล-Anda", "main"]
   workflow_dispatch:
 
 permissions:
