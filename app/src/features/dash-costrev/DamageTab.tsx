@@ -11,7 +11,8 @@
  *   เลือกเดือนเดียว = ไม่ใช้ P75 เป็นเกณฑ์ (ไม่จัดระดับ/คำแนะนำ ไม่มี Alert ซ่อนเส้น P75) · กราฟแท่งนับทุกกลุ่ม ไม่ตัดกลุ่มเที่ยวน้อย
  *   (เจ้าของงานเลือก) แต่ Damage Alert ยังนับเฉพาะกลุ่ม ≥ MIN_TRIPS_ALERT เที่ยว
  *
- * ★ ตัวหาร = เที่ยวที่จับคู่บิลได้ **ไม่รวมเที่ยววิ่งเปล่า** (เจ้าของงานเคาะ 20 ก.ย. 2569)
+ * ★ ตัวหาร = เที่ยวที่จับคู่บิลได้ **+ เที่ยววิ่งเปล่า** (ชุด inProfitScope · เจ้าของงานสั่ง 1 ต.ค. 2569 — เดิม 20 ก.ย. 2569 ไม่รวมเที่ยวเปล่า)
+ *   DR ไม่เปลี่ยน (เที่ยวเปล่ารายได้ 0) · DIR / P75 ของ DIR / กราฟแท่ง นับเที่ยวเปล่าในตัวหาร
  * ★ มูลค่าความเสียหายมาจากบิลในไฟล์รายได้ (clrAmt/clrN) จึงมีเฉพาะเที่ยวที่ m = true
  *   หน้า "Dashboard ค่าเดินทาง(ไม่ใช้)" จึงขึ้นข้อจำกัดแทน · ไม่ใช้ธง clear จากไฟล์ต้นทุน (ไม่ตรงกับบิลจริง)
  * ★ ตัวกรองมีสามชุดที่ขอบเขตไม่เท่ากัน — สลับกันแล้วตัวเลขผิดโดยไม่มี error:
@@ -40,6 +41,7 @@ import {
 } from "../../lib/damage/damage";
 import type { DamageAgg, DamageLevel, DamagePeriod, DamageThresholds } from "../../lib/damage/damage";
 import type { Col } from "./common";
+import { inProfitScope } from "../../lib/data/useCostRev";
 import type { Trip } from "../../lib/data/useCostRev";
 
 /** จำนวนแท่งของกราฟชนิดรถ/เส้นทาง (เจ้าของงานสั่ง 27 ก.ย. 2569 — เดิมเส้นทาง 10 · ชนิดรถเป็นวงกลม 5 + อื่น ๆ) */
@@ -107,10 +109,10 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
   const toggleLine = (k: string) =>
     setHidden((p) => (p.includes(k) ? p.filter((x) => x !== k) : p.length < LINES.length - 1 ? [...p, k] : p));
 
-  // เที่ยวที่จับคู่บิลได้ และไม่ใช่เที่ยววิ่งเปล่า — หน้า exec กรอง m มาให้แล้ว กรองซ้ำกันพลาด
-  const base = useMemo(() => trips.filter((t) => t.m && !t.empty), [trips]);
-  /** เที่ยวเปล่าที่จับคู่ได้ ตัดออกจากตัวหาร — โชว์ในหมายเหตุให้ตรวจยอดได้ */
-  const emptyN = useMemo(() => trips.filter((t) => t.m && t.empty).length, [trips]);
+  // เที่ยวที่จับคู่บิลได้ + เที่ยววิ่งเปล่า — หน้า exec กรองมาให้แล้ว กรองซ้ำกันพลาด
+  const base = useMemo(() => trips.filter(inProfitScope), [trips]);
+  /** เที่ยวเปล่าที่ไม่ได้อยู่ในยอดจับคู่ได้ — บวกเข้าฐาน โชว์ในหมายเหตุให้ตรวจยอดได้ */
+  const emptyN = useMemo(() => trips.filter((t) => !t.m && t.empty).length, [trips]);
 
   const timed = useMemo(() => base.filter((t) => inPeriod(t, f)), [base, f]);
   const th = useMemo(() => damageThresholds(timed), [timed]);
@@ -221,8 +223,8 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
   const { sorted, sort, toggle } = useSort(shown, cols, { key: "level", dir: -1 });
 
   const unfiltered = !isFiltered(f, F0);
-  /** ฐานที่ควรได้ = เที่ยวที่จับคู่บิลได้ ลบเที่ยววิ่งเปล่าที่ตัดออกจากตัวหาร */
-  const expectedN = matchedTotal - emptyN;
+  /** ฐานที่ควรได้ = เที่ยวที่จับคู่บิลได้ + เที่ยววิ่งเปล่า */
+  const expectedN = matchedTotal + emptyN;
   const balanced = kpi.n === expectedN;
   const setDim = (k: keyof Dims) => (v: string) => setF((p) => ({ ...p, [k]: v }));
   const setTDim = (k: keyof Dims) => (v: string) => setTf((p) => ({ ...p, [k]: v }));
@@ -243,22 +245,25 @@ export default function DamageTab({ trips, matchedTotal, isSample }: {
       <Pane deps={[rows]}>
         {/* Row 1 การ์ดใหญ่ · Row 2 การ์ดเล็ก — ลำดับตาม `dashboard คชจ.pdf` หน้า 3 (เจ้าของงานเลือก 23 ก.ย. 2569) */}
         {/* แถว 1 = 4 ใบ · แถว 2 = 2 ใบ ตามไฟล์ "dashboard คชจ.md" (27 ก.ย. 2569) */}
-        <div className="dz-heroes dmg-heroes">
-          <Hero kind="loss" l="Damage Rate" v={kpi.rate == null ? "–" : pct(kpi.rate, 3)} s="มูลค่าบิลเคลียร์ ÷ รายได้รวม" />
-          <Hero kind="fleet" l="Damage Incidence Rate" v={pct(kpi.incidence, 2)} s="เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมด" />
+        {/* บรรทัดล่าง = ตัวเลขจริงของสูตร · สูตรอยู่หลังปุ่ม i มุมขวาล่าง · hero-align = ตัวเลข/บรรทัดล่างแนวเดียวกันทุกใบ (เจ้าของงานสั่ง 1 ต.ค. 2569) */}
+        <div className="dz-heroes dmg-heroes hero-align">
+          <Hero kind="loss" l="Damage Rate" v={kpi.rate == null ? "–" : pct(kpi.rate, 3)}
+            s={`${fmt(kpi.clrAmt, 2)} ÷ ${fmt(kpi.rev)}\u00a0บาท`} note="มูลค่าบิลเคลียร์ ÷ รายได้รวม × 100" />
+          <Hero kind="fleet" l="Damage Incidence Rate" v={pct(kpi.incidence, 2)}
+            s={`${fmt(kpi.dmgTrips)} ÷ ${fmt(kpi.n)}\u00a0เที่ยว`} note="เที่ยวที่มีบิลเคลียร์ ÷ เที่ยวทั้งหมด (รวมเที่ยววิ่งเปล่า) × 100" />
           <Hero kind="rev" l="มูลค่าบิลเคลียร์" v={fmt(kpi.clrAmt, 2)} s="บาท · มูลค่าความเสียหาย" />
           <Hero kind="warn" l="จำนวนเที่ยวที่มีบิลเคลียร์" v={fmt(kpi.dmgTrips)} s="เที่ยว · มีบิลเคลียร์อย่างน้อย 1 รายการ" />
         </div>
         <div className="dz-cards dmg-cards2">
           <KC dot={D.emerald} l="รายได้รวม" v={fmt(kpi.rev)} s="บาท · เฉพาะเที่ยวที่จับคู่ได้" />
-          <KC dot={D.indigo} l="จำนวนเที่ยวทั้งหมด" v={fmt(kpi.n)} s="เที่ยว · ฐานของทุกอัตรา" />
+          <KC dot={D.indigo} l="จำนวนเที่ยวทั้งหมด" v={fmt(kpi.n)} s="เที่ยว · รวมเที่ยววิ่งเปล่า · ฐานของ Damage Incidence Rate" />
         </div>
         <Note>
           รวม <b>{fmt(kpi.n)}</b> เที่ยว
           {unfiltered && (balanced
-            ? <> · ตรงกับเที่ยวที่จับคู่กับไฟล์รายได้ได้ {fmt(matchedTotal)} เที่ยว หักเที่ยววิ่งเปล่า {fmt(emptyN)} เที่ยว = {fmt(expectedN)} ✓</>
-            : <b style={{ color: "var(--red)" }}> · ไม่ตรงกับฐานที่ควรได้ ({fmt(expectedN)} เที่ยว = จับคู่ได้ {fmt(matchedTotal)} − วิ่งเปล่า {fmt(emptyN)}) — มีเที่ยวตกหล่นจากการรวมยอด</b>)}
-          {!unfiltered && <> · กรองอยู่ เทียบกับฐานทั้งหมด {fmt(expectedN)} เที่ยว (จับคู่ได้ {fmt(matchedTotal)} − วิ่งเปล่า {fmt(emptyN)})</>}
+            ? <> · ตรงกับเที่ยวที่จับคู่กับไฟล์รายได้ได้ {fmt(matchedTotal)} เที่ยว + เที่ยววิ่งเปล่า {fmt(emptyN)} เที่ยว = {fmt(expectedN)} ✓</>
+            : <b style={{ color: "var(--red)" }}> · ไม่ตรงกับฐานที่ควรได้ ({fmt(expectedN)} เที่ยว = จับคู่ได้ {fmt(matchedTotal)} + วิ่งเปล่า {fmt(emptyN)}) — มีเที่ยวตกหล่นจากการรวมยอด</b>)}
+          {!unfiltered && <> · กรองอยู่ เทียบกับฐานทั้งหมด {fmt(expectedN)} เที่ยว (จับคู่ได้ {fmt(matchedTotal)} + วิ่งเปล่า {fmt(emptyN)})</>}
           {th.months > 0 && !th.usable && (
             <b style={{ color: "var(--orange-dark)" }}>
               {" "}· ช่วงที่เลือกมีข้อมูลเดือนเดียว ไม่ใช้ P75 เป็นเกณฑ์ — ไม่จัดระดับ/คำแนะนำ และไม่มี Damage Alert ·

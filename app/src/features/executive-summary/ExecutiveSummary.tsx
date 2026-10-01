@@ -60,7 +60,9 @@ function IndexTab({ jump, onJumped }: { jump: string | null; onJumped: () => voi
     const id = requestAnimationFrame(() => { jumpToIndex(jump); onJumped(); });
     return () => cancelAnimationFrame(id);
   }, [jump, onJumped]);
+  // กล่องคะแนนรวมบนสุด (เจ้าของงานสั่ง 1 ต.ค. 2569 — ย้ายมาจากแท็บ Summary) แล้วกล่องรายหมวด
   return <div className="es-pi">
+    <PiTotal reports={reports} />
     {box(INDEXES.route)}
     {box(INDEXES.fleet)}
     {box(INDEXES.cost)}
@@ -69,7 +71,6 @@ function IndexTab({ jump, onJumped }: { jump: string | null; onJumped: () => voi
       <DamageRateBox trips={all} />
       {box(INDEXES.service)}
     </div>
-    <PiTotal reports={reports} />
   </div>;
 }
 

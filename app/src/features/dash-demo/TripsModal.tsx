@@ -15,6 +15,7 @@ import { thDateSafe } from "../../lib/record/date";
 import { SortTable, fmt, marginTone, pct, signed, useSort } from "../dash-costrev/common";
 import type { Col } from "../dash-costrev/common";
 import type { Trip } from "../../lib/data/useCostRev";
+import { sgName } from "./filter";
 
 export default function TripsModal({ rt, trips, onClose, note, showRoute, initialSort }: {
   rt: string; trips: Trip[]; onClose: () => void; note?: string;
@@ -37,7 +38,7 @@ export default function TripsModal({ rt, trips, onClose, note, showRoute, initia
     { key: "pl", label: "ทะเบียนรถ", get: (t) => t.pl || "–" },
     { key: "ft", label: "ประเภทรถ", get: (t) => t.ft },
     { key: "vk", label: "ชนิดรถ", get: (t) => t.vk },
-    { key: "sg", label: "กลุ่มบริการ", get: (t) => t.sg || "ไม่ระบุ" },
+    { key: "sg", label: "กลุ่มบริการ", get: sgName },
     { key: "bn", label: "บิล", get: (t) => t.bn, num: true },
     { key: "rev", label: "รายได้", get: (t) => t.rev, num: true },
     { key: "cost", label: "ต้นทุน", get: (t) => t.cost, num: true },

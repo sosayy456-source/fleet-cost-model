@@ -52,15 +52,17 @@ const barsHeight = (rows: number, perRow = 34): number => Math.max(180, rows * p
 export default function Part1({ trips, rows }: { trips: Trip[]; rows: VRow[] }) {
   const o = useMemo(() => overview(trips), [trips]);
   return <>
-    <div className="dz-heroes">
-      <Hero kind="cost" l="ต้นทุนรวม" v={fmt(o.cost)} unit="บาท" s="SUM(ต้นทุนรวม) ของปีที่เลือก" />
+    <div className="dz-heroes hero-align">
+      <Hero kind="cost" l="ต้นทุนรวม" v={fmt(o.cost)} unit="บาท" s={`รวม ${fmt(o.n)} เที่ยว`} note="SUM(ต้นทุนรวม) ของปีที่เลือก" />
       <Hero kind="fleet" l="จำนวนเที่ยว" v={fmt(o.n)} s="เที่ยว · นับเลขที่ใบรายการ" />
-      <Hero kind="svc" l="ต้นทุนเฉลี่ย/เที่ยว" v={fmt(o.perTrip)} unit="บาท" s="ต้นทุนรวม ÷ จำนวนเที่ยว" />
+      <Hero kind="svc" l="ต้นทุนเฉลี่ย/เที่ยว" v={fmt(o.perTrip)} unit="บาท"
+        s={`${fmt(o.cost)}\u00a0บาท ÷ ${fmt(o.n)}\u00a0เที่ยว`} note="ต้นทุนรวม ÷ จำนวนเที่ยว" />
     </div>
     <div className="dz-cards">
-      <KC dot={D.teal} l="ต้นทุนเฉลี่ย/กม." v={dec(o.perKm)} s={<>บาท/กม. · ไม่นับ {fmt(o.noKm)} เที่ยวที่ไม่มีระยะทาง</>} />
-      <KC dot={D.violet} l="ต้นทุนเฉลี่ย/ตัน-กม." v={dec(o.perTkm)}
-        s={<>บาท/ตัน-กม. · SUM ÷ SUM · ไม่นับ {fmt(o.noTkm)} เที่ยวที่ไม่มีระยะทางหรือน้ำหนัก</>} />
+      <KC dot={D.teal} l="ต้นทุนเฉลี่ย/กม." v={dec(o.perKm)} s={`${fmt(o.kmCost)}\u00a0บาท ÷ ${fmt(o.km)}\u00a0กม.`}
+        note={<>บาท/กม. · ต้นทุนรวม ÷ ระยะทางรวม · ไม่นับ {fmt(o.noKm)} เที่ยวที่ไม่มีระยะทาง</>} />
+      <KC dot={D.violet} l="ต้นทุนเฉลี่ย/ตัน-กม." v={dec(o.perTkm)} s={`${fmt(o.tkmCost)}\u00a0บาท ÷ ${fmt(o.tkm)}\u00a0ตัน-กม.`}
+        note={<>บาท/ตัน-กม. · SUM(ต้นทุน) ÷ SUM(น้ำหนัก × ระยะทาง) · ไม่นับ {fmt(o.noTkm)} เที่ยวที่ไม่มีระยะทางหรือน้ำหนัก</>} />
     </div>
     <KindChart rows={rows} />
     <RouteKind rows={rows} />

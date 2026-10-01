@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { damageRef, damageResults, damageStatus, kpiTone } from "./damage";
+import { damageRef, damageResults, damageStatus, kpiBand } from "./damage";
 import type { DamageRef } from "./damage";
 import type { Baseline } from "./baseline";
 import type { DamageTrip } from "../damage/damage";
@@ -8,53 +8,68 @@ import type { DamageTrip } from "../damage/damage";
 const month = (mo: string, n: number, d: number, c = 10): DamageTrip[] =>
   Array.from({ length: n }, (_, i) => ({ mo, rev: 1000, clrAmt: i < d ? c : 0, clrN: i < d ? 1 : 0 }));
 
-/** Baseline ครบ 365 วัน (ผู้เรียกตัดเที่ยวในช่วงมาให้แล้ว) */
+/** Baseline ครบ 12 เดือน (ผู้เรียกตัดเที่ยวในช่วงมาให้แล้ว) */
 const B: Baseline = { start: "2025-06-01", end: "2026-05-31", months: 12, spanMonths: 12, full: true, first: "2024-01-01" };
 /** DamageRef ที่ตั้งค่าเอง — ทดสอบการให้สีโดยไม่ต้องสร้างเที่ยว Baseline */
-const mk = (p75Dr: number, p75Dir: number, minTrips: number): DamageRef =>
-  ({ p75Dr, p75Dir, months: 12, minTrips, drValues: [], dirValues: [], ref: { values: [1], label: "Baseline", ok: true } });
+const mk = (p25Dir: number, p75Dir: number, p25Dr = 0.01, p75Dr = 0.04): DamageRef => ({
+  p25Dr, p75Dr, p25Dir, p75Dir, months: 12, drValues: [], dirValues: [],
+  ref: { values: [1], label: "Baseline", ok: true },
+});
 
-describe("Reference Baseline + สีของ KPI (Methodology 29 ก.ย. 2569)", () => {
-  it("P75 จาก KPI รายเดือนของเที่ยวที่ส่งมา (Baseline) · Baseline ไม่ครบ 365 วัน = N/A", () => {
-    const base = ["2025-06", "2025-07", "2025-08", "2025-09"].flatMap((mo) => month(mo, 50, 1));
-    expect(damageRef(base, B)).toMatchObject({ months: 4, p75Dir: 2 });
+describe("Damage Performance ให้สีรายเดือนแล้วนับสี (เจ้าของงานเลือก 1 ต.ค. 2569)", () => {
+  it("ระดับ: ≤ P25 เขียว · P25 < KPI ≤ P75 เหลือง · > P75 แดง (ขอบพอดีอยู่ระดับที่ดีกว่า)", () => {
+    expect([0, 1, 1.01, 3, 3.01].map((k) => kpiBand(k, 1, 3))).toEqual(["g", "g", "y", "y", "r"]);
+    expect(kpiBand(1, null, 3)).toBeNull();
+  });
+  it("ให้สีทีละเดือน · คะแนน = (เขียว + 0.5 × เหลือง) ÷ จำนวนเดือน × 10", () => {
+    // DIR รายเดือน 0% (เขียว) · 2% (เหลือง) · 4% (แดง) → (1 + 0.5) ÷ 3 × 10 = 5
+    const [, dir] = damageResults([...month("2026-01", 50, 0), ...month("2026-02", 50, 1), ...month("2026-03", 50, 2)], mk(1, 3));
+    expect(dir.tally).toEqual({ g: 1, y: 1, r: 1, n: 3 });
+    expect(dir.score).toBe(5);
+    // ค่ารวมของช่วง 2% ใช้ตีความ (Actual) อย่างเดียว
+    expect(dir.tone).toBe("y");
+    expect(dir.actual?.v).toBe("2.00%");
+  });
+  it("ไม่ใช่ค่ารวม: สองเดือนแดง + เขียว ได้ 5 แม้ค่ารวมจะเป็นเหลือง", () => {
+    // DIR 0% กับ 4% → ค่ารวม 2% (เหลือง) แต่นับรายเดือน เขียว 1 แดง 1 = 5
+    const [, dir] = damageResults([...month("2026-01", 50, 0), ...month("2026-02", 50, 2)], mk(1, 3));
+    expect(dir.tally).toEqual({ g: 1, y: 0, r: 1, n: 2 });
+    expect(dir.score).toBe(5);
+  });
+  it("P75 = 0: เดือนที่ไม่มีบิลเคลียร์เขียว · มีบิลเคลียร์แดง (ตามเงื่อนไขสี ไม่ต้องมีกรณีพิเศษ)", () => {
+    const [, dir] = damageResults([...month("2026-01", 50, 0), ...month("2026-02", 50, 1)], mk(0, 0));
+    expect(dir.tally).toEqual({ g: 1, y: 0, r: 1, n: 2 });
+    expect(dir.score).toBe(5);
+  });
+  it("เดือนที่รายได้ 0 ไม่นับใน DR แต่ยังนับใน DIR", () => {
+    const trips = [...month("2026-01", 50, 0), ...month("2026-02", 50, 0).map((t) => ({ ...t, rev: 0 }))];
+    const [dr, dir] = damageResults(trips, mk(1, 3));
+    expect(dr.tally?.n).toBe(1);
+    expect(dir.tally?.n).toBe(2);
+  });
+  it("ไม่มีกติกาเที่ยวขั้นต่ำ — เที่ยวน้อยก็ให้คะแนน", () => {
+    const [, few] = damageResults(month("2026-07", 3, 0), mk(1, 3));
+    expect(few.score).toBe(10);
+  });
+  it("P25/P75 = PERCENTILE.INC ของ KPI รายเดือน · Baseline ไม่ครบ = N/A", () => {
+    const base = ["2025-06", "2025-07", "2025-08", "2025-09", "2025-10"].flatMap((mo, i) => month(mo, 50, i));
+    // DIR รายเดือน 0, 2, 4, 6, 8 → P25 = 2 · P75 = 6
+    expect(damageRef(base, B)).toMatchObject({ months: 5, p25Dir: 2, p75Dir: 6 });
     const short = damageRef(base, { ...B, full: false, first: "2025-06-01" });
     const [dr, dir] = damageResults(month("2026-06", 50, 1), short);
     expect(dr).toMatchObject({ score: null, na: "Baseline ไม่ครบ" });
     expect(dir).toMatchObject({ score: null, na: "Baseline ไม่ครบ" });
   });
-  it("สี (แก้ Performance Index.pdf): เขียว < P75 · เหลือง P75 ถึง < 2×P75 · แดง ≥ 2×P75", () => {
-    expect([1, 1.99, 2, 3.99, 4, 9].map((k) => kpiTone(k, 2))).toEqual(["g", "g", "y", "y", "r", "r"]);
-    expect([kpiTone(0, null), kpiTone(1, null)]).toEqual(["g", "r"]);
+  it("คะแนน Baseline = เดือนในช่วงอ้างอิง ให้สีด้วยเกณฑ์ชุดเดียวกัน แล้วนับสี", () => {
+    const base = ["2025-06", "2025-07", "2025-08", "2025-09", "2025-10"].flatMap((mo, i) => month(mo, 50, i));
+    // DIR 0, 2 (≤ P25 2) เขียว · 4, 6 เหลือง · 8 แดง → (2 + 1) ÷ 5 × 10 = 6
+    const [, dir] = damageResults(month("2026-06", 50, 0), damageRef(base, B));
+    expect(dir.base?.tally).toEqual({ g: 2, y: 2, r: 1, n: 5 });
+    expect(dir.base?.score).toBe(6);
+    expect(dir.score).toBe(10);
   });
-});
-
-describe("ชุดอ้างอิง + กรณีพิเศษ (สเปกข้อ 10)", () => {
-  it("P75 = 0 (เดือนส่วนใหญ่ไม่เสียหาย) ถอยไปใช้เดือนที่มีค่า > 0", () => {
-    const ref = damageRef([...month("2026-01", 50, 0), ...month("2026-02", 50, 0), ...month("2026-03", 50, 0),
-      ...month("2026-04", 50, 0), ...month("2026-05", 50, 2), ...month("2026-06", 50, 4)], B);
-    // Incidence รายเดือน 0,0,0,0,4,8 → P75 = 3 (ไม่ใช่ 0) · ถ้าได้ 0 ก็ถอยไปใช้ [4, 8]
-    expect(ref.p75Dir).toBe(3);
-    const zero = damageRef([...month("2026-01", 50, 0), ...month("2026-02", 50, 0), ...month("2026-03", 50, 0),
-      ...month("2026-04", 50, 0), ...month("2026-05", 50, 2)], B);
-    expect(zero.p75Dir).toBe(4);           // P75 ของ [0,0,0,0,4] = 0 → ใช้เดือนที่มีค่า [4]
-  });
-  it("เที่ยวขั้นต่ำต่อเดือน = 100 ÷ (2 × P75 ของ DIR) — เดือนที่เที่ยวน้อยไม่นับ", () => {
-    const ref = mk(0.04, 2.5, Math.ceil(100 / 5));
-    const [, few] = damageResults(month("2026-07", 19, 1), ref);
-    expect(few).toMatchObject({ score: null, na: "ข้อมูลไม่เพียงพอ" });
-    const [, ok] = damageResults(month("2026-07", 20, 0), ref);
-    expect(ok.score).toBe(10);
-  });
-  it("นับสีรายเดือน: (เขียว + 0.5 × เหลือง) ÷ เดือน × 10", () => {
-    const ref = mk(0.04, 2, 25);
-    // DIR รายเดือน 0% (เขียว) · 2% (เหลือง = P75 พอดี) · 4% (แดง = 2×P75)
-    const [, dir] = damageResults([...month("2026-01", 50, 0), ...month("2026-02", 50, 1), ...month("2026-03", 50, 2)], ref);
-    expect(dir.tally).toEqual({ g: 1, y: 1, r: 1, n: 3 });
-    expect(dir.score).toBe(5);
-  });
-  it("ไม่มีเที่ยว → ไม่มีเที่ยว · ทุกเดือนรายได้ 0 → DR ประเมินไม่ได้ (ไม่ใช่ 0)", () => {
-    const ref = mk(0.04, 2.5, 20);
+  it("ไม่มีเที่ยว → ไม่มีเที่ยว · รายได้รวม 0 → DR ประเมินไม่ได้ (ไม่ใช่ 0)", () => {
+    const ref = mk(1, 3);
     const [dr, dir] = damageResults([], ref);
     expect(dr).toMatchObject({ score: null, na: "ไม่มีเที่ยว" });
     expect(dir).toMatchObject({ score: null, na: "ไม่มีเที่ยว" });
@@ -66,9 +81,9 @@ describe("ชุดอ้างอิง + กรณีพิเศษ (สเ�
       { key: "dr" as const, pending: false, tally: null, score: a },
       { key: "dir" as const, pending: false, tally: null, score: b },
     ];
-    expect(damageStatus(r(7.5, 7.5))).toBe("pass");
+    expect(damageStatus(r(10, 5))).toBe("pass");
     expect(damageStatus(r(5, 5))).toBe("watch");
-    expect(damageStatus(r(5, 4.99))).toBe("fail");
+    expect(damageStatus(r(5, 0))).toBe("fail");
     expect(damageStatus(r(10, null))).toBeNull();
   });
 });
