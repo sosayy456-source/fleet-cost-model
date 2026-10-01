@@ -108,7 +108,7 @@ VEHICLES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "vehicles.json"
 COL_KINDS = ("ชนิดรถ", "ชนิดทะเบียนคันที่2", "ชนิดทะเบียนพ่วง")
 
 SAMPLE_COST = HERE / "sample_data" / "ExampleCost.xlsx"   # เปลี่ยนชื่อไฟล์ 22 ก.ย. 2569
-SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
+SAMPLE_REV_DIR = HERE / "sample_data" / "revenue"
 REAL_COST_DIR = HERE / "data" / "Dashboard real data"   # = REAL_COST_DIR ของ build_costrev.py
 REAL_REV_DIR = HERE / "data" / "revenue"
 

@@ -36,7 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
 # ไฟล์ตัวอย่างยังอยู่ที่เดิมของแอป Streamlit — ไม่ก็อปมาซ้ำเพราะรวมกันเกือบ 30 MB
-SAMPLE_DIR = os.path.join(ROOT, "RevenueDashboard", "RevenueDashboard", "sample_data")
+SAMPLE_DIR = os.path.join(ROOT, "etl", "sample_data", "revenue")
 REAL_DIRS = {
     "revenue": os.path.join(HERE, "data", "revenue"),
     "repair": os.path.join(HERE, "data", "repair"),

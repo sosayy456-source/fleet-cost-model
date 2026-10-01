@@ -1,14 +1,15 @@
 # ไฟล์ตัวอย่าง
 
-โฟลเดอร์นี้ **ตั้งใจให้ว่าง** — ไฟล์บิลตัวอย่างจริงอยู่ที่
+ข้อมูลตัวอย่างทั้งหมดของ ETL (`--dataset sample`) อยู่ที่นี่ — สุ่ม/anonymize แล้ว commit ขึ้น repo ได้
 
-    RevenueDashboard/RevenueDashboard/sample_data/
+| ไฟล์/โฟลเดอร์ | ใช้โดย |
+|---|---|
+| `ExampleCost.xlsx` | ต้นทุนรายเที่ยว · `build_costrev.py` · `build_alloc.py` |
+| `revenue/bill_*.xlsx` | บิลรายได้ · `build_costrev.py` · `build_alloc.py` · `build_json.py` (ย้ายมาจาก `RevenueDashboard/RevenueDashboard/sample_data/` 1 ต.ค. 2569 ตอนลบแอป Streamlit เดิม) |
+| `LoadFactor/` | Load Factor · `build_loadfactor.py` |
+| `ExampleDebtors_Randomed.xlsx` | ลูกหนี้ · `build_debtors.py` (สร้างด้วย `gen_sample_debtors.py`) |
 
-`build_json.py --dataset sample` ชี้ไปที่นั่นให้อัตโนมัติ จึงไม่ต้องก็อปมาซ้ำ
-(ไฟล์รวมกัน ~29 MB ถ้าก็อปจะกินพื้นที่ใน git ถาวรโดยไม่จำเป็น)
-
-เมื่อไหร่ที่เลิกใช้แอป Streamlit แล้ว ค่อยย้ายไฟล์ชุดนั้นมาไว้ที่นี่
-แล้วแก้ `SAMPLE_DIR` ใน `build_json.py`
+ไฟล์ชื่อมี `.backup.` และไฟล์ล็อก `~$` ถูก ETL ข้ามเอง
 
 ถ้าจะวางไฟล์ตัวอย่างชุดใหม่ที่นี่ ต้องเป็นข้อมูลที่ anonymize แล้วเท่านั้น
 เพราะโฟลเดอร์นี้ commit ขึ้น repo สาธารณะ

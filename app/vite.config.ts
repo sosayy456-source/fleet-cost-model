@@ -78,12 +78,11 @@ function autoEtl(): Plugin {
 
   /**
    * python ตัวไหนมี pandas — ไล่หา venv ที่รู้จักก่อน แล้วค่อยใช้ตัวบน PATH
-   * python ของระบบมักไม่มี pandas (เครื่องนี้ก็ไม่มี) แต่ venv ของ Streamlit เดิมมีครบ
+   * python ของระบบมักไม่มี pandas (เครื่องนี้ก็ไม่มี)
    */
   const pythonExe = (): string => {
     const candidates = [
       resolve(etlDir, ".venv"),
-      resolve(here, "..", "RevenueDashboard", "RevenueDashboard", "venv"),
     ];
     for (const v of candidates) {
       for (const exe of [resolve(v, "Scripts", "python.exe"), resolve(v, "bin", "python")]) {

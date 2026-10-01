@@ -1,7 +1,7 @@
 """
 cleaning.py
 ============
-แปลงข้อมูลดิบให้พร้อมวิเคราะห์ — ยกมาจาก RevenueDashboard/src/cleaning.py
+แปลงข้อมูลดิบให้พร้อมวิเคราะห์ — ยกมาจาก RevenueDashboard/src/cleaning.py (Streamlit เดิม ลบแล้ว · ดู git history)
 พฤติกรรมการคำนวณเหมือนเดิมทุกอย่าง มีสามอย่างที่เปลี่ยน:
 
 1. เปลี่ยนชื่อ flag_uncleared -> flag_cut_short

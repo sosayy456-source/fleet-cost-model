@@ -2,7 +2,7 @@
 
     python etl/build_costrev.py --dataset sample
         ต้นทุน  etl/sample_data/ExampleCost.xlsx   (รุ่น 22 ก.ย. 2569 — เดิมชื่อ ExampleCostandRevenue.xlsx)
-        รายได้  RevenueDashboard/RevenueDashboard/sample_data/bill_*.xlsx
+        รายได้  etl/sample_data/revenue/bill_*.xlsx
     python etl/build_costrev.py --dataset real
         ต้นทุน  etl/data/Dashboard real data/*.xlsx   (RealCostandRevenue.xlsx)
         รายได้  etl/data/revenue/*.xlsx                (ข้อมูลรายได้จริง)
@@ -97,7 +97,7 @@ OUT_ROOT = ROOT / "app" / "public" / "data"
 ROUTES_JSON = ROOT / "app" / "src" / "lib" / "refdata" / "routes.json"
 
 SAMPLE_COST = HERE / "sample_data" / "ExampleCost.xlsx"
-SAMPLE_REV_DIR = ROOT / "RevenueDashboard" / "RevenueDashboard" / "sample_data"
+SAMPLE_REV_DIR = HERE / "sample_data" / "revenue"
 REAL_COST_DIR = HERE / "data" / "Dashboard real data"
 REAL_REV_DIR = HERE / "data" / "revenue"
 

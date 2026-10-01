@@ -62,10 +62,9 @@ apps-script/Code.gs     ★ โค้ดที่ deploy จริง (v11) — 
 
 ### ไฟล์เก่าที่เก็บไว้อ้างอิง (ไม่ใช้แล้ว)
 
-- `โมเดลเดินรถ-gsheet-v5.html` — ไฟล์เดียว 4.96 MB ที่ใช้งานจริงก่อนรื้อ **หน้าตาของแอปปัจจุบันยกมาจากไฟล์นี้ทั้งหมด**
-- `AppsScript-โค้ด.gs` — สคริปต์ **v9** ใช้กับแอปปัจจุบันไม่ได้ (ไม่มี action `loadTrips` และไม่มีคอลัมน์ workflow 3 ฝ่าย)
-- `AppsScript-โมเดลเดินรถ/` — รุ่นที่รัน UI บน Apps Script โดยตรง เลิกใช้แล้ว
-- `RevenueDashboard/` — แดชบอร์ด Streamlit เดิม ยุบเข้า React หมดแล้ว
+- `โมเดลเดินรถ-gsheet-v5.html` — ไฟล์เดียว 4.96 MB ที่ใช้งานจริงก่อนรื้อ **หน้าตาของแอปปัจจุบันยกมาจากไฟล์นี้ทั้งหมด** · **ลบออกแล้ว 1 ต.ค. 2569** สคริปต์ `app/tools/extract-refdata.mjs` / `gen-golden.mjs` ต้องกู้ไฟล์จาก git history ก่อนรัน (`git show <commit ก่อนลบ>:โมเดลเดินรถ-gsheet-v5.html`)
+- `AppsScript-โค้ด.gs` (v9) และ `AppsScript-โมเดลเดินรถ/` (UI บน Apps Script) — **ลบออกแล้ว 1 ต.ค. 2569** ใช้กับแอปปัจจุบันไม่ได้ ดูย้อนหลังใน git history
+- `RevenueDashboard/` — แดชบอร์ด Streamlit เดิม **ลบออกแล้ว 1 ต.ค. 2569** (บิลรายได้ตัวอย่างย้ายไป `etl/sample_data/revenue/`)
 
 > ⚠️ **เวอร์ชันต้องตรงกัน** — `apps-script/Code.gs` มี `VERSION = 11` และ frontend เช็ค `GS_VERSION = 11` ถ้าไม่ตรงจะบันทึกไม่ได้และขึ้นข้อความบอกให้ Deploy ใหม่
 

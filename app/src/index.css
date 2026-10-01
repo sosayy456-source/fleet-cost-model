@@ -4636,3 +4636,9 @@ html.theme-cherry #view-dash .pi-box .pi-rm-h b .pi-delta.flat{color:#6B7280}
    (กฎ :has(.hero-art) .v{margin-right:150px} ดันวงเล็บไปชิดรูป) */
 #view-dash .dz-kc.hero:has(.hero-art) .vrow{margin-right:150px;gap:8px}
 #view-dash .dz-kc.hero:has(.hero-art) .vrow .v{margin-right:0}
+
+/* การ์ดนับลูกค้า (Customer Performance) ตัวเลขเล็กลง — เลขหลักหมื่น + (xx.x%) เคยทับรูปลูกศร (เจ้าของงานขอ 30 ก.ย. 2569) */
+#view-dash #demo-cust .dz-heroes.cp-heroes > .dz-kc.hero :is(.v,.vrow .v),
+html.theme-cherry #view-dash #demo-cust .dz-heroes.cp-heroes > .dz-kc.hero :is(.v,.vrow .v){font-size:38px}
+#view-dash #demo-cust .dz-heroes.cp-heroes > .dz-kc.hero .vrow .vs,
+html.theme-cherry #view-dash #demo-cust .dz-heroes.cp-heroes > .dz-kc.hero .vrow .vs{font-size:17px}

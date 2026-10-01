@@ -7,7 +7,7 @@ build_json.py เป็นคนวนอ่านทีละไฟล์เอ
 เรียก concat_shared() ต่อกันตอนท้าย — ที่นี่ไม่มีฟังก์ชันที่อ่านทุกไฟล์รวดเดียวแล้ว
 เพราะข้อมูลจริงใหญ่เกินกว่าจะถือทั้งชุดดิบและชุดที่ล้างแล้วพร้อมกัน (ดูหมายเหตุท้ายไฟล์)
 
-เขียนใหม่จาก RevenueDashboard/src/data_loader.py โดยตัด Streamlit ออกทั้งหมด:
+เขียนใหม่จาก RevenueDashboard/src/data_loader.py (Streamlit เดิม ลบแล้ว) โดยตัด Streamlit ออกทั้งหมด:
 - ไม่มี @st.cache_data — ETL เป็น batch job รันครั้งเดียวจบ ไม่มี rerun ให้ต้อง cache
   (กลไก folder_signature เดิมมีไว้เลี่ยงการแฮช DataFrame ใหญ่ทุกครั้งที่เปลี่ยนหน้าเมนู
    ซึ่งเป็นปัญหาเฉพาะของ Streamlit)
