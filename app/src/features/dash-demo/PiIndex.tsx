@@ -35,7 +35,6 @@ import type { Baseline } from "../../lib/pi/baseline";
 import { SERVICE_GROUPS, routeMargin, routeMarginValues, serviceMonthMarginValues } from "../../lib/pi/route";
 import { routeRates } from "../../lib/empty/routeScore";
 import { emptyResult } from "../../lib/pi/empty";
-import { REC_LEVEL_LABEL, recommendations } from "../../lib/pi/recommend";
 import { damageRef, damageResults } from "../../lib/pi/damage";
 import type { DamageRef } from "../../lib/pi/damage";
 import type { IndexDef, IndexStatus, MetricKey, MetricResult } from "../../lib/pi/score";
@@ -843,34 +842,3 @@ function PiDetailModal({ groups, score, max, onClose }: {
   );
 }
 
-/**
- * ส่วน "Recommendation" (เจ้าของงานสั่งเพิ่มแท็บ 28 ก.ย. 2569) — ตัวชี้วัด PI เรียงคะแนนน้อยไปมาก พร้อมแนวทาง
- * อ่านผลชุดเดียวกับกล่องคะแนนรวม ไม่คิดใหม่ · ข้อความแนวทางอยู่ที่ lib/pi/recommend.ts (ร่างแรก)
- * กดการ์ด = เลื่อนไปกล่อง Index ของตัวชี้วัดนั้น
- */
-/** onPick = กดการ์ดแล้วทำอะไร (Executive Summary สลับไปแท็บ Performance Index ก่อน) · ไม่ส่ง = เลื่อนไปกล่อง PI ของหมวดในหน้าเดียวกัน */
-export function PiRecommend({ reports, onPick }: { reports: Record<string, MetricResult[]>; onPick?: (indexId: string) => void }) {
-  const list = useMemo(() => recommendations(reports), [reports]);
-  if (Object.values(reports).some((rs) => rs.some((r) => r.daily)))
-    return <p className="dz-note">{DAILY_NA} — เลือกทั้งเดือนหรือหลายเดือนเต็มเพื่อดูข้อเสนอแนะจากคะแนน Performance Index</p>;
-  if (!list.length) return <p className="dz-note">กำลังคิดคะแนน Performance Index… (ข้อเสนอแนะขึ้นเมื่อกล่อง PI คิดเสร็จ)</p>;
-  return (
-    <div className="pi-rec">
-      {list.map((r, i) => (
-        <button key={r.key} type="button" className={`pi-rec-card ${r.level}`} onClick={() => (onPick ?? jumpToIndex)(r.indexId)}
-          title={`ไปที่ ${r.indexTitle}`}>
-          <span className="pi-rec-no">{i + 1}</span>
-          <span className="pi-rec-main">
-            <span className="pi-rec-h">
-              <b>{r.label}</b>
-              <em className={`pi-rec-lv ${r.level}`}>{REC_LEVEL_LABEL[r.level]}</em>
-            </span>
-            <small>{r.indexTitle}{r.red != null && r.n ? ` · แดง ${fmt(r.red)} จาก ${fmt(r.n)} ${r.unit}` : ""}</small>
-            <span className="pi-rec-a">{r.action}</span>
-          </span>
-          <span className="pi-rec-sc"><b>{sc(r.score)}</b>/{METRIC_MAX}</span>
-        </button>
-      ))}
-    </div>
-  );
-}

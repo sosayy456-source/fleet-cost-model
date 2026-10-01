@@ -38,7 +38,8 @@ import TruckLoader from "../../lib/ui/TruckLoader";
 import { clearDemoNav, DEMO_PARTS, registerDemoNav, setDemoActive, takeDemoPending } from "../../lib/ui/demoNav";
 import * as Pi from "./PiIndex";
 import { firstDay, minEvalStart } from "../../lib/pi/baseline";
-import { PiDailyProvider, PiPeriodProvider, PiRecommend, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import { PiDailyProvider, PiPeriodProvider, PiReportProvider, PiTotal, usePiReports } from "./PiIndex";
+import ExecRecommend from "./ExecRecommend";
 import { PERIOD_ALL, hasDays, periodBounds } from "../../lib/filter/period";
 import type { Period } from "../../lib/filter/period";
 import ThemeScope, { useThemeScope } from "../../lib/ui/ThemeScope";
@@ -344,7 +345,8 @@ function DemoDashBody() {
             <PiService all={piRef} f={piF} />
           </div>)}
           {part("pi", <PiTotal reports={pi.reports} />)}
-          {part("rec", <PiRecommend reports={pi.reports} />)}
+          {/* Recommendation ตามรายงาน 3 หัวข้อ ตัวเลขตามตัวกรองของหน้า (เจ้าของงานสั่ง 1 ต.ค. 2569) */}
+          {part("rec", <ExecRecommend trips={m && !error ? trips : null} f={fv} debtors={debtors} />)}
         </PiDailyProvider>
         </PiPeriodProvider>
         </PiReportProvider>

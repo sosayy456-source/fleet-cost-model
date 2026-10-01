@@ -27,7 +27,6 @@ const FleetStatus = lazyPage(() => import("./features/dash-fleet/FleetDash")
   .then((m) => ({ default: m.FleetStatusPage })));
 const CostRevDash = lazyPage(() => import("./features/dash-costrev/CostRevDash"));
 const DemoDash = lazyPage(() => import("./features/dash-demo/DemoDash"));
-const ExecutiveSummary = lazyPage(() => import("./features/executive-summary/ExecutiveSummary"));
 // Manager Dashboard (เมนู dash-fleet) แทนเนื้อหา FleetDash ทั้งหน้า 26 ก.ย. 2569 — FleetDash ยังใช้ที่สถานะกองรถ
 const ManagerDash = lazyPage(() => import("./features/dash-manager/ManagerDash"));
 import ErrorBoundary from "./lib/ui/ErrorBoundary";
@@ -78,7 +77,6 @@ interface PageDef {
 }
 
 const PAGES: PageDef[] = [
-  { id: "executive-summary", view: "dash", label: "Executive Summary", icon: I.dash, h1: "Executive Summary" },
   // ★ เมนู Demo เดิม — ย้ายขึ้นบนสุดและเปลี่ยนชื่อเป็น "Executive Dashboard" (เจ้าของงานสั่ง 25 ก.ย. 2569)
   //   id ยังเป็น "demo" (hash #/demo · demoNav) · เห็นเฉพาะผู้ดูแลระบบเหมือนเดิม (เจ้าของงานเลือก)
   //   ไอคอนเดียวกับ Dashboard อื่น (I.dash · เจ้าของงานสั่ง 25 ก.ย. 2569 — เดิม I.chart)
@@ -289,7 +287,6 @@ export default function App() {
                 {page === "fleet-status" && <FleetStatus state={state} role={role} sample={isSample} />}
                 {page === "exec-dash" && <CostRevDash records={state.records} />}
                 {page === "demo" && <DemoDash records={state.records} />}
-                {page === "executive-summary" && <ExecutiveSummary />}
               </Suspense>
             </DashPageContext.Provider>
             {page === "driver" && <DriverJobs state={state} role={role} />}
