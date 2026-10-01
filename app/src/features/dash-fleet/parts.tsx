@@ -214,7 +214,7 @@ export function Hero({ kind, l, v, s, unit, trend, vSub, onClick, active, foot, 
 }
 
 /** การ์ดตัวเลขธรรมดา — จุดสีหน้าป้ายมาจากตัวแปร --dot เหมือน main */
-export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon, unit, note }: {
+export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon, unit, note, oneLine }: {
   l: string; v: string; s?: ReactNode;
   /** หน่วยตัวเล็กต่อท้ายตัวเลข เช่น "บาท/บิล" (Profit Per Route · 29 ก.ย. 2569) */
   unit?: string;
@@ -231,6 +231,8 @@ export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon, unit
   icon?: ReactNode;
   /** สูตร/วิธีคิด ซ่อนหลังปุ่ม i มุมขวาล่าง (ชุดเดียวกับ Hero note) */
   note?: ReactNode;
+  /** บรรทัดล่างบรรทัดเดียว ยาวเกินกล่อง = ย่อตัวอักษร (useFitText) — การ์ดที่มี note เป็นแบบนี้อยู่แล้ว */
+  oneLine?: boolean;
 }) {
   const fitS = useFitText();
   const press = onClick ? {
@@ -242,7 +244,8 @@ export function KC({ l, v, s, dot, tone, small, bar, onClick, active, icon, unit
       style={dot ? ({ "--dot": dot } as React.CSSProperties) : undefined} {...press}>
       <div className="l">{dot && <i className="d" />}{l}{icon && <span className="kc-ic" aria-hidden="true">{icon}</span>}</div>
       <div className="v" key={v} data-real={v} style={small ? { fontSize: 15.5 } : undefined}>{v}{unit && <span className="u">{unit}</span>}</div>
-      {s && <div className="s" ref={note ? fitS : undefined}>{s}</div>}
+      {s && <div className="s" ref={note || oneLine ? fitS : undefined}
+        style={oneLine ? { whiteSpace: "nowrap", overflow: "hidden" } : undefined}>{s}</div>}
       {bar && <div className="kbar"><i style={{ background: bar }} /></div>}
       {note && <span className="hero-note"><HeroInfo text={note} /></span>}
     </div>

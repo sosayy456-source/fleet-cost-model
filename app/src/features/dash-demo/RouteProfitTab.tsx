@@ -168,6 +168,11 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
 
   /** เที่ยวที่ขาดทุน — นิยามเดียวกับตัวเศษของ %เที่ยวที่ขาดทุน (กำไร < 0) */
   const lossTrips = useMemo(() => rows.filter((t) => t.profit < 0), [rows]);
+  /** มูลค่าขาดทุนรวมของเที่ยวที่ขาดทุน (บวก) — ≥ 1 ล้าน = ล้านบาททศนิยม 2 ตำแหน่ง */
+  const lossAmt = useMemo(() => {
+    const v = lossTrips.reduce((s, t) => s - t.profit, 0);
+    return v >= 1e6 ? `${fmt(v / 1e6, 2)} ล้านบาท` : `${fmt(Math.round(v))} บาท`;
+  }, [lossTrips]);
 
   /* ---------- 3. กราฟรายเดือน (ตามตัวกรองทั้งหมด รวมปี) ---------- */
   const monthly = useMemo(() => groupBy(rows, (t) => t.mo)
@@ -401,17 +406,17 @@ export default function RouteProfitTab({ trips, f, overview, partTitle }: {
         </div>
         <div className="dz-cards four dm-avg">
           <KC dot={D.indigo} tone={kpi.perBill < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/บิล" icon={ICON_BILL}
-            v={signed(Math.round(kpi.perBill))} unit="บาท/บิล" s={`${fmt(kpi.bills)} บิลของใบรายการที่จับคู่ได้`} />
+            v={signed(Math.round(kpi.perBill))} oneLine unit="บาท/บิล" s={`${fmt(kpi.bills)} บิลของใบรายการที่จับคู่ได้`} />
           <KC dot={D.violet} tone={kpi.perTrip < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/เที่ยว" icon={ICON_PIN}
-            v={signed(Math.round(kpi.perTrip))} unit="บาท/เที่ยว" s={`${fmt(kpi.n)} เที่ยว`} />
+            v={signed(Math.round(kpi.perTrip))} oneLine unit="บาท/เที่ยว" s={`${fmt(kpi.n)} เที่ยว`} />
           <KC dot={D.teal} tone={kpi.perCust < 0 ? "bad" : undefined} l="กำไรเฉลี่ย/ลูกค้า" icon={ICON_PERSON}
-            v={signed(Math.round(kpi.perCust))} unit="บาท/ลูกค้า" s={`${fmt(kpi.custs)} ราย (ผู้จ่ายเงินไม่ซ้ำ)`} />
+            v={signed(Math.round(kpi.perCust))} oneLine unit="บาท/ลูกค้า" s={`${fmt(kpi.custs)} ราย (ผู้จ่ายเงินไม่ซ้ำ)`} />
           {/* ย้ายมาจากแถวการ์ดกลุ่มบริการท้ายส่วน (เจ้าของงานสั่ง 28 ก.ย. 2569) */}
           <button type="button" className="dz-kc dm-loss" disabled={!kpi.loss} onClick={() => setShowLoss(true)}
             title={kpi.loss ? "กดดูรายการเที่ยวที่ขาดทุนทั้งหมด" : undefined}>
             <span className="l">เที่ยวที่ขาดทุน</span>
             <span className="v" key={kpi.lossPct}>{pct(kpi.lossPct)}</span>
-            <span className="s">{kpi.loss ? `${fmt(kpi.loss)} จาก ${fmt(kpi.n)} เที่ยว · กดดูรายละเอียดรายการ` : "ไม่มีเที่ยวขาดทุน"}</span>
+            <span className="s">{kpi.loss ? <>{fmt(kpi.loss)} จาก {fmt(kpi.n)} เที่ยว<br />คิดเป็น {lossAmt}</> : "ไม่มีเที่ยวขาดทุน"}</span>
           </button>
         </div>
         <TonKmScope f={f} />
