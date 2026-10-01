@@ -65,7 +65,7 @@ function detailOf(k: Sec, ps: ProfitSection | null, ls: LfSection | null, es: Em
       { l: ps.profit >= 0 ? "อัตรากำไร" : "อัตราขาดทุน", v: ps.margin == null ? "–" : `${fmt(Math.abs(ps.margin), 1)}%`, s: `${ps.profit >= 0 ? "กำไร" : "ขาดทุน"} ${baht(Math.abs(ps.profit))}`, bad: ps.profit < 0 },
       { l: "รายได้ / ต้นทุน", v: baht(ps.revenue), s: `ต้นทุน ${baht(ps.cost)}` },
       { l: "เที่ยวขาดทุน", v: `${fmt(ps.lossTripPct, 1)}%`, s: `จาก ${fmt(ps.n)} เที่ยว${ps.bills ? ` · ${fmt(ps.bills)} บิล` : ""}`, bad: ps.lossTripPct >= THRESHOLDS.lossTripPct },
-      ...(ps.cust ? [{ l: "ลูกค้าขาดทุน", v: `${fmt(ps.cust.lossN)} ราย`, s: `ขาดทุนรวม ${baht(ps.cust.loss)}`, bad: ps.cust.lossN > 0 }] : []),
+      ...(ps.cust ? [{ l: "ลูกค้าขาดทุน", v: `${fmt(ps.cust.lossN)} ราย`, s: `${p1(ps.cust.n ? ps.cust.lossN / ps.cust.n : 0)} ของลูกค้าทั้งหมด ${fmt(ps.cust.n)} ราย · ขาดทุนรวม ${baht(ps.cust.loss)}`, bad: ps.cust.lossN > 0 }] : []),
     ],
     facts: [
       ps.tk?.best && <>กำไรส่วนเกิน/ตัน-กม. สูงสุด <b>{ps.tk.best.vk}</b> {fmt(ps.tk.best.rate, 2)} บาท{ps.tk.worst && <> · ต่ำสุด <b>{ps.tk.worst.vk}</b> {fmt(ps.tk.worst.rate, 2)} บาท</>}{ps.tk.judged > 0 && <> · ถึงเป้า {ps.tk.ok} จาก {ps.tk.judged} ชนิด</>}</>,
@@ -79,7 +79,7 @@ function detailOf(k: Sec, ps: ProfitSection | null, ls: LfSection | null, es: Em
         { l: "อัตราการบรรทุกเฉลี่ย", v: p1(ls.avgLf), s: `เป้า ${p1(ls.avgTg)}`, bad: ls.gapPP >= THRESHOLDS.lfGapPP },
         { l: "ต้นทุนจมจากที่ว่าง", v: baht(ls.idle), s: `${p1(ls.share)} ของต้นทุนขนส่ง`, bad: ls.gapPP >= THRESHOLDS.lfGapPP },
       ] : []),
-      ...(es ? [{ l: "ต้นทุนเที่ยววิ่งเปล่า", v: p1(es.share), s: `${baht(es.cost)} · ${fmt(es.n)} เที่ยว`, bad: es.share >= THRESHOLDS.emptyCostShare }] : []),
+      ...(es ? [{ l: "ต้นทุนเที่ยววิ่งเปล่า", v: p1(es.share), s: `ของต้นทุนรวม ${baht(es.totalCost)} · ${baht(es.cost)} · ${fmt(es.n)} เที่ยว`, bad: es.share >= THRESHOLDS.emptyCostShare }] : []),
     ],
     facts: [
       ls?.yoy && <>แนวโน้มช่วง {monthsTh(ls.yoy.months)}: LF ปี {ls.yoy.from.year + 543} {p1(ls.yoy.from.lf)} → ปี {ls.yoy.to.year + 543} <b>{p1(ls.yoy.to.lf)}</b> · ต้นทุนจม {baht(ls.yoy.from.idle)} → {baht(ls.yoy.to.idle)}</>,
@@ -92,7 +92,7 @@ function detailOf(k: Sec, ps: ProfitSection | null, ls: LfSection | null, es: Em
       ...(ds.dso != null ? [{ l: "ระยะเวลาเก็บหนี้ (DSO)", v: `${fmt(ds.dso, 0)} วัน`, s: ds.term != null ? `เครดิตเทอม ${fmt(ds.term, 0)} วัน` : undefined, bad: ds.late != null && ds.late >= THRESHOLDS.dsoLateDays }] : []),
       { l: "บิลที่วาง", v: fmt(ds.bills), s: baht(ds.amount) },
       { l: "บิลชำระช้า", v: p1(ds.latePaid.nShare), s: `${fmt(ds.latePaid.n)} บิล · ${baht(ds.latePaid.amount)}` },
-      { l: "ค้างเกินกำหนด", v: baht(ds.overdue.amount), s: `${fmt(ds.overdue.n)} บิล`, bad: ds.amount > 0 && ds.overdue.amount / ds.amount >= THRESHOLDS.overdueShare },
+      { l: "ค้างเกินกำหนด", v: baht(ds.overdue.amount), s: `${p1(ds.amount ? ds.overdue.amount / ds.amount : 0)} ของรายได้ (ยอดวางบิล ${baht(ds.amount)}) · ${fmt(ds.overdue.n)} บิล`, bad: ds.amount > 0 && ds.overdue.amount / ds.amount >= THRESHOLDS.overdueShare },
     ],
     facts: [
       <>บิลที่วาง {dateTh(ds.from)} – {dateTh(ds.asOf)} · ชำระช้าคิดเป็น {p1(ds.latePaid.amtShare)} ของยอดขายเครดิต</>,
