@@ -17,7 +17,7 @@ npm test -- -t "ชื่อเทส"                          # เฉพา�
 npx tsc -b --force        # เช็ค type อย่างเดียว ไม่ build
 ```
 
-ข้อมูลจริง: วาง `.xlsx` ใน `etl/data/revenue/` → plugin `autoEtl` ใน `vite.config.ts` รัน ETL ให้เองตอน dev (หน่วง 2 วิ, หา python จาก `etl/.venv` หรือ venv ของ Streamlit ก่อน `python` บน PATH) → plugin ส่งสถานะผ่าน HMR (`etl:status`) หน้าที่ใช้ `useDataset` ขึ้นแถบ "กำลังแปลง…" แล้ว `reload()` เองตอนเสร็จ (`lib/data/etlStatus.ts`) · แอปเลือกชุดข้อมูลเองตอนรัน (`lib/dataset.ts`: มี `data/real/manifest.json` ที่เป็น json จริง = real ไม่งั้น sample) `VITE_DATASET` ยังบังคับได้ · **Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์** ตรวจแค่ status ไม่ได้ ต้องดู content-type
+ข้อมูลจริง: วาง `.xlsx` ใน `etl/data/revenue/` → plugin `autoEtl` ใน `vite.config.ts` รัน ETL ให้เองตอน dev (หน่วง 2 วิ, หา python จาก `etl/.venv` ก่อน `python` บน PATH · venv ของ Streamlit ลบไปพร้อมโฟลเดอร์ RevenueDashboard แล้ว 1 ต.ค. 2569 — pandas ใน `etl/.venv` โดน Windows Application Control บล็อก จึงรัน `build_json.py` ไม่ได้ (ไม่มีหน้าไหนใช้ผลแล้ว) · เทสต์ ETL ผ่านครบด้วย `etl/.venv`) → plugin ส่งสถานะผ่าน HMR (`etl:status`) หน้าที่ใช้ `useDataset` ขึ้นแถบ "กำลังแปลง…" แล้ว `reload()` เองตอนเสร็จ (`lib/data/etlStatus.ts`) · แอปเลือกชุดข้อมูลเองตอนรัน (`lib/dataset.ts`: มี `data/real/manifest.json` ที่เป็น json จริง = real ไม่งั้น sample) `VITE_DATASET` ยังบังคับได้ · **Vite dev ตอบ 200 + text/html ให้ทุก path ที่ไม่มีไฟล์** ตรวจแค่ status ไม่ได้ ต้องดู content-type
 
 Windows PowerShell: ถ้า `npm.ps1 cannot be loaded` ให้ใช้ `npm.cmd run dev`
 
@@ -27,7 +27,7 @@ python build_json.py --dataset sample    # → app/public/data/sample/
 python -m pytest
 ```
 
-สคริปต์ครั้งเดียวใน `app/tools/`: `extract-refdata.mjs` (ดึงตารางอ้างอิงออกจาก v5), `gen-golden.mjs` (สร้าง fixture ของ golden test), `extract-custmap.mjs` (**เลิกใช้แล้ว** — สร้าง `custmap.bin` รุ่นเก่าที่เก็บรหัสต้นฉบับแค่ 12 ตัวแรก)
+สคริปต์ครั้งเดียว `extract-refdata.mjs` (ดึงตารางอ้างอิงออกจาก v5) · `gen-golden.mjs` (สร้าง fixture ของ golden test) · `extract-custmap.mjs` (custmap.bin รุ่นเก่า) **ลบแล้ว 1 ต.ค. 2569** พร้อมไฟล์ HTML v5 ที่มันอ่าน — ดูได้ในประวัติ git · `refdata/*.json` กับ `__fixtures__/golden.json` ที่มันสร้างยังอยู่และเป็นของที่เทสต์ใช้
 
 ```bash
 python etl/build_custmap.py "แปลงรหัสลูกหนี้รวม.xlsx"   # → app/public/custmap.bin (17.9 MB, commit ไว้แล้ว)
@@ -204,4 +204,4 @@ push ขึ้น `โมเดล-Anda` = deploy ขึ้น GitHub Pages อ�
 
 repo นี้เป็น **public** — `.gitignore` กัน `*.xlsx`, `etl/data/`, `app/public/data/real/` ไว้แล้ว ทั้งหมดมาจากข้อมูลลูกค้าจริง · ลิงก์ `/exec` ให้กรอกในแอปตอนใช้งาน เก็บใน localStorage เท่านั้น
 
-ข้อยกเว้นคือ `app/public/custmap.bin` — **commit ขึ้น repo แล้ว** เจ้าของข้อมูลยืนยันว่ารหัสลูกค้าที่ hash ไว้ไม่ใช่ความลับ และไฟล์นี้ต้องขึ้นไปด้วย ไม่งั้นหน้าค้นรหัสใช้ไม่ได้บน GitHub Pages · ส่วนไฟล์ต้นทาง `แปลงรหัสลูกหนี้รวม.xlsx` ยังไม่ขึ้น เพราะแอปไม่ต้องใช้ และกฎ `*.xlsx` ยังต้องกันไฟล์บิลจริงอยู่
+ข้อยกเว้นคือ `app/public/custmap.bin` — **commit ขึ้น repo แล้ว** เจ้าของข้อมูลยืนยันว่ารหัสลูกค้าที่ hash ไว้ไม่ใช่ความลับ และไฟล์นี้ต้องขึ้นไปด้วย ไม่งั้นหน้าค้นรหัสใช้ไม่ได้บน GitHub Pages · **ไฟล์ต้นทางที่รากโปรเจกต์ `แปลงรหัสลูกหนี้รวม.xlsx` · `ทะเบียนในกองรถ.xlsx` · `แบบฟอร์มระยะทาง_68คู่.xlsx` push ขึ้น repo แล้ว** (เจ้าของงานสั่ง 1 ต.ค. 2569 · ยกเว้นใน `.gitignore` รายไฟล์) — ไฟล์จริงใน `etl/data/` ยังห้าม commit เหมือนเดิม

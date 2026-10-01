@@ -110,7 +110,7 @@ describe("fuelBillsByCat", () => {
 });
 
 describe("แปลงใบรุ่นก่อน _v5", () => {
-  /** LCG เดียวกับ tools/gen-golden.mjs — สุ่มซ้ำได้ */
+  /** LCG เดียวกับ tools/gen-golden.mjs (ลบแล้ว · ประวัติ git) — สุ่มซ้ำได้ */
   const rnd = (seed: number) => () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
 
   it("★ round-trip: 9 ยอดเดิม → บิลสังเคราะห์ → 9 ยอดใหม่ ต้องเท่ากันเป๊ะ", () => {
